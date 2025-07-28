@@ -62,17 +62,8 @@ struct ContentView: View {
         .onAppear {
             // 同步selectedWord状态
             selectedWord = store.selectedWord
-        }
-        .onChange(of: store.selectedWord) { _, newValue in
-            selectedWord = newValue
-        }
-        .onChange(of: store.words) { _, _ in
-            // 当words变化时，检查selectedWord是否还有效
-            if let current = selectedWord, !store.words.contains(where: { $0.id == current.id }) {
-                selectedWord = nil
-            }
             
-            // 监听打开窗口的通知
+            // 注册通知监听器
             NotificationCenter.default.addObserver(
                 forName: .openMapWindow,
                 object: nil,
@@ -106,6 +97,15 @@ struct ContentView: View {
                 withAnimation(.easeInOut(duration: 0.3)) {
                     showSidebar.toggle()
                 }
+            }
+        }
+        .onChange(of: store.selectedWord) { _, newValue in
+            selectedWord = newValue
+        }
+        .onChange(of: store.words) { _, _ in
+            // 当words变化时，检查selectedWord是否还有效
+            if let current = selectedWord, !store.words.contains(where: { $0.id == current.id }) {
+                selectedWord = nil
             }
         }
     }
