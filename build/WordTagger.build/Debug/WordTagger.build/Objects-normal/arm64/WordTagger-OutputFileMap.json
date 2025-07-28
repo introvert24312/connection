@@ -1,0 +1,188 @@
+{
+  "" : {
+    "diagnostics" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTagger-master.dia",
+    "emit-module-dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTagger-master-emit-module.d",
+    "emit-module-diagnostics" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTagger-master-emit-module.dia",
+    "swift-dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTagger-master.swiftdeps"
+  },
+  "/Users/Patronum/Desktop/WordTagger/WordTagger/CommandPaletteView.swift" : {
+    "const-values" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandPaletteView.swiftconstvalues",
+    "dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandPaletteView.d",
+    "diagnostics" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandPaletteView.dia",
+    "index-unit-output-path" : "/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandPaletteView.o",
+    "llvm-bc" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandPaletteView.bc",
+    "object" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandPaletteView.o",
+    "swift-dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandPaletteView.swiftdeps",
+    "swiftmodule" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandPaletteView~partial.swiftmodule"
+  },
+  "/Users/Patronum/Desktop/WordTagger/WordTagger/CommandParser.swift" : {
+    "const-values" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandParser.swiftconstvalues",
+    "dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandParser.d",
+    "diagnostics" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandParser.dia",
+    "index-unit-output-path" : "/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandParser.o",
+    "llvm-bc" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandParser.bc",
+    "object" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandParser.o",
+    "swift-dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandParser.swiftdeps",
+    "swiftmodule" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandParser~partial.swiftmodule"
+  },
+  "/Users/Patronum/Desktop/WordTagger/WordTagger/ContentView.swift" : {
+    "const-values" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ContentView.swiftconstvalues",
+    "dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ContentView.d",
+    "diagnostics" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ContentView.dia",
+    "index-unit-output-path" : "/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ContentView.o",
+    "llvm-bc" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ContentView.bc",
+    "object" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ContentView.o",
+    "swift-dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ContentView.swiftdeps",
+    "swiftmodule" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ContentView~partial.swiftmodule"
+  },
+  "/Users/Patronum/Desktop/WordTagger/WordTagger/DetailPanel.swift" : {
+    "const-values" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/DetailPanel.swiftconstvalues",
+    "dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/DetailPanel.d",
+    "diagnostics" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/DetailPanel.dia",
+    "index-unit-output-path" : "/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/DetailPanel.o",
+    "llvm-bc" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/DetailPanel.bc",
+    "object" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/DetailPanel.o",
+    "swift-dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/DetailPanel.swiftdeps",
+    "swiftmodule" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/DetailPanel~partial.swiftmodule"
+  },
+  "/Users/Patronum/Desktop/WordTagger/WordTagger/Extensions.swift" : {
+    "const-values" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Extensions.swiftconstvalues",
+    "dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Extensions.d",
+    "diagnostics" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Extensions.dia",
+    "index-unit-output-path" : "/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Extensions.o",
+    "llvm-bc" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Extensions.bc",
+    "object" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Extensions.o",
+    "swift-dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Extensions.swiftdeps",
+    "swiftmodule" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Extensions~partial.swiftmodule"
+  },
+  "/Users/Patronum/Desktop/WordTagger/WordTagger/Geocoder.swift" : {
+    "const-values" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Geocoder.swiftconstvalues",
+    "dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Geocoder.d",
+    "diagnostics" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Geocoder.dia",
+    "index-unit-output-path" : "/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Geocoder.o",
+    "llvm-bc" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Geocoder.bc",
+    "object" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Geocoder.o",
+    "swift-dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Geocoder.swiftdeps",
+    "swiftmodule" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Geocoder~partial.swiftmodule"
+  },
+  "/Users/Patronum/Desktop/WordTagger/WordTagger/GraphService.swift" : {
+    "const-values" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphService.swiftconstvalues",
+    "dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphService.d",
+    "diagnostics" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphService.dia",
+    "index-unit-output-path" : "/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphService.o",
+    "llvm-bc" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphService.bc",
+    "object" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphService.o",
+    "swift-dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphService.swiftdeps",
+    "swiftmodule" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphService~partial.swiftmodule"
+  },
+  "/Users/Patronum/Desktop/WordTagger/WordTagger/GraphView.swift" : {
+    "const-values" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphView.swiftconstvalues",
+    "dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphView.d",
+    "diagnostics" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphView.dia",
+    "index-unit-output-path" : "/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphView.o",
+    "llvm-bc" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphView.bc",
+    "object" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphView.o",
+    "swift-dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphView.swiftdeps",
+    "swiftmodule" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphView~partial.swiftmodule"
+  },
+  "/Users/Patronum/Desktop/WordTagger/WordTagger/MapContainer.swift" : {
+    "const-values" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/MapContainer.swiftconstvalues",
+    "dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/MapContainer.d",
+    "diagnostics" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/MapContainer.dia",
+    "index-unit-output-path" : "/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/MapContainer.o",
+    "llvm-bc" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/MapContainer.bc",
+    "object" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/MapContainer.o",
+    "swift-dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/MapContainer.swiftdeps",
+    "swiftmodule" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/MapContainer~partial.swiftmodule"
+  },
+  "/Users/Patronum/Desktop/WordTagger/WordTagger/MapWindow.swift" : {
+    "const-values" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/MapWindow.swiftconstvalues",
+    "dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/MapWindow.d",
+    "diagnostics" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/MapWindow.dia",
+    "index-unit-output-path" : "/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/MapWindow.o",
+    "llvm-bc" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/MapWindow.bc",
+    "object" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/MapWindow.o",
+    "swift-dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/MapWindow.swiftdeps",
+    "swiftmodule" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/MapWindow~partial.swiftmodule"
+  },
+  "/Users/Patronum/Desktop/WordTagger/WordTagger/Models.swift" : {
+    "const-values" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Models.swiftconstvalues",
+    "dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Models.d",
+    "diagnostics" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Models.dia",
+    "index-unit-output-path" : "/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Models.o",
+    "llvm-bc" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Models.bc",
+    "object" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Models.o",
+    "swift-dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Models.swiftdeps",
+    "swiftmodule" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Models~partial.swiftmodule"
+  },
+  "/Users/Patronum/Desktop/WordTagger/WordTagger/SearchService.swift" : {
+    "const-values" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/SearchService.swiftconstvalues",
+    "dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/SearchService.d",
+    "diagnostics" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/SearchService.dia",
+    "index-unit-output-path" : "/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/SearchService.o",
+    "llvm-bc" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/SearchService.bc",
+    "object" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/SearchService.o",
+    "swift-dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/SearchService.swiftdeps",
+    "swiftmodule" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/SearchService~partial.swiftmodule"
+  },
+  "/Users/Patronum/Desktop/WordTagger/WordTagger/SettingsView.swift" : {
+    "const-values" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/SettingsView.swiftconstvalues",
+    "dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/SettingsView.d",
+    "diagnostics" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/SettingsView.dia",
+    "index-unit-output-path" : "/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/SettingsView.o",
+    "llvm-bc" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/SettingsView.bc",
+    "object" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/SettingsView.o",
+    "swift-dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/SettingsView.swiftdeps",
+    "swiftmodule" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/SettingsView~partial.swiftmodule"
+  },
+  "/Users/Patronum/Desktop/WordTagger/WordTagger/Store.swift" : {
+    "const-values" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Store.swiftconstvalues",
+    "dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Store.d",
+    "diagnostics" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Store.dia",
+    "index-unit-output-path" : "/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Store.o",
+    "llvm-bc" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Store.bc",
+    "object" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Store.o",
+    "swift-dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Store.swiftdeps",
+    "swiftmodule" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Store~partial.swiftmodule"
+  },
+  "/Users/Patronum/Desktop/WordTagger/WordTagger/TagSidebarView.swift" : {
+    "const-values" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/TagSidebarView.swiftconstvalues",
+    "dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/TagSidebarView.d",
+    "diagnostics" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/TagSidebarView.dia",
+    "index-unit-output-path" : "/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/TagSidebarView.o",
+    "llvm-bc" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/TagSidebarView.bc",
+    "object" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/TagSidebarView.o",
+    "swift-dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/TagSidebarView.swiftdeps",
+    "swiftmodule" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/TagSidebarView~partial.swiftmodule"
+  },
+  "/Users/Patronum/Desktop/WordTagger/WordTagger/WordListView.swift" : {
+    "const-values" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordListView.swiftconstvalues",
+    "dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordListView.d",
+    "diagnostics" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordListView.dia",
+    "index-unit-output-path" : "/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordListView.o",
+    "llvm-bc" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordListView.bc",
+    "object" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordListView.o",
+    "swift-dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordListView.swiftdeps",
+    "swiftmodule" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordListView~partial.swiftmodule"
+  },
+  "/Users/Patronum/Desktop/WordTagger/WordTagger/WordTaggerApp.swift" : {
+    "const-values" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTaggerApp.swiftconstvalues",
+    "dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTaggerApp.d",
+    "diagnostics" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTaggerApp.dia",
+    "index-unit-output-path" : "/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTaggerApp.o",
+    "llvm-bc" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTaggerApp.bc",
+    "object" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTaggerApp.o",
+    "swift-dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTaggerApp.swiftdeps",
+    "swiftmodule" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTaggerApp~partial.swiftmodule"
+  },
+  "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "const-values" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftconstvalues",
+    "dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GeneratedAssetSymbols.d",
+    "diagnostics" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GeneratedAssetSymbols.dia",
+    "index-unit-output-path" : "/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "swift-dependencies" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftdeps",
+    "swiftmodule" : "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GeneratedAssetSymbols~partial.swiftmodule"
+  }
+}

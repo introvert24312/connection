@@ -1,0 +1,24 @@
+{
+  "source": "/Users/Patronum/Desktop/WordTagger/WordTagger/CommandPaletteView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "输入命令或搜索单词...",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 19
+        }
+      },
+      {
+        "comment": "",
+        "key": "未找到匹配的命令",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 62
+        }
+      }
+    ]
+  },
+  "version": 1
+}

@@ -1,0 +1,16 @@
+{
+  "source": "/Users/Patronum/Desktop/WordTagger/WordTagger/MapWindow.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "地图窗口",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 11
+        }
+      }
+    ]
+  },
+  "version": 1
+}

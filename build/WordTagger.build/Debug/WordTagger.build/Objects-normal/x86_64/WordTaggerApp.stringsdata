@@ -1,0 +1,80 @@
+{
+  "source": "/Users/Patronum/Desktop/WordTagger/WordTagger/WordTaggerApp.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "单词标签管理器",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 11
+        }
+      },
+      {
+        "comment": "",
+        "key": "地图视图",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 68
+        }
+      },
+      {
+        "comment": "",
+        "key": "关系图谱",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 76
+        }
+      },
+      {
+        "comment": "",
+        "key": "单词标签",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 33
+        }
+      },
+      {
+        "comment": "",
+        "key": "命令面板",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 34
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加单词",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 41
+        }
+      },
+      {
+        "comment": "",
+        "key": "搜索",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 47
+        }
+      },
+      {
+        "comment": "",
+        "key": "打开地图",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 55
+        }
+      },
+      {
+        "comment": "",
+        "key": "打开图谱",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 60
+        }
+      }
+    ]
+  },
+  "version": 1
+}

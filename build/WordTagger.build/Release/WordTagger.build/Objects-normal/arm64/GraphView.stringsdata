@@ -1,0 +1,192 @@
+{
+  "source": "/Users/Patronum/Desktop/WordTagger/WordTagger/GraphView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "切换过滤器",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 76
+        }
+      },
+      {
+        "comment": "",
+        "key": "重新构建图谱",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 87
+        }
+      },
+      {
+        "comment": "",
+        "key": "关系图谱",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 27
+        }
+      },
+      {
+        "comment": "",
+        "key": "→",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 34
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 37
+        }
+      },
+      {
+        "comment": "",
+        "key": "返回全图",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 50
+        }
+      },
+      {
+        "comment": "",
+        "key": "搜索单词或标签...",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 61
+        }
+      },
+      {
+        "comment": "",
+        "key": "💡 点击选中节点，再次点击进入1级链接视图",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 133
+        }
+      },
+      {
+        "comment": "",
+        "key": "过滤器",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 317
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点类型",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 322
+        }
+      },
+      {
+        "comment": "",
+        "key": "标签类型",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 349
+        }
+      },
+      {
+        "comment": "",
+        "key": "清除",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 356
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 379
+        }
+      },
+      {
+        "comment": "",
+        "key": "视图设置",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 405
+        }
+      },
+      {
+        "comment": "",
+        "key": "简洁的球形节点，直线连接",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 418
+        }
+      },
+      {
+        "comment": "",
+        "key": "极简模式",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 413
+        }
+      },
+      {
+        "comment": "",
+        "key": "手势操作",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 425
+        }
+      },
+      {
+        "comment": "",
+        "key": "拖拽平移",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 434
+        }
+      },
+      {
+        "comment": "",
+        "key": "捏合缩放",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 443
+        }
+      },
+      {
+        "comment": "",
+        "key": "暂无图谱数据",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 960
+        }
+      },
+      {
+        "comment": "",
+        "key": "• 添加更多单词和标签",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 965
+        }
+      },
+      {
+        "comment": "",
+        "key": "• 调整过滤器设置",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 966
+        }
+      },
+      {
+        "comment": "",
+        "key": "• 点击刷新按钮重新构建图谱",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 967
+        }
+      }
+    ]
+  },
+  "version": 1
+}

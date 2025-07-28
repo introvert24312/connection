@@ -1,0 +1,18 @@
+"/Users/Patronum/Desktop/WordTagger/WordTagger/WordTaggerApp.swift":
+  dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTaggerApp.d"
+  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTaggerApp.dia"
+  object: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTaggerApp.o"
+  const-values: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTaggerApp.swiftconstvalues"
+  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTaggerApp.swiftdeps"
+"/Users/Patronum/Desktop/WordTagger/WordTagger/ContentView.swift":
+  object: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ContentView.o"
+  dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ContentView.d"
+  const-values: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ContentView.swiftconstvalues"
+  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ContentView.swiftdeps"
+  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ContentView.dia"
+"/Users/Patronum/Desktop/WordTagger/WordTagger/Models.swift":
+  object: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Models.o"
+  dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Models.d"
+  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Models.dia"
+  const-values: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Models.swiftconstvalues"
+  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Models.swiftdeps"

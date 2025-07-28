@@ -1,0 +1,96 @@
+{
+  "source": "/Users/Patronum/Desktop/WordTagger/WordTagger/MapContainer.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "地图视图",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 132
+        }
+      },
+      {
+        "comment": "",
+        "key": "搜索地点或单词...",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 58
+        }
+      },
+      {
+        "comment": "",
+        "key": "全览",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 358
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld 个位置",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 448
+        }
+      },
+      {
+        "comment": "",
+        "key": "位置信息",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 499
+        }
+      },
+      {
+        "comment": "",
+        "key": "%.4f, %.4f",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 513
+        }
+      },
+      {
+        "comment": "",
+        "key": "其他标签",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 526
+        }
+      },
+      {
+        "comment": "",
+        "key": "单词结果",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 609
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld 个",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 616
+        }
+      },
+      {
+        "comment": "",
+        "key": "地点结果",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 646
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld 个",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 657
+        }
+      }
+    ]
+  },
+  "version": 1
+}
