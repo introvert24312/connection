@@ -1184,45 +1184,102 @@ struct ApplePinView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Apple风格大头针设计
+            // 3D立体细针设计 - 真实感大头针
             ZStack {
-                // 外圈阴影
+                // 底层阴影 - 增强3D效果
                 Circle()
                     .fill(Color.black.opacity(0.2))
-                    .frame(width: 48, height: 48)
+                    .frame(width: 18, height: 18)
                     .offset(x: 1, y: 2)
+                    .blur(radius: 1)
                 
-                // 主体圆圈
+                // 针头主体 - 3D渐变效果
                 Circle()
-                    .fill(Color.red)
-                    .frame(width: 44, height: 44)
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.red.opacity(0.9),
+                                Color.red,
+                                Color.red.opacity(0.7)
+                            ],
+                            center: UnitPoint(x: 0.3, y: 0.3),
+                            startRadius: 2,
+                            endRadius: 8
+                        )
+                    )
+                    .frame(width: 16, height: 16)
                     .overlay(
                         Circle()
-                            .stroke(Color.white, lineWidth: 3)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [Color.white.opacity(0.6), Color.gray.opacity(0.3)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1.0
+                            )
                     )
-                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                    .shadow(color: .black.opacity(0.4), radius: 3, x: 1, y: 2)
                 
-                // 内部图标
-                Image(systemName: "location.fill")
-                    .foregroundColor(.white)
-                    .font(.system(size: 16, weight: .semibold))
+                // 高光点 - 3D立体感
+                Circle()
+                    .fill(Color.white.opacity(0.8))
+                    .frame(width: 3, height: 3)
+                    .offset(x: -2, y: -2)
+                
+                // 中心精确点
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: 2, height: 2)
             }
             
-            // 小三角形指针
-            Path { path in
-                path.move(to: CGPoint(x: 0, y: 0))
-                path.addLine(to: CGPoint(x: 8, y: 12))
-                path.addLine(to: CGPoint(x: -8, y: 12))
-                path.closeSubpath()
+            // 3D针尖 - 带有立体阴影
+            ZStack {
+                // 针尖阴影
+                Path { path in
+                    path.move(to: CGPoint(x: 0, y: 0))
+                    path.addLine(to: CGPoint(x: -1.5, y: 10))
+                    path.addLine(to: CGPoint(x: 1.5, y: 10))
+                    path.closeSubpath()
+                }
+                .fill(Color.black.opacity(0.3))
+                .offset(x: 1, y: 1)
+                .blur(radius: 0.5)
+                
+                // 针尖主体 - 渐变3D效果
+                Path { path in
+                    path.move(to: CGPoint(x: 0, y: 0))
+                    path.addLine(to: CGPoint(x: -1.5, y: 10))
+                    path.addLine(to: CGPoint(x: 1.5, y: 10))
+                    path.closeSubpath()
+                }
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.red.opacity(0.9),
+                            Color.red,
+                            Color.red.opacity(0.6)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(
+                    Path { path in
+                        path.move(to: CGPoint(x: 0, y: 0))
+                        path.addLine(to: CGPoint(x: -1.5, y: 10))
+                        path.addLine(to: CGPoint(x: 1.5, y: 10))
+                        path.closeSubpath()
+                    }
+                    .stroke(Color.white.opacity(0.3), lineWidth: 0.3)
+                )
             }
-            .fill(Color.red)
-            .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
-            .offset(y: -2)
+            .offset(y: -1)
         }
         .onTapGesture {
             onTap()
         }
-        .scaleEffect(1.1)
+        .scaleEffect(1.0)
         .animation(.easeInOut(duration: 0.2), value: true)
     }
 }
@@ -1234,41 +1291,98 @@ struct SelectedLocationPinView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // 选中位置的大头针设计（蓝色）
+            // 3D立体确认针设计 - 蓝色版本
             ZStack {
-                // 外圈阴影
+                // 底层阴影 - 增强3D效果
                 Circle()
                     .fill(Color.black.opacity(0.2))
-                    .frame(width: 48, height: 48)
+                    .frame(width: 18, height: 18)
                     .offset(x: 1, y: 2)
+                    .blur(radius: 1)
                 
-                // 主体圆圈
+                // 针头主体 - 3D渐变效果（蓝色）
                 Circle()
-                    .fill(Color.blue)
-                    .frame(width: 44, height: 44)
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.blue.opacity(0.9),
+                                Color.blue,
+                                Color.blue.opacity(0.7)
+                            ],
+                            center: UnitPoint(x: 0.3, y: 0.3),
+                            startRadius: 2,
+                            endRadius: 8
+                        )
+                    )
+                    .frame(width: 16, height: 16)
                     .overlay(
                         Circle()
-                            .stroke(Color.white, lineWidth: 3)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [Color.white.opacity(0.6), Color.gray.opacity(0.3)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1.0
+                            )
                     )
-                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                    .shadow(color: .black.opacity(0.4), radius: 3, x: 1, y: 2)
                     .scaleEffect(isAnimating ? 1.1 : 1.0)
                 
-                // 内部图标
-                Image(systemName: "checkmark")
+                // 高光点 - 3D立体感
+                Circle()
+                    .fill(Color.white.opacity(0.8))
+                    .frame(width: 3, height: 3)
+                    .offset(x: -2, y: -2)
+                
+                // 确认标记 - 白色勾号
+                Text("✓")
+                    .font(.system(size: 8, weight: .bold))
                     .foregroundColor(.white)
-                    .font(.system(size: 16, weight: .bold))
             }
             
-            // 小三角形指针
-            Path { path in
-                path.move(to: CGPoint(x: 0, y: 0))
-                path.addLine(to: CGPoint(x: 8, y: 12))
-                path.addLine(to: CGPoint(x: -8, y: 12))
-                path.closeSubpath()
+            // 3D针尖 - 带有立体阴影（蓝色）
+            ZStack {
+                // 针尖阴影
+                Path { path in
+                    path.move(to: CGPoint(x: 0, y: 0))
+                    path.addLine(to: CGPoint(x: -1.5, y: 10))
+                    path.addLine(to: CGPoint(x: 1.5, y: 10))
+                    path.closeSubpath()
+                }
+                .fill(Color.black.opacity(0.3))
+                .offset(x: 1, y: 1)
+                .blur(radius: 0.5)
+                
+                // 针尖主体 - 渐变3D效果（蓝色）
+                Path { path in
+                    path.move(to: CGPoint(x: 0, y: 0))
+                    path.addLine(to: CGPoint(x: -1.5, y: 10))
+                    path.addLine(to: CGPoint(x: 1.5, y: 10))
+                    path.closeSubpath()
+                }
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.blue.opacity(0.9),
+                            Color.blue,
+                            Color.blue.opacity(0.6)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(
+                    Path { path in
+                        path.move(to: CGPoint(x: 0, y: 0))
+                        path.addLine(to: CGPoint(x: -1.5, y: 10))
+                        path.addLine(to: CGPoint(x: 1.5, y: 10))
+                        path.closeSubpath()
+                    }
+                    .stroke(Color.white.opacity(0.3), lineWidth: 0.3)
+                )
             }
-            .fill(Color.blue)
-            .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
-            .offset(y: -2)
+            .offset(y: -1)
         }
         .scaleEffect(1.1)
         .onAppear {
