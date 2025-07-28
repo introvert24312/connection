@@ -11,6 +11,7 @@ struct QuickAddSheetView: View {
     @State private var suggestions: [String] = []
     @State private var selectedSuggestionIndex: Int = -1
     @FocusState private var isInputFocused: Bool
+    @State private var isWaitingForLocationSelection = false
     
     // 预设标签映射
     private let tagMappings: [String: (String, Tag.TagType)] = [
@@ -24,103 +25,151 @@ struct QuickAddSheetView: View {
     
     var body: some View {
         VStack(spacing: 20) {
-                VStack(spacing: 16) {
-                    Text("快速添加单词")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                    
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("输入格式")
-                            .font(.headline)
-                        Text("单词 标签1 内容1 标签2 内容2...")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text("例如: rotate root rot memory 旋转 time 2018年")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(8)
-                    
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Image(systemName: "plus.circle.fill")
-                                .foregroundColor(.blue)
-                                .font(.title2)
-                            TextField("输入单词和标签...", text: $inputText)
-                                .textFieldStyle(.roundedBorder)
-                                .font(.system(size: 16, weight: .medium))
-                                .focused($isInputFocused)
-                                .onSubmit { processInput() }
-                                .onChange(of: inputText) { _, newValue in 
-                                    updateSuggestions(for: newValue) 
-                                }
-                        }
-                        
-                        if !suggestions.isEmpty {
-                            VStack(spacing: 4) {
-                                Text("建议标签:")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                
-                                LazyVGrid(columns: [GridItem(.adaptive(minimum: 120))], spacing: 8) {
-                                    ForEach(Array(suggestions.enumerated()), id: \.offset) { index, suggestion in
-                                        Button(action: { selectSuggestion(suggestion) }) {
-                                            HStack(spacing: 6) {
-                                                Image(systemName: "tag.fill")
-                                                    .foregroundColor(.blue)
-                                                    .font(.caption)
-                                                Text(suggestion)
-                                                    .font(.system(size: 14, weight: .medium))
-                                                Text("(\(tagMappings[suggestion]?.0 ?? "自定义"))")
-                                                    .font(.caption)
-                                                    .foregroundColor(.secondary)
-                                            }
-                                            .padding(.horizontal, 12)
-                                            .padding(.vertical, 6)
-                                            .background(
-                                                RoundedRectangle(cornerRadius: 6)
-                                                    .fill(selectedSuggestionIndex == index ? Color.blue.opacity(0.1) : Color.gray.opacity(0.1))
-                                            )
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-                            }
-                            .padding()
-                            .background(Color.gray.opacity(0.05))
-                            .cornerRadius(8)
-                        }
-                    }
-                }
-                
-                Spacer()
-            }
-            .padding(24)
-            .frame(minWidth: 500, minHeight: 400)
-            .navigationTitle("快速添加单词")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") {
-                        presentationMode.wrappedValue.dismiss()
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("添加") {
-                        processInput()
-                    }
-                    .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            contentView
+            Spacer()
+        }
+        .padding(24)
+        .frame(minWidth: 500, minHeight: 400)
+        .navigationTitle("快速添加单词")
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("取消") {
+                    presentationMode.wrappedValue.dismiss()
                 }
             }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("添加") {
+                    processInput()
+                }
+                .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
         .onAppear {
             // 自动聚焦到输入框
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 isInputFocused = true
             }
+            
+            // 监听位置选择通知
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("locationSelected"),
+                object: nil,
+                queue: .main
+            ) { notification in
+                if let locationName = notification.object as? String {
+                    insertLocationIntoInput(locationName)
+                }
+            }
         }
+        // TODO: 修复onKeyPress API调用
+        // .onKeyPress(KeyEquivalent("p"), modifiers: .command) { _ in
+        //     if isInputFocused {
+        //         openMapForLocationSelection()
+        //         return .handled
+        //     }
+        //     return .ignored
+        // }
+    }
+    
+    private var contentView: some View {
+        VStack(spacing: 16) {
+            Text("快速添加单词")
+                .font(.title2)
+                .fontWeight(.semibold)
+            
+            instructionView
+            inputSection
+        }
+    }
+    
+    private var instructionView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("输入格式")
+                .font(.headline)
+            Text("单词 标签1 内容1 标签2 内容2...")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Text("例如: rotate root rot memory 旋转 time 2018年")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color.gray.opacity(0.1))
+        .cornerRadius(8)
+    }
+    
+    private var inputSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            inputField
+            if !suggestions.isEmpty {
+                suggestionsView
+            }
+        }
+    }
+    
+    private var inputField: some View {
+        HStack {
+            Image(systemName: "plus.circle.fill")
+                .foregroundColor(.blue)
+                .font(.title2)
+            TextField("输入单词和标签...", text: $inputText)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(size: 16, weight: .medium))
+                .focused($isInputFocused)
+                .onSubmit { processInput() }
+                .onChange(of: inputText) { _, newValue in 
+                    updateSuggestions(for: newValue) 
+                }
+            
+            Button(action: openMapForLocationSelection) {
+                Image(systemName: "location.fill")
+                    .foregroundColor(.blue)
+            }
+            .buttonStyle(.plain)
+            .help("选择地点位置 (⌘P)")
+            .keyboardShortcut("p", modifiers: .command)
+        }
+    }
+    
+    private var suggestionsView: some View {
+        VStack(spacing: 4) {
+            Text("建议标签:")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 120))], spacing: 8) {
+                ForEach(Array(suggestions.enumerated()), id: \.offset) { index, suggestion in
+                    suggestionButton(suggestion, index: index)
+                }
+            }
+        }
+        .padding()
+        .background(Color.gray.opacity(0.05))
+        .cornerRadius(8)
+    }
+    
+    private func suggestionButton(_ suggestion: String, index: Int) -> some View {
+        Button(action: { selectSuggestion(suggestion) }) {
+            HStack(spacing: 6) {
+                Image(systemName: "tag.fill")
+                    .foregroundColor(.blue)
+                    .font(.caption)
+                Text(suggestion)
+                    .font(.system(size: 14, weight: .medium))
+                Text("(\(tagMappings[suggestion]?.0 ?? "自定义"))")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(selectedSuggestionIndex == index ? Color.blue.opacity(0.1) : Color.gray.opacity(0.1))
+            )
+        }
+        .buttonStyle(.plain)
     }
     
     private func updateSuggestions(for input: String) {
@@ -182,6 +231,35 @@ struct QuickAddSheetView: View {
         store.addWord(newWord)
         inputText = ""
         presentationMode.wrappedValue.dismiss()
+    }
+    
+    private func openMapForLocationSelection() {
+        print("Opening map for location selection...")
+        isWaitingForLocationSelection = true
+        
+        // 打开地图窗口
+        NotificationCenter.default.post(name: .openMapWindow, object: nil)
+        
+        // 设置为位置选择模式
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            NotificationCenter.default.post(name: NSNotification.Name("openMapForLocationSelection"), object: nil)
+        }
+    }
+    
+    private func insertLocationIntoInput(_ locationName: String) {
+        print("Inserting location into input: \(locationName)")
+        
+        // 在当前光标位置插入 "loc 地点名称 "
+        let locationText = "loc \(locationName) "
+        inputText += locationText
+        isWaitingForLocationSelection = false
+        
+        print("Input text updated to: \(inputText)")
+        
+        // 重新聚焦到输入框
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            isInputFocused = true
+        }
     }
 }
 
@@ -460,13 +538,16 @@ struct TagManagerView: View {
 }
 
 struct TagMapping: Identifiable, Codable {
-    let id = UUID()
+    let id: UUID
     let key: String
     let displayName: String
     let type: Tag.TagType
     
     init(id: UUID = UUID(), key: String, displayName: String, type: Tag.TagType) {
-        self.key = key; self.displayName = displayName; self.type = type
+        self.id = id
+        self.key = key
+        self.displayName = displayName
+        self.type = type
     }
 }
 
@@ -500,9 +581,15 @@ struct GeographicData {
 }
 
 struct CommonLocation: Identifiable, Hashable {
-    let id = UUID()
+    let id: UUID
     let name: String
     let coordinate: CLLocationCoordinate2D
+    
+    init(id: UUID = UUID(), name: String, coordinate: CLLocationCoordinate2D) {
+        self.id = id
+        self.name = name
+        self.coordinate = coordinate
+    }
     
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
     static func == (lhs: CommonLocation, rhs: CommonLocation) -> Bool { lhs.id == rhs.id }

@@ -567,34 +567,29 @@ enum UIEdgeType: String {
 extension Color {
     func toHexString() -> String {
         // 将SwiftUI Color转换为十六进制字符串
-        do {
-            let nsColor = NSColor(self)
-            
-            // 如果是目录颜色（catalog color），需要先转换颜色空间
-            let rgbColor: NSColor
-            if nsColor.colorSpace.colorSpaceModel != .rgb {
-                rgbColor = nsColor.usingColorSpace(.sRGB) ?? nsColor
-            } else {
-                rgbColor = nsColor
-            }
-            
-            // 安全地获取RGB组件
-            var red: CGFloat = 0
-            var green: CGFloat = 0
-            var blue: CGFloat = 0
-            var alpha: CGFloat = 0
-            
-            rgbColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-            
-            let redInt = Int(red * 255)
-            let greenInt = Int(green * 255)
-            let blueInt = Int(blue * 255)
-            
-            return String(format: "#%02X%02X%02X", redInt, greenInt, blueInt)
-        } catch {
-            // 如果转换失败，返回默认颜色
-            return "#74B9FF"
+        let nsColor = NSColor(self)
+        
+        // 如果是目录颜色（catalog color），需要先转换颜色空间
+        let rgbColor: NSColor
+        if nsColor.colorSpace.colorSpaceModel != .rgb {
+            rgbColor = nsColor.usingColorSpace(.sRGB) ?? nsColor
+        } else {
+            rgbColor = nsColor
         }
+        
+        // 安全地获取RGB组件
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        
+        rgbColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        
+        let redInt = Int(red * 255)
+        let greenInt = Int(green * 255)
+        let blueInt = Int(blue * 255)
+        
+        return String(format: "#%02X%02X%02X", redInt, greenInt, blueInt)
     }
 }
 

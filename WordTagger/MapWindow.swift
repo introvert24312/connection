@@ -5,10 +5,11 @@ import MapKit
 
 struct MapWindow: View {
     @EnvironmentObject private var store: WordStore
+    @State private var isLocationSelectionMode = false
     
     var body: some View {
-        MapContainer()
-            .navigationTitle("地图窗口")
+        MapContainer(isLocationSelectionMode: $isLocationSelectionMode)
+            .navigationTitle(isLocationSelectionMode ? "选择位置" : "地图窗口")
             .onAppear {
                 // 监听打开地图窗口的通知
                 NotificationCenter.default.addObserver(
@@ -16,7 +17,17 @@ struct MapWindow: View {
                     object: nil,
                     queue: .main
                 ) { _ in
-                    // 窗口已经打开，可以在这里做一些操作
+                    isLocationSelectionMode = false
+                }
+                
+                // 监听打开地图进行位置选择的通知
+                NotificationCenter.default.addObserver(
+                    forName: NSNotification.Name("openMapForLocationSelection"),
+                    object: nil,
+                    queue: .main
+                ) { _ in
+                    print("MapWindow: Received openMapForLocationSelection notification")
+                    isLocationSelectionMode = true
                 }
             }
     }
