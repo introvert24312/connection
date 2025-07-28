@@ -23,7 +23,7 @@ struct UniversalRelationshipGraphView<Node: UniversalGraphNode, Edge: UniversalG
     let title: String
     @State private var debugInfo = ""
     
-    init(nodes: [Node], edges: [Edge], title: String = "关系图") {
+    init(nodes: [Node], edges: [Edge], title: String = "节点关系图") {
         self.nodes = nodes
         self.edges = edges
         self.title = title
@@ -116,10 +116,9 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
             """
         }
         
-        // 生成边数据
+        // 生成边数据（移除标签）
         let edgeStrings = edges.map { edge in
-            let label = edge.label.map { "label: '\(escapeString($0))'" } ?? ""
-            return "{from: \(edge.fromId), to: \(edge.toId)\(label.isEmpty ? "" : ", \(label)")}"
+            return "{from: \(edge.fromId), to: \(edge.toId)}"
         }
         
         let nodesStr = nodeStrings.joined(separator: ",\n                        ")
@@ -181,26 +180,43 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                         var options = {
                             physics: {
                                 enabled: true,
-                                stabilization: { iterations: 100 },
+                                stabilization: { iterations: 150 },
                                 barnesHut: {
-                                    gravitationalConstant: -2000,
+                                    gravitationalConstant: -8000,
                                     springConstant: 0.001,
-                                    springLength: 200
+                                    springLength: 300,
+                                    damping: 0.1
+                                },
+                                repulsion: {
+                                    centralGravity: 0.1,
+                                    springLength: 400,
+                                    springConstant: 0.01,
+                                    damping: 0.09
                                 }
                             },
                             nodes: {
                                 font: { 
-                                    size: 12, 
+                                    size: 20, 
                                     color: '#333',
-                                    face: 'Arial',
+                                    face: 'Arial, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif',
                                     align: 'center',
-                                    vadjust: 0
+                                    vadjust: 0,
+                                    bold: true
                                 },
                                 borderWidth: 2,
                                 shadow: true,
                                 shape: 'circle',
-                                size: 30,
-                                labelHighlightBold: false
+                                size: 45,
+                                labelHighlightBold: false,
+                                scaling: {
+                                    min: 35,
+                                    max: 70,
+                                    label: {
+                                        enabled: true,
+                                        min: 18,
+                                        max: 24
+                                    }
+                                }
                             },
                             edges: {
                                 width: 2,
@@ -223,8 +239,13 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                                 enabled: false
                             },
                             layout: {
-                                improvedLayout: true
-                            }
+                                improvedLayout: true,
+                                clusterThreshold: 150,
+                                hierarchical: {
+                                    enabled: false
+                                }
+                            },
+                            groups: {}
                         };
                         
                         var network = new vis.Network(container, data, options);
@@ -258,28 +279,9 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
     }
     
     private func getNodeColor<T: UniversalGraphNode>(for node: T) -> String {
-        // 检查是否有标签信息来判断类型
-        if let subtitle = node.subtitle, !subtitle.isEmpty {
-            // 根据不同的标签类型返回不同颜色
-            switch subtitle {
-            case let s where s.contains("记忆") || s.contains("memory"):
-                return "#FF6B6B" // 红色
-            case let s where s.contains("地点") || s.contains("location"):
-                return "#4ECDC4" // 青色
-            case let s where s.contains("词根") || s.contains("root"):
-                return "#45B7D1" // 蓝色
-            case let s where s.contains("形近") || s.contains("shape"):
-                return "#96CEB4" // 绿色
-            case let s where s.contains("音近") || s.contains("sound"):
-                return "#FFEAA7" // 黄色
-            case let s where s.contains("自定义") || s.contains("custom"):
-                return "#DDA0DD" // 紫色
-            default:
-                return "#A0A0A0" // 默认灰色 - 标签
-            }
-        } else {
-            return "#74B9FF" // 蓝色 - 单词
-        }
+        // 不再设置自定义颜色，让 vis.js 使用默认配色
+        // 返回空字符串让 vis.js 自动分配颜色
+        return ""
     }
 }
 
@@ -288,6 +290,8 @@ struct GraphNodeAdapter: UniversalGraphNode {
     let id: Int
     let label: String
     let subtitle: String?
+    let clusterId: String?
+    let clusterColor: String?
 }
 
 struct GraphEdgeAdapter: UniversalGraphEdge {

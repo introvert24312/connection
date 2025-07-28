@@ -12,6 +12,8 @@ struct GraphView: View {
     @State private var isBuilding = false
     @State private var focusedNodeId: String? = nil // 聚焦的节点ID
     @State private var selectedNodeId: String? = nil // 选中的节点ID
+    @State private var nodeClusters: [NodeCluster] = [] // 节点簇列表
+    @State private var selectedClusterIds: Set<String> = [] // 选中的节点簇ID
     
     enum NodeType: String, CaseIterable {
         case all = "全部"
@@ -25,7 +27,7 @@ struct GraphView: View {
             // 工具栏
             HStack {
                 HStack {
-                    Text("关系图谱")
+                    Text("节点关系图谱")
                         .font(.title2)
                         .fontWeight(.semibold)
                     
@@ -50,6 +52,32 @@ struct GraphView: View {
                         }
                         .help("返回全图")
                     }
+                }
+                
+                // 节点簇统计信息
+                if !nodeClusters.isEmpty {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("节点簇统计")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        HStack(spacing: 8) {
+                            Text("总计: \(nodeClusters.count)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Text("显示: \(selectedClusterIds.count)")
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                            Text("节点: \(filteredNodes.count)")
+                                .font(.caption)
+                                .foregroundColor(.green)
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color.gray.opacity(0.1))
+                    )
                 }
                 
                 Spacer()
@@ -93,6 +121,60 @@ struct GraphView: View {
                 }
                 .help("节点类型过滤")
                 
+                // 节点簇过滤器
+                Menu {
+                    Button(action: {
+                        selectedClusterIds = Set(nodeClusters.map { $0.id })
+                    }) {
+                        HStack {
+                            Text("全部显示")
+                            if selectedClusterIds.count == nodeClusters.count {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                    
+                    Button(action: {
+                        selectedClusterIds.removeAll()
+                    }) {
+                        HStack {
+                            Text("全部隐藏")
+                            if selectedClusterIds.isEmpty {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                    
+                    Divider()
+                    
+                    ForEach(Array(nodeClusters.enumerated()), id: \.element.id) { index, cluster in
+                        Button(action: {
+                            if selectedClusterIds.contains(cluster.id) {
+                                selectedClusterIds.remove(cluster.id)
+                            } else {
+                                selectedClusterIds.insert(cluster.id)
+                            }
+                        }) {
+                            HStack {
+                                Circle()
+                                    .fill(cluster.color)
+                                    .frame(width: 12, height: 12)
+                                Text("节点簇 \(index + 1) (\(cluster.nodeIds.count)个节点)")
+                                if selectedClusterIds.contains(cluster.id) {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "circle.grid.3x3")
+                        Text("节点簇 (\(selectedClusterIds.count)/\(nodeClusters.count))")
+                    }
+                    .foregroundColor(.blue)
+                }
+                .help("节点簇过滤")
+                
                 Button(action: buildGraph) {
                     if isBuilding {
                         ProgressView()
@@ -119,10 +201,15 @@ struct GraphView: View {
                         // 使用新的通用关系图组件
                         UniversalRelationshipGraphView(
                             nodes: filteredNodes.map { node in
-                                GraphNodeAdapter(
+                                let clusterColor = node.clusterId.flatMap { clusterId in
+                                    nodeClusters.first { $0.id == clusterId }?.color
+                                }
+                                return GraphNodeAdapter(
                                     id: node.id.hashValue,
                                     label: node.label,
-                                    subtitle: node.subtitle.isEmpty ? nil : node.subtitle
+                                    subtitle: node.subtitle.isEmpty ? nil : node.subtitle,
+                                    clusterId: node.clusterId,
+                                    clusterColor: clusterColor?.toHexString()
                                 )
                             },
                             edges: filteredEdges.map { edge in
@@ -132,7 +219,7 @@ struct GraphView: View {
                                     label: edge.type.rawValue
                                 )
                             },
-                            title: "单词关系图谱"
+                            title: "节点关系图谱"
                         )
                     }
                 }
@@ -210,6 +297,17 @@ struct GraphView: View {
             }
         }
         
+        // 按节点簇过滤
+        if !selectedClusterIds.isEmpty {
+            filtered = filtered.filter { node in
+                if let clusterId = node.clusterId {
+                    return selectedClusterIds.contains(clusterId)
+                }
+                // 对于没有节点簇的节点，如果没有选中任何节点簇则显示，否则隐藏
+                return selectedClusterIds.isEmpty
+            }
+        }
+        
         return filtered
     }
     
@@ -225,30 +323,40 @@ struct GraphView: View {
         
         // 添加单词节点
         for word in store.words {
+            let clusterId = getClusterIdForNode(word.id.uuidString)
             nodes.append(UIGraphNode(
                 id: word.id.uuidString,
                 label: word.text,
                 subtitle: word.meaning ?? "",
                 type: .word,
                 tagType: nil,
-                color: .blue
+                color: .blue,
+                clusterId: clusterId
             ))
         }
         
         // 添加标签节点
         let allTags = store.allTags
         for tag in allTags {
+            let clusterId = getClusterIdForNode(tag.id.uuidString)
             nodes.append(UIGraphNode(
                 id: tag.id.uuidString,
                 label: tag.value,
                 subtitle: tag.type.displayName,
                 type: .tag,
                 tagType: tag.type,
-                color: Color.from(tagType: tag.type)
+                color: Color.from(tagType: tag.type),
+                clusterId: clusterId
             ))
         }
         
         return nodes
+    }
+    
+    private func getClusterIdForNode(_ nodeId: String) -> String? {
+        return nodeClusters.first { cluster in
+            cluster.nodeIds.contains(nodeId)
+        }?.id
     }
     
     private func createEdges() -> [UIGraphEdge] {
@@ -295,9 +403,88 @@ struct GraphView: View {
             await graphService.buildGraph(from: store.words)
             
             await MainActor.run {
+                detectNodeClusters()
                 isBuilding = false
             }
         }
+    }
+    
+    // MARK: - Node Cluster Detection
+    
+    private func detectNodeClusters() {
+        let nodes = createNodes()
+        let edges = createEdges()
+        
+        // 构建邻接表
+        var adjacencyList: [String: Set<String>] = [:]
+        for node in nodes {
+            adjacencyList[node.id] = Set<String>()
+        }
+        
+        for edge in edges {
+            adjacencyList[edge.source]?.insert(edge.target)
+            adjacencyList[edge.target]?.insert(edge.source)
+        }
+        
+        // 使用DFS检测连通分量
+        var visited: Set<String> = Set()
+        var clusters: [NodeCluster] = []
+        let clusterColors: [Color] = [
+            Color(red: 0.0, green: 0.48, blue: 1.0),      // 系统蓝色 #007AFF
+            Color(red: 1.0, green: 0.23, blue: 0.19),     // 系统红色 #FF3B30
+            Color(red: 0.20, green: 0.78, blue: 0.35),    // 系统绿色 #34C759
+            Color(red: 1.0, green: 0.58, blue: 0.0),      // 系统橙色 #FF9500
+            Color(red: 0.69, green: 0.32, blue: 0.87),    // 系统紫色 #AF52DE
+            Color(red: 1.0, green: 0.18, blue: 0.33),     // 系统粉红 #FF2D55
+            Color(red: 1.0, green: 0.80, blue: 0.0),      // 系统黄色 #FFCC00
+            Color(red: 0.32, green: 0.78, blue: 0.98)     // 系统青色 #50C8F5
+        ]
+        
+        for node in nodes {
+            if !visited.contains(node.id) {
+                let clusterNodes = dfs(startNode: node.id, adjacencyList: adjacencyList, visited: &visited)
+                
+                if !clusterNodes.isEmpty {
+                    let clusterId = UUID().uuidString
+                    let clusterColor = clusterColors[clusters.count % clusterColors.count]
+                    
+                    let cluster = NodeCluster(
+                        id: clusterId,
+                        nodeIds: clusterNodes,
+                        color: clusterColor
+                    )
+                    clusters.append(cluster)
+                }
+            }
+        }
+        
+        nodeClusters = clusters
+        // 默认选中所有节点簇
+        selectedClusterIds = Set(clusters.map { $0.id })
+    }
+    
+    private func dfs(startNode: String, adjacencyList: [String: Set<String>], visited: inout Set<String>) -> Set<String> {
+        var clusterNodes: Set<String> = Set()
+        var stack: [String] = [startNode]
+        
+        while !stack.isEmpty {
+            let currentNode = stack.removeLast()
+            
+            if !visited.contains(currentNode) {
+                visited.insert(currentNode)
+                clusterNodes.insert(currentNode)
+                
+                if let neighbors = adjacencyList[currentNode] {
+                    for neighbor in neighbors {
+                        if !visited.contains(neighbor) {
+                            stack.append(neighbor)
+                        }
+                    }
+                }
+            }
+        }
+        
+        return clusterNodes
     }
 }
 
@@ -326,6 +513,18 @@ struct EmptyGraphView: View {
     }
 }
 
+// MARK: - Node Cluster Model
+
+struct NodeCluster: Identifiable, Equatable {
+    let id: String
+    let nodeIds: Set<String>
+    let color: Color
+    
+    static func == (lhs: NodeCluster, rhs: NodeCluster) -> Bool {
+        return lhs.id == rhs.id
+    }
+}
+
 // MARK: - UI Data Models
 
 struct UIGraphNode: Equatable {
@@ -335,6 +534,7 @@ struct UIGraphNode: Equatable {
     let type: UINodeType
     let tagType: Tag.TagType?
     let color: Color
+    let clusterId: String?
     
     enum UINodeType: Equatable {
         case word, tag
@@ -360,6 +560,42 @@ enum UIEdgeType: String {
     case wordTag = "word_tag"
     case wordWord = "word_word"
     case tagTag = "tag_tag"
+}
+
+// MARK: - Color Extensions
+
+extension Color {
+    func toHexString() -> String {
+        // 将SwiftUI Color转换为十六进制字符串
+        do {
+            let nsColor = NSColor(self)
+            
+            // 如果是目录颜色（catalog color），需要先转换颜色空间
+            let rgbColor: NSColor
+            if nsColor.colorSpace.colorSpaceModel != .rgb {
+                rgbColor = nsColor.usingColorSpace(.sRGB) ?? nsColor
+            } else {
+                rgbColor = nsColor
+            }
+            
+            // 安全地获取RGB组件
+            var red: CGFloat = 0
+            var green: CGFloat = 0
+            var blue: CGFloat = 0
+            var alpha: CGFloat = 0
+            
+            rgbColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+            
+            let redInt = Int(red * 255)
+            let greenInt = Int(green * 255)
+            let blueInt = Int(blue * 255)
+            
+            return String(format: "#%02X%02X%02X", redInt, greenInt, blueInt)
+        } catch {
+            // 如果转换失败，返回默认颜色
+            return "#74B9FF"
+        }
+    }
 }
 
 // MARK: - Vector Extensions
