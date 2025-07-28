@@ -296,7 +296,7 @@ private class NLPProcessor {
         var value: String?
         
         for token in tokens {
-            if let type = Tag.TagType.allCases.first(where: { $0.displayName.contains(token) || $0.rawValue == token }) {
+            if let type = Tag.TagType.predefinedCases.first(where: { $0.displayName.contains(token) || $0.rawValue == token }) {
                 tagType = type
                 break
             }
@@ -304,7 +304,7 @@ private class NLPProcessor {
         
         let valueTokens = tokens.filter { token in
             !["添加", "新增", "创建", "标签"].contains(token) &&
-            !Tag.TagType.allCases.contains { $0.displayName.contains(token) || $0.rawValue == token }
+            !Tag.TagType.predefinedCases.contains { $0.displayName.contains(token) || $0.rawValue == token }
         }
         
         if !valueTokens.isEmpty {

@@ -49,7 +49,7 @@ struct GeneralSettingsView: View {
     @AppStorage("enableDebugMode") private var enableDebugMode: Bool = false
     @AppStorage("autoSaveInterval") private var autoSaveInterval: Double = 30.0
     @AppStorage("showPhoneticByDefault") private var showPhoneticByDefault: Bool = true
-    @AppStorage("defaultTagType") private var defaultTagType: String = Tag.TagType.memory.rawValue
+    @AppStorage("defaultTagType") private var defaultTagType: String = "memory"
     
     var body: some View {
         ScrollView {
@@ -75,7 +75,7 @@ struct GeneralSettingsView: View {
                             }
                             
                             Picker("", selection: $defaultTagType) {
-                                ForEach(Tag.TagType.allCases, id: \.rawValue) { type in
+                                ForEach(Tag.TagType.predefinedCases, id: \.self) { type in
                                     Text(type.displayName).tag(type.rawValue)
                                 }
                             }
@@ -295,7 +295,7 @@ struct DataManagementView: View {
                         Divider()
                             .gridCellUnsizedAxes(.horizontal)
                         
-                        ForEach(Tag.TagType.allCases, id: \.self) { type in
+                        ForEach(Tag.TagType.predefinedCases, id: \.self) { type in
                             GridRow {
                                 Text("\(type.displayName)标签")
                                     .foregroundColor(.secondary)

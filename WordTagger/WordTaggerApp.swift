@@ -1,27 +1,115 @@
 import SwiftUI
 import MapKit
 import CoreLocation
+import Combine
+
+// MARK: - Tag Mapping Manager
+
+class TagMappingManager: ObservableObject {
+    @Published var tagMappings: [TagMapping] = []
+    
+    static let shared = TagMappingManager()
+    
+    private let userDefaultsKey = "tagMappings"
+    
+    private init() {
+        loadTagMappings()
+    }
+    
+    // 获取字典格式的映射（用于快速查找）
+    var mappingDictionary: [String: (String, Tag.TagType)] {
+        var dict: [String: (String, Tag.TagType)] = [:]
+        for mapping in tagMappings {
+            dict[mapping.key] = (mapping.typeName, mapping.tagType)
+        }
+        return dict
+    }
+    
+    // 添加或更新标签映射
+    func saveMapping(_ mapping: TagMapping) {
+        if let index = tagMappings.firstIndex(where: { $0.id == mapping.id }) {
+            tagMappings[index] = mapping
+        } else {
+            tagMappings.append(mapping)
+        }
+        saveToUserDefaults()
+    }
+    
+    // 删除标签映射
+    func deleteMapping(withId id: UUID) {
+        tagMappings.removeAll { $0.id == id }
+        saveToUserDefaults()
+    }
+    
+    // 重置为默认映射
+    func resetToDefaults() {
+        tagMappings = [
+            TagMapping(key: "root", typeName: "词根"),
+            TagMapping(key: "memory", typeName: "记忆"),
+            TagMapping(key: "loc", typeName: "地点"),
+            TagMapping(key: "time", typeName: "时间"),
+            TagMapping(key: "shape", typeName: "形近"),
+            TagMapping(key: "sound", typeName: "音近")
+        ]
+        saveToUserDefaults()
+    }
+    
+    // 保存到UserDefaults
+    private func saveToUserDefaults() {
+        let encoder = JSONEncoder()
+        if let data = try? encoder.encode(tagMappings) {
+            UserDefaults.standard.set(data, forKey: userDefaultsKey)
+        }
+    }
+    
+    // 从UserDefaults加载
+    private func loadTagMappings() {
+        let decoder = JSONDecoder()
+        if let data = UserDefaults.standard.data(forKey: userDefaultsKey),
+           let savedMappings = try? decoder.decode([TagMapping].self, from: data) {
+            tagMappings = savedMappings
+        } else {
+            // 如果没有保存的数据，使用默认值
+            resetToDefaults()
+        }
+    }
+}
+
+struct TagMapping: Identifiable, Codable {
+    let id: UUID
+    let key: String
+    let typeName: String
+    
+    init(id: UUID = UUID(), key: String, typeName: String) {
+        self.id = id
+        self.key = key
+        self.typeName = typeName
+    }
+    
+    // 转换为 Tag.TagType
+    var tagType: Tag.TagType {
+        switch typeName {
+        case "记忆": return .memory
+        case "地点": return .location
+        case "词根": return .root
+        case "形近": return .shape
+        case "音近": return .sound
+        default: return .custom(typeName)
+        }
+    }
+}
 
 // MARK: - Quick Add Sheet View
 
 struct QuickAddSheetView: View {
     @EnvironmentObject private var store: WordStore
+    @StateObject private var tagManager = TagMappingManager.shared
     @Environment(\.presentationMode) var presentationMode
     @State private var inputText: String = ""
     @State private var suggestions: [String] = []
     @State private var selectedSuggestionIndex: Int = -1
     @FocusState private var isInputFocused: Bool
     @State private var isWaitingForLocationSelection = false
-    
-    // 预设标签映射
-    private let tagMappings: [String: (String, Tag.TagType)] = [
-        "root": ("词根", .root),
-        "memory": ("记忆", .memory),
-        "loc": ("地点", .location),
-        "time": ("时间", .custom),
-        "shape": ("形状", .shape),
-        "sound": ("声音", .sound)
-    ]
     
     var body: some View {
         VStack(spacing: 20) {
@@ -158,7 +246,7 @@ struct QuickAddSheetView: View {
                     .font(.caption)
                 Text(suggestion)
                     .font(.system(size: 14, weight: .medium))
-                Text("(\(tagMappings[suggestion]?.0 ?? "自定义"))")
+                Text("(\(tagManager.mappingDictionary[suggestion]?.0 ?? "自定义"))")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -180,7 +268,7 @@ struct QuickAddSheetView: View {
             return 
         }
         
-        let matchingSuggestions = tagMappings.keys.filter { key in 
+        let matchingSuggestions = tagManager.mappingDictionary.keys.filter { key in 
             key.lowercased().hasPrefix(String(lastWord)) && key.lowercased() != String(lastWord) 
         }.sorted()
         
@@ -213,7 +301,7 @@ struct QuickAddSheetView: View {
         
         while i < components.count {
             let tagKey = components[i].lowercased()
-            if let (_, tagType) = tagMappings[tagKey] {
+            if let (_, tagType) = tagManager.mappingDictionary[tagKey] {
                 if i + 1 < components.count { 
                     let content = components[i + 1]
                     let tag = Tag(type: tagType, value: content)
@@ -270,20 +358,11 @@ struct QuickAddSheetView: View {
 
 struct QuickAddView: View {
     @EnvironmentObject private var store: WordStore
+    @StateObject private var tagManager = TagMappingManager.shared
     @State private var inputText: String = ""
     @State private var suggestions: [String] = []
     @State private var selectedSuggestionIndex: Int = -1
     let onDismiss: () -> Void
-    
-    // 预设标签映射
-    private let tagMappings: [String: (String, Tag.TagType)] = [
-        "root": ("词根", .root),
-        "memory": ("记忆", .memory),
-        "loc": ("地点", .location),
-        "time": ("时间", .custom),
-        "shape": ("形状", .shape),
-        "sound": ("声音", .sound)
-    ]
     
     var body: some View {
         ZStack {
@@ -306,7 +385,7 @@ struct QuickAddView: View {
                                 Image(systemName: "tag.fill").foregroundColor(.blue).font(.caption)
                                 Text(suggestion).font(.system(size: 14, weight: .medium))
                                 Spacer()
-                                Text(tagMappings[suggestion]?.0 ?? "自定义").font(.caption).foregroundColor(.secondary)
+                                Text(tagManager.mappingDictionary[suggestion]?.0 ?? "自定义").font(.caption).foregroundColor(.secondary)
                             }.padding(.horizontal, 16).padding(.vertical, 8)
                             .background(selectedSuggestionIndex == index ? Color.blue.opacity(0.1) : Color.clear)
                             .onTapGesture { selectSuggestion(suggestion) }
@@ -327,7 +406,7 @@ struct QuickAddView: View {
     private func updateSuggestions(for input: String) {
         let words = input.split(separator: " ")
         guard let lastWord = words.last?.lowercased() else { suggestions = []; selectedSuggestionIndex = -1; return }
-        let matchingSuggestions = tagMappings.keys.filter { key in key.lowercased().hasPrefix(String(lastWord)) && key.lowercased() != String(lastWord) }.sorted()
+        let matchingSuggestions = tagManager.mappingDictionary.keys.filter { key in key.lowercased().hasPrefix(String(lastWord)) && key.lowercased() != String(lastWord) }.sorted()
         suggestions = matchingSuggestions; selectedSuggestionIndex = matchingSuggestions.isEmpty ? -1 : 0
     }
     
@@ -349,7 +428,7 @@ struct QuickAddView: View {
         let wordText = components[0]; var tags: [Tag] = []; var i = 1
         while i < components.count {
             let tagKey = components[i].lowercased()
-            if let (_, tagType) = tagMappings[tagKey] {
+            if let (_, tagType) = tagManager.mappingDictionary[tagKey] {
                 if i + 1 < components.count { let content = components[i + 1]; let tag = Tag(type: tagType, value: content); tags.append(tag); i += 2 }
                 else { i += 1 }
             } else { i += 1 }
@@ -435,124 +514,6 @@ struct QuickSearchView: View {
     }
 }
 
-// MARK: - Tag Manager View
-
-struct TagManagerView: View {
-    @State private var tagMappings: [TagMapping] = [
-        TagMapping(key: "root", displayName: "词根", type: .root),
-        TagMapping(key: "memory", displayName: "记忆", type: .memory),
-        TagMapping(key: "loc", displayName: "地点", type: .location),
-        TagMapping(key: "time", displayName: "时间", type: .custom),
-        TagMapping(key: "shape", displayName: "形状", type: .shape),
-        TagMapping(key: "sound", displayName: "声音", type: .sound)
-    ]
-    @State private var newKey: String = ""
-    @State private var newDisplayName: String = ""
-    @State private var newType: Tag.TagType = .custom
-    @State private var editingMapping: TagMapping?
-    let onDismiss: () -> Void
-    
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.3).ignoresSafeArea().onTapGesture { onDismiss() }
-            VStack(spacing: 0) {
-                HStack {
-                    Text("标签管理").font(.title2).fontWeight(.semibold)
-                    Spacer()
-                    Button(action: onDismiss) {
-                        Image(systemName: "xmark.circle.fill").foregroundColor(.secondary).font(.title2)
-                    }.buttonStyle(.plain)
-                }.padding(.horizontal, 20).padding(.vertical, 16).background(.ultraThinMaterial)
-                
-                Divider()
-                
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(tagMappings) { mapping in
-                            HStack {
-                                Circle().fill(Color.from(tagType: mapping.type)).frame(width: 12, height: 12)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(mapping.displayName).font(.system(size: 14, weight: .medium))
-                                    Text(mapping.key).font(.caption).foregroundColor(.secondary)
-                                }
-                                Spacer()
-                                Text(mapping.type.displayName).font(.caption)
-                                    .padding(.horizontal, 8).padding(.vertical, 2)
-                                    .background(RoundedRectangle(cornerRadius: 4).fill(Color.from(tagType: mapping.type).opacity(0.2)))
-                                    .foregroundColor(Color.from(tagType: mapping.type))
-                                Button(action: { editingMapping = mapping; newKey = mapping.key; newDisplayName = mapping.displayName; newType = mapping.type }) {
-                                    Image(systemName: "pencil").font(.caption).foregroundColor(.blue)
-                                }.buttonStyle(.plain)
-                                Button(action: { tagMappings.removeAll { $0.id == mapping.id } }) {
-                                    Image(systemName: "trash").font(.caption).foregroundColor(.red)
-                                }.buttonStyle(.plain)
-                            }.padding(.horizontal, 20).padding(.vertical, 8)
-                        }
-                    }
-                }.frame(maxHeight: 300)
-                
-                Divider()
-                
-                VStack(spacing: 12) {
-                    Text(editingMapping != nil ? "编辑标签" : "添加新标签").font(.headline).foregroundColor(.primary)
-                    HStack(spacing: 12) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("快捷键").font(.caption).foregroundColor(.secondary)
-                            TextField("例如: root", text: $newKey).textFieldStyle(.roundedBorder)
-                        }
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("显示名称").font(.caption).foregroundColor(.secondary)
-                            TextField("例如: 词根", text: $newDisplayName).textFieldStyle(.roundedBorder)
-                        }
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("类型").font(.caption).foregroundColor(.secondary)
-                            Picker("类型", selection: $newType) {
-                                ForEach(Tag.TagType.allCases, id: \.self) { type in Text(type.displayName).tag(type) }
-                            }.pickerStyle(.menu)
-                        }
-                    }
-                    HStack {
-                        if editingMapping != nil {
-                            Button("取消") { resetForm() }.buttonStyle(.bordered)
-                        }
-                        Button(editingMapping != nil ? "保存" : "添加") { saveMapping() }
-                            .buttonStyle(.borderedProminent).disabled(newKey.isEmpty || newDisplayName.isEmpty)
-                    }
-                }.padding(.horizontal, 20).padding(.vertical, 16).background(.ultraThinMaterial)
-            }.background(.ultraThinMaterial).clipShape(RoundedRectangle(cornerRadius: 16))
-            .shadow(color: Color.black.opacity(0.2), radius: 30, x: 0, y: 10)
-            .frame(maxWidth: 700, maxHeight: 600).padding(20)
-        }.onKeyPress(.escape) { onDismiss(); return .handled }
-    }
-    
-    private func saveMapping() {
-        if let editingMapping = editingMapping {
-            if let index = tagMappings.firstIndex(where: { $0.id == editingMapping.id }) {
-                tagMappings[index] = TagMapping(id: editingMapping.id, key: newKey.lowercased(), displayName: newDisplayName, type: newType)
-            }
-        } else {
-            let newMapping = TagMapping(key: newKey.lowercased(), displayName: newDisplayName, type: newType)
-            tagMappings.append(newMapping)
-        }
-        resetForm()
-    }
-    
-    private func resetForm() { newKey = ""; newDisplayName = ""; newType = .custom; editingMapping = nil }
-}
-
-struct TagMapping: Identifiable, Codable {
-    let id: UUID
-    let key: String
-    let displayName: String
-    let type: Tag.TagType
-    
-    init(id: UUID = UUID(), key: String, displayName: String, type: Tag.TagType) {
-        self.id = id
-        self.key = key
-        self.displayName = displayName
-        self.type = type
-    }
-}
 
 // MARK: - Geographic Data
 
@@ -622,7 +583,7 @@ struct WordTaggerApp: App {
                     
                     CommandPaletteView(isPresented: $showPalette)
                         .environmentObject(store)
-                        .transition(.asymmetric(insertion: .scale.combined(with: .opacity), removal: .opacity))
+                        .transition(.asymmetric(insertion: AnyTransition.scale.combined(with: .opacity), removal: .opacity))
                 }
                 
                 
@@ -634,14 +595,14 @@ struct WordTaggerApp: App {
                         }
                     )
                     .environmentObject(store)
-                    .transition(.asymmetric(insertion: .scale.combined(with: .opacity), removal: .opacity))
+                    .transition(.asymmetric(insertion: AnyTransition.scale.combined(with: .opacity), removal: .opacity))
                 }
                 
                 if showTagManager {
                     TagManagerView {
                         showTagManager = false
                     }
-                    .transition(.asymmetric(insertion: .scale.combined(with: .opacity), removal: .opacity))
+                    .transition(.asymmetric(insertion: AnyTransition.scale.combined(with: .opacity), removal: .opacity))
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: showPalette)
@@ -723,3 +684,213 @@ struct WordTaggerApp: App {
         }
     }
 }
+
+// MARK: - Tag Manager View (New Implementation)
+
+struct TagManagerView: View {
+    @StateObject private var tagManager = TagMappingManager.shared
+    
+    @State private var newKey: String = ""
+    @State private var newTypeName: String = ""
+    @State private var editingMapping: TagMapping?
+    
+    let onDismiss: () -> Void
+    
+    var body: some View {
+        ZStack {
+            // 背景遮罩
+            Color.black.opacity(0.3)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    onDismiss()
+                }
+            
+            VStack(spacing: 0) {
+                // 标题栏
+                HStack {
+                    Text("标签管理")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                    
+                    Spacer()
+                    
+                    Button(action: onDismiss) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                            .font(.title2)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+                .background(.ultraThinMaterial)
+                
+                Divider()
+                
+                // 现有标签列表
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(tagManager.tagMappings) { mapping in
+                            TagMappingRow(
+                                mapping: mapping,
+                                onEdit: {
+                                    editingMapping = mapping
+                                    newKey = mapping.key
+                                    newTypeName = mapping.typeName
+                                },
+                                onDelete: {
+                                    tagManager.deleteMapping(withId: mapping.id)
+                                }
+                            )
+                        }
+                    }
+                }
+                .frame(maxHeight: 300)
+                
+                Divider()
+                
+                // 添加新标签
+                VStack(spacing: 12) {
+                    Text(editingMapping != nil ? "编辑标签" : "添加新标签")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    VStack(spacing: 12) {
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("快捷键")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                TextField("例如: root", text: $newKey)
+                                    .textFieldStyle(.roundedBorder)
+                            }
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("类型名称")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                TextField("例如: 词根", text: $newTypeName)
+                                    .textFieldStyle(.roundedBorder)
+                            }
+                        }
+                    }
+                    
+                    HStack {
+                        if editingMapping != nil {
+                            Button("取消") {
+                                resetForm()
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        
+                        Button(editingMapping != nil ? "保存" : "添加") {
+                            saveMapping()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(newKey.isEmpty || newTypeName.isEmpty)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+                .background(.ultraThinMaterial)
+                
+                // 帮助文本
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("💡 使用方法:")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                    Text("输入格式: 单词 快捷键 内容")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("例如: apple root 苹果 memory 红苹果")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 16)
+                .background(.ultraThinMaterial)
+            }
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .shadow(color: Color.black.opacity(0.2), radius: 30, x: 0, y: 10)
+            .frame(maxWidth: 700, maxHeight: 600)
+            .padding(20)
+        }
+        .onKeyPress(.escape) {
+            onDismiss()
+            return .handled
+        }
+    }
+    
+    private func saveMapping() {
+        let mapping = TagMapping(
+            id: editingMapping?.id ?? UUID(),
+            key: newKey.lowercased(),
+            typeName: newTypeName
+        )
+        
+        tagManager.saveMapping(mapping)
+        resetForm()
+    }
+    
+    private func resetForm() {
+        newKey = ""
+        newTypeName = ""
+        editingMapping = nil
+    }
+    
+}
+
+struct TagMappingRow: View {
+    let mapping: TagMapping
+    let onEdit: () -> Void
+    let onDelete: () -> Void
+    
+    var body: some View {
+        HStack {
+            // 标签颜色指示器
+            Circle()
+                .fill(Color.from(tagType: mapping.tagType))
+                .frame(width: 12, height: 12)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(mapping.key)
+                    .font(.system(size: 14, weight: .medium))
+                Text("→ \(mapping.typeName)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            Text(mapping.typeName)
+                .font(.caption)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2)
+                .background(
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.from(tagType: mapping.tagType).opacity(0.2))
+                )
+                .foregroundColor(Color.from(tagType: mapping.tagType))
+            
+            Button(action: onEdit) {
+                Image(systemName: "pencil")
+                    .font(.caption)
+                    .foregroundColor(.blue)
+            }
+            .buttonStyle(.plain)
+            
+            Button(action: onDelete) {
+                Image(systemName: "trash")
+                    .font(.caption)
+                    .foregroundColor(.red)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
+        .background(Color.clear)
+    }
+}
+

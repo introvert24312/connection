@@ -1,13 +1,24 @@
 import Foundation
 
 public struct Tag: Identifiable, Hashable, Codable {
-    public enum TagType: String, Codable, CaseIterable {
-        case memory = "memory"
-        case location = "location"
-        case root = "root"
-        case shape = "shape"
-        case sound = "sound"
-        case custom = "custom"
+    public enum TagType: Codable, Hashable {
+        case memory
+        case location
+        case root
+        case shape
+        case sound
+        case custom(String)
+        
+        public var rawValue: String {
+            switch self {
+            case .memory: return "memory"
+            case .location: return "location"
+            case .root: return "root"
+            case .shape: return "shape"
+            case .sound: return "sound"
+            case .custom(let name): return "custom_\(name)"
+            }
+        }
         
         public var displayName: String {
             switch self {
@@ -16,7 +27,7 @@ public struct Tag: Identifiable, Hashable, Codable {
             case .root: return "词根"
             case .shape: return "形近"
             case .sound: return "音近"
-            case .custom: return "自定义"
+            case .custom(let name): return name
             }
         }
         
@@ -29,6 +40,42 @@ public struct Tag: Identifiable, Hashable, Codable {
             case .sound: return "orange"
             case .custom: return "purple"
             }
+        }
+        
+        public static let predefinedCases: [TagType] = [.memory, .location, .root, .shape, .sound]
+        
+        public static var allCases: [TagType] {
+            return predefinedCases
+        }
+        
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            let value = try container.decode(String.self)
+            
+            switch value {
+            case "memory":
+                self = .memory
+            case "location":
+                self = .location
+            case "root":
+                self = .root
+            case "shape":
+                self = .shape
+            case "sound":
+                self = .sound
+            default:
+                if value.hasPrefix("custom_") {
+                    let customName = String(value.dropFirst(7))
+                    self = .custom(customName)
+                } else {
+                    self = .custom(value)
+                }
+            }
+        }
+        
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.singleValueContainer()
+            try container.encode(rawValue)
         }
     }
     
