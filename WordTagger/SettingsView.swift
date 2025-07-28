@@ -39,7 +39,7 @@ struct SettingsView: View {
                     Label("关于", systemImage: "info.circle")
                 }
         }
-        .frame(width: 500, height: 400)
+        .frame(width: 600, height: 500)
     }
 }
 
@@ -52,34 +52,83 @@ struct GeneralSettingsView: View {
     @AppStorage("defaultTagType") private var defaultTagType: String = Tag.TagType.memory.rawValue
     
     var body: some View {
-        Form {
-            Section("界面") {
-                Toggle("默认显示音标", isOn: $showPhoneticByDefault)
-                
-                Picker("默认标签类型", selection: $defaultTagType) {
-                    ForEach(Tag.TagType.allCases, id: \.rawValue) { type in
-                        Text(type.displayName).tag(type.rawValue)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                // 界面设置
+                GroupBox("界面设置") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        SettingRow(
+                            title: "默认显示音标",
+                            description: "在单词列表中自动显示音标信息"
+                        ) {
+                            Toggle("", isOn: $showPhoneticByDefault)
+                                .toggleStyle(SwitchToggleStyle())
+                        }
+                        
+                        Divider()
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("默认标签类型")
+                                    .fontWeight(.medium)
+                                Spacer()
+                            }
+                            
+                            Picker("", selection: $defaultTagType) {
+                                ForEach(Tag.TagType.allCases, id: \.rawValue) { type in
+                                    Text(type.displayName).tag(type.rawValue)
+                                }
+                            }
+                            .pickerStyle(SegmentedPickerStyle())
+                            
+                            Text("新建单词时默认使用的标签类型")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
+                    .padding(12)
                 }
-            }
-            
-            Section("性能") {
-                HStack {
-                    Text("自动保存间隔")
-                    Spacer()
-                    Stepper("\(Int(autoSaveInterval)) 秒", 
-                           value: $autoSaveInterval, 
-                           in: 10...300, 
-                           step: 10)
+                
+                // 性能设置
+                GroupBox("性能设置") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        SettingRow(
+                            title: "自动保存间隔",
+                            description: "自动保存数据的时间间隔（秒）"
+                        ) {
+                            HStack(spacing: 8) {
+                                Text("\(Int(autoSaveInterval))秒")
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 50, alignment: .trailing)
+                                
+                                Stepper("", 
+                                       value: $autoSaveInterval, 
+                                       in: 10...300, 
+                                       step: 10)
+                            }
+                        }
+                    }
+                    .padding(12)
                 }
+                
+                // 开发设置
+                GroupBox("开发选项") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        SettingRow(
+                            title: "调试模式",
+                            description: "显示调试信息和性能指标"
+                        ) {
+                            Toggle("", isOn: $enableDebugMode)
+                                .toggleStyle(SwitchToggleStyle())
+                        }
+                    }
+                    .padding(12)
+                }
+                
+                Spacer()
             }
-            
-            Section("开发") {
-                Toggle("启用调试模式", isOn: $enableDebugMode)
-                    .help("显示调试信息和性能指标")
-            }
+            .padding()
         }
-        .padding()
     }
 }
 
@@ -94,40 +143,102 @@ struct SearchSettingsView: View {
     @AppStorage("searchInTags") private var searchInTags: Bool = true
     
     var body: some View {
-        Form {
-            Section("搜索范围") {
-                Toggle("搜索音标", isOn: $searchInPhonetic)
-                Toggle("搜索含义", isOn: $searchInMeaning)
-                Toggle("搜索标签", isOn: $searchInTags)
-            }
-            
-            Section("搜索算法") {
-                Toggle("启用模糊搜索", isOn: $enableFuzzySearch)
-                    .help("允许拼写错误和近似匹配")
-                
-                if enableFuzzySearch {
-                    VStack(alignment: .leading) {
-                        Text("匹配阈值: \(String(format: "%.1f", searchThreshold))")
-                        Slider(value: $searchThreshold, in: 0.1...0.9, step: 0.1)
-                        Text("较低的值需要更精确的匹配")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                // 搜索范围
+                GroupBox("搜索范围") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        SettingRow(
+                            title: "搜索音标",
+                            description: "在音标字段中搜索匹配内容"
+                        ) {
+                            Toggle("", isOn: $searchInPhonetic)
+                                .toggleStyle(SwitchToggleStyle())
+                        }
+                        
+                        Divider()
+                        
+                        SettingRow(
+                            title: "搜索含义",
+                            description: "在单词含义中搜索匹配内容"
+                        ) {
+                            Toggle("", isOn: $searchInMeaning)
+                                .toggleStyle(SwitchToggleStyle())
+                        }
+                        
+                        Divider()
+                        
+                        SettingRow(
+                            title: "搜索标签",
+                            description: "在标签内容中搜索匹配内容"
+                        ) {
+                            Toggle("", isOn: $searchInTags)
+                                .toggleStyle(SwitchToggleStyle())
+                        }
                     }
+                    .padding(12)
                 }
-            }
-            
-            Section("结果限制") {
-                HStack {
-                    Text("最大搜索结果")
-                    Spacer()
-                    Stepper("\(maxSearchResults)", 
-                           value: $maxSearchResults, 
-                           in: 10...200, 
-                           step: 10)
+                
+                // 搜索算法
+                GroupBox("搜索算法") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        SettingRow(
+                            title: "模糊搜索",
+                            description: "允许拼写错误和近似匹配"
+                        ) {
+                            Toggle("", isOn: $enableFuzzySearch)
+                                .toggleStyle(SwitchToggleStyle())
+                        }
+                        
+                        if enableFuzzySearch {
+                            Divider()
+                            
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Text("匹配阈值")
+                                        .fontWeight(.medium)
+                                    Spacer()
+                                    Text(String(format: "%.1f", searchThreshold))
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                Slider(value: $searchThreshold, in: 0.1...0.9, step: 0.1)
+                                
+                                Text("较低的值需要更精确的匹配")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                    .padding(12)
                 }
+                
+                // 结果限制
+                GroupBox("结果设置") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        SettingRow(
+                            title: "最大搜索结果",
+                            description: "限制单次搜索返回的最大结果数量"
+                        ) {
+                            HStack(spacing: 8) {
+                                Text("\(maxSearchResults)")
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 40, alignment: .trailing)
+                                
+                                Stepper("", 
+                                       value: $maxSearchResults, 
+                                       in: 10...200, 
+                                       step: 10)
+                            }
+                        }
+                    }
+                    .padding(12)
+                }
+                
+                Spacer()
             }
+            .padding()
         }
-        .padding()
     }
 }
 
@@ -137,64 +248,172 @@ struct DataManagementView: View {
     @EnvironmentObject private var store: WordStore
     @State private var showingExportDialog = false
     @State private var showingImportDialog = false
+    @State private var showingImportOptionsDialog = false
     @State private var showingClearDataAlert = false
+    @State private var showingResultAlert = false
+    @State private var resultMessage = ""
+    @State private var isSuccess = false
+    @State private var importValidationResult: ImportValidationResult?
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            // 数据统计
-            GroupBox("数据统计") {
-                VStack(alignment: .leading, spacing: 8) {
-                    StatRow(title: "单词总数", value: "\(store.words.count)")
-                    StatRow(title: "标签总数", value: "\(store.allTags.count)")
-                    StatRow(title: "地点标签", value: "\(store.allTags.filter { $0.hasCoordinates }.count)")
-                    
-                    Divider()
-                    
-                    ForEach(Tag.TagType.allCases, id: \.self) { type in
-                        StatRow(
-                            title: "\(type.displayName)标签",
-                            value: "\(store.wordsCount(forTagType: type)) 个单词"
-                        )
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                // 数据统计
+                GroupBox("数据统计") {
+                    Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
+                        GridRow {
+                            Text("数据概览")
+                                .fontWeight(.semibold)
+                                .gridColumnAlignment(.leading)
+                            Spacer()
+                        }
+                        
+                        Divider()
+                            .gridCellUnsizedAxes(.horizontal)
+                        
+                        GridRow {
+                            Text("单词总数")
+                                .foregroundColor(.secondary)
+                            Text("\(store.words.count)")
+                                .fontWeight(.medium)
+                        }
+                        
+                        GridRow {
+                            Text("标签总数")
+                                .foregroundColor(.secondary)
+                            Text("\(store.allTags.count)")
+                                .fontWeight(.medium)
+                        }
+                        
+                        GridRow {
+                            Text("地点标签")
+                                .foregroundColor(.secondary)
+                            Text("\(store.allTags.filter { $0.hasCoordinates }.count)")
+                                .fontWeight(.medium)
+                        }
+                        
+                        Divider()
+                            .gridCellUnsizedAxes(.horizontal)
+                        
+                        ForEach(Tag.TagType.allCases, id: \.self) { type in
+                            GridRow {
+                                Text("\(type.displayName)标签")
+                                    .foregroundColor(.secondary)
+                                Text("\(store.wordsCount(forTagType: type)) 个单词")
+                                    .fontWeight(.medium)
+                            }
+                        }
                     }
+                    .padding(12)
                 }
-                .padding(8)
-            }
-            
-            // 数据操作
-            GroupBox("数据操作") {
-                VStack(spacing: 12) {
-                    HStack {
-                        Button("导出数据") {
-                            showingExportDialog = true
+                
+                // 数据操作
+                GroupBox("数据备份与恢复") {
+                    VStack(alignment: .leading, spacing: 16) {
+                        // 导出功能
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: "square.and.arrow.up")
+                                    .foregroundColor(.blue)
+                                Text("导出数据")
+                                    .fontWeight(.medium)
+                                Spacer()
+                            }
+                            
+                            Text("将所有单词和标签数据导出为JSON文件")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            if !store.words.isEmpty {
+                                let summary = store.getExportSummary()
+                                HStack(spacing: 12) {
+                                    Label("\(summary.totalWords)", systemImage: "textformat")
+                                    Label("\(summary.totalTags)", systemImage: "tag")
+                                    Label("\(summary.wordsWithLocation)", systemImage: "location")
+                                }
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            }
+                            
+                            Button(action: exportData) {
+                                HStack {
+                                    if store.isExporting {
+                                        ProgressView()
+                                            .scaleEffect(0.8)
+                                    } else {
+                                        Image(systemName: "square.and.arrow.up")
+                                    }
+                                    Text("导出数据文件")
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(store.isExporting || store.words.isEmpty)
                         }
-                        .buttonStyle(.bordered)
                         
-                        Button("导入数据") {
-                            showingImportDialog = true
+                        Divider()
+                        
+                        // 导入功能
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: "square.and.arrow.down")
+                                    .foregroundColor(.green)
+                                Text("导入数据")
+                                    .fontWeight(.medium)
+                                Spacer()
+                            }
+                            
+                            Text("从JSON文件导入单词和标签数据")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Button(action: { showingImportOptionsDialog = true }) {
+                                HStack {
+                                    if store.isImporting {
+                                        ProgressView()
+                                            .scaleEffect(0.8)
+                                    } else {
+                                        Image(systemName: "square.and.arrow.down")
+                                    }
+                                    Text("选择导入文件")
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(store.isImporting)
                         }
-                        .buttonStyle(.bordered)
-                        
-                        Spacer()
                     }
-                    
-                    Divider()
-                    
-                    HStack {
+                    .padding(12)
+                }
+                
+                // 危险操作区域
+                GroupBox("危险操作") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text("数据重置")
+                                .fontWeight(.medium)
+                            Spacer()
+                        }
+                        
+                        Text("此操作将删除所有单词和标签数据，且无法撤销")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
                         Button("清除所有数据") {
                             showingClearDataAlert = true
                         }
                         .buttonStyle(.borderedProminent)
-                        .foregroundColor(Color.red)
-                        
-                        Spacer()
+                        .controlSize(.small)
+                        .tint(.red)
+                        .disabled(store.words.isEmpty)
                     }
+                    .padding(12)
                 }
-                .padding(8)
+                
+                Spacer()
             }
-            
-            Spacer()
+            .padding()
         }
-        .padding()
         .alert("确认清除数据", isPresented: $showingClearDataAlert) {
             Button("取消", role: .cancel) { }
             Button("清除", role: .destructive) {
@@ -203,43 +422,92 @@ struct DataManagementView: View {
         } message: {
             Text("此操作将删除所有单词和标签数据，且无法撤销。")
         }
-        .fileExporter(
-            isPresented: $showingExportDialog,
-            document: WordDataDocument(words: store.words),
-            contentType: .json,
-            defaultFilename: "words_export_\(Date().formatted(.iso8601.year().month().day()))"
-        ) { result in
-            switch result {
-            case .success(let url):
-                print("数据已导出到: \(url)")
-            case .failure(let error):
-                print("导出失败: \(error)")
-            }
+        .alert("导入选项", isPresented: $showingImportOptionsDialog) {
+            Button("合并数据", action: { importData(replaceExisting: false) })
+            Button("替换数据", role: .destructive, action: { importData(replaceExisting: true) })
+            Button("取消", role: .cancel) { }
+        } message: {
+            Text("选择导入方式：合并会添加新数据到现有数据中，替换会清除所有现有数据。")
         }
-        .fileImporter(
-            isPresented: $showingImportDialog,
-            allowedContentTypes: [.json],
-            allowsMultipleSelection: false
-        ) { result in
-            switch result {
-            case .success(let urls):
-                if let url = urls.first {
-                    importData(from: url)
+        .alert(isSuccess ? "成功" : "错误", isPresented: $showingResultAlert) {
+            Button("确定") { }
+            if let result = importValidationResult, result.hasWarnings {
+                Button("查看详情") {
+                    showImportDetails()
                 }
-            case .failure(let error):
-                print("导入失败: \(error)")
             }
+        } message: {
+            Text(resultMessage)
+        }
+    }
+    
+    private func exportData() {
+        store.exportData { success, message in
+            isSuccess = success
+            resultMessage = message ?? (success ? "导出成功" : "导出失败")
+            showingResultAlert = true
+        }
+    }
+    
+    private func importData(replaceExisting: Bool) {
+        store.importData(replaceExisting: replaceExisting) { success, message, validationResult in
+            isSuccess = success
+            resultMessage = message ?? (success ? "导入成功" : "导入失败")
+            importValidationResult = validationResult
+            showingResultAlert = true
         }
     }
     
     private func clearAllData() {
-        // 这里应该实现清除数据的逻辑
-        print("清除所有数据")
+        store.clearAllData()
+        resultMessage = "所有数据已清除"
+        isSuccess = true
+        showingResultAlert = true
     }
     
-    private func importData(from url: URL) {
-        // 这里应该实现导入数据的逻辑
-        print("从 \(url) 导入数据")
+    private func showImportDetails() {
+        guard let result = importValidationResult else { return }
+        
+        var details = "导入详情:\n"
+        details += "原始数量: \(result.originalCount)\n"
+        details += "有效数量: \(result.validCount)\n"
+        
+        if result.hasWarnings {
+            details += "\n警告:\n"
+            for warning in result.warnings {
+                details += "• \(warning)\n"
+            }
+        }
+        
+        print(details) // 在控制台显示详情，也可以显示在单独的窗口中
+    }
+}
+
+struct SettingRow<Content: View>: View {
+    let title: String
+    let description: String
+    let content: () -> Content
+    
+    init(title: String, description: String, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.description = description
+        self.content = content
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .fontWeight(.medium)
+                    Text(description)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                content()
+            }
+        }
     }
 }
 
@@ -321,34 +589,6 @@ struct FeatureRow: View {
     }
 }
 
-// MARK: - 数据文档类型
-
-struct WordDataDocument: FileDocument {
-    static var readableContentTypes: [UTType] { [.json] }
-    
-    let words: [Word]
-    
-    init(words: [Word]) {
-        self.words = words
-    }
-    
-    init(configuration: ReadConfiguration) throws {
-        guard let data = configuration.file.regularFileContents else {
-            throw CocoaError(.fileReadCorruptFile)
-        }
-        
-        self.words = try JSONDecoder().decode([Word].self, from: data)
-    }
-    
-    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .prettyPrinted
-        encoder.dateEncodingStrategy = .iso8601
-        
-        let data = try encoder.encode(words)
-        return FileWrapper(regularFileWithContents: data)
-    }
-}
 
 #Preview {
     SettingsView()

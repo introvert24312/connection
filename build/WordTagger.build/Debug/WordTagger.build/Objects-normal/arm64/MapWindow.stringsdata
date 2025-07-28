@@ -4,10 +4,18 @@
     "Localizable": [
       {
         "comment": "",
+        "key": "选择位置",
+        "location": {
+          "startingColumn": 56,
+          "startingLine": 12
+        }
+      },
+      {
+        "comment": "",
         "key": "地图窗口",
         "location": {
-          "startingColumn": 30,
-          "startingLine": 11
+          "startingColumn": 73,
+          "startingLine": 12
         }
       }
     ]

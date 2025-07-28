@@ -4,47 +4,23 @@
     "Localizable": [
       {
         "comment": "",
-        "key": "单词标签管理器",
+        "key": "快速添加单词",
         "location": {
-          "startingColumn": 21,
-          "startingLine": 11
-        }
-      },
-      {
-        "comment": "",
-        "key": "地图视图",
-        "location": {
-          "startingColumn": 21,
-          "startingLine": 68
-        }
-      },
-      {
-        "comment": "",
-        "key": "关系图谱",
-        "location": {
-          "startingColumn": 21,
-          "startingLine": 76
-        }
-      },
-      {
-        "comment": "",
-        "key": "单词标签",
-        "location": {
-          "startingColumn": 25,
+          "startingColumn": 26,
           "startingLine": 33
         }
       },
       {
         "comment": "",
-        "key": "命令面板",
+        "key": "取消",
         "location": {
           "startingColumn": 24,
-          "startingLine": 34
+          "startingLine": 36
         }
       },
       {
         "comment": "",
-        "key": "添加单词",
+        "key": "添加",
         "location": {
           "startingColumn": 24,
           "startingLine": 41
@@ -52,10 +28,290 @@
       },
       {
         "comment": "",
-        "key": "搜索",
+        "key": "快速添加单词",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 76
+        }
+      },
+      {
+        "comment": "",
+        "key": "输入格式",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 87
+        }
+      },
+      {
+        "comment": "",
+        "key": "单词 标签1 内容1 标签2 内容2...",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 89
+        }
+      },
+      {
+        "comment": "",
+        "key": "例如: rotate root rot memory 旋转 time 2018年",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 92
+        }
+      },
+      {
+        "comment": "",
+        "key": "输入单词和标签...",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 116
+        }
+      },
+      {
+        "comment": "",
+        "key": "选择地点位置 (⌘P)",
+        "location": {
+          "startingColumn": 19,
+          "startingLine": 130
+        }
+      },
+      {
+        "comment": "",
+        "key": "建议标签:",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 137
+        }
+      },
+      {
+        "comment": "",
+        "key": "(%@)",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 161
+        }
+      },
+      {
+        "comment": "",
+        "key": "输入: 单词 root 词根内容 memory 记忆内容...",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 294
+        }
+      },
+      {
+        "comment": "",
+        "key": "💡 格式: 单词 标签1 内容1 标签2 内容2...",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 317
+        }
+      },
+      {
+        "comment": "",
+        "key": "⌘+I",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 319
+        }
+      },
+      {
+        "comment": "",
+        "key": "搜索单词、含义或标签...",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 384
+        }
+      },
+      {
+        "comment": "",
+        "key": "+%lld",
+        "location": {
+          "startingColumn": 75,
+          "startingLine": 405
+        }
+      },
+      {
+        "comment": "",
+        "key": "💡 输入关键词搜索单词",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 421
+        }
+      },
+      {
+        "comment": "",
+        "key": "⌘+F",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 423
+        }
+      },
+      {
+        "comment": "",
+        "key": "标签管理",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 459
+        }
+      },
+      {
+        "comment": "",
+        "key": "编辑标签",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 496
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加新标签",
+        "location": {
+          "startingColumn": 67,
+          "startingLine": 496
+        }
+      },
+      {
+        "comment": "",
+        "key": "快捷键",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 499
+        }
+      },
+      {
+        "comment": "",
+        "key": "例如: root",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 500
+        }
+      },
+      {
+        "comment": "",
+        "key": "显示名称",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 503
+        }
+      },
+      {
+        "comment": "",
+        "key": "例如: 词根",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 504
+        }
+      },
+      {
+        "comment": "",
+        "key": "类型",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 507
+        }
+      },
+      {
+        "comment": "",
+        "key": "类型",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 508
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 515
+        }
+      },
+      {
+        "comment": "",
+        "key": "保存",
+        "location": {
+          "startingColumn": 56,
+          "startingLine": 517
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加",
+        "location": {
+          "startingColumn": 67,
+          "startingLine": 517
+        }
+      },
+      {
+        "comment": "",
+        "key": "单词标签管理器",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 609
+        }
+      },
+      {
+        "comment": "",
+        "key": "地图视图",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 703
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点关系图谱",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 711
+        }
+      },
+      {
+        "comment": "",
+        "key": "单词标签",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 657
+        }
+      },
+      {
+        "comment": "",
+        "key": "命令面板",
         "location": {
           "startingColumn": 24,
-          "startingLine": 47
+          "startingLine": 658
+        }
+      },
+      {
+        "comment": "",
+        "key": "快速添加单词",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 665
+        }
+      },
+      {
+        "comment": "",
+        "key": "快速搜索",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 670
+        }
+      },
+      {
+        "comment": "",
+        "key": "标签管理",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 675
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加单词",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 682
         }
       },
       {
@@ -63,7 +319,7 @@
         "key": "打开地图",
         "location": {
           "startingColumn": 24,
-          "startingLine": 55
+          "startingLine": 690
         }
       },
       {
@@ -71,7 +327,7 @@
         "key": "打开图谱",
         "location": {
           "startingColumn": 24,
-          "startingLine": 60
+          "startingLine": 695
         }
       }
     ]

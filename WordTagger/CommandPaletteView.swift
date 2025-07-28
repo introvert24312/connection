@@ -223,6 +223,7 @@ private struct NewCommandRowView: View {
             }
             .padding(.vertical, 8)
             .padding(.horizontal, 12)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .background(

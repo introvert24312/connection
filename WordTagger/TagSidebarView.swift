@@ -7,6 +7,8 @@ struct TagSidebarView: View {
     @State private var filter: String = ""
     @State private var selectedTagType: Tag.TagType?
     @Binding var selectedWord: Word?
+    @State private var selectedIndex: Int = 0
+    @FocusState private var isListFocused: Bool
     
     var body: some View {
         VStack(spacing: 0) {
@@ -52,18 +54,49 @@ struct TagSidebarView: View {
             Divider()
             
             // 标签列表
-            List(filteredTags, id: \.id) { tag in
-                TagRowView(tag: tag) {
-                    // 选择标签时，显示相关单词
-                    store.selectTag(tag)
-                    let relatedWords = store.words(withTag: tag)
-                    if let firstWord = relatedWords.first {
-                        selectedWord = firstWord
-                        store.selectWord(firstWord)
+            ScrollViewReader { proxy in
+                List(Array(filteredTags.enumerated()), id: \.offset) { index, tag in
+                    TagRowView(
+                        tag: tag,
+                        isHighlighted: index == selectedIndex
+                    ) {
+                        selectTagAtIndex(index)
                     }
+                    .id(index)
+                }
+                .listStyle(.sidebar)
+                .focused($isListFocused)
+                .onKeyPress(.upArrow) {
+                    if selectedIndex > 0 {
+                        selectedIndex -= 1
+                        selectTagAtIndex(selectedIndex)
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            proxy.scrollTo(selectedIndex, anchor: .center)
+                        }
+                    }
+                    return .handled
+                }
+                .onKeyPress(.downArrow) {
+                    if selectedIndex < filteredTags.count - 1 {
+                        selectedIndex += 1
+                        selectTagAtIndex(selectedIndex)
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            proxy.scrollTo(selectedIndex, anchor: .center)
+                        }
+                    }
+                    return .handled
+                }
+                .onKeyPress(.return) {
+                    selectTagAtIndex(selectedIndex)
+                    return .handled
+                }
+                .onChange(of: filteredTags) { _, _ in
+                    selectedIndex = min(selectedIndex, max(0, filteredTags.count - 1))
+                }
+                .onAppear {
+                    isListFocused = true
                 }
             }
-            .listStyle(.sidebar)
             .navigationTitle("标签")
         }
     }
@@ -89,6 +122,19 @@ struct TagSidebarView: View {
             return tag1.value < tag2.value
         }
     }
+    
+    private func selectTagAtIndex(_ index: Int) {
+        guard index < filteredTags.count else { return }
+        let tag = filteredTags[index]
+        selectedIndex = index
+        store.selectTag(tag)
+        let relatedWords = store.words(withTag: tag)
+        if let firstWord = relatedWords.first {
+            selectedWord = firstWord
+            store.selectWord(firstWord)
+        }
+    }
+    
 }
 
 // MARK: - 标签类型过滤按钮
@@ -122,6 +168,7 @@ struct TagTypeFilterButton: View {
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 1)
             )
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
@@ -131,8 +178,15 @@ struct TagTypeFilterButton: View {
 
 struct TagRowView: View {
     let tag: Tag
+    let isHighlighted: Bool
     let onTap: () -> Void
     @EnvironmentObject private var store: WordStore
+    
+    init(tag: Tag, isHighlighted: Bool = false, onTap: @escaping () -> Void) {
+        self.tag = tag
+        self.isHighlighted = isHighlighted
+        self.onTap = onTap
+    }
     
     private var wordsCount: Int {
         store.words(withTag: tag).count
@@ -180,11 +234,15 @@ struct TagRowView: View {
                 }
             }
             .padding(.vertical, 4)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(store.selectedTag?.id == tag.id ? Color.blue.opacity(0.1) : Color.clear)
+                .fill(
+                    isHighlighted ? Color.blue.opacity(0.2) : 
+                    (store.selectedTag?.id == tag.id ? Color.blue.opacity(0.1) : Color.clear)
+                )
         )
     }
 }

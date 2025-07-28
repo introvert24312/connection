@@ -128,18 +128,69 @@ struct WordDetailView: View {
 
 struct TagsByTypeView: View {
     let tags: [Tag]
+    @State private var selectedIndex: Int = 0
+    @FocusState private var isFocused: Bool
     
     private var groupedTags: [Tag.TagType: [Tag]] {
         Dictionary(grouping: tags, by: { $0.type })
+    }
+    
+    private var flattenedTags: [Tag] {
+        var result: [Tag] = []
+        for type in Tag.TagType.allCases {
+            if let tagsOfType = groupedTags[type], !tagsOfType.isEmpty {
+                result.append(contentsOf: tagsOfType)
+            }
+        }
+        return result
     }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             ForEach(Tag.TagType.allCases, id: \.self) { type in
                 if let tagsOfType = groupedTags[type], !tagsOfType.isEmpty {
-                    TagTypeSection(type: type, tags: tagsOfType)
+                    TagTypeSection(
+                        type: type, 
+                        tags: tagsOfType,
+                        selectedIndex: $selectedIndex,
+                        flattenedTags: flattenedTags
+                    )
                 }
             }
+        }
+        .focused($isFocused)
+        .onKeyPress(.upArrow) {
+            navigateVertically(direction: -1)
+            return .handled
+        }
+        .onKeyPress(.downArrow) {
+            navigateVertically(direction: 1)
+            return .handled
+        }
+        .onKeyPress(.leftArrow) {
+            navigateHorizontally(direction: -1)
+            return .handled
+        }
+        .onKeyPress(.rightArrow) {
+            navigateHorizontally(direction: 1)
+            return .handled
+        }
+        .onAppear {
+            isFocused = true
+        }
+    }
+    
+    private func navigateVertically(direction: Int) {
+        let newIndex = selectedIndex + direction
+        if newIndex >= 0 && newIndex < flattenedTags.count {
+            selectedIndex = newIndex
+        }
+    }
+    
+    private func navigateHorizontally(direction: Int) {
+        let newIndex = selectedIndex + direction * 2 // 每行假设有2个元素
+        if newIndex >= 0 && newIndex < flattenedTags.count {
+            selectedIndex = newIndex
         }
     }
 }
@@ -147,6 +198,8 @@ struct TagsByTypeView: View {
 struct TagTypeSection: View {
     let type: Tag.TagType
     let tags: [Tag]
+    @Binding var selectedIndex: Int
+    let flattenedTags: [Tag]
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -166,8 +219,12 @@ struct TagTypeSection: View {
             LazyVGrid(columns: [
                 GridItem(.adaptive(minimum: 120), spacing: 8)
             ], spacing: 8) {
-                ForEach(tags, id: \.id) { tag in
-                    DetailTagCard(tag: tag)
+                ForEach(Array(tags.enumerated()), id: \.offset) { localIndex, tag in
+                    let globalIndex = flattenedTags.firstIndex(where: { $0.id == tag.id }) ?? 0
+                    DetailTagCard(
+                        tag: tag,
+                        isHighlighted: globalIndex == selectedIndex
+                    )
                 }
             }
         }
@@ -176,6 +233,12 @@ struct TagTypeSection: View {
 
 struct DetailTagCard: View {
     let tag: Tag
+    let isHighlighted: Bool
+    
+    init(tag: Tag, isHighlighted: Bool = false) {
+        self.tag = tag
+        self.isHighlighted = isHighlighted
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -208,10 +271,13 @@ struct DetailTagCard: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.from(tagType: tag.type).opacity(0.1))
+                .fill(Color.from(tagType: tag.type).opacity(isHighlighted ? 0.3 : 0.1))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.from(tagType: tag.type).opacity(0.3), lineWidth: 1)
+                        .stroke(
+                            Color.from(tagType: tag.type).opacity(isHighlighted ? 0.8 : 0.3), 
+                            lineWidth: isHighlighted ? 2 : 1
+                        )
                 )
         )
     }

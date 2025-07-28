@@ -7,6 +7,8 @@ struct WordListView: View {
     @Binding var selectedWord: Word?
     @State private var searchFilter = SearchFilter()
     @State private var sortOption: SortOption = .alphabetical
+    @State private var selectedIndex: Int = 0
+    @FocusState private var isListFocused: Bool
     
     enum SortOption: String, CaseIterable {
         case alphabetical = "字母顺序"
@@ -103,17 +105,52 @@ struct WordListView: View {
             } else if displayWords.isEmpty {
                 EmptyStateView()
             } else {
-                List(displayWords, id: \.id) { word in
-                    WordRowView(
-                        word: word,
-                        isSelected: selectedWord?.id == word.id,
-                        searchQuery: store.searchQuery
-                    ) {
-                        selectedWord = word
-                        store.selectWord(word)
+                ScrollViewReader { proxy in
+                    List(Array(displayWords.enumerated()), id: \.offset) { index, word in
+                        WordRowView(
+                            word: word,
+                            isSelected: selectedWord?.id == word.id || index == selectedIndex,
+                            searchQuery: store.searchQuery
+                        ) {
+                            selectedWord = word
+                            store.selectWord(word)
+                            selectedIndex = index
+                        }
+                        .id(index)
+                    }
+                    .listStyle(.plain)
+                    .focused($isListFocused)
+                    .onKeyPress(.upArrow) {
+                        if selectedIndex > 0 {
+                            selectedIndex -= 1
+                            selectWordAtIndex()
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                proxy.scrollTo(selectedIndex, anchor: .center)
+                            }
+                        }
+                        return .handled
+                    }
+                    .onKeyPress(.downArrow) {
+                        if selectedIndex < displayWords.count - 1 {
+                            selectedIndex += 1
+                            selectWordAtIndex()
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                proxy.scrollTo(selectedIndex, anchor: .center)
+                            }
+                        }
+                        return .handled
+                    }
+                    .onKeyPress(.return) {
+                        selectWordAtIndex()
+                        return .handled
+                    }
+                    .onChange(of: displayWords) { _, _ in
+                        selectedIndex = min(selectedIndex, max(0, displayWords.count - 1))
+                    }
+                    .onAppear {
+                        isListFocused = true
                     }
                 }
-                .listStyle(.plain)
             }
         }
         .navigationTitle("单词")
@@ -142,6 +179,14 @@ struct WordListView: View {
             return words.sorted { $0.tags.count > $1.tags.count }
         }
     }
+    
+    private func selectWordAtIndex() {
+        guard selectedIndex < displayWords.count else { return }
+        let word = displayWords[selectedIndex]
+        selectedWord = word
+        store.selectWord(word)
+    }
+    
 }
 
 // MARK: - 单词行视图
@@ -213,6 +258,7 @@ struct WordRowView: View {
             }
             .padding(.vertical, 8)
             .padding(.horizontal, 12)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .background(
@@ -355,6 +401,7 @@ struct TagChip: View {
                             )
                     )
             )
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hovering in

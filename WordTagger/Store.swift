@@ -1,5 +1,79 @@
 import Combine
 import Foundation
+import AppKit
+
+// MARK: - 导入导出辅助类型
+
+public struct ImportValidationResult {
+    public let validWords: [Word]
+    public let warnings: [String]
+    public let originalCount: Int
+    public let validCount: Int
+    
+    public var hasWarnings: Bool {
+        return !warnings.isEmpty
+    }
+    
+    public var isValid: Bool {
+        return validCount > 0
+    }
+}
+
+public struct ExportSummary {
+    public let totalWords: Int
+    public let totalTags: Int
+    public let uniqueTags: Int
+    public let tagTypeCounts: [Tag.TagType: Int]
+    public let wordsWithLocation: Int
+}
+
+public struct WordTaggerExportData: Codable {
+    let version: String
+    let exportDate: Date
+    let words: [Word]
+    let metadata: ExportMetadata
+    
+    struct ExportMetadata: Codable {
+        let totalWords: Int
+        let totalTags: Int
+        let uniqueTags: Int
+        let appVersion: String
+        
+        init(words: [Word]) {
+            self.totalWords = words.count
+            self.totalTags = words.flatMap { $0.tags }.count
+            self.uniqueTags = Set(words.flatMap { $0.tags }).count
+            self.appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        }
+    }
+    
+    init(words: [Word]) {
+        self.version = "1.0"
+        self.exportDate = Date()
+        self.words = words
+        self.metadata = ExportMetadata(words: words)
+    }
+}
+
+enum DataError: LocalizedError {
+    case userCancelled
+    case invalidFormat
+    case fileNotFound
+    case permissionDenied
+    
+    var errorDescription: String? {
+        switch self {
+        case .userCancelled:
+            return "用户取消了操作"
+        case .invalidFormat:
+            return "文件格式无效，请确保这是一个有效的WordTagger数据文件"
+        case .fileNotFound:
+            return "找不到指定的文件"
+        case .permissionDenied:
+            return "没有权限访问该文件"
+        }
+    }
+}
 
 public final class WordStore: ObservableObject {
     @Published public private(set) var words: [Word] = []
@@ -8,6 +82,8 @@ public final class WordStore: ObservableObject {
     @Published public var searchQuery: String = ""
     @Published public private(set) var searchResults: [SearchResult] = []
     @Published public private(set) var isLoading: Bool = false
+    @Published public private(set) var isExporting: Bool = false
+    @Published public private(set) var isImporting: Bool = false
     
     private let searchThreshold: Double = 0.3
     private var cancellables = Set<AnyCancellable>()
@@ -252,5 +328,221 @@ public final class WordStore: ObservableObject {
         words.append(word4)
         addTag(to: word4.id, tag: rootTag2)
         addTag(to: word4.id, tag: memoryTag2)
+    }
+    
+    // MARK: - 数据导入导出
+    
+    public func exportData(completion: @escaping (Bool, String?) -> Void) {
+        isExporting = true
+        
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            
+            do {
+                let exportData = WordTaggerExportData(words: self.words)
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = .prettyPrinted
+                encoder.dateEncodingStrategy = .iso8601
+                let jsonData = try encoder.encode(exportData)
+                
+                // 创建临时文件
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+                let dateString = dateFormatter.string(from: Date())
+                let fileName = "WordTagger_Export_\(dateString).json"
+                
+                let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+                try jsonData.write(to: tempURL)
+                
+                DispatchQueue.main.async {
+                    self.showSavePanel(for: tempURL, completion: completion)
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.isExporting = false
+                    completion(false, "导出失败: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+    
+    private func showSavePanel(for tempURL: URL, completion: @escaping (Bool, String?) -> Void) {
+        let savePanel = NSSavePanel()
+        savePanel.title = "导出单词数据"
+        savePanel.message = "选择保存位置"
+        savePanel.nameFieldStringValue = tempURL.lastPathComponent
+        savePanel.allowedContentTypes = [.json]
+        savePanel.canCreateDirectories = true
+        
+        savePanel.begin { [weak self] response in
+            self?.isExporting = false
+            
+            if response == .OK, let url = savePanel.url {
+                do {
+                    // 如果目标文件已存在，删除它
+                    if FileManager.default.fileExists(atPath: url.path) {
+                        try FileManager.default.removeItem(at: url)
+                    }
+                    
+                    // 移动临时文件到目标位置
+                    try FileManager.default.moveItem(at: tempURL, to: url)
+                    completion(true, "数据导出成功！")
+                } catch {
+                    completion(false, "保存文件失败: \(error.localizedDescription)")
+                }
+            } else {
+                // 清理临时文件
+                try? FileManager.default.removeItem(at: tempURL)
+                completion(false, "导出已取消")
+            }
+        }
+    }
+    
+    public func importData(replaceExisting: Bool = false, completion: @escaping (Bool, String?, ImportValidationResult?) -> Void) {
+        isImporting = true
+        
+        let openPanel = NSOpenPanel()
+        openPanel.title = "导入单词数据"
+        openPanel.message = "选择要导入的JSON文件"
+        openPanel.allowedContentTypes = [.json]
+        openPanel.allowsMultipleSelection = false
+        openPanel.canChooseDirectories = false
+        openPanel.canChooseFiles = true
+        
+        openPanel.begin { [weak self] response in
+            if response == .OK, let url = openPanel.url {
+                self?.performImport(from: url, replaceExisting: replaceExisting, completion: completion)
+            } else {
+                DispatchQueue.main.async {
+                    self?.isImporting = false
+                    completion(false, "导入已取消", nil)
+                }
+            }
+        }
+    }
+    
+    private func performImport(from url: URL, replaceExisting: Bool, completion: @escaping (Bool, String?, ImportValidationResult?) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            do {
+                let jsonData = try Data(contentsOf: url)
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+                
+                var importedWords: [Word] = []
+                
+                // 尝试解析为完整的WordTaggerExportData格式
+                if let exportData = try? decoder.decode(WordTaggerExportData.self, from: jsonData) {
+                    importedWords = exportData.words
+                } else if let words = try? decoder.decode([Word].self, from: jsonData) {
+                    // 向后兼容：直接解析为Word数组
+                    importedWords = words
+                } else {
+                    DispatchQueue.main.async {
+                        self?.isImporting = false
+                        completion(false, "文件格式无效，请确保这是一个有效的WordTagger数据文件", nil)
+                    }
+                    return
+                }
+                
+                let validationResult = self?.validateImportedData(importedWords)
+                
+                guard let validationResult = validationResult, validationResult.isValid else {
+                    DispatchQueue.main.async {
+                        self?.isImporting = false
+                        completion(false, "导入的数据无效或为空", validationResult)
+                    }
+                    return
+                }
+                
+                DispatchQueue.main.async {
+                    if replaceExisting {
+                        self?.words = validationResult.validWords
+                    } else {
+                        // 合并数据，避免重复
+                        let existingTexts = Set(self?.words.map { $0.text.lowercased() } ?? [])
+                        let newWords = validationResult.validWords.filter { word in
+                            !existingTexts.contains(word.text.lowercased())
+                        }
+                        self?.words.append(contentsOf: newWords)
+                    }
+                    
+                    self?.isImporting = false
+                    self?.objectWillChange.send()
+                    
+                    let message = replaceExisting ? 
+                        "成功导入 \(validationResult.validCount) 个单词，已替换原有数据" :
+                        "成功导入 \(validationResult.validCount) 个单词"
+                    
+                    completion(true, message, validationResult)
+                }
+                
+            } catch {
+                DispatchQueue.main.async {
+                    self?.isImporting = false
+                    completion(false, "导入失败: \(error.localizedDescription)", nil)
+                }
+            }
+        }
+    }
+    
+    private func validateImportedData(_ words: [Word]) -> ImportValidationResult {
+        var warnings: [String] = []
+        var validWords: [Word] = []
+        var duplicateCount = 0
+        
+        for word in words {
+            // 检查必要字段
+            if word.text.isEmpty {
+                warnings.append("发现空单词文本，已跳过")
+                continue
+            }
+            
+            // 检查重复
+            if validWords.contains(where: { $0.text.lowercased() == word.text.lowercased() }) {
+                duplicateCount += 1
+                continue
+            }
+            
+            validWords.append(word)
+        }
+        
+        if duplicateCount > 0 {
+            warnings.append("跳过了 \(duplicateCount) 个重复单词")
+        }
+        
+        return ImportValidationResult(
+            validWords: validWords,
+            warnings: warnings,
+            originalCount: words.count,
+            validCount: validWords.count
+        )
+    }
+    
+    public func clearAllData() {
+        words.removeAll()
+        selectedWord = nil
+        selectedTag = nil
+        searchQuery = ""
+        searchResults.removeAll()
+        objectWillChange.send()
+    }
+    
+    public func getExportSummary() -> ExportSummary {
+        let totalTags = words.flatMap { $0.tags }.count
+        let uniqueTags = Set(words.flatMap { $0.tags }).count
+        let tagTypes = Dictionary(grouping: words.flatMap { $0.tags }) { $0.type }
+        
+        var tagTypeCounts: [Tag.TagType: Int] = [:]
+        for type in Tag.TagType.allCases {
+            tagTypeCounts[type] = tagTypes[type]?.count ?? 0
+        }
+        
+        return ExportSummary(
+            totalWords: words.count,
+            totalTags: totalTags,
+            uniqueTags: uniqueTags,
+            tagTypeCounts: tagTypeCounts,
+            wordsWithLocation: words.filter { !$0.locationTags.isEmpty }.count
+        )
     }
 }
