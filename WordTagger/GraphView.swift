@@ -14,6 +14,7 @@ struct GraphView: View {
     @State private var selectedNodeId: String? = nil // 选中的节点ID
     @State private var nodeClusters: [NodeCluster] = [] // 节点簇列表
     @State private var selectedClusterIds: Set<String> = [] // 选中的节点簇ID
+    @State private var addedWordIds: Set<String> = [] // 通过搜索添加的单词ID
     
     enum NodeType: String, CaseIterable {
         case all = "全部"
@@ -82,21 +83,49 @@ struct GraphView: View {
                 
                 Spacer()
                 
-                // 搜索框
+                // 搜索框和添加功能
                 HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.secondary)
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.secondary)
+                        
+                        TextField("搜索单词或标签...", text: $searchQuery)
+                            .textFieldStyle(.plain)
+                            .frame(width: 200)
+                            .onSubmit {
+                                if !searchQuery.isEmpty {
+                                    addWordsToGraph(searchQuery)
+                                }
+                            }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color(NSColor.controlBackgroundColor))
+                    )
                     
-                    TextField("搜索单词或标签...", text: $searchQuery)
-                        .textFieldStyle(.plain)
-                        .frame(width: 200)
+                    // 添加到图谱按钮
+                    if !searchQuery.isEmpty {
+                        Button(action: {
+                            addWordsToGraph(searchQuery)
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "plus.circle.fill")
+                                Text("添加")
+                            }
+                            .font(.caption)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(Color.blue)
+                            )
+                        }
+                        .help("将搜索结果添加到图谱中显示")
+                    }
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(NSColor.controlBackgroundColor))
-                )
                 
                 // 简单的节点类型过滤器
                 Menu {
@@ -175,6 +204,19 @@ struct GraphView: View {
                 }
                 .help("节点簇过滤")
                 
+                // 清空添加的单词按钮
+                if !addedWordIds.isEmpty {
+                    Button(action: clearAddedWords) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "trash")
+                            Text("清空(\(addedWordIds.count))")
+                        }
+                        .font(.caption)
+                        .foregroundColor(.red)
+                    }
+                    .help("清空通过搜索添加的单词")
+                }
+                
                 Button(action: buildGraph) {
                     if isBuilding {
                         ProgressView()
@@ -219,7 +261,20 @@ struct GraphView: View {
                                     label: edge.type.rawValue
                                 )
                             },
-                            title: "节点关系图谱"
+                            title: "节点关系图谱",
+                            onNodeSelected: { nodeId in
+                                // 通过hashValue找到对应的原始节点ID
+                                if let selectedNode = createNodes().first(where: { $0.id.hashValue == nodeId }) {
+                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                        focusedNodeId = selectedNode.id
+                                    }
+                                }
+                            },
+                            onNodeDeselected: {
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    focusedNodeId = nil
+                                }
+                            }
                         )
                     }
                 }
@@ -295,6 +350,17 @@ struct GraphView: View {
                 node.label.localizedCaseInsensitiveContains(searchQuery) ||
                 node.subtitle.localizedCaseInsensitiveContains(searchQuery)
             }
+        }
+        
+        // 如果有通过搜索添加的单词，确保它们总是包含在结果中
+        if !addedWordIds.isEmpty {
+            let addedNodes = allNodes.filter { node in
+                addedWordIds.contains(node.id)
+            }
+            
+            // 合并添加的节点和过滤后的节点，去重
+            let combinedNodeIds = Set(filtered.map { $0.id }).union(Set(addedNodes.map { $0.id }))
+            filtered = allNodes.filter { combinedNodeIds.contains($0.id) }
         }
         
         // 按节点簇过滤
@@ -485,6 +551,44 @@ struct GraphView: View {
         }
         
         return clusterNodes
+    }
+    
+    // MARK: - Enhanced Search and Add Functionality
+    
+    private func addWordsToGraph(_ searchText: String) {
+        // 搜索匹配的单词
+        let matchingWords = store.words.filter { word in
+            word.text.localizedCaseInsensitiveContains(searchText) ||
+            (word.meaning?.localizedCaseInsensitiveContains(searchText) ?? false) ||
+            word.tags.contains { tag in
+                tag.value.localizedCaseInsensitiveContains(searchText)
+            }
+        }
+        
+        // 将匹配的单词ID添加到已添加列表中
+        for word in matchingWords {
+            addedWordIds.insert(word.id.uuidString)
+        }
+        
+        // 清空搜索框并重新构建图谱
+        withAnimation(.easeInOut(duration: 0.3)) {
+            searchQuery = ""
+            // 聚焦到第一个匹配的单词（如果有的话）
+            if let firstWord = matchingWords.first {
+                focusedNodeId = firstWord.id.uuidString
+            }
+        }
+        
+        // 重新构建图谱以反映新添加的节点
+        detectNodeClusters()
+    }
+    
+    private func clearAddedWords() {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            addedWordIds.removeAll()
+            focusedNodeId = nil
+        }
+        detectNodeClusters()
     }
 }
 
