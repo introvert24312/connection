@@ -34,17 +34,6 @@ struct ContentView: View {
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button(action: {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        showSidebar.toggle()
-                    }
-                }) {
-                    Image(systemName: showSidebar ? "sidebar.left" : "sidebar.left.slash")
-                        .foregroundColor(.gray)
-                }
-                .help("切换侧边栏 (⌘E)")
-                .keyboardShortcut("e", modifiers: .command)
-                
-                Button(action: {
                     openWindow(id: "map")
                 }) {
                     Image(systemName: "map")

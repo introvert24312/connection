@@ -317,8 +317,8 @@ struct TagChipsView: View {
     
     var body: some View {
         LazyVGrid(columns: [
-            GridItem(.adaptive(minimum: 80), spacing: 4)
-        ], spacing: 4) {
+            GridItem(.adaptive(minimum: 120), spacing: 6)
+        ], spacing: 6) {
             ForEach(tags.prefix(6), id: \.id) { tag in
                 TagChip(tag: tag, searchQuery: searchQuery)
             }
@@ -362,7 +362,8 @@ struct TagChip: View {
                     Text(tag.value)
                         .font(.body)
                         .fontWeight(.medium)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
                         .foregroundColor(.primary)
                 } else {
                     HighlightedText(
@@ -371,7 +372,8 @@ struct TagChip: View {
                         font: .body,
                         fontWeight: .medium
                     )
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
                     .foregroundColor(.primary)
                 }
                 
