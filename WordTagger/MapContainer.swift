@@ -24,7 +24,6 @@ struct MapContainer: View {
     @StateObject private var locationManager = LocationManager()
     @State private var selectedLocation: CLLocationCoordinate2D?
     @State private var selectedLocationName: String = ""
-    @State private var showingLocationConfirmation = false
     @State private var mapViewSize: CGSize = CGSize(width: 800, height: 600)
     
     var body: some View {
@@ -67,10 +66,6 @@ struct MapContainer: View {
         }
         .onChange(of: isLocationSelectionMode) { _, newValue in
             print("MapContainer: ⚠️ isLocationSelectionMode changed to \(newValue)")
-            print("MapContainer: showingLocationConfirmation is: \(showingLocationConfirmation)")
-        }
-        .onChange(of: showingLocationConfirmation) { _, newValue in
-            print("MapContainer: 🔄 showingLocationConfirmation changed to \(newValue)")
         }
     }
     
@@ -92,36 +87,21 @@ struct MapContainer: View {
                         }
                     }
                     
-                    // Apple风格位置选择大头针
-                    if isLocationSelectionMode && !showingLocationConfirmation {
-                        Annotation(
-                            "选择此位置",
-                            coordinate: region.center,
-                            anchor: .bottom
-                        ) {
-                            ApplePinView {
-                                selectCurrentLocation()
-                            }
-                        }
-                    }
-                    
-                    // 选中的位置标记
-                    if let selectedLocation = selectedLocation, showingLocationConfirmation {
+                    // 3D精美大头针 - 只在点击位置显示
+                    if let selectedLocation = selectedLocation {
                         Annotation(
                             "选中位置",
                             coordinate: selectedLocation,
                             anchor: .bottom
                         ) {
-                            SelectedLocationPinView()
+                            Premium3DPinView()
                         }
                     }
                 }
                 .mapStyle(.standard)
                 .onTapGesture { location in
-                    if isLocationSelectionMode {
-                        print("Map tapped at screen coordinates: \(location)")
-                        handleMapTap(at: location, mapSize: geometry.size)
-                    }
+                    print("Map tapped at screen coordinates: \(location)")
+                    handleMapTap(at: location, mapSize: geometry.size)
                 }
                 .onAppear {
                     mapViewSize = geometry.size
@@ -140,7 +120,7 @@ struct MapContainer: View {
         }
         .focusable()
         .onKeyPress(.return) {
-            if isLocationSelectionMode && showingLocationConfirmation {
+            if isLocationSelectionMode && selectedLocation != nil {
                 confirmLocationSelection()
                 return .handled
             }
@@ -148,12 +128,8 @@ struct MapContainer: View {
         }
         .onKeyPress(.escape) {
             if isLocationSelectionMode {
-                if showingLocationConfirmation {
-                    showingLocationConfirmation = false
-                    selectedLocation = nil
-                } else {
-                    isLocationSelectionMode = false
-                }
+                isLocationSelectionMode = false
+                selectedLocation = nil
                 return .handled
             }
             return .ignored
@@ -173,8 +149,6 @@ struct MapContainer: View {
                         .font(.caption)
                         .foregroundColor(.red)
                     Text("位置选择模式: \(isLocationSelectionMode ? "✅" : "❌")")
-                        .font(.caption)
-                    Text("显示确认界面: \(showingLocationConfirmation ? "✅" : "❌")")
                         .font(.caption)
                 }
                 .padding(8)
@@ -196,7 +170,7 @@ struct MapContainer: View {
                         Image(systemName: "location.fill")
                             .foregroundColor(.blue)
                         VStack(alignment: .leading, spacing: 2) {
-                            if showingLocationConfirmation {
+                            if let _ = selectedLocation {
                                 Text("已选择位置")
                                     .font(.headline)
                                 VStack(alignment: .leading, spacing: 1) {
@@ -214,9 +188,9 @@ struct MapContainer: View {
                                         .foregroundColor(.blue)
                                 }
                             } else {
-                                Text("选择位置")
+                                Text("点击地图选择位置")
                                     .font(.headline)
-                                Text("点击搜索结果、大头针或地图任意位置")
+                                Text("点击地图任意位置放置3D大头针")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
@@ -224,13 +198,12 @@ struct MapContainer: View {
                         Spacer()
                         Button("取消") {
                             isLocationSelectionMode = false
-                            showingLocationConfirmation = false
                             selectedLocation = nil
                         }
                         .buttonStyle(.bordered)
                     }
                     
-                    if showingLocationConfirmation {
+                    if let _ = selectedLocation {
                         HStack(spacing: 12) {
                             Button(action: {
                                 confirmLocationSelection()
@@ -244,7 +217,6 @@ struct MapContainer: View {
                             .keyboardShortcut(.return, modifiers: [])
                             
                             Button(action: {
-                                showingLocationConfirmation = false
                                 selectedLocation = nil
                             }) {
                                 HStack {
@@ -562,11 +534,8 @@ struct MapContainer: View {
                     self.selectedLocationName = "(\(String(format: "%.4f", tappedCoordinate.latitude)), \(String(format: "%.4f", tappedCoordinate.longitude)))"
                 }
                 
-                print("🎯 About to set showingLocationConfirmation = true")
-                print("🎯 Current isLocationSelectionMode: \(self.isLocationSelectionMode)")
-                self.showingLocationConfirmation = true
                 print("✅ Selected location: \(self.selectedLocationName)")
-                print("✅ showingLocationConfirmation is now: \(self.showingLocationConfirmation)")
+                print("🎯 3D大头针已放置在点击位置")
             }
         }
     }
@@ -575,7 +544,6 @@ struct MapContainer: View {
         let coordinate = region.center
         selectedLocation = coordinate
         selectedLocationName = "当前位置 (\(String(format: "%.4f", coordinate.latitude)), \(String(format: "%.4f", coordinate.longitude)))"
-        showingLocationConfirmation = true
         print("Selected current location: \(selectedLocationName)")
     }
     
@@ -592,7 +560,6 @@ struct MapContainer: View {
         
         // 重置状态
         isLocationSelectionMode = false
-        showingLocationConfirmation = false
         selectedLocation = nil
         
         // 延迟关闭地图窗口
@@ -1184,212 +1151,85 @@ struct ApplePinView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // 3D立体细针设计 - 真实感大头针
+            // 苹果地图标准大头针设计
             ZStack {
-                // 底层阴影 - 增强3D效果
+                // 阴影
                 Circle()
-                    .fill(Color.black.opacity(0.2))
-                    .frame(width: 18, height: 18)
-                    .offset(x: 1, y: 2)
-                    .blur(radius: 1)
+                    .fill(Color.black.opacity(0.25))
+                    .frame(width: 36, height: 36)
+                    .offset(x: 1, y: 3)
                 
-                // 针头主体 - 3D渐变效果
+                // 主体圆形 - 苹果标准红色
                 Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color.red.opacity(0.9),
-                                Color.red,
-                                Color.red.opacity(0.7)
-                            ],
-                            center: UnitPoint(x: 0.3, y: 0.3),
-                            startRadius: 2,
-                            endRadius: 8
-                        )
-                    )
-                    .frame(width: 16, height: 16)
+                    .fill(Color(red: 1.0, green: 0.23, blue: 0.19)) // #FF3B30
+                    .frame(width: 34, height: 34)
                     .overlay(
                         Circle()
-                            .stroke(
-                                LinearGradient(
-                                    colors: [Color.white.opacity(0.6), Color.gray.opacity(0.3)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1.0
-                            )
+                            .stroke(Color.white, lineWidth: 2)
                     )
-                    .shadow(color: .black.opacity(0.4), radius: 3, x: 1, y: 2)
+                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
                 
-                // 高光点 - 3D立体感
-                Circle()
-                    .fill(Color.white.opacity(0.8))
-                    .frame(width: 3, height: 3)
-                    .offset(x: -2, y: -2)
-                
-                // 中心精确点
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: 2, height: 2)
+                // 内部位置图标
+                Image(systemName: "location.fill")
+                    .foregroundColor(.white)
+                    .font(.system(size: 14, weight: .medium))
             }
             
-            // 3D针尖 - 带有立体阴影
-            ZStack {
-                // 针尖阴影
-                Path { path in
-                    path.move(to: CGPoint(x: 0, y: 0))
-                    path.addLine(to: CGPoint(x: -1.5, y: 10))
-                    path.addLine(to: CGPoint(x: 1.5, y: 10))
-                    path.closeSubpath()
-                }
-                .fill(Color.black.opacity(0.3))
-                .offset(x: 1, y: 1)
-                .blur(radius: 0.5)
-                
-                // 针尖主体 - 渐变3D效果
-                Path { path in
-                    path.move(to: CGPoint(x: 0, y: 0))
-                    path.addLine(to: CGPoint(x: -1.5, y: 10))
-                    path.addLine(to: CGPoint(x: 1.5, y: 10))
-                    path.closeSubpath()
-                }
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.red.opacity(0.9),
-                            Color.red,
-                            Color.red.opacity(0.6)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .overlay(
-                    Path { path in
-                        path.move(to: CGPoint(x: 0, y: 0))
-                        path.addLine(to: CGPoint(x: -1.5, y: 10))
-                        path.addLine(to: CGPoint(x: 1.5, y: 10))
-                        path.closeSubpath()
-                    }
-                    .stroke(Color.white.opacity(0.3), lineWidth: 0.3)
-                )
+            // 三角形指针
+            Path { path in
+                path.move(to: CGPoint(x: 0, y: 0))
+                path.addLine(to: CGPoint(x: -6, y: 12))
+                path.addLine(to: CGPoint(x: 6, y: 12))
+                path.closeSubpath()
             }
-            .offset(y: -1)
+            .fill(Color(red: 1.0, green: 0.23, blue: 0.19)) // #FF3B30
+            .overlay(
+                Path { path in
+                    path.move(to: CGPoint(x: 0, y: 0))
+                    path.addLine(to: CGPoint(x: -6, y: 12))
+                    path.addLine(to: CGPoint(x: 6, y: 12))
+                    path.closeSubpath()
+                }
+                .stroke(Color.white, lineWidth: 2)
+            )
+            .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
+            .offset(y: -2)
         }
         .onTapGesture {
             onTap()
         }
-        .scaleEffect(1.0)
         .animation(.easeInOut(duration: 0.2), value: true)
     }
 }
 
-// MARK: - Selected Location Pin View
+// MARK: - Premium 3D Pin View
 
-struct SelectedLocationPinView: View {
-    @State private var isAnimating = false
-    
+struct Premium3DPinView: View {
     var body: some View {
-        VStack(spacing: 0) {
-            // 3D立体确认针设计 - 蓝色版本
-            ZStack {
-                // 底层阴影 - 增强3D效果
-                Circle()
-                    .fill(Color.black.opacity(0.2))
-                    .frame(width: 18, height: 18)
-                    .offset(x: 1, y: 2)
-                    .blur(radius: 1)
-                
-                // 针头主体 - 3D渐变效果（蓝色）
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color.blue.opacity(0.9),
-                                Color.blue,
-                                Color.blue.opacity(0.7)
-                            ],
-                            center: UnitPoint(x: 0.3, y: 0.3),
-                            startRadius: 2,
-                            endRadius: 8
-                        )
-                    )
-                    .frame(width: 16, height: 16)
-                    .overlay(
-                        Circle()
-                            .stroke(
-                                LinearGradient(
-                                    colors: [Color.white.opacity(0.6), Color.gray.opacity(0.3)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1.0
-                            )
-                    )
-                    .shadow(color: .black.opacity(0.4), radius: 3, x: 1, y: 2)
-                    .scaleEffect(isAnimating ? 1.1 : 1.0)
-                
-                // 高光点 - 3D立体感
-                Circle()
-                    .fill(Color.white.opacity(0.8))
-                    .frame(width: 3, height: 3)
-                    .offset(x: -2, y: -2)
-                
-                // 确认标记 - 白色勾号
-                Text("✓")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundColor(.white)
-            }
-            
-            // 3D针尖 - 带有立体阴影（蓝色）
-            ZStack {
-                // 针尖阴影
-                Path { path in
-                    path.move(to: CGPoint(x: 0, y: 0))
-                    path.addLine(to: CGPoint(x: -1.5, y: 10))
-                    path.addLine(to: CGPoint(x: 1.5, y: 10))
-                    path.closeSubpath()
-                }
-                .fill(Color.black.opacity(0.3))
-                .offset(x: 1, y: 1)
-                .blur(radius: 0.5)
-                
-                // 针尖主体 - 渐变3D效果（蓝色）
-                Path { path in
-                    path.move(to: CGPoint(x: 0, y: 0))
-                    path.addLine(to: CGPoint(x: -1.5, y: 10))
-                    path.addLine(to: CGPoint(x: 1.5, y: 10))
-                    path.closeSubpath()
-                }
+        // 创建自定义图标 - 仿你的SVG设计
+        ZStack {
+            // 主体圆形
+            Circle()
                 .fill(
                     LinearGradient(
-                        colors: [
-                            Color.blue.opacity(0.9),
-                            Color.blue,
-                            Color.blue.opacity(0.6)
-                        ],
+                        gradient: Gradient(colors: [Color.red.opacity(0.9), Color.red.opacity(0.7)]),
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
+                .frame(width: 32, height: 32)
                 .overlay(
-                    Path { path in
-                        path.move(to: CGPoint(x: 0, y: 0))
-                        path.addLine(to: CGPoint(x: -1.5, y: 10))
-                        path.addLine(to: CGPoint(x: 1.5, y: 10))
-                        path.closeSubpath()
-                    }
-                    .stroke(Color.white.opacity(0.3), lineWidth: 0.3)
+                    Circle()
+                        .stroke(Color.white, lineWidth: 3)
                 )
-            }
-            .offset(y: -1)
+                .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+            
+            // 中心点
+            Circle()
+                .fill(Color.white)
+                .frame(width: 8, height: 8)
         }
-        .scaleEffect(1.1)
-        .onAppear {
-            withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
-                isAnimating = true
-            }
-        }
+        .onAppear { print("✅ 使用自定义大头针图标 - 基于你的SVG设计") }
     }
 }
 
