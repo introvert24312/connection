@@ -592,19 +592,19 @@ struct WordTaggerApp: App {
                 
                 Button("添加单词") {
                     // 触发添加单词对话框
-                    NotificationCenter.default.post(name: .addNewWord, object: nil)
+                    NotificationCenter.default.post(name: Notification.Name("addNewWord"), object: nil)
                 }
                 .keyboardShortcut("n", modifiers: [.command])
                 
                 Divider()
                 
                 Button("打开地图") {
-                    NotificationCenter.default.post(name: .openMapWindow, object: nil)
+                    NotificationCenter.default.post(name: Notification.Name("openMapWindow"), object: nil)
                 }
                 .keyboardShortcut("m", modifiers: [.command])
                 
                 Button("打开图谱") {
-                    NotificationCenter.default.post(name: .openGraphWindow, object: nil)
+                    NotificationCenter.default.post(name: Notification.Name("openGraphWindow"), object: nil)
                 }
                 .keyboardShortcut("g", modifiers: [.command])
             }

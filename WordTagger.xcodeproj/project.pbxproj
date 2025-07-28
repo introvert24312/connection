@@ -25,6 +25,8 @@
 		A016 /* WordListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B116 /* WordListView.swift */; };
 		A017 /* MapWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B117 /* MapWindow.swift */; };
 		A018 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B118 /* SettingsView.swift */; };
+		A019 /* GrapeGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B119 /* GrapeGraphView.swift */; };
+		A020 /* UniversalRelationshipGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B121 /* UniversalRelationshipGraphView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -47,7 +49,9 @@
 		B116 /* WordListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordListView.swift; sourceTree = "<group>"; };
 		B117 /* MapWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapWindow.swift; sourceTree = "<group>"; };
 		B118 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		B119 /* WordTagger.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WordTagger.entitlements; sourceTree = "<group>"; };
+		B119 /* GrapeGraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrapeGraphView.swift; sourceTree = "<group>"; };
+	B120 /* WordTagger.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WordTagger.entitlements; sourceTree = "<group>"; };
+		B121 /* UniversalRelationshipGraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UniversalRelationshipGraphView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -97,8 +101,10 @@
 				B116 /* WordListView.swift */,
 				B117 /* MapWindow.swift */,
 				B118 /* SettingsView.swift */,
+				B119 /* GrapeGraphView.swift */,
+				B121 /* UniversalRelationshipGraphView.swift */,
 				B103 /* Assets.xcassets */,
-				B119 /* WordTagger.entitlements */,
+				B120 /* WordTagger.entitlements */,
 			);
 			path = WordTagger;
 			sourceTree = "<group>";
@@ -189,6 +195,8 @@
 				A016 /* WordListView.swift in Sources */,
 				A017 /* MapWindow.swift in Sources */,
 				A018 /* SettingsView.swift in Sources */,
+				A019 /* GrapeGraphView.swift in Sources */,
+				A020 /* UniversalRelationshipGraphView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
