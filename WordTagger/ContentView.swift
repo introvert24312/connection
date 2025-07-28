@@ -5,18 +5,22 @@ import MapKit
 struct ContentView: View {
     @EnvironmentObject private var store: WordStore
     @State private var selectedWord: Word?
+    @State private var showSidebar: Bool = true
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        NavigationSplitView {
+        HStack(spacing: 0) {
             // 左侧：标签和搜索
-            TagSidebarView(selectedWord: $selectedWord)
-                .frame(minWidth: 350, idealWidth: 400)
-        } content: {
+            if showSidebar {
+                TagSidebarView(selectedWord: $selectedWord)
+                    .frame(width: 300)
+                    .transition(.move(edge: .leading).combined(with: .opacity))
+            }
+            
             // 中间：单词列表
             WordListView(selectedWord: $selectedWord)
-                .frame(minWidth: 400)
-        } detail: {
+                .frame(minWidth: showSidebar ? 400 : 500)
+            
             // 右侧：详情面板
             if let word = selectedWord {
                 DetailPanel(word: word)
@@ -26,8 +30,20 @@ struct ContentView: View {
                     .frame(minWidth: 500)
             }
         }
+        .animation(.easeInOut(duration: 0.3), value: showSidebar)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showSidebar.toggle()
+                    }
+                }) {
+                    Image(systemName: showSidebar ? "sidebar.left" : "sidebar.left.slash")
+                        .foregroundColor(.gray)
+                }
+                .help("切换侧边栏 (⌘E)")
+                .keyboardShortcut("e", modifiers: .command)
+                
                 Button(action: {
                     openWindow(id: "map")
                 }) {
@@ -76,6 +92,17 @@ struct ContentView: View {
                 queue: .main
             ) { _ in
                 openWindow(id: "graph")
+            }
+            
+            // 监听切换侧边栏的通知
+            NotificationCenter.default.addObserver(
+                forName: Notification.Name("toggleSidebar"),
+                object: nil,
+                queue: .main
+            ) { _ in
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showSidebar.toggle()
+                }
             }
         }
     }

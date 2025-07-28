@@ -202,14 +202,14 @@ struct TagRowView: View {
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(tag.value)
-                        .font(.body)
+                        .font(.system(size: 16, weight: .medium))
                         .foregroundColor(.primary)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                     
                     HStack {
                         Text(tag.type.displayName)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.system(size: 13, weight: .medium))
                             .foregroundColor(.secondary)
                         
                         if tag.hasCoordinates {
@@ -225,12 +225,11 @@ struct TagRowView: View {
                 // 单词数量
                 VStack {
                     Text("\(wordsCount)")
-                        .font(.caption)
-                        .fontWeight(.medium)
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundColor(.blue)
                     
                     Text("单词")
-                        .font(.caption2)
+                        .font(.system(size: 11))
                         .foregroundColor(.secondary)
                 }
             }

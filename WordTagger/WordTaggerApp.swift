@@ -634,6 +634,11 @@ struct WordTaggerApp: App {
                 }
                 .keyboardShortcut("f", modifiers: [.command])
                 
+                Button("切换侧边栏") {
+                    NotificationCenter.default.post(name: Notification.Name("toggleSidebar"), object: nil)
+                }
+                .keyboardShortcut("e", modifiers: [.command])
+                
                 Button("标签管理") {
                     showTagManager = true
                 }

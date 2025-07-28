@@ -205,7 +205,7 @@ struct WordRowView: View {
                     HighlightedText(
                         text: word.text,
                         searchQuery: searchQuery,
-                        font: .title3,
+                        font: .title2,
                         fontWeight: .semibold
                     )
                     
@@ -214,7 +214,7 @@ struct WordRowView: View {
                     // 音标
                     if let phonetic = word.phonetic {
                         Text(phonetic)
-                            .font(.caption)
+                            .font(.body)
                             .foregroundColor(.secondary)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
@@ -230,7 +230,7 @@ struct WordRowView: View {
                     HighlightedText(
                         text: meaning,
                         searchQuery: searchQuery,
-                        font: .body,
+                        font: .title3,
                         fontWeight: .regular
                     )
                     .foregroundColor(.secondary)
@@ -360,7 +360,7 @@ struct TagChip: View {
                 
                 if searchQuery.isEmpty {
                     Text(tag.value)
-                        .font(.callout) // 从 caption2 改为更大的 callout
+                        .font(.body)
                         .fontWeight(.medium)
                         .lineLimit(1)
                         .foregroundColor(.primary)
@@ -368,7 +368,7 @@ struct TagChip: View {
                     HighlightedText(
                         text: tag.value,
                         searchQuery: searchQuery,
-                        font: .callout, // 从 caption2 改为更大的 callout
+                        font: .body,
                         fontWeight: .medium
                     )
                     .lineLimit(1)
@@ -381,7 +381,7 @@ struct TagChip: View {
                     .foregroundColor(Color.from(tagType: tag.type))
                 
                 Text(tag.type.displayName)
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundColor(.secondary)
             }
             .padding(.horizontal, 12)
