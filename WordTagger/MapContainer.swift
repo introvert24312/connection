@@ -25,6 +25,7 @@ struct MapContainer: View {
     @State private var selectedLocation: CLLocationCoordinate2D?
     @State private var selectedLocationName: String = ""
     @State private var showingLocationConfirmation = false
+    @State private var mapViewSize: CGSize = CGSize(width: 800, height: 600)
     
     var body: some View {
         ZStack {
@@ -35,6 +36,18 @@ struct MapContainer: View {
         .onAppear {
             locationManager.requestLocation()
             print("MapContainer appeared, isLocationSelectionMode: \(isLocationSelectionMode)")
+            
+            // 监听位置选择模式通知
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("openMapForLocationSelection"),
+                object: nil,
+                queue: .main
+            ) { _ in
+                print("🎯 MapContainer: Received openMapForLocationSelection notification!")
+                print("🎯 MapContainer: Current isLocationSelectionMode before: \(isLocationSelectionMode)")
+                // 注意：这里不能直接设置，因为isLocationSelectionMode是@Binding
+                // 它应该由MapWindow来控制
+            }
         }
         .onChange(of: locationManager.location) { _, newLocation in
             if let location = newLocation {
@@ -53,54 +66,76 @@ struct MapContainer: View {
             }
         }
         .onChange(of: isLocationSelectionMode) { _, newValue in
-            print("MapContainer: isLocationSelectionMode changed to \(newValue)")
+            print("MapContainer: ⚠️ isLocationSelectionMode changed to \(newValue)")
+            print("MapContainer: showingLocationConfirmation is: \(showingLocationConfirmation)")
+        }
+        .onChange(of: showingLocationConfirmation) { _, newValue in
+            print("MapContainer: 🔄 showingLocationConfirmation changed to \(newValue)")
         }
     }
     
     // MARK: - View Components
     
     private var mapView: some View {
-        Map(position: $cameraPosition) {
-            ForEach(locationAnnotations, id: \.id) { annotation in
-                Annotation(
-                    annotation.title,
-                    coordinate: annotation.coordinate,
-                    anchor: .center
-                ) {
-                    LocationMarkerView(annotation: annotation) {
-                        selectedWord = annotation.word
+        ZStack {
+            GeometryReader { geometry in
+                Map(position: $cameraPosition) {
+                    ForEach(locationAnnotations, id: \.id) { annotation in
+                        Annotation(
+                            annotation.title,
+                            coordinate: annotation.coordinate,
+                            anchor: .center
+                        ) {
+                            LocationMarkerView(annotation: annotation) {
+                                selectedWord = annotation.word
+                            }
+                        }
+                    }
+                    
+                    // Apple风格位置选择大头针
+                    if isLocationSelectionMode && !showingLocationConfirmation {
+                        Annotation(
+                            "选择此位置",
+                            coordinate: region.center,
+                            anchor: .bottom
+                        ) {
+                            ApplePinView {
+                                selectCurrentLocation()
+                            }
+                        }
+                    }
+                    
+                    // 选中的位置标记
+                    if let selectedLocation = selectedLocation, showingLocationConfirmation {
+                        Annotation(
+                            "选中位置",
+                            coordinate: selectedLocation,
+                            anchor: .bottom
+                        ) {
+                            SelectedLocationPinView()
+                        }
                     }
                 }
-            }
-            
-            // Apple风格位置选择大头针
-            if isLocationSelectionMode && !showingLocationConfirmation {
-                Annotation(
-                    "选择此位置",
-                    coordinate: region.center,
-                    anchor: .bottom
-                ) {
-                    ApplePinView {
-                        selectCurrentLocation()
+                .mapStyle(.standard)
+                .onTapGesture { location in
+                    if isLocationSelectionMode {
+                        print("Map tapped at screen coordinates: \(location)")
+                        handleMapTap(at: location, mapSize: geometry.size)
                     }
                 }
-            }
-            
-            // 选中的位置标记
-            if let selectedLocation = selectedLocation, showingLocationConfirmation {
-                Annotation(
-                    "选中位置",
-                    coordinate: selectedLocation,
-                    anchor: .bottom
-                ) {
-                    SelectedLocationPinView()
+                .onAppear {
+                    mapViewSize = geometry.size
+                    print("📏 Map view size: \(mapViewSize)")
                 }
-            }
-        }
-        .mapStyle(.standard)
-        .onTapGesture(coordinateSpace: .local) { location in
-            if isLocationSelectionMode {
-                handleMapTap(at: location)
+                .onChange(of: geometry.size) { _, newSize in
+                    mapViewSize = newSize
+                    print("📏 Map view size changed to: \(mapViewSize)")
+                }
+                .onMapCameraChange { context in
+                    // 同步region和cameraPosition
+                    region = context.region
+                    print("🗺️ Map region updated: center=\(context.region.center), span=\(context.region.span)")
+                }
             }
         }
         .focusable()
@@ -130,6 +165,24 @@ struct MapContainer: View {
             locationSelectionPrompt
             toolbarView
             searchResultsView
+            
+            // 调试信息覆盖层
+            if isLocationSelectionMode {
+                VStack {
+                    Text("🐛 调试信息")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                    Text("位置选择模式: \(isLocationSelectionMode ? "✅" : "❌")")
+                        .font(.caption)
+                    Text("显示确认界面: \(showingLocationConfirmation ? "✅" : "❌")")
+                        .font(.caption)
+                }
+                .padding(8)
+                .background(Color.yellow.opacity(0.8))
+                .cornerRadius(8)
+                .padding()
+            }
+            
             Spacer()
             selectedWordCard
         }
@@ -441,26 +494,42 @@ struct MapContainer: View {
         }
     }
     
-    private func handleMapTap(at location: CGPoint) {
+    private func handleMapTap(at location: CGPoint, mapSize: CGSize) {
         print("Map tapped at screen coordinates: \(location)")
         
-        // 由于SwiftUI Map的限制，我们使用当前地图中心附近的位置
-        // 根据点击位置相对于地图中心的偏移来计算坐标
-        let mapCenter = region.center
+        // 获取当前地图的显示区域
+        let currentRegion = region
         
-        // 简化的坐标偏移计算（这是一个近似方法）
-        // 实际项目中可能需要更精确的投影转换
-        let offsetScale = 0.0001 // 调整这个值来改变点击精度
-        let latOffset = (location.y - 400) * offsetScale // 假设地图高度约800px，中心在400px
-        let lngOffset = (location.x - 400) * offsetScale // 假设地图宽度约800px，中心在400px
+        // 使用实际的地图视图尺寸
+        let mapViewWidth = mapSize.width
+        let mapViewHeight = mapSize.height
+        
+        print("📏 Using map size: \(mapSize)")
+        
+        // 计算点击位置相对于地图中心的偏移比例
+        let centerX = mapViewWidth / 2
+        let centerY = mapViewHeight / 2
+        
+        let offsetX = location.x - centerX  // 相对于中心的像素偏移
+        let offsetY = location.y - centerY
+        
+        // 将像素偏移转换为地理坐标偏移
+        // 考虑当前地图的缩放级别（span）
+        let longitudeOffset = Double(offsetX) * currentRegion.span.longitudeDelta / Double(mapViewWidth)
+        let latitudeOffset = -Double(offsetY) * currentRegion.span.latitudeDelta / Double(mapViewHeight) // Y轴翻转
         
         let tappedCoordinate = CLLocationCoordinate2D(
-            latitude: mapCenter.latitude - latOffset,
-            longitude: mapCenter.longitude + lngOffset
+            latitude: currentRegion.center.latitude + latitudeOffset,
+            longitude: currentRegion.center.longitude + longitudeOffset
         )
         
         selectedLocation = tappedCoordinate
-        print("Calculated tapped coordinate: \(tappedCoordinate)")
+        print("🎯 Calculated tapped coordinate: \(tappedCoordinate)")
+        print("🎯 Map center: \(currentRegion.center)")
+        print("🎯 Map span: \(currentRegion.span)")
+        print("🎯 Map center should be at: (\(centerX), \(centerY))")
+        print("🎯 Click offset: (\(offsetX), \(offsetY)) pixels")
+        print("🎯 Geo offset: (\(longitudeOffset), \(latitudeOffset)) degrees")
         
         // 反向地理编码获取地址信息
         let geocoder = CLGeocoder()
@@ -493,8 +562,11 @@ struct MapContainer: View {
                     self.selectedLocationName = "(\(String(format: "%.4f", tappedCoordinate.latitude)), \(String(format: "%.4f", tappedCoordinate.longitude)))"
                 }
                 
+                print("🎯 About to set showingLocationConfirmation = true")
+                print("🎯 Current isLocationSelectionMode: \(self.isLocationSelectionMode)")
                 self.showingLocationConfirmation = true
-                print("Selected location: \(self.selectedLocationName)")
+                print("✅ Selected location: \(self.selectedLocationName)")
+                print("✅ showingLocationConfirmation is now: \(self.showingLocationConfirmation)")
             }
         }
     }

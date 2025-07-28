@@ -234,15 +234,18 @@ struct QuickAddSheetView: View {
     }
     
     private func openMapForLocationSelection() {
-        print("Opening map for location selection...")
+        print("📍 QuickAddSheetView: Opening map for location selection...")
         isWaitingForLocationSelection = true
         
         // 打开地图窗口
+        print("📍 QuickAddSheetView: Posting openMapWindow notification")
         NotificationCenter.default.post(name: .openMapWindow, object: nil)
         
         // 设置为位置选择模式
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            print("📍 QuickAddSheetView: About to post openMapForLocationSelection notification")
             NotificationCenter.default.post(name: NSNotification.Name("openMapForLocationSelection"), object: nil)
+            print("📍 QuickAddSheetView: Posted openMapForLocationSelection notification")
         }
     }
     
