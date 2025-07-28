@@ -11,7 +11,7 @@ struct DetailPanel: View {
     enum Tab: String, CaseIterable {
         case detail = "详情"
         case map = "地图"
-        case related = "关联"
+        case related = "图谱"
     }
     
     var body: some View {
@@ -47,7 +47,7 @@ struct DetailPanel: View {
                 case .map:
                     WordMapView(word: word)
                 case .related:
-                    RelatedWordsView(word: word)
+                    WordGraphView(word: word)
                 }
             }
         }
@@ -429,9 +429,39 @@ struct MapPinView: View {
     }
 }
 
-// MARK: - 关联单词视图
+// MARK: - 单词图谱节点数据模型
 
-struct RelatedWordsView: View {
+struct WordGraphNode: UniversalGraphNode {
+    let id: Int
+    let label: String
+    let subtitle: String?
+    let word: Word
+    let isCenter: Bool
+    
+    init(word: Word, isCenter: Bool = false) {
+        self.id = word.text.hashValue // 使用单词文本的hash作为ID
+        self.label = word.text
+        self.subtitle = word.meaning
+        self.word = word
+        self.isCenter = isCenter
+    }
+}
+
+struct WordGraphEdge: UniversalGraphEdge {
+    let fromId: Int
+    let toId: Int
+    let label: String?
+    
+    init(from: WordGraphNode, to: WordGraphNode, relationshipType: String) {
+        self.fromId = from.id
+        self.toId = to.id
+        self.label = relationshipType
+    }
+}
+
+// MARK: - 单词关系图谱视图
+
+struct WordGraphView: View {
     let word: Word
     @EnvironmentObject private var store: WordStore
     
@@ -443,115 +473,79 @@ struct RelatedWordsView: View {
         }
     }
     
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack {
-                    Text("相关单词")
-                        .font(.headline)
-                    
-                    Spacer()
-                    
-                    Text("\(relatedWords.count) 个")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                
-                if relatedWords.isEmpty {
-                    EmptyRelatedWordsView()
-                } else {
-                    LazyVGrid(columns: [
-                        GridItem(.adaptive(minimum: 200), spacing: 16)
-                    ], spacing: 16) {
-                        ForEach(relatedWords, id: \.id) { relatedWord in
-                            RelatedWordCard(word: relatedWord, originalWord: word)
-                        }
-                    }
-                }
-            }
-            .padding(24)
+    private var graphNodes: [WordGraphNode] {
+        var nodes: [WordGraphNode] = []
+        
+        // 添加中心节点（当前单词）
+        nodes.append(WordGraphNode(word: word, isCenter: true))
+        
+        // 添加相关单词节点
+        for relatedWord in relatedWords {
+            nodes.append(WordGraphNode(word: relatedWord, isCenter: false))
         }
+        
+        return nodes
     }
-}
-
-struct RelatedWordCard: View {
-    let word: Word
-    let originalWord: Word
-    @EnvironmentObject private var store: WordStore
     
-    private var commonTags: [Tag] {
-        let originalTags = Set(originalWord.tags)
-        return word.tags.filter { originalTags.contains($0) }
+    private var graphEdges: [WordGraphEdge] {
+        var edges: [WordGraphEdge] = []
+        let centerNode = graphNodes.first { $0.isCenter }!
+        
+        // 为每个相关单词创建与中心节点的连接
+        for node in graphNodes where !node.isCenter {
+            // 找到共同标签来确定关系类型
+            let centerTags = Set(word.tags)
+            let nodeTags = Set(node.word.tags)
+            let commonTags = centerTags.intersection(nodeTags)
+            
+            let relationshipType = commonTags.isEmpty ? "相关" : commonTags.first!.type.displayName
+            
+            edges.append(WordGraphEdge(
+                from: centerNode,
+                to: node,
+                relationshipType: relationshipType
+            ))
+        }
+        
+        return edges
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(word.text)
+        VStack(spacing: 0) {
+            // 标题栏
+            HStack {
+                Text("关系图谱")
                     .font(.headline)
                 
-                if let meaning = word.meaning {
-                    Text(meaning)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
-                }
+                Spacer()
+                
+                Text("\(graphNodes.count) 个节点")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
+            .padding()
+            .background(Color(NSColor.controlBackgroundColor))
             
-            if !commonTags.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("共同标签")
-                        .font(.caption2)
-                        .foregroundColor(Color.secondary)
-                    
-                    LazyVGrid(columns: [
-                        GridItem(.adaptive(minimum: 60), spacing: 4)
-                    ], spacing: 4) {
-                        ForEach(commonTags.prefix(3), id: \.id) { tag in
-                            TagChip(tag: tag, searchQuery: "")
-                        }
-                        
-                        if commonTags.count > 3 {
-                            Text("+\(commonTags.count - 3)")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
+            Divider()
+            
+            // 图谱内容
+            if relatedWords.isEmpty {
+                EmptyGraphView()
+            } else {
+                UniversalRelationshipGraphView(
+                    nodes: graphNodes,
+                    edges: graphEdges,
+                    title: "单词关系图谱",
+                    onNodeSelected: { nodeId in
+                        // 当点击节点时，选择对应的单词
+                        if let selectedNode = graphNodes.first(where: { $0.id == nodeId }) {
+                            store.selectWord(selectedNode.word)
                         }
                     }
-                }
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.gray.opacity(0.05))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                )
-        )
-        .onTapGesture {
-            store.selectWord(word)
-        }
-    }
-}
-
-struct EmptyRelatedWordsView: View {
-    var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "link")
-                .font(.largeTitle)
-                .foregroundColor(.gray)
-            
-            Text("暂无相关单词")
-                .font(.body)
-                .foregroundColor(.secondary)
-            
-            Text("当其他单词具有相同的标签时，它们会在这里显示")
-                .font(.caption)
-                .foregroundColor(Color.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, minHeight: 200)
     }
 }
 

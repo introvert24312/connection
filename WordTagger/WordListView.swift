@@ -160,8 +160,16 @@ struct WordListView: View {
         let filteredWords: [Word]
         
         if !store.searchQuery.isEmpty {
-            // 使用搜索结果
-            filteredWords = store.searchResults.map { $0.word }
+            // 使用搜索结果，但同时考虑selectedTag过滤
+            let searchResults = store.searchResults.map { $0.word }
+            if let selectedTag = store.selectedTag {
+                filteredWords = searchResults.filter { $0.hasTag(selectedTag) }
+            } else {
+                filteredWords = searchResults
+            }
+        } else if let selectedTag = store.selectedTag {
+            // 如果选中了标签，只显示包含该标签的单词
+            filteredWords = store.words(withTag: selectedTag)
         } else {
             // 应用过滤器
             filteredWords = store.search("", filter: searchFilter)

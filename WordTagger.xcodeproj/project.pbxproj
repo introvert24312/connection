@@ -27,6 +27,7 @@
 		A018 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B118 /* SettingsView.swift */; };
 		A019 /* GrapeGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B119 /* GrapeGraphView.swift */; };
 		A020 /* UniversalRelationshipGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B121 /* UniversalRelationshipGraphView.swift */; };
+		A021 /* WordManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B122 /* WordManagerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -52,6 +53,7 @@
 		B119 /* GrapeGraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrapeGraphView.swift; sourceTree = "<group>"; };
 	B120 /* WordTagger.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WordTagger.entitlements; sourceTree = "<group>"; };
 		B121 /* UniversalRelationshipGraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UniversalRelationshipGraphView.swift; sourceTree = "<group>"; };
+		B122 /* WordManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordManagerView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -103,6 +105,7 @@
 				B118 /* SettingsView.swift */,
 				B119 /* GrapeGraphView.swift */,
 				B121 /* UniversalRelationshipGraphView.swift */,
+				B122 /* WordManagerView.swift */,
 				B103 /* Assets.xcassets */,
 				B120 /* WordTagger.entitlements */,
 			);
@@ -197,6 +200,7 @@
 				A018 /* SettingsView.swift in Sources */,
 				A019 /* GrapeGraphView.swift in Sources */,
 				A020 /* UniversalRelationshipGraphView.swift in Sources */,
+				A021 /* WordManagerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

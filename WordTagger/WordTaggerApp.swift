@@ -644,6 +644,11 @@ struct WordTaggerApp: App {
                 }
                 .keyboardShortcut("i", modifiers: [.command, .shift])
                 
+                Button("单词管理") {
+                    NotificationCenter.default.post(name: Notification.Name("openWordManager"), object: nil)
+                }
+                .keyboardShortcut("w", modifiers: [.command, .shift])
+                
                 Divider()
                 
                 Button("添加单词") {
@@ -681,6 +686,14 @@ struct WordTaggerApp: App {
                 .frame(minWidth: 1000, minHeight: 700)
         }
         .defaultSize(width: 1200, height: 800)
+        
+        // 单词管理窗口
+        WindowGroup("单词管理", id: "wordManager") {
+            WordManagerView()
+                .environmentObject(store)
+                .frame(minWidth: 800, minHeight: 600)
+        }
+        .defaultSize(width: 1000, height: 700)
         
         // 设置窗口
         Settings {

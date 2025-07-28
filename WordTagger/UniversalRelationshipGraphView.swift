@@ -16,6 +16,31 @@ protocol UniversalGraphEdge {
 
 // MARK: - 数据模型适配 - 移除extension，使用专用适配器
 
+// MARK: - 图谱协调器协议
+protocol GraphCoordinator {
+    func fitGraph()
+}
+
+// MARK: - 全局图谱管理器
+class GraphManager: ObservableObject {
+    static let shared = GraphManager()
+    private var coordinators: [ObjectIdentifier: GraphCoordinator] = [:]
+    
+    func registerCoordinator(_ coordinator: GraphCoordinator, for view: ObjectIdentifier) {
+        coordinators[view] = coordinator
+    }
+    
+    func getCoordinator(for view: ObjectIdentifier) -> GraphCoordinator? {
+        return coordinators[view]
+    }
+    
+    func fitAllGraphs() {
+        for (_, coordinator) in coordinators {
+            coordinator.fitGraph()
+        }
+    }
+}
+
 // MARK: - 通用关系图组件
 struct UniversalRelationshipGraphView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>: View {
     let nodes: [Node]
@@ -23,14 +48,17 @@ struct UniversalRelationshipGraphView<Node: UniversalGraphNode, Edge: UniversalG
     let title: String
     let onNodeSelected: ((Int) -> Void)?
     let onNodeDeselected: (() -> Void)?
+    let onFitGraph: (() -> Void)?
     @State private var debugInfo = ""
+    @State private var viewId = ObjectIdentifier(UUID() as AnyObject)
     
-    init(nodes: [Node], edges: [Edge], title: String = "节点关系图", onNodeSelected: ((Int) -> Void)? = nil, onNodeDeselected: (() -> Void)? = nil) {
+    init(nodes: [Node], edges: [Edge], title: String = "节点关系图", onNodeSelected: ((Int) -> Void)? = nil, onNodeDeselected: (() -> Void)? = nil, onFitGraph: (() -> Void)? = nil) {
         self.nodes = nodes
         self.edges = edges
         self.title = title
         self.onNodeSelected = onNodeSelected
         self.onNodeDeselected = onNodeDeselected
+        self.onFitGraph = onFitGraph
     }
     
     var body: some View {
@@ -47,9 +75,14 @@ struct UniversalRelationshipGraphView<Node: UniversalGraphNode, Edge: UniversalG
                         }
                     },
                     onNodeSelected: onNodeSelected,
-                    onNodeDeselected: onNodeDeselected
+                    onNodeDeselected: onNodeDeselected,
+                    onFitGraph: onFitGraph
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .onReceive(NotificationCenter.default.publisher(for: Notification.Name("fitGraph"))) { _ in
+                    // 调用fit功能
+                    GraphManager.shared.fitAllGraphs()
+                }
             }
         }
         .navigationTitle(title)
@@ -81,13 +114,15 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
     let onDebugInfo: (String) -> Void
     let onNodeSelected: ((Int) -> Void)?
     let onNodeDeselected: (() -> Void)?
+    let onFitGraph: (() -> Void)?
     
-    init(nodes: [Node], edges: [Edge], onDebugInfo: @escaping (String) -> Void, onNodeSelected: ((Int) -> Void)? = nil, onNodeDeselected: (() -> Void)? = nil) {
+    init(nodes: [Node], edges: [Edge], onDebugInfo: @escaping (String) -> Void, onNodeSelected: ((Int) -> Void)? = nil, onNodeDeselected: (() -> Void)? = nil, onFitGraph: (() -> Void)? = nil) {
         self.nodes = nodes
         self.edges = edges
         self.onDebugInfo = onDebugInfo
         self.onNodeSelected = onNodeSelected
         self.onNodeDeselected = onNodeDeselected
+        self.onFitGraph = onFitGraph
     }
     
     func makeNSView(context: Context) -> WKWebView {
@@ -102,6 +137,8 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         context.coordinator.onDebugInfo = onDebugInfo
         context.coordinator.onNodeSelected = onNodeSelected
         context.coordinator.onNodeDeselected = onNodeDeselected
+        context.coordinator.onFitGraph = onFitGraph
+        context.coordinator.webView = webView
         return webView
     }
     
@@ -109,16 +146,29 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         let htmlContent = generateGraphHTML()
         onDebugInfo("生成图形: \(nodes.count)个节点, \(edges.count)条边")
         webView.loadHTMLString(htmlContent, baseURL: nil)
+        
+        // 设置coordinator引用
+        context.coordinator.webView = webView
+        context.coordinator.onDebugInfo = onDebugInfo
+        context.coordinator.onNodeSelected = onNodeSelected
+        context.coordinator.onNodeDeselected = onNodeDeselected
+        context.coordinator.onFitGraph = onFitGraph
+        
+        // 注册coordinator到全局管理器
+        let viewId = ObjectIdentifier(webView)
+        GraphManager.shared.registerCoordinator(context.coordinator, for: viewId)
     }
     
     func makeCoordinator() -> Coordinator {
         Coordinator()
     }
     
-    class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+    class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler, GraphCoordinator {
         var onDebugInfo: ((String) -> Void)?
         var onNodeSelected: ((Int) -> Void)?
         var onNodeDeselected: (() -> Void)?
+        var onFitGraph: (() -> Void)?
+        weak var webView: WKWebView?
         
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
             print("WebView加载失败: \(error)")
@@ -141,6 +191,15 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                 onNodeDeselected?()
             default:
                 break
+            }
+        }
+        
+        func fitGraph() {
+            let script = "if (window.fitGraph) { window.fitGraph(); }"
+            webView?.evaluateJavaScript(script) { result, error in
+                if let error = error {
+                    print("执行fitGraph失败: \(error)")
+                }
             }
         }
     }
@@ -176,13 +235,36 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
             <meta charset="UTF-8">
             <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
             <style type="text/css">
-                #mynetworkid {
-                    width: 100%;
-                    height: 100vh;
-                    border: 1px solid lightgray;
-                    background: #fafafa;
+                @media (prefers-color-scheme: dark) {
+                    #mynetworkid {
+                        width: 100%;
+                        height: 100vh;
+                        border: 1px solid #444;
+                        background: #1e1e1e;
+                    }
+                    body { 
+                        margin: 0; 
+                        padding: 0; 
+                        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+                        background: #1e1e1e;
+                        color: #fff;
+                    }
                 }
-                body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+                @media (prefers-color-scheme: light) {
+                    #mynetworkid {
+                        width: 100%;
+                        height: 100vh;
+                        border: 1px solid lightgray;
+                        background: #fafafa;
+                    }
+                    body { 
+                        margin: 0; 
+                        padding: 0; 
+                        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+                        background: #fafafa;
+                        color: #333;
+                    }
+                }
                 .loading { 
                     position: absolute; 
                     top: 50%; 
@@ -273,7 +355,7 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                                 dragNodes: true,
                                 dragView: true,
                                 zoomView: true,
-                                zoomSpeed: 0.1,
+                                zoomSpeed: 1,
                                 selectConnectedEdges: false,
                                 multiselect: true,
                                 navigationButtons: true,
@@ -298,6 +380,18 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                         };
                         
                         var network = new vis.Network(container, data, options);
+                        
+                        // 等待稳定后居中显示
+                        network.once('stabilized', function() {
+                            setTimeout(function() {
+                                network.fit({
+                                    animation: {
+                                        duration: 1000,
+                                        easingFunction: "easeInOutQuad"
+                                    }
+                                });
+                            }, 100);
+                        });
                         
                         // 事件监听
                         network.on('selectNode', function(params) {
@@ -339,6 +433,23 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                         network.on('zoom', function(params) {
                             var scale = network.getScale();
                             console.log('缩放比例:', scale);
+                        });
+                        
+                        // 添加回到中心的函数
+                        window.fitGraph = function() {
+                            network.fit({
+                                animation: {
+                                    duration: 300,
+                                    easingFunction: 'easeInOutQuart'
+                                }
+                            });
+                        };
+                        
+                        // 监听来自Swift的消息
+                        window.addEventListener('message', function(event) {
+                            if (event.data && event.data.type === 'fitGraph') {
+                                window.fitGraph();
+                            }
                         });
                         
                         // 3秒后强制显示
