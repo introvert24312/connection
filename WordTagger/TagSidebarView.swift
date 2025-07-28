@@ -152,14 +152,14 @@ struct TagTypeFilterButton: View {
                         .fill(Color.from(tagType: type))
                         .frame(width: 8, height: 8)
                     Text(type.displayName)
-                        .font(.caption)
+                        .font(.system(size: 12, weight: .medium))
                 } else {
                     Text("全部")
-                        .font(.caption)
+                        .font(.system(size: 12, weight: .medium))
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
             .background(
                 RoundedRectangle(cornerRadius: 16)
                     .fill(isSelected ? Color.blue.opacity(0.2) : Color.gray.opacity(0.1))
@@ -194,7 +194,7 @@ struct TagRowView: View {
     
     var body: some View {
         Button(action: onTap) {
-            HStack(spacing: 12) {
+            HStack(spacing: 16) {
                 // 标签类型指示器
                 Circle()
                     .fill(Color.from(tagType: tag.type))
@@ -204,11 +204,12 @@ struct TagRowView: View {
                     Text(tag.value)
                         .font(.body)
                         .foregroundColor(.primary)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                     
                     HStack {
                         Text(tag.type.displayName)
-                            .font(.caption)
+                            .font(.system(size: 11, weight: .medium))
                             .foregroundColor(.secondary)
                         
                         if tag.hasCoordinates {
@@ -233,7 +234,8 @@ struct TagRowView: View {
                         .foregroundColor(.secondary)
                 }
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 8)
+            .padding(.horizontal, 4)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

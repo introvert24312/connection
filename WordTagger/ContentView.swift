@@ -11,7 +11,7 @@ struct ContentView: View {
         NavigationSplitView {
             // 左侧：标签和搜索
             TagSidebarView(selectedWord: $selectedWord)
-                .frame(minWidth: 300)
+                .frame(minWidth: 350, idealWidth: 400)
         } content: {
             // 中间：单词列表
             WordListView(selectedWord: $selectedWord)
