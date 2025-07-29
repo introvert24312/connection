@@ -510,6 +510,12 @@ struct WordGraphView: View {
             nodes.append(WordGraphNode(tag: locationTag))
         }
         
+        // 调试信息
+        print("🔍 Word: \(word.text)")
+        print("🔍 Total tags: \(word.tags.count)")
+        print("🔍 Location tags: \(word.locationTags.count)")
+        print("🔍 Graph nodes: \(nodes.count)")
+        
         return nodes
     }
     
@@ -550,7 +556,7 @@ struct WordGraphView: View {
             Divider()
             
             // 图谱内容
-            if relatedWords.isEmpty {
+            if graphNodes.count <= 1 {
                 EmptyGraphView()
             } else {
                 UniversalRelationshipGraphView(
