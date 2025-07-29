@@ -168,10 +168,10 @@ struct GraphView: View {
             }
             updateGraphData()
         }
-        .onChange(of: store.words) { _ in
+        .onChange(of: store.words) {
             updateGraphData()
         }
-        .onChange(of: displayedWords) { _ in
+        .onChange(of: displayedWords) {
             updateGraphData()
         }
     }

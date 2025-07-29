@@ -419,7 +419,7 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         }
         
         let nodesStr = nodeStrings.joined(separator: ",\n                        ")
-        let edgesStr = edgeStrings.joined(separator: ",\n                        ")
+        // let edgesStr = edgeStrings.joined(separator: ",\n                        ") // 移除未使用的变量
         
         
         // 添加时间戳确保内容唯一性
