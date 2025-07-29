@@ -161,6 +161,7 @@ struct UniversalRelationshipGraphView<Node: UniversalGraphNode, Edge: UniversalG
     @State private var debugInfo = ""
     @State private var viewId = ObjectIdentifier(UUID() as AnyObject)
     
+    
     init(nodes: [Node], edges: [Edge], title: String = "节点关系图", onNodeSelected: ((Int) -> Void)? = nil, onNodeDeselected: (() -> Void)? = nil, onFitGraph: (() -> Void)? = nil) {
         self.nodes = nodes
         self.edges = edges
@@ -259,12 +260,34 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
     }
     
     func updateNSView(_ webView: WKWebView, context: Context) {
-        let htmlContent = generateGraphHTML()
-        onDebugInfo("生成图形: \(nodes.count)个节点, \(edges.count)条边")
+        #if DEBUG
+        print("🔄 开始强制重新创建WebView内容")
+        #endif
         
-        // 使用更安全的baseURL以避免安全问题
-        let baseURL = URL(string: "https://unpkg.com")
-        webView.loadHTMLString(htmlContent, baseURL: baseURL)
+        // 彻底清除所有缓存
+        webView.stopLoading()
+        
+        // 清除网站数据
+        let websiteDataTypes = WKWebsiteDataStore.allWebsiteDataTypes()
+        WKWebsiteDataStore.default().removeData(ofTypes: websiteDataTypes, modifiedSince: Date(timeIntervalSince1970: 0)) { [weak webView] in
+            guard let webView = webView else { return }
+            
+            let htmlContent = self.generateGraphHTML()
+            self.onDebugInfo("生成图形: \(self.nodes.count)个节点, \(self.edges.count)条边 (强制重新生成)")
+            
+            // 强制禁用缓存的baseURL
+            let timestamp = Int(Date().timeIntervalSince1970 * 1000000) // 微秒级时间戳
+            let baseURL = URL(string: "https://nocache.local/\(timestamp)")
+            
+            DispatchQueue.main.async {
+                // 同步加载，不使用延迟
+                webView.loadHTMLString(htmlContent, baseURL: baseURL)
+                
+                #if DEBUG
+                print("🔄 WebView重新创建完成，时间戳: \(timestamp)")
+                #endif
+            }
+        }
         
         // 设置coordinator引用
         context.coordinator.webView = webView
@@ -288,6 +311,10 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         var onNodeDeselected: (() -> Void)?
         var onFitGraph: (() -> Void)?
         weak var webView: WKWebView?
+        
+        // 禁用缓存机制，确保每次都生成新内容
+        // var cachedHTML: String = ""
+        // var lastContentHash: String = ""
         
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
             print("WebView加载失败: \(error)")
@@ -332,7 +359,42 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         }
     }
     
+    // 计算内容哈希以判断是否需要重新生成HTML
+    private func calculateContentHash() -> String {
+        let nodeStrings = nodes.map { "\($0.id):\($0.label)" }.joined(separator: ",")
+        let edgeStrings = edges.map { "\($0.fromId)->\($0.toId)" }.joined(separator: ",")
+        return "\(nodeStrings)|\(edgeStrings)"
+    }
+    
     private func generateGraphHTML() -> String {
+        
+        // 调试信息：确认接收到的数据
+        #if DEBUG
+        print("🌐 UniversalRelationshipGraphView.generateGraphHTML - 强制重新生成")
+        print("🌐 Processing \(nodes.count) nodes, \(edges.count) edges")
+        
+        // 检查中心单词
+        if let centerNode = nodes.first(where: { ($0 as? WordGraphNode)?.isCenter == true }),
+           let wordNode = centerNode as? WordGraphNode,
+           let word = wordNode.word {
+            print("🎯 CENTER WORD: \(word.text)")
+        }
+        
+        for node in nodes {
+            if let wordNode = node as? WordGraphNode {
+                if let nodeWord = wordNode.word {
+                    let centerMark = wordNode.isCenter ? "⭐" : "  "
+                    print("🌐 \(centerMark) Node: \(nodeWord.text) (word) - ID: \(node.id)")
+                } else if let nodeTag = wordNode.tag {
+                    print("🌐    Node: \(nodeTag.value) (tag: \(nodeTag.type.displayName)) - ID: \(node.id)")
+                }
+            } else {
+                print("🌐    Node: \(node.label) - ID: \(node.id)")
+            }
+        }
+        print("🌐 ==========================================")
+        #endif
+        
         // 安全地转义字符串
         func escapeString(_ str: String) -> String {
             return str.replacingOccurrences(of: "'", with: "\\'")
@@ -350,6 +412,9 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         
         // 生成边数据 - 统一使用数字ID并添加边ID
         let edgeStrings = edges.enumerated().map { i, edge in
+            #if DEBUG
+            print("🔗 Edge \(i+1): from=\(edge.fromId) to=\(edge.toId)")
+            #endif
             return "{id: \(i+1), from: \(edge.fromId), to: \(edge.toId)}"
         }
         
@@ -357,9 +422,13 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         let edgesStr = edgeStrings.joined(separator: ",\n                        ")
         
         
+        // 添加时间戳确保内容唯一性
+        let timestamp = Date().timeIntervalSince1970
+        
         return """
         <!DOCTYPE html>
         <html>
+        <!-- Generated at: \(timestamp) -->
         <head>
             <meta charset="UTF-8">
             <style type="text/css">
@@ -441,6 +510,13 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         </head>
         <body>
             <div id="loading" class="loading">正在加载关系图...</div>
+            <div id="debug-display" style="display: block; padding: 20px; font-family: monospace; background: white; color: black;">
+                <h3>调试显示 - 数据验证</h3>
+                <div style="color: red; font-weight: bold;">生成时间: \(timestamp)</div>
+                <div style="color: blue; font-weight: bold;">页面ID: \(Int.random(in: 10000...99999))</div>
+                <div id="node-list"></div>
+                <div id="edge-list"></div>
+            </div>
             <div id="mynetworkid" style="display: none;"></div>
             <script type="text/javascript">
                 // 节点和边数据
@@ -451,6 +527,27 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                 var edgeData = [
                     \(edgeStrings.joined(separator: ",\n                    "))
                 ];
+                
+                // 直接显示调试信息，验证数据传递
+                function showDebugInfo() {
+                    var nodeList = document.getElementById('node-list');
+                    var edgeList = document.getElementById('edge-list');
+                    
+                    nodeList.innerHTML = '<h4>节点数据 (' + nodeData.length + '):</h4>';
+                    nodeData.forEach(function(node, i) {
+                        nodeList.innerHTML += '<div>Node ' + (i+1) + ': ID=' + node.id + ', Label=' + node.label + '</div>';
+                    });
+                    
+                    edgeList.innerHTML = '<h4>边数据 (' + edgeData.length + '):</h4>';
+                    edgeData.forEach(function(edge, i) {
+                        edgeList.innerHTML += '<div>Edge ' + (i+1) + ': from=' + edge.from + ' to=' + edge.to + '</div>';
+                    });
+                    
+                    document.getElementById('loading').style.display = 'none';
+                }
+                
+                // 直接显示调试信息，不加载复杂图谱
+                setTimeout(showDebugInfo, 100);
                 
                 // 尝试加载vis.js，失败则使用简单实现
                 function loadVisJS() {

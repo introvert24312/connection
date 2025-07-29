@@ -433,6 +433,7 @@ struct MapPinView: View {
 class GraphNodeIDGenerator {
     static let shared = GraphNodeIDGenerator()
     private var currentID: Int = 1000000 // 从一个大数开始避免冲突
+    private var tagIDMap: [String: Int] = [:] // 缓存标签的ID
     private let lock = NSLock()
     
     private init() {}
@@ -441,6 +442,21 @@ class GraphNodeIDGenerator {
         lock.lock()
         defer { lock.unlock() }
         currentID += 1
+        return currentID
+    }
+    
+    // 为标签生成确定性ID
+    func idForTag(_ tag: Tag) -> Int {
+        let tagKey = "\(tag.type.rawValue):\(tag.value)"
+        lock.lock()
+        defer { lock.unlock() }
+        
+        if let existingID = tagIDMap[tagKey] {
+            return existingID
+        }
+        
+        currentID += 1
+        tagIDMap[tagKey] = currentID
         return currentID
     }
 }
@@ -473,8 +489,8 @@ struct WordGraphNode: UniversalGraphNode {
     }
     
     init(tag: Tag) {
-        // 使用全局ID生成器确保绝对唯一
-        self.id = GraphNodeIDGenerator.shared.nextID()
+        // 使用确定性ID确保相同标签总是有相同ID
+        self.id = GraphNodeIDGenerator.shared.idForTag(tag)
         self.label = tag.value
         self.subtitle = tag.type.displayName
         self.word = nil
@@ -501,8 +517,7 @@ struct WordGraphEdge: UniversalGraphEdge {
 struct WordGraphView: View {
     let word: Word
     @EnvironmentObject private var store: WordStore
-    @State private var cachedNodes: [WordGraphNode] = []
-    @State private var cachedEdges: [WordGraphEdge] = []
+    // 移除缓存变量，改为每次实时计算以确保数据同步
     
     private var relatedWords: [Word] {
         // 返回空数组，因为我们要显示标签关系而不是单词关系
@@ -511,18 +526,27 @@ struct WordGraphView: View {
     
     private func calculateGraphNodes() -> [WordGraphNode] {
         var nodes: [WordGraphNode] = []
+        var addedTagKeys: Set<String> = []
         
         // 添加中心节点（当前单词）
         nodes.append(WordGraphNode(word: word, isCenter: true))
         
-        // 添加当前单词的所有标签作为节点
+        // 添加当前单词的所有标签作为节点（去重）
         for tag in word.tags {
-            nodes.append(WordGraphNode(tag: tag))
+            let tagKey = "\(tag.type.rawValue):\(tag.value)"
+            if !addedTagKeys.contains(tagKey) {
+                nodes.append(WordGraphNode(tag: tag))
+                addedTagKeys.insert(tagKey)
+            }
         }
         
-        // 添加位置标签作为节点
+        // 添加位置标签作为节点（去重）
         for locationTag in word.locationTags {
-            nodes.append(WordGraphNode(tag: locationTag))
+            let tagKey = "\(locationTag.type.rawValue):\(locationTag.value)"
+            if !addedTagKeys.contains(tagKey) {
+                nodes.append(WordGraphNode(tag: locationTag))
+                addedTagKeys.insert(tagKey)
+            }
         }
         
         // 调试信息（可选：在release版本中移除）
@@ -549,16 +573,28 @@ struct WordGraphView: View {
             }
         }
         
+        // 调试信息：确认图谱数据计算
+        #if DEBUG
+        print("📊 DetailPanel.calculateGraphData for word: \(word.text)")
+        print("📊 Generated \(nodes.count) nodes, \(edges.count) edges")
+        for node in nodes {
+            if let nodeWord = node.word {
+                let centerMark = nodeWord.id == word.id ? "⭐" : "  "
+                print("📊 \(centerMark) Node: \(nodeWord.text) (word)")
+            } else if let nodeTag = node.tag {
+                print("📊    Node: \(nodeTag.value) (tag: \(nodeTag.type.displayName))")
+            }
+        }
+        #endif
+        
         return (nodes: nodes, edges: edges)
     }
     
-    private func updateGraphData() {
-        let data = calculateGraphData()
-        cachedNodes = data.nodes
-        cachedEdges = data.edges
-    }
+    // updateGraphData函数已移除，改为在body中直接计算数据
     
     var body: some View {
+        let graphData = calculateGraphData()
+        
         VStack(spacing: 0) {
             // 标题栏
             HStack {
@@ -567,7 +603,7 @@ struct WordGraphView: View {
                 
                 Spacer()
                 
-                Text("\(cachedNodes.count) 个节点")
+                Text("\(graphData.nodes.count) 个节点")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -577,32 +613,24 @@ struct WordGraphView: View {
             Divider()
             
             // 图谱内容
-            if cachedNodes.count <= 1 {
+            if graphData.nodes.count <= 1 {
                 EmptyGraphView()
             } else {
                 UniversalRelationshipGraphView(
-                    nodes: cachedNodes,
-                    edges: cachedEdges,
+                    nodes: graphData.nodes,
+                    edges: graphData.edges,
                     title: "单词关系图谱",
                     onNodeSelected: { nodeId in
                         // 当点击节点时，选择对应的单词（只有单词节点才会触发选择）
-                        if let selectedNode = cachedNodes.first(where: { $0.id == nodeId }),
+                        if let selectedNode = graphData.nodes.first(where: { $0.id == nodeId }),
                            let selectedWord = selectedNode.word {
                             store.selectWord(selectedWord)
                         }
                     }
                 )
+                .id("graph-\(word.id)-\(word.tags.count)") // 强制每次word变化时重新创建WebView
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-        }
-        .onAppear {
-            updateGraphData()
-        }
-        .onChange(of: word.tags) { _ in
-            updateGraphData()
-        }
-        .onChange(of: word.locationTags) { _ in
-            updateGraphData()
         }
     }
 }
