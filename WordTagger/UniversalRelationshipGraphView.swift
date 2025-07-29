@@ -470,9 +470,35 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
     }
     
     private func getNodeColor<T: UniversalGraphNode>(for node: T) -> String {
-        // 不再设置自定义颜色，让 vis.js 使用默认配色
-        // 返回空字符串让 vis.js 自动分配颜色
-        return ""
+        // 检查是否是WordGraphNode，如果是的话根据节点类型分配颜色
+        if let wordNode = node as? WordGraphNode {
+            switch wordNode.nodeType {
+            case .word:
+                if wordNode.isCenter {
+                    return "#FFD700" // 金色表示中心单词
+                } else {
+                    return "#4A90E2" // 蓝色表示普通单词
+                }
+            case .tag(let tagType):
+                // 根据标签类型分配颜色
+                switch tagType {
+                case .memory:
+                    return "#FF69B4" // 粉色表示记忆标签
+                case .location:
+                    return "#FF4444" // 红色表示地点标签
+                case .root:
+                    return "#4169E1" // 蓝色表示词根标签
+                case .shape:
+                    return "#32CD32" // 绿色表示形近标签
+                case .sound:
+                    return "#FF8C00" // 橙色表示音近标签
+                case .custom(_):
+                    return "#9370DB" // 紫色表示自定义标签
+                }
+            }
+        }
+        // 默认颜色
+        return "#888888"
     }
 }
 

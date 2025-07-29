@@ -435,15 +435,34 @@ struct WordGraphNode: UniversalGraphNode {
     let id: Int
     let label: String
     let subtitle: String?
-    let word: Word
+    let word: Word?
+    let tag: Tag?
+    let nodeType: NodeType
     let isCenter: Bool
+    
+    enum NodeType {
+        case word
+        case tag(Tag.TagType)
+    }
     
     init(word: Word, isCenter: Bool = false) {
         self.id = word.text.hashValue // 使用单词文本的hash作为ID
         self.label = word.text
         self.subtitle = word.meaning
         self.word = word
+        self.tag = nil
+        self.nodeType = .word
         self.isCenter = isCenter
+    }
+    
+    init(tag: Tag) {
+        self.id = tag.value.hashValue + tag.type.rawValue.hashValue // 使用标签值和类型的组合hash作为ID
+        self.label = tag.value
+        self.subtitle = tag.type.displayName
+        self.word = nil
+        self.tag = tag
+        self.nodeType = .tag(tag.type)
+        self.isCenter = false
     }
 }
 
@@ -479,9 +498,14 @@ struct WordGraphView: View {
         // 添加中心节点（当前单词）
         nodes.append(WordGraphNode(word: word, isCenter: true))
         
-        // 添加相关单词节点
-        for relatedWord in relatedWords {
-            nodes.append(WordGraphNode(word: relatedWord, isCenter: false))
+        // 添加当前单词的所有标签作为节点
+        for tag in word.tags {
+            nodes.append(WordGraphNode(tag: tag))
+        }
+        
+        // 添加位置标签作为节点
+        for locationTag in word.locationTags {
+            nodes.append(WordGraphNode(tag: locationTag))
         }
         
         return nodes
@@ -491,20 +515,15 @@ struct WordGraphView: View {
         var edges: [WordGraphEdge] = []
         let centerNode = graphNodes.first { $0.isCenter }!
         
-        // 为每个相关单词创建与中心节点的连接
+        // 为每个标签节点创建与中心单词的连接
         for node in graphNodes where !node.isCenter {
-            // 找到共同标签来确定关系类型
-            let centerTags = Set(word.tags)
-            let nodeTags = Set(node.word.tags)
-            let commonTags = centerTags.intersection(nodeTags)
-            
-            let relationshipType = commonTags.isEmpty ? "相关" : commonTags.first!.type.displayName
-            
-            edges.append(WordGraphEdge(
-                from: centerNode,
-                to: node,
-                relationshipType: relationshipType
-            ))
+            if let tag = node.tag {
+                edges.append(WordGraphEdge(
+                    from: centerNode,
+                    to: node,
+                    relationshipType: tag.type.displayName
+                ))
+            }
         }
         
         return edges
@@ -537,9 +556,10 @@ struct WordGraphView: View {
                     edges: graphEdges,
                     title: "单词关系图谱",
                     onNodeSelected: { nodeId in
-                        // 当点击节点时，选择对应的单词
-                        if let selectedNode = graphNodes.first(where: { $0.id == nodeId }) {
-                            store.selectWord(selectedNode.word)
+                        // 当点击节点时，选择对应的单词（只有单词节点才会触发选择）
+                        if let selectedNode = graphNodes.first(where: { $0.id == nodeId }),
+                           let selectedWord = selectedNode.word {
+                            store.selectWord(selectedWord)
                         }
                     }
                 )
