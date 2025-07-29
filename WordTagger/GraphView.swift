@@ -25,8 +25,8 @@ struct GraphView: View {
         // 为有共同标签的单词创建连接
         for i in 0..<nodes.count {
             for j in (i+1)..<nodes.count {
-                let word1 = nodes[i].word
-                let word2 = nodes[j].word
+                guard let word1 = nodes[i].word,
+                      let word2 = nodes[j].word else { continue }
                 
                 let tags1 = Set(word1.tags)
                 let tags2 = Set(word2.tags)
@@ -92,9 +92,10 @@ struct GraphView: View {
                     edges: allGraphEdges,
                     title: "节点关系图谱",
                     onNodeSelected: { nodeId in
-                        // 当点击节点时，选择对应的单词
-                        if let selectedNode = allGraphNodes.first(where: { $0.id == nodeId }) {
-                            store.selectWord(selectedNode.word)
+                        // 当点击节点时，选择对应的单词（只有单词节点才会触发选择）
+                        if let selectedNode = allGraphNodes.first(where: { $0.id == nodeId }),
+                           let selectedWord = selectedNode.word {
+                            store.selectWord(selectedWord)
                         }
                     }
                 )
