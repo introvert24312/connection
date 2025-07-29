@@ -41,6 +41,115 @@ class GraphManager: ObservableObject {
     }
 }
 
+// MARK: - 自动颜色管理器
+class AutoColorManager {
+    static let shared = AutoColorManager()
+    
+    // 预定义颜色池 - 使用视觉上区分度高的颜色
+    private let colorPool = [
+        "#FF69B4", // 粉色
+        "#FF4444", // 红色  
+        "#4169E1", // 蓝色
+        "#32CD32", // 绿色
+        "#FF8C00", // 橙色
+        "#9370DB", // 紫色
+        "#20B2AA", // 青色
+        "#DC143C", // 深红
+        "#4682B4", // 钢蓝
+        "#228B22", // 森林绿
+        "#FF1493", // 深粉
+        "#8A2BE2", // 蓝紫
+        "#00CED1", // 深蓝绿
+        "#FF6347", // 番茄红
+        "#4169E1", // 皇家蓝
+        "#32CD32", // 酸橙绿
+        "#FF69B4", // 热粉
+        "#8B4513", // 鞍褐色
+        "#2E8B57", // 海绿
+        "#B22222"  // 火砖红
+    ]
+    
+    private var assignedColors: [String: String] = [:]
+    private var usedColorIndices: Set<Int> = []
+    
+    private init() {
+        // 初始化预定义标签颜色
+        assignedColors["memory"] = "#FF69B4"    // 粉色
+        assignedColors["location"] = "#FF4444"   // 红色
+        assignedColors["root"] = "#4169E1"       // 蓝色
+        assignedColors["shape"] = "#32CD32"      // 绿色
+        assignedColors["sound"] = "#FF8C00"      // 橙色
+        
+        // 标记已使用的颜色索引
+        usedColorIndices.insert(0) // 粉色
+        usedColorIndices.insert(1) // 红色
+        usedColorIndices.insert(2) // 蓝色
+        usedColorIndices.insert(3) // 绿色
+        usedColorIndices.insert(4) // 橙色
+    }
+    
+    func getColor(for tagKey: String) -> String {
+        // 如果已经分配过颜色，直接返回
+        if let existingColor = assignedColors[tagKey] {
+            return existingColor
+        }
+        
+        // 寻找下一个未使用的颜色
+        for (index, color) in colorPool.enumerated() {
+            if !usedColorIndices.contains(index) {
+                assignedColors[tagKey] = color
+                usedColorIndices.insert(index)
+                return color
+            }
+        }
+        
+        // 如果所有预定义颜色都用完了，生成随机颜色
+        let randomColor = generateRandomColor()
+        assignedColors[tagKey] = randomColor
+        return randomColor
+    }
+    
+    private func generateRandomColor() -> String {
+        // 生成饱和度和亮度较高的随机颜色，确保可视性
+        let hue = Int.random(in: 0...360)
+        let saturation = Int.random(in: 60...90)
+        let lightness = Int.random(in: 45...65)
+        return hslToHex(h: hue, s: saturation, l: lightness)
+    }
+    
+    private func hslToHex(h: Int, s: Int, l: Int) -> String {
+        let h = Double(h) / 360.0
+        let s = Double(s) / 100.0  
+        let l = Double(l) / 100.0
+        
+        let c = (1 - abs(2 * l - 1)) * s
+        let x = c * (1 - abs((h * 6).truncatingRemainder(dividingBy: 2) - 1))
+        let m = l - c / 2
+        
+        var r: Double = 0, g: Double = 0, b: Double = 0
+        
+        if h < 1/6 {
+            r = c; g = x; b = 0
+        } else if h < 2/6 {
+            r = x; g = c; b = 0
+        } else if h < 3/6 {
+            r = 0; g = c; b = x
+        } else if h < 4/6 {
+            r = 0; g = x; b = c
+        } else if h < 5/6 {
+            r = x; g = 0; b = c
+        } else {
+            r = c; g = 0; b = x
+        }
+        
+        let red = Int((r + m) * 255)
+        let green = Int((g + m) * 255)
+        let blue = Int((b + m) * 255)
+        
+        return String(format: "#%02X%02X%02X", red, green, blue)
+    }
+}
+
 // MARK: - 通用关系图组件
 struct UniversalRelationshipGraphView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>: View {
     let nodes: [Node]
@@ -492,21 +601,24 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                     return "#4A90E2" // 蓝色表示普通单词
                 }
             case .tag(let tagType):
-                // 根据标签类型分配颜色
+                // 使用自动颜色管理器为标签分配颜色
+                let tagKey: String
                 switch tagType {
                 case .memory:
-                    return "#FF69B4" // 粉色表示记忆标签
+                    tagKey = "memory"
                 case .location:
-                    return "#FF4444" // 红色表示地点标签
+                    tagKey = "location"
                 case .root:
-                    return "#4169E1" // 蓝色表示词根标签
+                    tagKey = "root"
                 case .shape:
-                    return "#32CD32" // 绿色表示形近标签
+                    tagKey = "shape"
                 case .sound:
-                    return "#FF8C00" // 橙色表示音近标签
-                case .custom(_):
-                    return "#9370DB" // 紫色表示自定义标签
+                    tagKey = "sound"
+                case .custom(let customName):
+                    // 自定义标签使用自定义名称作为key
+                    tagKey = "custom_\(customName)"
                 }
+                return AutoColorManager.shared.getColor(for: tagKey)
             }
         }
         // 默认颜色

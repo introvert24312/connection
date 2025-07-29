@@ -510,11 +510,10 @@ struct WordGraphView: View {
             nodes.append(WordGraphNode(tag: locationTag))
         }
         
-        // 调试信息
-        print("🔍 Word: \(word.text)")
-        print("🔍 Total tags: \(word.tags.count)")
-        print("🔍 Location tags: \(word.locationTags.count)")
-        print("🔍 Graph nodes: \(nodes.count)")
+        // 调试信息（可选：在release版本中移除）
+        #if DEBUG
+        print("🔍 Word: \(word.text), Tags: \(word.tags.count), Graph nodes: \(nodes.count)")
+        #endif
         
         return nodes
     }
