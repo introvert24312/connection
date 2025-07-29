@@ -4,46 +4,101 @@ struct GraphView: View {
     @EnvironmentObject private var store: WordStore
     @State private var searchQuery: String = ""
     @State private var displayedWords: [Word] = []
+    @State private var cachedNodes: [WordGraphNode] = []
+    @State private var cachedEdges: [WordGraphEdge] = []
     
-    // 生成所有单词的图谱数据
-    private var allGraphNodes: [WordGraphNode] {
+    // 生成所有单词的图谱数据 - 统一计算节点和边
+    private func calculateGraphData() -> (nodes: [WordGraphNode], edges: [WordGraphEdge]) {
         var nodes: [WordGraphNode] = []
+        var edges: [WordGraphEdge] = []
+        var addedTagKeys: Set<String> = []
         
         let wordsToShow = displayedWords.isEmpty ? store.words : displayedWords
         
+        // 首先添加所有单词节点
         for word in wordsToShow {
             nodes.append(WordGraphNode(word: word))
         }
         
-        return nodes
-    }
-    
-    private var allGraphEdges: [WordGraphEdge] {
-        var edges: [WordGraphEdge] = []
-        let nodes = allGraphNodes
+        // 然后添加所有标签节点（去重）
+        for word in wordsToShow {
+            for tag in word.tags {
+                let tagKey = "\(tag.type.rawValue):\(tag.value)"
+                if !addedTagKeys.contains(tagKey) {
+                    nodes.append(WordGraphNode(tag: tag))
+                    addedTagKeys.insert(tagKey)
+                }
+            }
+        }
         
-        // 为有共同标签的单词创建连接
+        // 现在使用同一批节点创建边
+        
+        print("🔍 调试信息:")
+        print("🔹 总节点数: \(nodes.count)")
+        print("🔹 单词数: \(wordsToShow.count)")
+        print("🔹 单词节点数: \(nodes.filter { $0.word != nil }.count)")
+        print("🔹 标签节点数: \(nodes.filter { $0.tag != nil }.count)")
+        
+        // 为每个单词与其标签创建连接
+        for word in wordsToShow {
+            guard let wordNode = nodes.first(where: { $0.word?.id == word.id }) else { 
+                print("❌ 找不到单词节点: \(word.text)")
+                continue 
+            }
+            
+            print("🔹 处理单词: \(word.text), 标签数: \(word.tags.count)")
+            
+            for tag in word.tags {
+                if let tagNode = nodes.first(where: { 
+                    $0.tag?.type.rawValue == tag.type.rawValue && $0.tag?.value == tag.value 
+                }) {
+                    edges.append(WordGraphEdge(
+                        from: wordNode,
+                        to: tagNode,
+                        relationshipType: tag.type.displayName
+                    ))
+                    print("✅ 创建连接: \(word.text) -> \(tag.value)")
+                } else {
+                    print("❌ 找不到标签节点: \(tag.type.rawValue):\(tag.value)")
+                }
+            }
+        }
+        
+        print("🔹 单词-标签连接数: \(edges.count)")
+        
+        // 额外连接：为有相同标签的单词创建连接
+        let initialEdgeCount = edges.count
         for i in 0..<nodes.count {
             for j in (i+1)..<nodes.count {
                 guard let word1 = nodes[i].word,
                       let word2 = nodes[j].word else { continue }
                 
-                let tags1 = Set(word1.tags)
-                let tags2 = Set(word2.tags)
+                let tags1 = Set(word1.tags.map { "\($0.type.rawValue):\($0.value)" })
+                let tags2 = Set(word2.tags.map { "\($0.type.rawValue):\($0.value)" })
                 let commonTags = tags1.intersection(tags2)
                 
                 if !commonTags.isEmpty {
-                    let relationshipType = commonTags.first!.type.displayName
                     edges.append(WordGraphEdge(
                         from: nodes[i],
-                        to: nodes[j],
-                        relationshipType: relationshipType
+                        to: nodes[j], 
+                        relationshipType: "关联"
                     ))
+                    print("✅ 创建单词关联: \(word1.text) <-> \(word2.text)")
                 }
             }
         }
         
-        return edges
+        print("🔹 单词间连接数: \(edges.count - initialEdgeCount)")
+        print("🔹 总连接数: \(edges.count)")
+        
+        return (nodes: nodes, edges: edges)
+    }
+    
+    // 更新缓存的图数据
+    private func updateGraphData() {
+        let data = calculateGraphData()
+        cachedNodes = data.nodes
+        cachedEdges = data.edges
     }
     
     var body: some View {
@@ -84,16 +139,16 @@ struct GraphView: View {
             Divider()
             
             // 图谱内容
-            if allGraphNodes.isEmpty {
+            if cachedNodes.isEmpty {
                 EmptyGraphView()
             } else {
                 UniversalRelationshipGraphView(
-                    nodes: allGraphNodes,
-                    edges: allGraphEdges,
+                    nodes: cachedNodes,
+                    edges: cachedEdges,
                     title: "节点关系图谱",
                     onNodeSelected: { nodeId in
                         // 当点击节点时，选择对应的单词（只有单词节点才会触发选择）
-                        if let selectedNode = allGraphNodes.first(where: { $0.id == nodeId }),
+                        if let selectedNode = cachedNodes.first(where: { $0.id == nodeId }),
                            let selectedWord = selectedNode.word {
                             store.selectWord(selectedWord)
                         }
@@ -111,6 +166,13 @@ struct GraphView: View {
             if displayedWords.isEmpty && !store.words.isEmpty {
                 displayedWords = Array(store.words.prefix(20)) // 限制初始显示数量
             }
+            updateGraphData()
+        }
+        .onChange(of: store.words) { _ in
+            updateGraphData()
+        }
+        .onChange(of: displayedWords) { _ in
+            updateGraphData()
         }
     }
     

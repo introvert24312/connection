@@ -501,13 +501,15 @@ struct WordGraphEdge: UniversalGraphEdge {
 struct WordGraphView: View {
     let word: Word
     @EnvironmentObject private var store: WordStore
+    @State private var cachedNodes: [WordGraphNode] = []
+    @State private var cachedEdges: [WordGraphEdge] = []
     
     private var relatedWords: [Word] {
         // 返回空数组，因为我们要显示标签关系而不是单词关系
         return []
     }
     
-    private var graphNodes: [WordGraphNode] {
+    private func calculateGraphNodes() -> [WordGraphNode] {
         var nodes: [WordGraphNode] = []
         
         // 添加中心节点（当前单词）
@@ -531,12 +533,13 @@ struct WordGraphView: View {
         return nodes
     }
     
-    private var graphEdges: [WordGraphEdge] {
+    private func calculateGraphData() -> (nodes: [WordGraphNode], edges: [WordGraphEdge]) {
+        let nodes = calculateGraphNodes()
         var edges: [WordGraphEdge] = []
-        let centerNode = graphNodes.first { $0.isCenter }!
+        let centerNode = nodes.first { $0.isCenter }!
         
         // 为每个标签节点创建与中心单词的连接
-        for node in graphNodes where !node.isCenter {
+        for node in nodes where !node.isCenter {
             if let tag = node.tag {
                 edges.append(WordGraphEdge(
                     from: centerNode,
@@ -546,7 +549,13 @@ struct WordGraphView: View {
             }
         }
         
-        return edges
+        return (nodes: nodes, edges: edges)
+    }
+    
+    private func updateGraphData() {
+        let data = calculateGraphData()
+        cachedNodes = data.nodes
+        cachedEdges = data.edges
     }
     
     var body: some View {
@@ -558,7 +567,7 @@ struct WordGraphView: View {
                 
                 Spacer()
                 
-                Text("\(graphNodes.count) 个节点")
+                Text("\(cachedNodes.count) 个节点")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -568,16 +577,16 @@ struct WordGraphView: View {
             Divider()
             
             // 图谱内容
-            if graphNodes.count <= 1 {
+            if cachedNodes.count <= 1 {
                 EmptyGraphView()
             } else {
                 UniversalRelationshipGraphView(
-                    nodes: graphNodes,
-                    edges: graphEdges,
+                    nodes: cachedNodes,
+                    edges: cachedEdges,
                     title: "单词关系图谱",
                     onNodeSelected: { nodeId in
                         // 当点击节点时，选择对应的单词（只有单词节点才会触发选择）
-                        if let selectedNode = graphNodes.first(where: { $0.id == nodeId }),
+                        if let selectedNode = cachedNodes.first(where: { $0.id == nodeId }),
                            let selectedWord = selectedNode.word {
                             store.selectWord(selectedWord)
                         }
@@ -585,6 +594,15 @@ struct WordGraphView: View {
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+        }
+        .onAppear {
+            updateGraphData()
+        }
+        .onChange(of: word.tags) { _ in
+            updateGraphData()
+        }
+        .onChange(of: word.locationTags) { _ in
+            updateGraphData()
         }
     }
 }

@@ -239,6 +239,13 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
         
+        // 启用开发者工具
+        #if DEBUG
+        if #available(macOS 13.3, *) {
+            webView.isInspectable = true
+        }
+        #endif
+        
         // 添加消息处理器
         webView.configuration.userContentController.add(context.coordinator, name: "nodeSelected")
         webView.configuration.userContentController.add(context.coordinator, name: "nodeDeselected")
@@ -333,7 +340,7 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                       .replacingOccurrences(of: "\r", with: "\\r")
         }
         
-        // 生成节点数据
+        // 生成节点数据 - 统一使用数字ID
         let nodeStrings = nodes.map { node in
             let color = getNodeColor(for: node)
             return """
@@ -341,20 +348,20 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
             """
         }
         
-        // 生成边数据（移除标签）
-        let edgeStrings = edges.map { edge in
-            return "{from: \(edge.fromId), to: \(edge.toId)}"
+        // 生成边数据 - 统一使用数字ID并添加边ID
+        let edgeStrings = edges.enumerated().map { i, edge in
+            return "{id: \(i+1), from: \(edge.fromId), to: \(edge.toId)}"
         }
         
         let nodesStr = nodeStrings.joined(separator: ",\n                        ")
         let edgesStr = edgeStrings.joined(separator: ",\n                        ")
+        
         
         return """
         <!DOCTYPE html>
         <html>
         <head>
             <meta charset="UTF-8">
-            <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
             <style type="text/css">
                 @media (prefers-color-scheme: dark) {
                     #mynetworkid {
@@ -401,189 +408,271 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                     margin: 20px;
                     border-radius: 8px;
                 }
+                .debug-info {
+                    position: absolute;
+                    top: 10px;
+                    left: 10px;
+                    background: rgba(0,0,0,0.9);
+                    color: white;
+                    padding: 10px;
+                    border-radius: 5px;
+                    font-size: 11px;
+                    font-family: monospace;
+                    max-width: 300px;
+                    z-index: 1000;
+                    white-space: pre-line;
+                }
+                .debug-panel {
+                    position: absolute;
+                    top: 10px;
+                    right: 10px;
+                    background: rgba(255,255,255,0.95);
+                    color: black;
+                    padding: 15px;
+                    border-radius: 8px;
+                    font-size: 12px;
+                    font-family: monospace;
+                    max-width: 400px;
+                    z-index: 1000;
+                    border: 1px solid #ccc;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                }
             </style>
         </head>
         <body>
             <div id="loading" class="loading">正在加载关系图...</div>
+            <div class="debug-info">节点: \(nodes.count) | 连接: \(edges.count)</div>
+            <div class="debug-panel" id="debugPanel">调试信息加载中...</div>
             <div id="mynetworkid" style="display: none;"></div>
             <script type="text/javascript">
-                console.log('初始化关系图 - 节点:', \(nodes.count), '边:', \(edges.count));
+                console.log('初始化简单图谱 - 节点:', \(nodes.count), '边:', \(edges.count));
                 
-                setTimeout(function() {
-                    try {
-                        if (typeof vis === 'undefined') {
-                            throw new Error('vis.js 库未加载');
-                        }
-                        
-                        var nodes = new vis.DataSet([
-                        \(nodesStr)
-                        ]);
-                        
-                        var edges = new vis.DataSet([
-                        \(edgesStr)
-                        ]);
-                        
-                        var container = document.getElementById('mynetworkid');
-                        var data = { nodes: nodes, edges: edges };
-                        var options = {
-                            physics: {
+                // 节点和边数据
+                var nodeData = [
+                    \(nodesStr)
+                ];
+                
+                var edgeData = [
+                    \(edgeStrings.joined(separator: ",\n                    "))
+                ];
+                
+                console.log('节点数据:', nodeData);
+                console.log('边数据:', edgeData);
+                console.log('节点ID类型:', typeof nodeData[0]?.id);
+                console.log('边from类型:', typeof edgeData[0]?.from);
+                console.log('节点数量:', nodeData.length, '边数量:', edgeData.length);
+                
+                // 显示调试信息到页面
+                function updateDebugPanel(message) {
+                    var panel = document.getElementById('debugPanel');
+                    if (panel) {
+                        panel.innerHTML += message + '<br>';
+                    }
+                }
+                
+                updateDebugPanel('节点数量: ' + nodeData.length);
+                updateDebugPanel('边数量: ' + edgeData.length);
+                if (nodeData.length > 0) {
+                    updateDebugPanel('节点ID类型: ' + typeof nodeData[0].id);
+                    updateDebugPanel('=== 实际节点ID ===');
+                    var nodeIds = [];
+                    nodeData.forEach((node, index) => {
+                        nodeIds.push(node.id);
+                        updateDebugPanel('节点' + (index+1) + ' ID: ' + node.id + ' (' + node.label + ')');
+                    });
+                    updateDebugPanel('节点ID集合: [' + nodeIds.join(', ') + ']');
+                }
+                if (edgeData.length > 0) {
+                    updateDebugPanel('边from类型: ' + typeof edgeData[0].from);
+                    updateDebugPanel('边to类型: ' + typeof edgeData[0].to);
+                }
+                
+                // 尝试加载vis.js，失败则使用简单实现
+                function loadVisJS() {
+                    var script = document.createElement('script');
+                    script.onload = function() {
+                        console.log('vis.js加载成功');
+                        initVisGraph();
+                    };
+                    script.onerror = function() {
+                        console.log('vis.js加载失败，使用简单实现');
+                        initSimpleGraph();
+                    };
+                    script.src = 'https://unpkg.com/vis-network/standalone/umd/vis-network.min.js';
+                    document.head.appendChild(script);
+                }
+                
+                function initVisGraph() {
+                    var nodes = new vis.DataSet(nodeData);
+                    var edges = new vis.DataSet(edgeData);
+                    var container = document.getElementById('mynetworkid');
+                    var data = { nodes: nodes, edges: edges };
+                    var options = {
+                        physics: {
+                            enabled: true,
+                            stabilization: { 
+                                iterations: 200,
+                                updateInterval: 25
+                            },
+                            solver: 'forceAtlas2Based'
+                        },
+                        nodes: {
+                            font: { size: 14, color: '#333' },
+                            borderWidth: 2,
+                            shadow: true,
+                            shape: 'circle',
+                            size: 25
+                        },
+                        edges: {
+                            width: 1.5,
+                            color: { 
+                                color: '#666666', 
+                                highlight: '#333333', 
+                                hover: '#000000' 
+                            },
+                            shadow: false,
+                            arrows: {
+                                to: { 
+                                    enabled: true, 
+                                    scaleFactor: 0.8, 
+                                    type: 'arrow' 
+                                }
+                            },
+                            smooth: {
                                 enabled: true,
-                                stabilization: { iterations: 150 },
-                                barnesHut: {
-                                    gravitationalConstant: -8000,
-                                    springConstant: 0.001,
-                                    springLength: 300,
-                                    damping: 0.1
-                                },
-                                repulsion: {
-                                    centralGravity: 0.1,
-                                    springLength: 400,
-                                    springConstant: 0.01,
-                                    damping: 0.09
-                                }
+                                type: 'continuous',
+                                roundness: 0.2
                             },
-                            nodes: {
-                                font: { 
-                                    size: 20, 
-                                    color: '#333',
-                                    face: 'Arial, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif',
-                                    align: 'center',
-                                    vadjust: 0,
-                                    bold: true
-                                },
-                                borderWidth: 2,
-                                shadow: true,
-                                shape: 'circle',
-                                size: 45,
-                                labelHighlightBold: false,
-                                scaling: {
-                                    min: 35,
-                                    max: 70,
-                                    label: {
-                                        enabled: true,
-                                        min: 18,
-                                        max: 24
-                                    }
-                                }
-                            },
-                            edges: {
-                                width: 2,
-                                color: { color: '#848484' },
-                                shadow: true,
-                                smooth: { type: 'continuous' }
-                            },
-                            interaction: {
-                                dragNodes: true,
-                                dragView: true,
-                                zoomView: true,
-                                zoomSpeed: 1,
-                                selectConnectedEdges: false,
-                                multiselect: true,
-                                navigationButtons: true,
-                                keyboard: {
-                                    enabled: true
-                                },
-                                tooltipDelay: 100,
-                                hideEdgesOnDrag: false,
-                                hideNodesOnDrag: false
-                            },
-                            manipulation: {
-                                enabled: false
-                            },
-                            layout: {
-                                improvedLayout: true,
-                                clusterThreshold: 150,
-                                hierarchical: {
-                                    enabled: false
-                                }
-                            },
-                            groups: {}
-                        };
+                            dashes: false,
+                            selectionWidth: 2
+                        }
+                    };
+                    
+                    var network = new vis.Network(container, data, options);
+                    
+                    // 调试DataSet信息
+                    console.log('DataSet nodes:', nodes.length);
+                    console.log('DataSet edges:', edges.length);
+                    console.log('edges in dataset:', edges.get());
+                    
+                    // ID类型检查脚本
+                    updateDebugPanel('=== 边连接检查 ===');
+                    edges.get().forEach((e, index) => {
+                        var fromNode = nodes.get(e.from);
+                        var toNode = nodes.get(e.to);
+                        updateDebugPanel('边' + (index+1) + ': from=' + e.from + '(' + typeof e.from + ') to=' + e.to + '(' + typeof e.to + ')');
+                        updateDebugPanel('  找到from节点: ' + (fromNode ? '✓' : '✗'));
+                        updateDebugPanel('  找到to节点: ' + (toNode ? '✓' : '✗'));
                         
-                        var network = new vis.Network(container, data, options);
+                        console.log(
+                            'Edge ID:', e.id,
+                            'from:', e.from, typeof e.from,
+                            'to:', e.to, typeof e.to,
+                            'from node:', fromNode,
+                            'to node:', toNode
+                        );
+                    });
+                    
+                    network.once('stabilized', function() {
+                        document.getElementById('loading').style.display = 'none';
+                        container.style.display = 'block';
+                        network.fit();
+                        console.log('网络已稳定，节点:', nodes.length, '边:', edges.length);
+                        updateDebugPanel('=== 网络已稳定 ===');
+                        updateDebugPanel('渲染完成，边应该可见');
                         
-                        // 等待稳定后居中显示
-                        network.once('stabilized', function() {
-                            setTimeout(function() {
-                                network.fit({
-                                    animation: {
-                                        duration: 1000,
-                                        easingFunction: "easeInOutQuad"
-                                    }
-                                });
-                            }, 100);
-                        });
-                        
-                        // 事件监听
-                        network.on('selectNode', function(params) {
-                            console.log('选中节点:', params.nodes);
-                            if (params.nodes && params.nodes.length > 0) {
-                                var nodeId = params.nodes[0];
-                                // 通知Swift代码处理节点聚焦
-                                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nodeSelected) {
-                                    window.webkit.messageHandlers.nodeSelected.postMessage({
-                                        type: 'nodeSelected',
-                                        nodeId: nodeId
-                                    });
-                                }
-                            }
-                        });
-                        
-                        network.on('deselectNode', function(params) {
-                            // 当取消选择时，退出聚焦模式
-                            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nodeDeselected) {
-                                window.webkit.messageHandlers.nodeDeselected.postMessage({
-                                    type: 'nodeDeselected'
-                                });
-                            }
-                        });
-                        
-                        network.on('stabilizationIterationsDone', function() {
-                            console.log('图形稳定化完成');
-                            document.getElementById('loading').style.display = 'none';
-                            container.style.display = 'block';
-                        });
-                        
-                        // 禁用双击缩放，只允许捏合手势缩放
-                        container.addEventListener('dblclick', function(e) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                        });
-                        
-                        // 添加更流畅的缩放动画
-                        network.on('zoom', function(params) {
-                            var scale = network.getScale();
-                            console.log('缩放比例:', scale);
-                        });
-                        
-                        // 添加回到中心的函数
-                        window.fitGraph = function() {
-                            network.fit({
-                                animation: {
-                                    duration: 300,
-                                    easingFunction: 'easeInOutQuart'
+                        // 强制测试边的显示
+                        setTimeout(function() {
+                            updateDebugPanel('=== 强制边样式测试 ===');
+                            network.setOptions({
+                                edges: {
+                                    width: 3,
+                                    color: { color: '#ff0000' },
+                                    dashes: false,
+                                    shadow: false
                                 }
                             });
-                        };
+                            updateDebugPanel('已应用红色测试边样式');
+                        }, 1000);
+                    });
+                    
+                    // 网络事件监听
+                    network.on('afterDrawing', function() {
+                        updateDebugPanel('图谱已重绘，边数: ' + edges.length);
+                    });
+                    
+                    window.fitGraph = function() { network.fit(); };
+                }
+                
+                function initSimpleGraph() {
+                    var container = document.getElementById('mynetworkid');
+                    container.innerHTML = '';
+                    container.style.display = 'block';
+                    document.getElementById('loading').style.display = 'none';
+                    
+                    // 创建SVG
+                    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    svg.style.width = '100%';
+                    svg.style.height = '100%';
+                    container.appendChild(svg);
+                    
+                    var width = container.clientWidth || 800;
+                    var height = container.clientHeight || 600;
+                    
+                    // 简单布局：圆形排列
+                    var centerX = width / 2;
+                    var centerY = height / 2;
+                    var radius = Math.min(width, height) / 3;
+                    
+                    nodeData.forEach(function(node, index) {
+                        var angle = (index * 2 * Math.PI) / nodeData.length;
+                        node.x = centerX + radius * Math.cos(angle);
+                        node.y = centerY + radius * Math.sin(angle);
+                    });
+                    
+                    // 绘制边
+                    edgeData.forEach(function(edge) {
+                        var fromNode = nodeData.find(n => n.id === edge.from);
+                        var toNode = nodeData.find(n => n.id === edge.to);
+                        if (fromNode && toNode) {
+                            var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                            line.setAttribute('x1', fromNode.x);
+                            line.setAttribute('y1', fromNode.y);
+                            line.setAttribute('x2', toNode.x);
+                            line.setAttribute('y2', toNode.y);
+                            line.setAttribute('stroke', '#666666');
+                            line.setAttribute('stroke-width', '1.5');
+                            svg.appendChild(line);
+                        }
+                    });
+                    
+                    // 绘制节点
+                    nodeData.forEach(function(node) {
+                        var circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                        circle.setAttribute('cx', node.x);
+                        circle.setAttribute('cy', node.y);
+                        circle.setAttribute('r', 20);
+                        circle.setAttribute('fill', node.color.background || node.color || '#4A90E2');
+                        circle.setAttribute('stroke', '#2B7CE9');
+                        circle.setAttribute('stroke-width', '2');
+                        svg.appendChild(circle);
                         
-                        // 监听来自Swift的消息
-                        window.addEventListener('message', function(event) {
-                            if (event.data && event.data.type === 'fitGraph') {
-                                window.fitGraph();
-                            }
-                        });
-                        
-                        // 3秒后强制显示
-                        setTimeout(function() {
-                            document.getElementById('loading').style.display = 'none';
-                            container.style.display = 'block';
-                        }, 3000);
-                        
-                    } catch (error) {
-                        console.error('图形初始化失败:', error);
-                        document.body.innerHTML = '<div class="error"><h3>关系图加载失败</h3><p>' + error.message + '</p></div>';
-                    }
-                }, 500);
+                        var text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                        text.setAttribute('x', node.x);
+                        text.setAttribute('y', node.y + 5);
+                        text.setAttribute('text-anchor', 'middle');
+                        text.setAttribute('font-size', '12');
+                        text.setAttribute('font-weight', 'bold');
+                        text.setAttribute('fill', '#333');
+                        text.textContent = node.label;
+                        svg.appendChild(text);
+                    });
+                    
+                    console.log('简单图谱渲染完成');
+                }
+                
+                // 开始加载
+                setTimeout(loadVisJS, 100);
             </script>
         </body>
         </html>
