@@ -65,31 +65,9 @@ struct GraphView: View {
         }
         
         print("🔹 单词-标签连接数: \(edges.count)")
-        
-        // 额外连接：为有相同标签的单词创建连接
-        let initialEdgeCount = edges.count
-        for i in 0..<nodes.count {
-            for j in (i+1)..<nodes.count {
-                guard let word1 = nodes[i].word,
-                      let word2 = nodes[j].word else { continue }
-                
-                let tags1 = Set(word1.tags.map { "\($0.type.rawValue):\($0.value)" })
-                let tags2 = Set(word2.tags.map { "\($0.type.rawValue):\($0.value)" })
-                let commonTags = tags1.intersection(tags2)
-                
-                if !commonTags.isEmpty {
-                    edges.append(WordGraphEdge(
-                        from: nodes[i],
-                        to: nodes[j], 
-                        relationshipType: "关联"
-                    ))
-                    print("✅ 创建单词关联: \(word1.text) <-> \(word2.text)")
-                }
-            }
-        }
-        
-        print("🔹 单词间连接数: \(edges.count - initialEdgeCount)")
         print("🔹 总连接数: \(edges.count)")
+        
+        // 移除单词间连接逻辑 - 只保留单词与标签之间的连接
         
         return (nodes: nodes, edges: edges)
     }
