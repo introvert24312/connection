@@ -145,7 +145,10 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
     func updateNSView(_ webView: WKWebView, context: Context) {
         let htmlContent = generateGraphHTML()
         onDebugInfo("生成图形: \(nodes.count)个节点, \(edges.count)条边")
-        webView.loadHTMLString(htmlContent, baseURL: nil)
+        
+        // 使用更安全的baseURL以避免安全问题
+        let baseURL = URL(string: "https://unpkg.com")
+        webView.loadHTMLString(htmlContent, baseURL: baseURL)
         
         // 设置coordinator引用
         context.coordinator.webView = webView
@@ -173,6 +176,15 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
             print("WebView加载失败: \(error)")
             onDebugInfo?("加载失败: \(error.localizedDescription)")
+        }
+        
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            print("WebView导航失败: \(error)")
+            onDebugInfo?("导航失败: \(error.localizedDescription)")
+        }
+        
+        func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+            onDebugInfo?("WebView开始加载内容")
         }
         
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
