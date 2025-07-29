@@ -1,0 +1,18 @@
+"/Users/Patronum/Desktop/WordTagger/WordTagger/MapContainer.swift":
+  dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/MapContainer.d"
+  object: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/MapContainer.o"
+  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/MapContainer.swiftdeps"
+  const-values: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/MapContainer.swiftconstvalues"
+  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/MapContainer.dia"
+"/Users/Patronum/Desktop/WordTagger/WordTagger/GraphView.swift":
+  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphView.dia"
+  object: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphView.o"
+  dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphView.d"
+  const-values: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphView.swiftconstvalues"
+  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphView.swiftdeps"
+"/Users/Patronum/Desktop/WordTagger/WordTagger/CommandPaletteView.swift":
+  object: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandPaletteView.o"
+  dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandPaletteView.d"
+  const-values: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandPaletteView.swiftconstvalues"
+  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandPaletteView.dia"
+  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandPaletteView.swiftdeps"
