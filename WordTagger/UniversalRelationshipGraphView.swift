@@ -441,12 +441,8 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         </head>
         <body>
             <div id="loading" class="loading">正在加载关系图...</div>
-            <div class="debug-info">节点: \(nodes.count) | 连接: \(edges.count)</div>
-            <div class="debug-panel" id="debugPanel">调试信息加载中...</div>
             <div id="mynetworkid" style="display: none;"></div>
             <script type="text/javascript">
-                console.log('初始化简单图谱 - 节点:', \(nodes.count), '边:', \(edges.count));
-                
                 // 节点和边数据
                 var nodeData = [
                     \(nodesStr)
@@ -456,46 +452,13 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                     \(edgeStrings.joined(separator: ",\n                    "))
                 ];
                 
-                console.log('节点数据:', nodeData);
-                console.log('边数据:', edgeData);
-                console.log('节点ID类型:', typeof nodeData[0]?.id);
-                console.log('边from类型:', typeof edgeData[0]?.from);
-                console.log('节点数量:', nodeData.length, '边数量:', edgeData.length);
-                
-                // 显示调试信息到页面
-                function updateDebugPanel(message) {
-                    var panel = document.getElementById('debugPanel');
-                    if (panel) {
-                        panel.innerHTML += message + '<br>';
-                    }
-                }
-                
-                updateDebugPanel('节点数量: ' + nodeData.length);
-                updateDebugPanel('边数量: ' + edgeData.length);
-                if (nodeData.length > 0) {
-                    updateDebugPanel('节点ID类型: ' + typeof nodeData[0].id);
-                    updateDebugPanel('=== 实际节点ID ===');
-                    var nodeIds = [];
-                    nodeData.forEach((node, index) => {
-                        nodeIds.push(node.id);
-                        updateDebugPanel('节点' + (index+1) + ' ID: ' + node.id + ' (' + node.label + ')');
-                    });
-                    updateDebugPanel('节点ID集合: [' + nodeIds.join(', ') + ']');
-                }
-                if (edgeData.length > 0) {
-                    updateDebugPanel('边from类型: ' + typeof edgeData[0].from);
-                    updateDebugPanel('边to类型: ' + typeof edgeData[0].to);
-                }
-                
                 // 尝试加载vis.js，失败则使用简单实现
                 function loadVisJS() {
                     var script = document.createElement('script');
                     script.onload = function() {
-                        console.log('vis.js加载成功');
                         initVisGraph();
                     };
                     script.onerror = function() {
-                        console.log('vis.js加载失败，使用简单实现');
                         initSimpleGraph();
                     };
                     script.src = 'https://unpkg.com/vis-network/standalone/umd/vis-network.min.js';
@@ -550,56 +513,13 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                     
                     var network = new vis.Network(container, data, options);
                     
-                    // 调试DataSet信息
-                    console.log('DataSet nodes:', nodes.length);
-                    console.log('DataSet edges:', edges.length);
-                    console.log('edges in dataset:', edges.get());
-                    
-                    // ID类型检查脚本
-                    updateDebugPanel('=== 边连接检查 ===');
-                    edges.get().forEach((e, index) => {
-                        var fromNode = nodes.get(e.from);
-                        var toNode = nodes.get(e.to);
-                        updateDebugPanel('边' + (index+1) + ': from=' + e.from + '(' + typeof e.from + ') to=' + e.to + '(' + typeof e.to + ')');
-                        updateDebugPanel('  找到from节点: ' + (fromNode ? '✓' : '✗'));
-                        updateDebugPanel('  找到to节点: ' + (toNode ? '✓' : '✗'));
-                        
-                        console.log(
-                            'Edge ID:', e.id,
-                            'from:', e.from, typeof e.from,
-                            'to:', e.to, typeof e.to,
-                            'from node:', fromNode,
-                            'to node:', toNode
-                        );
-                    });
                     
                     network.once('stabilized', function() {
                         document.getElementById('loading').style.display = 'none';
                         container.style.display = 'block';
                         network.fit();
-                        console.log('网络已稳定，节点:', nodes.length, '边:', edges.length);
-                        updateDebugPanel('=== 网络已稳定 ===');
-                        updateDebugPanel('渲染完成，边应该可见');
-                        
-                        // 强制测试边的显示
-                        setTimeout(function() {
-                            updateDebugPanel('=== 强制边样式测试 ===');
-                            network.setOptions({
-                                edges: {
-                                    width: 3,
-                                    color: { color: '#ff0000' },
-                                    dashes: false,
-                                    shadow: false
-                                }
-                            });
-                            updateDebugPanel('已应用红色测试边样式');
-                        }, 1000);
                     });
                     
-                    // 网络事件监听
-                    network.on('afterDrawing', function() {
-                        updateDebugPanel('图谱已重绘，边数: ' + edges.length);
-                    });
                     
                     window.fitGraph = function() { network.fit(); };
                 }
@@ -668,7 +588,6 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                         svg.appendChild(text);
                     });
                     
-                    console.log('简单图谱渲染完成');
                 }
                 
                 // 开始加载
