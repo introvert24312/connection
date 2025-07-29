@@ -429,6 +429,22 @@ struct MapPinView: View {
     }
 }
 
+// MARK: - 全局ID生成器
+class GraphNodeIDGenerator {
+    static let shared = GraphNodeIDGenerator()
+    private var currentID: Int = 1000000 // 从一个大数开始避免冲突
+    private let lock = NSLock()
+    
+    private init() {}
+    
+    func nextID() -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        currentID += 1
+        return currentID
+    }
+}
+
 // MARK: - 单词图谱节点数据模型
 
 struct WordGraphNode: UniversalGraphNode {
@@ -446,9 +462,8 @@ struct WordGraphNode: UniversalGraphNode {
     }
     
     init(word: Word, isCenter: Bool = false) {
-        // 使用word的UUID字符串的前8位加随机数确保唯一性
-        let wordPrefix = String(word.id.uuidString.prefix(8))
-        self.id = abs((wordPrefix + "_word").hashValue) % 2147483647
+        // 使用全局ID生成器确保绝对唯一
+        self.id = GraphNodeIDGenerator.shared.nextID()
         self.label = word.text
         self.subtitle = word.meaning
         self.word = word
@@ -458,10 +473,8 @@ struct WordGraphNode: UniversalGraphNode {
     }
     
     init(tag: Tag) {
-        // 为标签生成唯一ID，使用标签ID加随机后缀
-        let tagPrefix = String(tag.id.uuidString.prefix(8))
-        let tagString = "\(tagPrefix)_tag_\(tag.type.rawValue)_\(tag.value.prefix(5))"
-        self.id = abs(tagString.hashValue) % 2147483647
+        // 使用全局ID生成器确保绝对唯一
+        self.id = GraphNodeIDGenerator.shared.nextID()
         self.label = tag.value
         self.subtitle = tag.type.displayName
         self.word = nil
