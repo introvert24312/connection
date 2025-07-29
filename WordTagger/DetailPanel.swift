@@ -551,7 +551,10 @@ struct WordGraphView: View {
         
         // 调试信息（可选：在release版本中移除）
         #if DEBUG
-        print("🔍 Word: \(word.text), Tags: \(word.tags.count), Graph nodes: \(nodes.count)")
+        @AppStorage("enableGraphDebug") var enableGraphDebug: Bool = false
+        if enableGraphDebug {
+            print("🔍 Word: \(word.text), Tags: \(word.tags.count), Graph nodes: \(nodes.count)")
+        }
         #endif
         
         return nodes
@@ -575,14 +578,17 @@ struct WordGraphView: View {
         
         // 调试信息：确认图谱数据计算
         #if DEBUG
-        print("📊 DetailPanel.calculateGraphData for word: \(word.text)")
-        print("📊 Generated \(nodes.count) nodes, \(edges.count) edges")
-        for node in nodes {
-            if let nodeWord = node.word {
-                let centerMark = nodeWord.id == word.id ? "⭐" : "  "
-                print("📊 \(centerMark) Node: \(nodeWord.text) (word)")
-            } else if let nodeTag = node.tag {
-                print("📊    Node: \(nodeTag.value) (tag: \(nodeTag.type.displayName))")
+        @AppStorage("enableGraphDebug") var enableGraphDebug: Bool = false
+        if enableGraphDebug {
+            print("📊 DetailPanel.calculateGraphData for word: \(word.text)")
+            print("📊 Generated \(nodes.count) nodes, \(edges.count) edges")
+            for node in nodes {
+                if let nodeWord = node.word {
+                    let centerMark = nodeWord.id == word.id ? "⭐" : "  "
+                    print("📊 \(centerMark) Node: \(nodeWord.text) (word)")
+                } else if let nodeTag = node.tag {
+                    print("📊    Node: \(nodeTag.value) (tag: \(nodeTag.type.displayName))")
+                }
             }
         }
         #endif

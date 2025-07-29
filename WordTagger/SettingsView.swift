@@ -47,6 +47,7 @@ struct SettingsView: View {
 
 struct GeneralSettingsView: View {
     @AppStorage("enableDebugMode") private var enableDebugMode: Bool = false
+    @AppStorage("enableGraphDebug") private var enableGraphDebug: Bool = false
     @AppStorage("autoSaveInterval") private var autoSaveInterval: Double = 30.0
     @AppStorage("showPhoneticByDefault") private var showPhoneticByDefault: Bool = true
     @AppStorage("defaultTagType") private var defaultTagType: String = "memory"
@@ -120,6 +121,23 @@ struct GeneralSettingsView: View {
                         ) {
                             Toggle("", isOn: $enableDebugMode)
                                 .toggleStyle(SwitchToggleStyle())
+                        }
+                        
+                        Divider()
+                        
+                        SettingRow(
+                            title: "图谱调试信息",
+                            description: "在WebView中显示图谱数据验证信息"
+                        ) {
+                            Toggle("", isOn: $enableGraphDebug)
+                                .toggleStyle(SwitchToggleStyle())
+                        }
+                        
+                        if enableGraphDebug {
+                            Text("⚠️ 启用后会在图谱中显示详细的节点和边数据，用于调试数据传递问题")
+                                .font(.caption2)
+                                .foregroundColor(.orange)
+                                .padding(.top, 4)
                         }
                     }
                     .padding(12)

@@ -260,8 +260,12 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
     }
     
     func updateNSView(_ webView: WKWebView, context: Context) {
+        @AppStorage("enableGraphDebug") var enableGraphDebug: Bool = false
+        
         #if DEBUG
-        print("🔄 开始强制重新创建WebView内容")
+        if enableGraphDebug {
+            print("🔄 开始强制重新创建WebView内容")
+        }
         #endif
         
         // 彻底清除所有缓存
@@ -284,7 +288,9 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                 webView.loadHTMLString(htmlContent, baseURL: baseURL)
                 
                 #if DEBUG
-                print("🔄 WebView重新创建完成，时间戳: \(timestamp)")
+                if enableGraphDebug {
+                    print("🔄 WebView重新创建完成，时间戳: \(timestamp)")
+                }
                 #endif
             }
         }
@@ -367,32 +373,36 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
     }
     
     private func generateGraphHTML() -> String {
+        // 获取调试设置
+        @AppStorage("enableGraphDebug") var enableGraphDebug: Bool = false
         
         // 调试信息：确认接收到的数据
         #if DEBUG
-        print("🌐 UniversalRelationshipGraphView.generateGraphHTML - 强制重新生成")
-        print("🌐 Processing \(nodes.count) nodes, \(edges.count) edges")
-        
-        // 检查中心单词
-        if let centerNode = nodes.first(where: { ($0 as? WordGraphNode)?.isCenter == true }),
-           let wordNode = centerNode as? WordGraphNode,
-           let word = wordNode.word {
-            print("🎯 CENTER WORD: \(word.text)")
-        }
-        
-        for node in nodes {
-            if let wordNode = node as? WordGraphNode {
-                if let nodeWord = wordNode.word {
-                    let centerMark = wordNode.isCenter ? "⭐" : "  "
-                    print("🌐 \(centerMark) Node: \(nodeWord.text) (word) - ID: \(node.id)")
-                } else if let nodeTag = wordNode.tag {
-                    print("🌐    Node: \(nodeTag.value) (tag: \(nodeTag.type.displayName)) - ID: \(node.id)")
-                }
-            } else {
-                print("🌐    Node: \(node.label) - ID: \(node.id)")
+        if enableGraphDebug {
+            print("🌐 UniversalRelationshipGraphView.generateGraphHTML - 强制重新生成")
+            print("🌐 Processing \(nodes.count) nodes, \(edges.count) edges")
+            
+            // 检查中心单词
+            if let centerNode = nodes.first(where: { ($0 as? WordGraphNode)?.isCenter == true }),
+               let wordNode = centerNode as? WordGraphNode,
+               let word = wordNode.word {
+                print("🎯 CENTER WORD: \(word.text)")
             }
+            
+            for node in nodes {
+                if let wordNode = node as? WordGraphNode {
+                    if let nodeWord = wordNode.word {
+                        let centerMark = wordNode.isCenter ? "⭐" : "  "
+                        print("🌐 \(centerMark) Node: \(nodeWord.text) (word) - ID: \(node.id)")
+                    } else if let nodeTag = wordNode.tag {
+                        print("🌐    Node: \(nodeTag.value) (tag: \(nodeTag.type.displayName)) - ID: \(node.id)")
+                    }
+                } else {
+                    print("🌐    Node: \(node.label) - ID: \(node.id)")
+                }
+            }
+            print("🌐 ==========================================")
         }
-        print("🌐 ==========================================")
         #endif
         
         // 安全地转义字符串
@@ -413,7 +423,9 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         // 生成边数据 - 统一使用数字ID并添加边ID
         let edgeStrings = edges.enumerated().map { i, edge in
             #if DEBUG
-            print("🔗 Edge \(i+1): from=\(edge.fromId) to=\(edge.toId)")
+            if enableGraphDebug {
+                print("🔗 Edge \(i+1): from=\(edge.fromId) to=\(edge.toId)")
+            }
             #endif
             return "{id: \(i+1), from: \(edge.fromId), to: \(edge.toId)}"
         }
@@ -510,14 +522,14 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         </head>
         <body>
             <div id="loading" class="loading">正在加载关系图...</div>
-            <div id="debug-display" style="display: block; padding: 20px; font-family: monospace; background: white; color: black;">
+            <div id="debug-display" style="display: \(enableGraphDebug ? "block" : "none"); padding: 20px; font-family: monospace; background: white; color: black;">
                 <h3>调试显示 - 数据验证</h3>
                 <div style="color: red; font-weight: bold;">生成时间: \(timestamp)</div>
                 <div style="color: blue; font-weight: bold;">页面ID: \(Int.random(in: 10000...99999))</div>
                 <div id="node-list"></div>
                 <div id="edge-list"></div>
             </div>
-            <div id="mynetworkid" style="display: none;"></div>
+            <div id="mynetworkid" style="display: \(enableGraphDebug ? "none" : "block");"></div>
             <script type="text/javascript">
                 // 节点和边数据
                 var nodeData = [
@@ -528,7 +540,21 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                     \(edgeStrings.joined(separator: ",\n                    "))
                 ];
                 
-                // 直接显示调试信息，验证数据传递
+                // 显示调试信息或加载图谱
+                function initializeView() {
+                    var debugMode = \(enableGraphDebug ? "true" : "false");
+                    
+                    if (debugMode === "true") {
+                        // 显示调试信息
+                        showDebugInfo();
+                    } else {
+                        // 隐藏loading，显示图谱
+                        document.getElementById('loading').style.display = 'none';
+                        loadVisJS();
+                    }
+                }
+                
+                // 调试信息显示函数
                 function showDebugInfo() {
                     var nodeList = document.getElementById('node-list');
                     var edgeList = document.getElementById('edge-list');
@@ -546,8 +572,8 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                     document.getElementById('loading').style.display = 'none';
                 }
                 
-                // 直接显示调试信息，不加载复杂图谱
-                setTimeout(showDebugInfo, 100);
+                // 初始化
+                setTimeout(initializeView, 100);
                 
                 // 尝试加载vis.js，失败则使用简单实现
                 function loadVisJS() {

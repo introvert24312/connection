@@ -9,6 +9,8 @@ struct GraphView: View {
     
     // 生成所有单词的图谱数据 - 统一计算节点和边
     private func calculateGraphData() -> (nodes: [WordGraphNode], edges: [WordGraphEdge]) {
+        @AppStorage("enableGraphDebug") var enableGraphDebug: Bool = false
+        
         var nodes: [WordGraphNode] = []
         var edges: [WordGraphEdge] = []
         var addedTagKeys: Set<String> = []
@@ -33,20 +35,32 @@ struct GraphView: View {
         
         // 现在使用同一批节点创建边
         
-        print("🔍 调试信息:")
-        print("🔹 总节点数: \(nodes.count)")
-        print("🔹 单词数: \(wordsToShow.count)")
-        print("🔹 单词节点数: \(nodes.filter { $0.word != nil }.count)")
-        print("🔹 标签节点数: \(nodes.filter { $0.tag != nil }.count)")
+        #if DEBUG
+        if enableGraphDebug {
+            print("🔍 调试信息:")
+            print("🔹 总节点数: \(nodes.count)")
+            print("🔹 单词数: \(wordsToShow.count)")
+            print("🔹 单词节点数: \(nodes.filter { $0.word != nil }.count)")
+            print("🔹 标签节点数: \(nodes.filter { $0.tag != nil }.count)")
+        }
+        #endif
         
         // 为每个单词与其标签创建连接
         for word in wordsToShow {
             guard let wordNode = nodes.first(where: { $0.word?.id == word.id }) else { 
-                print("❌ 找不到单词节点: \(word.text)")
+                #if DEBUG
+                if enableGraphDebug {
+                    print("❌ 找不到单词节点: \(word.text)")
+                }
+                #endif
                 continue 
             }
             
-            print("🔹 处理单词: \(word.text), 标签数: \(word.tags.count)")
+            #if DEBUG
+            if enableGraphDebug {
+                print("🔹 处理单词: \(word.text), 标签数: \(word.tags.count)")
+            }
+            #endif
             
             for tag in word.tags {
                 if let tagNode = nodes.first(where: { 
@@ -57,15 +71,27 @@ struct GraphView: View {
                         to: tagNode,
                         relationshipType: tag.type.displayName
                     ))
-                    print("✅ 创建连接: \(word.text) -> \(tag.value)")
+                    #if DEBUG
+                    if enableGraphDebug {
+                        print("✅ 创建连接: \(word.text) -> \(tag.value)")
+                    }
+                    #endif
                 } else {
-                    print("❌ 找不到标签节点: \(tag.type.rawValue):\(tag.value)")
+                    #if DEBUG
+                    if enableGraphDebug {
+                        print("❌ 找不到标签节点: \(tag.type.rawValue):\(tag.value)")
+                    }
+                    #endif
                 }
             }
         }
         
-        print("🔹 单词-标签连接数: \(edges.count)")
-        print("🔹 总连接数: \(edges.count)")
+        #if DEBUG
+        if enableGraphDebug {
+            print("🔹 单词-标签连接数: \(edges.count)")
+            print("🔹 总连接数: \(edges.count)")
+        }
+        #endif
         
         // 移除单词间连接逻辑 - 只保留单词与标签之间的连接
         
