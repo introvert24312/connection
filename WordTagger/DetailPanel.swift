@@ -446,7 +446,8 @@ struct WordGraphNode: UniversalGraphNode {
     }
     
     init(word: Word, isCenter: Bool = false) {
-        self.id = word.text.hashValue // 使用单词文本的hash作为ID
+        // 使用word的UUID确保唯一性，转换为正整数
+        self.id = abs(word.id.uuidString.hashValue)
         self.label = word.text
         self.subtitle = word.meaning
         self.word = word
@@ -456,7 +457,9 @@ struct WordGraphNode: UniversalGraphNode {
     }
     
     init(tag: Tag) {
-        self.id = tag.value.hashValue + tag.type.rawValue.hashValue // 使用标签值和类型的组合hash作为ID
+        // 为标签生成唯一ID，使用前缀区分标签和单词节点
+        let tagString = "tag_\(tag.type.rawValue)_\(tag.value)"
+        self.id = abs(tagString.hashValue)
         self.label = tag.value
         self.subtitle = tag.type.displayName
         self.word = nil
