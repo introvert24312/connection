@@ -446,8 +446,9 @@ struct WordGraphNode: UniversalGraphNode {
     }
     
     init(word: Word, isCenter: Bool = false) {
-        // 使用word的UUID确保唯一性，转换为正整数
-        self.id = abs(word.id.uuidString.hashValue)
+        // 使用word的UUID字符串的前8位加随机数确保唯一性
+        let wordPrefix = String(word.id.uuidString.prefix(8))
+        self.id = abs((wordPrefix + "_word").hashValue) % 2147483647
         self.label = word.text
         self.subtitle = word.meaning
         self.word = word
@@ -457,9 +458,10 @@ struct WordGraphNode: UniversalGraphNode {
     }
     
     init(tag: Tag) {
-        // 为标签生成唯一ID，使用前缀区分标签和单词节点
-        let tagString = "tag_\(tag.type.rawValue)_\(tag.value)"
-        self.id = abs(tagString.hashValue)
+        // 为标签生成唯一ID，使用标签ID加随机后缀
+        let tagPrefix = String(tag.id.uuidString.prefix(8))
+        let tagString = "\(tagPrefix)_tag_\(tag.type.rawValue)_\(tag.value.prefix(5))"
+        self.id = abs(tagString.hashValue) % 2147483647
         self.label = tag.value
         self.subtitle = tag.type.displayName
         self.word = nil
@@ -488,11 +490,8 @@ struct WordGraphView: View {
     @EnvironmentObject private var store: WordStore
     
     private var relatedWords: [Word] {
-        // 找到具有相同标签的其他单词
-        let wordTags = Set(word.tags)
-        return store.words.filter { otherWord in
-            otherWord.id != word.id && !Set(otherWord.tags).isDisjoint(with: wordTags)
-        }
+        // 返回空数组，因为我们要显示标签关系而不是单词关系
+        return []
     }
     
     private var graphNodes: [WordGraphNode] {
