@@ -311,8 +311,69 @@ struct QuickAddSheetView: View {
             if let (_, tagType) = tagManager.mappingDictionary[tagKey] {
                 if i + 1 < components.count { 
                     let content = components[i + 1]
-                    let tag = Tag(type: tagType, value: content)
-                    tags.append(tag)
+                    
+                    // 检查是否是location标签且包含坐标信息
+                    if tagType == .location && content.contains("@") {
+                        var locationName: String = ""
+                        var lat: Double = 0
+                        var lng: Double = 0
+                        var parsed = false
+                        
+                        // 格式1: 名称@纬度,经度 (如: 天马广场@37.45,121.61)
+                        if content.contains("@") && !content.hasPrefix("@") {
+                            let components = content.split(separator: "@", maxSplits: 1)
+                            if components.count == 2 {
+                                locationName = String(components[0])
+                                let coordString = String(components[1])
+                                let coords = coordString.split(separator: ",")
+                                
+                                if coords.count == 2,
+                                   let latitude = Double(coords[0]),
+                                   let longitude = Double(coords[1]) {
+                                    lat = latitude
+                                    lng = longitude
+                                    parsed = true
+                                }
+                            }
+                        }
+                        // 格式2: @纬度,经度[名称] (如: @37.45,121.61[天马广场])
+                        else if content.hasPrefix("@") && content.contains("[") && content.contains("]") {
+                            // 提取坐标部分 @纬度,经度
+                            if let atIndex = content.firstIndex(of: "@"),
+                               let bracketIndex = content.firstIndex(of: "[") {
+                                let coordString = String(content[content.index(after: atIndex)..<bracketIndex])
+                                let coords = coordString.split(separator: ",")
+                                
+                                if coords.count == 2,
+                                   let latitude = Double(coords[0]),
+                                   let longitude = Double(coords[1]) {
+                                    lat = latitude
+                                    lng = longitude
+                                    
+                                    // 提取名称部分 [名称]
+                                    if let startBracket = content.firstIndex(of: "["),
+                                       let endBracket = content.firstIndex(of: "]"),
+                                       startBracket < endBracket {
+                                        locationName = String(content[content.index(after: startBracket)..<endBracket])
+                                        parsed = true
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if parsed && !locationName.isEmpty {
+                            let tag = store.createTag(type: tagType, value: locationName, latitude: lat, longitude: lng)
+                            tags.append(tag)
+                        } else {
+                            // 如果解析失败，创建普通标签
+                            let tag = Tag(type: tagType, value: content)
+                            tags.append(tag)
+                        }
+                    } else {
+                        // 普通标签
+                        let tag = Tag(type: tagType, value: content)
+                        tags.append(tag)
+                    }
                     i += 2 
                 } else { 
                     i += 1 
@@ -467,15 +528,91 @@ struct QuickAddView: View {
     private func processInput() {
         let components = inputText.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: " ", omittingEmptySubsequences: true).map(String.init)
         guard !components.isEmpty else { return }
-        let wordText = components[0]; var tags: [Tag] = []; var i = 1
+        let wordText = components[0]
+        var tags: [Tag] = []
+        var i = 1
+        
         while i < components.count {
             let tagKey = components[i].lowercased()
             if let (_, tagType) = tagManager.mappingDictionary[tagKey] {
-                if i + 1 < components.count { let content = components[i + 1]; let tag = Tag(type: tagType, value: content); tags.append(tag); i += 2 }
-                else { i += 1 }
-            } else { i += 1 }
+                if i + 1 < components.count {
+                    let content = components[i + 1]
+                    
+                    // 检查是否是location标签且包含坐标信息
+                    if tagType == .location && content.contains("@") {
+                        var locationName: String = ""
+                        var lat: Double = 0
+                        var lng: Double = 0
+                        var parsed = false
+                        
+                        // 格式1: 名称@纬度,经度 (如: 天马广场@37.45,121.61)
+                        if content.contains("@") && !content.hasPrefix("@") {
+                            let components = content.split(separator: "@", maxSplits: 1)
+                            if components.count == 2 {
+                                locationName = String(components[0])
+                                let coordString = String(components[1])
+                                let coords = coordString.split(separator: ",")
+                                
+                                if coords.count == 2,
+                                   let latitude = Double(coords[0]),
+                                   let longitude = Double(coords[1]) {
+                                    lat = latitude
+                                    lng = longitude
+                                    parsed = true
+                                }
+                            }
+                        }
+                        // 格式2: @纬度,经度[名称] (如: @37.45,121.61[天马广场])
+                        else if content.hasPrefix("@") && content.contains("[") && content.contains("]") {
+                            // 提取坐标部分 @纬度,经度
+                            if let atIndex = content.firstIndex(of: "@"),
+                               let bracketIndex = content.firstIndex(of: "[") {
+                                let coordString = String(content[content.index(after: atIndex)..<bracketIndex])
+                                let coords = coordString.split(separator: ",")
+                                
+                                if coords.count == 2,
+                                   let latitude = Double(coords[0]),
+                                   let longitude = Double(coords[1]) {
+                                    lat = latitude
+                                    lng = longitude
+                                    
+                                    // 提取名称部分 [名称]
+                                    if let startBracket = content.firstIndex(of: "["),
+                                       let endBracket = content.firstIndex(of: "]"),
+                                       startBracket < endBracket {
+                                        locationName = String(content[content.index(after: startBracket)..<endBracket])
+                                        parsed = true
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if parsed && !locationName.isEmpty {
+                            let tag = store.createTag(type: tagType, value: locationName, latitude: lat, longitude: lng)
+                            tags.append(tag)
+                        } else {
+                            // 如果解析失败，创建普通标签
+                            let tag = Tag(type: tagType, value: content)
+                            tags.append(tag)
+                        }
+                    } else {
+                        // 普通标签
+                        let tag = Tag(type: tagType, value: content)
+                        tags.append(tag)
+                    }
+                    i += 2
+                } else {
+                    i += 1
+                }
+            } else {
+                i += 1
+            }
         }
-        let newWord = Word(text: wordText, tags: tags); store.addWord(newWord); inputText = ""; onDismiss()
+        
+        let newWord = Word(text: wordText, tags: tags)
+        store.addWord(newWord)
+        inputText = ""
+        onDismiss()
     }
 }
 
