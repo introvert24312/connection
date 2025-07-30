@@ -9,9 +9,9 @@ struct DetailPanel: View {
     @State private var showingEditSheet = false
     
     enum Tab: String, CaseIterable {
-        case detail = "详情"
-        case map = "地图"
         case related = "图谱"
+        case map = "地图"
+        case detail = "详情"
     }
     
     var body: some View {
