@@ -50,6 +50,45 @@ struct MapContainer: View {
                 // 注意：这里不能直接设置，因为isLocationSelectionMode是@Binding
                 // 它应该由MapWindow来控制
             }
+            
+            // 监听位置预览通知
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("previewLocation"),
+                object: nil,
+                queue: .main
+            ) { notification in
+                if let previewData = notification.object as? [String: Any],
+                   let latitude = previewData["latitude"] as? Double,
+                   let longitude = previewData["longitude"] as? Double,
+                   let name = previewData["name"] as? String {
+                    
+                    print("🎯 MapContainer: Received location preview request for \(name)")
+                    
+                    // 设置预览位置
+                    let coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+                    selectedLocation = coordinate
+                    selectedLocationName = name
+                    
+                    // 聚焦到该位置
+                    let newRegion = MKCoordinateRegion(
+                        center: coordinate,
+                        span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+                    )
+                    
+                    withAnimation(.easeInOut(duration: 1.0)) {
+                        region = newRegion
+                        cameraPosition = .region(newRegion)
+                    }
+                    
+                    // 3秒后自动清除预览标记
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                        if !isLocationSelectionMode {
+                            selectedLocation = nil
+                            selectedLocationName = ""
+                        }
+                    }
+                }
+            }
         }
         .onChange(of: locationManager.location) { _, newLocation in
             if let location = newLocation {
@@ -90,14 +129,19 @@ struct MapContainer: View {
                         }
                     }
                     
-                    // 3D精美大头针 - 只在点击位置显示
+                    // 3D精美大头针 - 显示选中或搜索的位置
                     if let selectedLocation = selectedLocation {
                         Annotation(
-                            "选中位置",
+                            selectedLocationName.isEmpty ? "选中位置" : selectedLocationName,
                             coordinate: selectedLocation,
                             anchor: .bottom
                         ) {
-                            Premium3DPinView()
+                            if isLocationSelectionMode {
+                                Premium3DPinView()
+                            } else {
+                                // 搜索结果的临时标记，使用不同的样式
+                                SearchLocationPinView()
+                            }
                         }
                     }
                 }
@@ -178,6 +222,35 @@ struct MapContainer: View {
             locationSelectionPrompt
             toolbarView
             searchResultsView
+            
+            // 搜索位置或预览位置提示信息
+            if selectedLocation != nil && !isLocationSelectionMode && !selectedLocationName.isEmpty {
+                VStack {
+                    HStack {
+                        Image(systemName: selectedLocationName.contains("搜索位置") ? "info.circle.fill" : "location.circle.fill")
+                            .foregroundColor(.blue)
+                        
+                        if selectedLocationName.contains("搜索位置") {
+                            Text("搜索位置: \(selectedLocationName)")
+                                .font(.caption)
+                            Text("(5秒后自动消失)")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        } else {
+                            Text("预览位置: \(selectedLocationName)")
+                                .font(.caption)
+                            Text("(3秒后自动消失)")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                .padding(8)
+                .background(.ultraThinMaterial)
+                .cornerRadius(8)
+                .padding()
+                .transition(.opacity)
+            }
             
             // 调试信息覆盖层
             if isLocationSelectionMode {
@@ -392,26 +465,35 @@ struct MapContainer: View {
             let coordinate = mapItem.placemark.coordinate
             print("Selected location from search: \(locationName)")
             
-            // 创建包含坐标信息的位置数据
-            let locationData: [String: Any] = [
-                "name": locationName,
-                "latitude": coordinate.latitude,
-                "longitude": coordinate.longitude
-            ]
-            
-            NotificationCenter.default.post(
-                name: NSNotification.Name("locationSelected"),
-                object: locationData
-            )
-            isLocationSelectionMode = false
-            showingSearchResults = false
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                NSApplication.shared.keyWindow?.close()
-            }
-        } else {
+            // 在位置选择模式下，先预览位置而不是直接选择
             showingSearchResults = false
             focusOnLocation(mapItem)
+            
+            // 设置选中位置以显示预览
+            selectedLocation = coordinate
+            selectedLocationName = locationName
+            isPreviewingLocation = true
+            
+            print("🎯 Location selection mode: Previewing location \(locationName)")
+        } else {
+            // 在普通浏览模式下，点击搜索结果应该：
+            // 1. 关闭搜索结果
+            // 2. 聚焦到该位置
+            // 3. 在地图上放置一个临时标记
+            showingSearchResults = false
+            focusOnLocation(mapItem)
+            
+            // 设置临时选中位置以显示3D大头针
+            selectedLocation = mapItem.placemark.coordinate
+            selectedLocationName = mapItem.name ?? "搜索位置"
+            
+            // 5秒后清除临时标记
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                if !isLocationSelectionMode {
+                    selectedLocation = nil
+                    selectedLocationName = ""
+                }
+            }
         }
     }
     
@@ -604,11 +686,17 @@ struct MapContainer: View {
         
         print("Confirming location selection with coordinates: \(coordinate.latitude), \(coordinate.longitude)")
         
-        // 只发送坐标信息，不包含地名，让用户自己输入名称
-        let locationData: [String: Any] = [
+        // 创建位置数据，如果有地名则包含地名信息
+        var locationData: [String: Any] = [
             "latitude": coordinate.latitude,
             "longitude": coordinate.longitude
         ]
+        
+        // 如果有地名信息（来自搜索结果），则包含地名
+        if !selectedLocationName.isEmpty && selectedLocationName != "选中位置" {
+            locationData["name"] = selectedLocationName
+            print("🎯 Confirming location with name: \(selectedLocationName)")
+        }
         
         // 发送位置选择通知
         NotificationCenter.default.post(
@@ -619,6 +707,7 @@ struct MapContainer: View {
         // 重置状态
         isLocationSelectionMode = false
         selectedLocation = nil
+        selectedLocationName = ""
         isPreviewingLocation = false
         
         // 延迟关闭地图窗口
@@ -1289,6 +1378,51 @@ struct Premium3DPinView: View {
                 .frame(width: 8, height: 8)
         }
         .onAppear { print("✅ 使用自定义大头针图标 - 基于你的SVG设计") }
+    }
+}
+
+// MARK: - Search Location Pin View
+
+struct SearchLocationPinView: View {
+    @State private var pulseScale: Double = 1.0
+    
+    var body: some View {
+        ZStack {
+            // 脉冲动画圆圈
+            Circle()
+                .fill(Color.blue.opacity(0.3))
+                .frame(width: 50, height: 50)
+                .scaleEffect(pulseScale)
+                .animation(
+                    Animation.easeInOut(duration: 1.0)
+                        .repeatForever(autoreverses: true),
+                    value: pulseScale
+                )
+            
+            // 主体圆形 - 蓝色搜索标记
+            Circle()
+                .fill(
+                    LinearGradient(
+                        gradient: Gradient(colors: [Color.blue.opacity(0.9), Color.blue.opacity(0.7)]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 28, height: 28)
+                .overlay(
+                    Circle()
+                        .stroke(Color.white, lineWidth: 2)
+                )
+                .shadow(color: .black.opacity(0.3), radius: 3, x: 0, y: 2)
+            
+            // 搜索图标
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(.white)
+                .font(.system(size: 12, weight: .medium))
+        }
+        .onAppear {
+            pulseScale = 1.3
+        }
     }
 }
 

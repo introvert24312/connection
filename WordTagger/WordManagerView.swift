@@ -350,15 +350,40 @@ struct WordManagerRowView: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 6) {
                             ForEach(word.tags.prefix(5), id: \.id) { tag in
-                                Text(tag.displayName)
-                                    .font(.caption)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 4)
-                                            .fill(Color.from(tagType: tag.type).opacity(0.2))
-                                    )
-                                    .foregroundColor(Color.from(tagType: tag.type))
+                                Group {
+                                    if tag.type == .location && tag.hasCoordinates {
+                                        // 位置标签添加点击预览功能
+                                        Button(action: {
+                                            previewLocation(tag: tag)
+                                        }) {
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "location.fill")
+                                                    .font(.caption2)
+                                                Text(tag.displayName)
+                                                    .font(.caption)
+                                            }
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 4)
+                                                    .fill(Color.from(tagType: tag.type).opacity(0.2))
+                                            )
+                                            .foregroundColor(Color.from(tagType: tag.type))
+                                        }
+                                        .buttonStyle(.plain)
+                                        .help("点击预览位置")
+                                    } else {
+                                        Text(tag.displayName)
+                                            .font(.caption)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 4)
+                                                    .fill(Color.from(tagType: tag.type).opacity(0.2))
+                                            )
+                                            .foregroundColor(Color.from(tagType: tag.type))
+                                    }
+                                }
                             }
                             
                             if word.tags.count > 5 {
@@ -405,6 +430,31 @@ struct WordManagerRowView: View {
             }
         }
         .allowsHitTesting(true)
+    }
+    
+    private func previewLocation(tag: Tag) {
+        guard let latitude = tag.latitude,
+              let longitude = tag.longitude else { return }
+        
+        print("🎯 Previewing location: \(tag.displayName) at (\(latitude), \(longitude))")
+        
+        // 打开地图窗口
+        NotificationCenter.default.post(name: .openMapWindow, object: nil)
+        
+        // 延迟发送位置预览通知，给地图窗口时间打开
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            let previewData: [String: Any] = [
+                "latitude": latitude,
+                "longitude": longitude,
+                "name": tag.displayName,
+                "isPreview": true
+            ]
+            
+            NotificationCenter.default.post(
+                name: NSNotification.Name("previewLocation"),
+                object: previewData
+            )
+        }
     }
 }
 
@@ -569,8 +619,17 @@ struct TagEditCommandView: View {
             if let locationData = notification.object as? [String: Any],
                let latitude = locationData["latitude"] as? Double,
                let longitude = locationData["longitude"] as? Double {
-                // 只添加坐标信息，让用户自己输入地名
-                let locationCommand = "loc @\(latitude),\(longitude)[]"
+                
+                // 如果有地名信息，使用地名；否则让用户自己输入
+                let locationCommand: String
+                if let locationName = locationData["name"] as? String {
+                    locationCommand = "loc @\(latitude),\(longitude)[\(locationName)]"
+                    print("🎯 WordManager: Using location with name: \(locationName)")
+                } else {
+                    locationCommand = "loc @\(latitude),\(longitude)[]"
+                    print("🎯 WordManager: Using coordinates only, user needs to fill name")
+                }
+                
                 if commandText.isEmpty || commandText == initialCommand {
                     commandText = "\(word.text) \(locationCommand)"
                 } else {

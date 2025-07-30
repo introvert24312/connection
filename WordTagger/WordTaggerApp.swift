@@ -147,9 +147,18 @@ struct QuickAddSheetView: View {
                 if let locationData = notification.object as? [String: Any],
                    let latitude = locationData["latitude"] as? Double,
                    let longitude = locationData["longitude"] as? Double {
-                    // 只使用坐标，让用户自己输入地名
-                    let locationCommand = "@\(latitude),\(longitude)[]"
-                    insertLocationIntoInput(locationCommand)
+                    
+                    // 如果有地名信息，使用地名；否则让用户自己输入
+                    if let locationName = locationData["name"] as? String {
+                        let locationCommand = "@\(latitude),\(longitude)[\(locationName)]"
+                        insertLocationIntoInput(locationCommand)
+                        print("🎯 QuickAdd: Using location with name: \(locationName)")
+                    } else {
+                        // 只使用坐标，让用户自己输入地名
+                        let locationCommand = "@\(latitude),\(longitude)[]"
+                        insertLocationIntoInput(locationCommand)
+                        print("🎯 QuickAdd: Using coordinates only, user needs to fill name")
+                    }
                 } else if let locationName = notification.object as? String {
                     // 向后兼容旧格式
                     insertLocationIntoInput("location \(locationName)")
