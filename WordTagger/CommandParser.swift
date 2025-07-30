@@ -419,8 +419,8 @@ public struct OpenMapCommand: Command {
 
 public struct OpenGraphCommand: Command {
     public let id = UUID()
-    public let title = "打开关系图"
-    public let description = "显示单词之间的关系图谱"
+    public let title = "打开全局图谱"
+    public let description = "显示全局的单词关系图谱"
     public let icon = "circle.hexagonpath"
     public let category = CommandCategory.navigation
     public let keywords = ["图谱", "关系", "网络", "连接"]

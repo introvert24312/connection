@@ -47,7 +47,7 @@ struct ContentView: View {
                     Image(systemName: "circle.hexagonpath")
                         .foregroundColor(.purple)
                 }
-                .help("打开关系图谱 (⌘G)")
+                .help("打开全局图谱 (⌘G)")
                 
                 Button(action: {
                     store.selectWord(nil)

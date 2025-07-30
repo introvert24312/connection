@@ -604,7 +604,7 @@ struct WordGraphView: View {
         VStack(spacing: 0) {
             // 标题栏
             HStack {
-                Text("关系图谱")
+                Text("单词详情图谱")
                     .font(.headline)
                 
                 Spacer()
@@ -625,7 +625,7 @@ struct WordGraphView: View {
                 UniversalRelationshipGraphView(
                     nodes: graphData.nodes,
                     edges: graphData.edges,
-                    title: "单词关系图谱",
+                    title: "单词详情图谱",
                     onNodeSelected: { nodeId in
                         // 当点击节点时，选择对应的单词（只有单词节点才会触发选择）
                         if let selectedNode = graphData.nodes.first(where: { $0.id == nodeId }),

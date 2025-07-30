@@ -680,7 +680,7 @@ struct WordTaggerApp: App {
         .defaultSize(width: 1000, height: 700)
         
         // 图谱窗口
-        WindowGroup("节点关系图谱", id: "graph") {
+        WindowGroup("全局图谱", id: "graph") {
             GraphView()
                 .environmentObject(store)
                 .frame(minWidth: 1000, minHeight: 700)

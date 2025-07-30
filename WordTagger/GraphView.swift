@@ -109,7 +109,7 @@ struct GraphView: View {
         VStack(spacing: 0) {
             // 工具栏
             HStack {
-                Text("节点关系图谱")
+                Text("全局图谱")
                     .font(.title2)
                     .fontWeight(.semibold)
                 
@@ -149,7 +149,7 @@ struct GraphView: View {
                 UniversalRelationshipGraphView(
                     nodes: cachedNodes,
                     edges: cachedEdges,
-                    title: "节点关系图谱",
+                    title: "全局图谱",
                     onNodeSelected: { nodeId in
                         // 当点击节点时，选择对应的单词（只有单词节点才会触发选择）
                         if let selectedNode = cachedNodes.first(where: { $0.id == nodeId }),
@@ -227,7 +227,7 @@ struct EmptyGraphView: View {
                 .font(.title2)
                 .foregroundColor(.secondary)
             
-            Text("添加一些单词来生成关系图谱")
+            Text("添加一些单词来生成全局图谱")
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
