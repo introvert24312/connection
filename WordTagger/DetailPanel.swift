@@ -5,7 +5,7 @@ import MapKit
 
 struct DetailPanel: View {
     let word: Word
-    @State private var tab: Tab = .detail
+    @State private var tab: Tab = .related
     @State private var showingEditSheet = false
     
     enum Tab: String, CaseIterable {
