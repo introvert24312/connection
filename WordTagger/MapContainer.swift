@@ -24,6 +24,9 @@ struct MapContainer: View {
     @StateObject private var locationManager = LocationManager()
     @State private var selectedLocation: CLLocationCoordinate2D?
     @State private var selectedLocationName: String = ""
+    @State private var isPreviewingLocation: Bool = false
+    @State private var showManualInput: Bool = false
+    @State private var manualCoordinateInput: String = ""
     @State private var mapViewSize: CGSize = CGSize(width: 800, height: 600)
     
     var body: some View {
@@ -109,6 +112,7 @@ struct MapContainer: View {
                         // 使用改进的坐标转换
                         let tappedCoordinate = convertScreenToMapCoordinate(screenPoint: location, mapSize: geometry.size)
                         selectedLocation = tappedCoordinate
+                        isPreviewingLocation = true // 先进入预览模式
                         reverseGeocodeLocation(coordinate: tappedCoordinate)
                         print("🎯 Tapped coordinate: \(tappedCoordinate)")
                     }
@@ -123,6 +127,33 @@ struct MapContainer: View {
                 }
             }
         }
+        .sheet(isPresented: $showManualInput) {
+            ManualCoordinateInputView(
+                coordinateInput: $manualCoordinateInput,
+                onConfirm: { coordinates in
+                    // 发送手动输入的坐标
+                    let locationData: [String: Any] = [
+                        "latitude": coordinates.latitude,
+                        "longitude": coordinates.longitude
+                    ]
+                    
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("locationSelected"),
+                        object: locationData
+                    )
+                    
+                    // 重置状态并关闭地图窗口
+                    isLocationSelectionMode = false
+                    selectedLocation = nil
+                    isPreviewingLocation = false
+                    showManualInput = false
+                    
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        NSApplication.shared.keyWindow?.close()
+                    }
+                }
+            )
+        }
         .focusable()
         .onKeyPress(.return) {
             if isLocationSelectionMode && selectedLocation != nil {
@@ -135,6 +166,7 @@ struct MapContainer: View {
             if isLocationSelectionMode {
                 isLocationSelectionMode = false
                 selectedLocation = nil
+                isPreviewingLocation = false
                 return .handled
             }
             return .ignored
@@ -209,27 +241,43 @@ struct MapContainer: View {
                     }
                     
                     if let _ = selectedLocation {
-                        HStack(spacing: 12) {
-                            Button(action: {
-                                confirmLocationSelection()
-                            }) {
-                                HStack {
-                                    Image(systemName: "checkmark.circle.fill")
-                                    Text("确认添加")
+                        if isPreviewingLocation {
+                            // 预览模式：显示位置信息和操作选项
+                            HStack(spacing: 12) {
+                                Button(action: {
+                                    confirmLocationSelection()
+                                }) {
+                                    HStack {
+                                        Image(systemName: "checkmark.circle.fill")
+                                        Text("确认添加此位置")
+                                    }
                                 }
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .keyboardShortcut(.return, modifiers: [])
-                            
-                            Button(action: {
-                                selectedLocation = nil
-                            }) {
-                                HStack {
-                                    Image(systemName: "arrow.clockwise.circle")
-                                    Text("重新选择")
+                                .buttonStyle(.borderedProminent)
+                                .keyboardShortcut(.return, modifiers: [])
+                                
+                                Button(action: {
+                                    selectedLocation = nil
+                                    isPreviewingLocation = false
+                                }) {
+                                    HStack {
+                                        Image(systemName: "arrow.clockwise.circle")
+                                        Text("重新选择")
+                                    }
                                 }
+                                .buttonStyle(.bordered)
+                                
+                                Button(action: {
+                                    // 手动输入位置
+                                    showManualInput = true
+                                    manualCoordinateInput = ""
+                                }) {
+                                    HStack {
+                                        Image(systemName: "keyboard")
+                                        Text("手动输入")
+                                    }
+                                }
+                                .buttonStyle(.bordered)
                             }
-                            .buttonStyle(.bordered)
                         }
                     }
                 }
@@ -571,6 +619,7 @@ struct MapContainer: View {
         // 重置状态
         isLocationSelectionMode = false
         selectedLocation = nil
+        isPreviewingLocation = false
         
         // 延迟关闭地图窗口
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -1242,6 +1291,76 @@ struct Premium3DPinView: View {
         .onAppear { print("✅ 使用自定义大头针图标 - 基于你的SVG设计") }
     }
 }
+
+// MARK: - Manual Coordinate Input View
+
+struct ManualCoordinateInputView: View {
+    @Binding var coordinateInput: String
+    let onConfirm: (CLLocationCoordinate2D) -> Void
+    @Environment(\.dismiss) private var dismiss
+    
+    @State private var errorMessage: String?
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("手动输入坐标")
+                .font(.title2)
+                .fontWeight(.semibold)
+            
+            Text("请输入坐标信息，格式：纬度,经度")
+                .font(.body)
+                .foregroundColor(.secondary)
+            
+            TextField("例如: 37.4535951640625,121.61110684570313", text: $coordinateInput)
+                .textFieldStyle(.roundedBorder)
+                .font(.body)
+            
+            if let errorMessage = errorMessage {
+                Text(errorMessage)
+                    .foregroundColor(.red)
+                    .font(.caption)
+            }
+            
+            HStack(spacing: 12) {
+                Button("取消") {
+                    dismiss()
+                }
+                .buttonStyle(.bordered)
+                
+                Button("确认") {
+                    parseAndConfirm()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(coordinateInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding(24)
+        .frame(minWidth: 400, minHeight: 200)
+    }
+    
+    private func parseAndConfirm() {
+        let trimmed = coordinateInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        let components = trimmed.split(separator: ",")
+        
+        guard components.count == 2,
+              let latitude = Double(components[0].trimmingCharacters(in: .whitespaces)),
+              let longitude = Double(components[1].trimmingCharacters(in: .whitespaces)) else {
+            errorMessage = "请输入有效的坐标格式：纬度,经度"
+            return
+        }
+        
+        // 验证坐标范围
+        guard latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180 else {
+            errorMessage = "坐标超出有效范围 (纬度: -90~90, 经度: -180~180)"
+            return
+        }
+        
+        let coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        onConfirm(coordinate)
+        dismiss()
+    }
+}
+
 
 #Preview {
     MapContainer(isLocationSelectionMode: .constant(false))
