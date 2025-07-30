@@ -772,17 +772,23 @@ struct TagEditCommandView: View {
                             newTags.append(tag)
                             print("✅ 创建位置标签: \(locationName) (\(lat), \(lng))")
                             print("✅ 标签详情: type=\(tag.type.rawValue), value=\(tag.value), hasCoords=\(tag.hasCoordinates)")
-                            continue
                         } else if tagType == .location && !value.contains("@") {
                             // 如果是location标签但没有找到匹配的位置，提示用户
                             print("⚠️ 未找到位置标签: \(value)，请使用完整格式或确保该位置已存在")
+                            // 创建无坐标的位置标签作为fallback
+                            let tag = store.createTag(type: tagType, value: value)
+                            newTags.append(tag)
+                        } else {
+                            // 其他location标签处理失败的情况
+                            let tag = store.createTag(type: tagType, value: value)
+                            newTags.append(tag)
                         }
+                    } else {
+                        // 普通标签
+                        let tag = store.createTag(type: tagType, value: value)
+                        newTags.append(tag)
+                        print("✅ 创建标签: \(tagType.displayName) - \(value)")
                     }
-                    
-                    // 普通标签
-                    let tag = store.createTag(type: tagType, value: value)
-                    newTags.append(tag)
-                    print("✅ 创建标签: \(tagType.displayName) - \(value)")
                 }
             } else {
                 i += 1

@@ -120,6 +120,16 @@ public struct Tag: Identifiable, Hashable, Codable {
         }
         return value
     }
+    
+    // MARK: - Hashable Implementation
+    public static func == (lhs: Tag, rhs: Tag) -> Bool {
+        return lhs.type == rhs.type && lhs.value == rhs.value
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(type)
+        hasher.combine(value)
+    }
 }
 
 public struct Word: Identifiable, Hashable, Codable {

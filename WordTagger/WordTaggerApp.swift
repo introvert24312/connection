@@ -389,7 +389,7 @@ struct QuickAddSheetView: View {
                         } else if !content.contains("@") {
                             // 如果是location标签但没有找到匹配的位置，提示用户
                             print("⚠️ QuickAdd: 未找到位置标签: \(content)，请使用完整格式或确保该位置已存在")
-                            // 创建普通标签作为fallback
+                            // 创建无坐标的位置标签作为fallback
                             let tag = Tag(type: tagType, value: content)
                             tags.append(tag)
                         } else {
