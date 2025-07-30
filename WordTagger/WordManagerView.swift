@@ -422,7 +422,13 @@ struct TagEditCommandView: View {
     private var initialCommand: String {
         // 生成当前单词的完整命令
         let tagCommands = word.tags.map { tag in
-            "\(tag.type.rawValue) \(tag.value)"
+            // 对于location标签且有坐标信息，生成完整的location命令
+            if tag.type == .location && tag.hasCoordinates,
+               let lat = tag.latitude, let lng = tag.longitude {
+                return "\(tag.type.rawValue) \(tag.value)@\(lat),\(lng)"
+            } else {
+                return "\(tag.type.rawValue) \(tag.value)"
+            }
         }.joined(separator: " ")
         
         if tagCommands.isEmpty {
