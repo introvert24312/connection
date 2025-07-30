@@ -422,13 +422,13 @@ struct TagEditCommandView: View {
     private var initialCommand: String {
         // 生成当前单词的完整命令
         let tagCommands = word.tags.map { tag in
-            // 对于location标签且有坐标信息，生成完整的location命令
+            // 对于location标签且有坐标信息，生成完整的loc命令
             if tag.type == .location && tag.hasCoordinates,
                let lat = tag.latitude, let lng = tag.longitude {
-                return "\(tag.type.rawValue) @\(lat),\(lng)[\(tag.value)]"
+                return "loc @\(lat),\(lng)[\(tag.value)]"
             } else if tag.type == .location {
                 // 对于没有坐标的location标签，提供提示格式让用户补充坐标
-                return "\(tag.type.rawValue) @需要添加坐标[\(tag.value)]"
+                return "loc @需要添加坐标[\(tag.value)]"
             } else {
                 return "\(tag.type.rawValue) \(tag.value)"
             }
@@ -570,7 +570,7 @@ struct TagEditCommandView: View {
                let latitude = locationData["latitude"] as? Double,
                let longitude = locationData["longitude"] as? Double {
                 // 只添加坐标信息，让用户自己输入地名
-                let locationCommand = "location @\(latitude),\(longitude)[]"
+                let locationCommand = "loc @\(latitude),\(longitude)[]"
                 if commandText.isEmpty || commandText == initialCommand {
                     commandText = "\(word.text) \(locationCommand)"
                 } else {
@@ -739,7 +739,7 @@ struct TagEditCommandView: View {
         // 根据原始值匹配
         switch lowerToken {
         case "memory": return .memory
-        case "location": return .location
+        case "location", "loc": return .location  // 支持 location 和 loc 两种写法
         case "root": return .root
         case "shape": return .shape
         case "sound": return .sound
