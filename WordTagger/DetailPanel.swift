@@ -400,7 +400,7 @@ struct WordMapView: View {
                             
                             // 生成示例命令
                             let exampleCommands = locationTagsWithoutCoords.map { tag in
-                                "location \(tag.value)@39.9042,116.4074"
+                                "location @39.9042,116.4074[\(tag.value)]"
                             }
                             
                             ForEach(exampleCommands, id: \.self) { command in
