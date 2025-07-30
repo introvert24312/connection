@@ -153,7 +153,7 @@ struct WordSearchResultRow: View {
                 // 标签
                 HStack(spacing: 4) {
                     ForEach(word.tags.prefix(3), id: \.id) { tag in
-                        Text(tag.value)
+                        Text(tag.displayName)
                             .font(.caption)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)

@@ -99,9 +99,19 @@ struct MapContainer: View {
                     }
                 }
                 .mapStyle(.standard)
-                .onTapGesture { location in
-                    print("Map tapped at screen coordinates: \(location)")
-                    handleMapTap(at: location, mapSize: geometry.size)
+                .onMapCameraChange { context in
+                    // 同步region和cameraPosition
+                    region = context.region
+                    print("🗺️ Map region updated: center=\(context.region.center), span=\(context.region.span)")
+                }
+                .onTapGesture(coordinateSpace: .local) { location in
+                    if isLocationSelectionMode {
+                        // 使用改进的坐标转换
+                        let tappedCoordinate = convertScreenToMapCoordinate(screenPoint: location, mapSize: geometry.size)
+                        selectedLocation = tappedCoordinate
+                        reverseGeocodeLocation(coordinate: tappedCoordinate)
+                        print("🎯 Tapped coordinate: \(tappedCoordinate)")
+                    }
                 }
                 .onAppear {
                     mapViewSize = geometry.size
@@ -110,11 +120,6 @@ struct MapContainer: View {
                 .onChange(of: geometry.size) { _, newSize in
                     mapViewSize = newSize
                     print("📏 Map view size changed to: \(mapViewSize)")
-                }
-                .onMapCameraChange { context in
-                    // 同步region和cameraPosition
-                    region = context.region
-                    print("🗺️ Map region updated: center=\(context.region.center), span=\(context.region.span)")
                 }
             }
         }
@@ -336,10 +341,19 @@ struct MapContainer: View {
     private func handleLocationSelection(_ mapItem: MKMapItem) {
         if isLocationSelectionMode {
             let locationName = mapItem.name ?? "未知地点"
+            let coordinate = mapItem.placemark.coordinate
             print("Selected location from search: \(locationName)")
+            
+            // 创建包含坐标信息的位置数据
+            let locationData: [String: Any] = [
+                "name": locationName,
+                "latitude": coordinate.latitude,
+                "longitude": coordinate.longitude
+            ]
+            
             NotificationCenter.default.post(
                 name: NSNotification.Name("locationSelected"),
-                object: locationName
+                object: locationData
             )
             isLocationSelectionMode = false
             showingSearchResults = false
@@ -466,51 +480,39 @@ struct MapContainer: View {
         }
     }
     
-    private func handleMapTap(at location: CGPoint, mapSize: CGSize) {
-        print("Map tapped at screen coordinates: \(location)")
-        
-        // 获取当前地图的显示区域
+    private func convertScreenToMapCoordinate(screenPoint: CGPoint, mapSize: CGSize) -> CLLocationCoordinate2D {
+        // 使用当前地图区域进行更精确的坐标转换
         let currentRegion = region
         
-        // 使用实际的地图视图尺寸
-        let mapViewWidth = mapSize.width
-        let mapViewHeight = mapSize.height
+        // 计算屏幕点相对于地图中心的偏移比例
+        let centerX = mapSize.width / 2
+        let centerY = mapSize.height / 2
         
-        print("📏 Using map size: \(mapSize)")
+        let offsetX = screenPoint.x - centerX
+        let offsetY = screenPoint.y - centerY
         
-        // 计算点击位置相对于地图中心的偏移比例
-        let centerX = mapViewWidth / 2
-        let centerY = mapViewHeight / 2
+        // 转换为地理坐标偏移（考虑缩放级别）
+        let longitudeOffset = Double(offsetX) * currentRegion.span.longitudeDelta / Double(mapSize.width)
+        let latitudeOffset = -Double(offsetY) * currentRegion.span.latitudeDelta / Double(mapSize.height) // Y轴翻转
         
-        let offsetX = location.x - centerX  // 相对于中心的像素偏移
-        let offsetY = location.y - centerY
-        
-        // 将像素偏移转换为地理坐标偏移
-        // 考虑当前地图的缩放级别（span）
-        let longitudeOffset = Double(offsetX) * currentRegion.span.longitudeDelta / Double(mapViewWidth)
-        let latitudeOffset = -Double(offsetY) * currentRegion.span.latitudeDelta / Double(mapViewHeight) // Y轴翻转
-        
-        let tappedCoordinate = CLLocationCoordinate2D(
+        let coordinate = CLLocationCoordinate2D(
             latitude: currentRegion.center.latitude + latitudeOffset,
             longitude: currentRegion.center.longitude + longitudeOffset
         )
         
-        selectedLocation = tappedCoordinate
-        print("🎯 Calculated tapped coordinate: \(tappedCoordinate)")
-        print("🎯 Map center: \(currentRegion.center)")
-        print("🎯 Map span: \(currentRegion.span)")
-        print("🎯 Map center should be at: (\(centerX), \(centerY))")
-        print("🎯 Click offset: (\(offsetX), \(offsetY)) pixels")
-        print("🎯 Geo offset: (\(longitudeOffset), \(latitudeOffset)) degrees")
+        print("🎯 Screen: \(screenPoint) -> Map: \(coordinate)")
+        print("🎯 Region center: \(currentRegion.center), span: \(currentRegion.span)")
         
-        // 反向地理编码获取地址信息
+        return coordinate
+    }
+    
+    private func reverseGeocodeLocation(coordinate: CLLocationCoordinate2D) {
         let geocoder = CLGeocoder()
-        let locationForGeocoding = CLLocation(latitude: tappedCoordinate.latitude, longitude: tappedCoordinate.longitude)
+        let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         
-        geocoder.reverseGeocodeLocation(locationForGeocoding) { placemarks, error in
+        geocoder.reverseGeocodeLocation(location) { placemarks, error in
             DispatchQueue.main.async {
                 if let placemark = placemarks?.first {
-                    // 构建位置名称
                     var locationComponents: [String] = []
                     
                     if let name = placemark.name {
@@ -527,15 +529,17 @@ struct MapContainer: View {
                         locationComponents.append(administrativeArea)
                     }
                     
-                    self.selectedLocationName = locationComponents.isEmpty ? 
-                        "(\(String(format: "%.4f", tappedCoordinate.latitude)), \(String(format: "%.4f", tappedCoordinate.longitude)))" :
+                    let locationName = locationComponents.isEmpty ? 
+                        "(\(String(format: "%.4f", coordinate.latitude)), \(String(format: "%.4f", coordinate.longitude)))" :
                         locationComponents.joined(separator: ", ")
+                    
+                    // 因为是struct，我们不能直接修改selectedLocationName
+                    // 这个函数主要用于调试输出
+                    print("✅ Location name: \(locationName)")
                 } else {
-                    self.selectedLocationName = "(\(String(format: "%.4f", tappedCoordinate.latitude)), \(String(format: "%.4f", tappedCoordinate.longitude)))"
+                    let locationName = "(\(String(format: "%.4f", coordinate.latitude)), \(String(format: "%.4f", coordinate.longitude)))"
+                    print("✅ Location name: \(locationName)")
                 }
-                
-                print("✅ Selected location: \(self.selectedLocationName)")
-                print("🎯 3D大头针已放置在点击位置")
             }
         }
     }
@@ -548,14 +552,21 @@ struct MapContainer: View {
     }
     
     private func confirmLocationSelection() {
-        guard let _ = selectedLocation else { return }
+        guard let coordinate = selectedLocation else { return }
         
         print("Confirming location selection: \(selectedLocationName)")
+        
+        // 创建包含坐标信息的位置数据
+        let locationData: [String: Any] = [
+            "name": selectedLocationName,
+            "latitude": coordinate.latitude,
+            "longitude": coordinate.longitude
+        ]
         
         // 发送位置选择通知
         NotificationCenter.default.post(
             name: NSNotification.Name("locationSelected"),
-            object: selectedLocationName
+            object: locationData
         )
         
         // 重置状态
@@ -809,7 +820,7 @@ struct WordLocationCard: View {
                                 .foregroundColor(.red)
                                 .font(.caption)
                             
-                            Text(tag.value)
+                            Text(tag.displayName)
                                 .font(.body)
                             
                             if let lat = tag.latitude, let lng = tag.longitude {
@@ -1021,7 +1032,7 @@ struct MapSearchResultRow: View {
                                 .font(.caption2)
                                 .foregroundColor(.red)
                             
-                            Text(word.locationTags.first?.value ?? "")
+                            Text(word.locationTags.first?.displayName ?? "")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                         }

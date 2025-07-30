@@ -144,8 +144,15 @@ struct QuickAddSheetView: View {
                 object: nil,
                 queue: .main
             ) { notification in
-                if let locationName = notification.object as? String {
-                    insertLocationIntoInput(locationName)
+                if let locationData = notification.object as? [String: Any],
+                   let locationName = locationData["name"] as? String,
+                   let latitude = locationData["latitude"] as? Double,
+                   let longitude = locationData["longitude"] as? Double {
+                    let locationCommand = "location \(locationName)@\(latitude),\(longitude)"
+                    insertLocationIntoInput(locationCommand)
+                } else if let locationName = notification.object as? String {
+                    // 向后兼容旧格式
+                    insertLocationIntoInput("location \(locationName)")
                 }
             }
         }
@@ -477,7 +484,7 @@ struct QuickSearchView: View {
                                         Spacer()
                                         HStack(spacing: 4) {
                                             ForEach(word.tags.prefix(3), id: \.id) { tag in
-                                                Text(tag.value).font(.caption)
+                                                Text(tag.displayName).font(.caption)
                                                     .padding(.horizontal, 6).padding(.vertical, 2)
                                                     .background(RoundedRectangle(cornerRadius: 4).fill(Color.from(tagType: tag.type).opacity(0.2)))
                                                     .foregroundColor(Color.from(tagType: tag.type))

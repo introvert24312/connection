@@ -99,6 +99,27 @@ public struct Tag: Identifiable, Hashable, Codable {
     public var hasCoordinates: Bool {
         return type == .location && latitude != nil && longitude != nil
     }
+    
+    // 显示名称：如果value包含[显示名]格式，则返回[]内的内容，否则返回原value
+    public var displayName: String {
+        if let startIndex = value.firstIndex(of: "["),
+           let endIndex = value.firstIndex(of: "]"),
+           startIndex < endIndex {
+            let displayName = String(value[value.index(after: startIndex)..<endIndex])
+            return displayName.isEmpty ? value : displayName
+        }
+        return value
+    }
+    
+    // 原始名称：不包含[]的完整值
+    public var originalName: String {
+        if let startIndex = value.firstIndex(of: "["),
+           let endIndex = value.firstIndex(of: "]"),
+           startIndex < endIndex {
+            return String(value[..<startIndex])
+        }
+        return value
+    }
 }
 
 public struct Word: Identifiable, Hashable, Codable {

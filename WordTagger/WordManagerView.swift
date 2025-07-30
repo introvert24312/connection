@@ -1,4 +1,6 @@
 import SwiftUI
+import MapKit
+import CoreLocation
 
 struct WordManagerView: View {
     @EnvironmentObject private var store: WordStore
@@ -256,11 +258,17 @@ struct WordManagerView: View {
             }
         }
         .navigationTitle("单词管理")
-        .sheet(isPresented: $showingCommandPalette) {
-            if let word = commandPaletteWord {
-                TagEditCommandView(word: word)
-                    .environmentObject(store)
+        .sheet(item: Binding<Word?>(
+            get: { showingCommandPalette ? commandPaletteWord : nil },
+            set: { newValue in
+                if newValue == nil {
+                    showingCommandPalette = false
+                    commandPaletteWord = nil
+                }
             }
+        )) { word in
+            TagEditCommandView(word: word)
+                .environmentObject(store)
         }
     }
     
@@ -342,7 +350,7 @@ struct WordManagerRowView: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 6) {
                             ForEach(word.tags.prefix(5), id: \.id) { tag in
-                                Text(tag.value)
+                                Text(tag.displayName)
                                     .font(.caption)
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 2)
@@ -408,6 +416,7 @@ struct TagEditCommandView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var commandText: String = ""
     @State private var selectedIndex: Int = 0
+    @State private var showingLocationPicker = false
     @StateObject private var commandParser = CommandParser.shared
     
     private var initialCommand: String {
@@ -416,7 +425,11 @@ struct TagEditCommandView: View {
             "\(tag.type.rawValue) \(tag.value)"
         }.joined(separator: " ")
         
-        return "\(word.text) \(tagCommands)"
+        if tagCommands.isEmpty {
+            return "\(word.text) "
+        } else {
+            return "\(word.text) \(tagCommands)"
+        }
     }
     
     private var availableCommands: [Command] {
@@ -425,110 +438,325 @@ struct TagEditCommandView: View {
     }
     
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 16) {
             // 标题栏
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("编辑单词")
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                    Text("单词: \(word.text)")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
+                Text("编辑单词: \(word.text)")
+                    .font(.title2)
+                    .fontWeight(.semibold)
                 
                 Spacer()
                 
                 Button("完成") {
-                    dismiss()
+                    executeCommand()
                 }
+                .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.return, modifiers: [.command])
             }
             .padding()
-            .background(Color(NSColor.controlBackgroundColor))
             
             Divider()
             
             // 命令输入框
-            VStack(alignment: .leading, spacing: 8) {
-                Text("命令输入:")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundStyle(.primary)
+            VStack(alignment: .leading, spacing: 12) {
+                Text("输入标签命令:")
+                    .font(.headline)
                 
-                HStack {
-                    Image(systemName: "terminal")
-                        .foregroundColor(.blue)
-                    
-                    TextField("输入命令编辑标签...", text: $commandText)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.body)
-                    .onKeyPress(.upArrow) {
-                        selectedIndex = max(0, selectedIndex - 1)
-                        return .handled
-                    }
-                    .onKeyPress(.downArrow) {
-                        selectedIndex = min(availableCommands.count - 1, selectedIndex + 1)
-                        return .handled
-                    }
-                    .onKeyPress(.escape) {
-                        dismiss()
-                        return .handled
-                    }
+                TextField("例如: memory 记忆法 root dict", text: $commandText)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.body)
                     .onSubmit {
-                        executeSelectedCommand()
+                        executeCommand()
                     }
-                }
+                
+                Text("当前命令: \(commandText)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
-            .padding(16)
-            .background(Color(NSColor.controlBackgroundColor))
+            .padding()
             
             Divider()
             
-            // 提示信息
+            // 当前标签显示
             VStack(alignment: .leading, spacing: 8) {
-                Text("当前单词的标签:")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                Text("当前标签 (\(word.tags.count)个):")
+                    .font(.headline)
                 
                 if word.tags.isEmpty {
                     Text("暂无标签")
                         .foregroundColor(.secondary)
-                        .font(.caption)
+                        .italic()
                 } else {
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 6) {
+                        HStack(spacing: 8) {
                             ForEach(word.tags, id: \.id) { tag in
-                                Text("\(tag.type.displayName): \(tag.value)")
-                                    .font(.caption)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .fill(Color.from(tagType: tag.type).opacity(0.2))
-                                    )
-                                    .foregroundColor(Color.from(tagType: tag.type))
+                                HStack(spacing: 4) {
+                                    Text(tag.type.displayName)
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                    Text(tag.value)
+                                        .font(.caption)
+                                }
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(Color.from(tagType: tag.type).opacity(0.2))
+                                )
+                                .foregroundColor(Color.from(tagType: tag.type))
                             }
                         }
-                        .padding(.horizontal, 16)
+                        .padding(.horizontal, 2)
                     }
                 }
+            }
+            .padding()
+            
+            Divider()
+            
+            // 使用说明
+            VStack(alignment: .leading, spacing: 8) {
+                Text("💡 使用提示:")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
                 
-                Text("示例: memory 记忆法 root dict shape 长方形")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("• 格式: 标签类型 标签值")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Text("• 多个标签用空格分隔")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                        
+                    Text("• 示例: memory 记忆法 root dict shape 长方形")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                }
             }
             .padding()
             .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
             
             Spacer()
         }
-        .frame(width: 600, height: 400)
+        .frame(minWidth: 500, maxWidth: 600, minHeight: 400, maxHeight: 500)
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
             commandText = initialCommand
-            print("TagEditCommandView appeared with word: \(word.text)")
-            print("Initial command: \(initialCommand)")
+        }
+        .onKeyPress(.return) {
+            executeCommand()
+            return .handled
+        }
+        .background(
+            Button("") {
+                openMapForLocationSelection()
+            }
+            .keyboardShortcut("p", modifiers: [.command])
+            .hidden()
+        )
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("locationSelected"))) { notification in
+            if let locationData = notification.object as? [String: Any],
+               let locationName = locationData["name"] as? String,
+               let latitude = locationData["latitude"] as? Double,
+               let longitude = locationData["longitude"] as? Double {
+                // 添加位置标签到命令文本，包含坐标信息
+                let locationCommand = "location \(locationName)@\(latitude),\(longitude)"
+                if commandText.isEmpty || commandText == initialCommand {
+                    commandText = "\(word.text) \(locationCommand)"
+                } else {
+                    commandText += " \(locationCommand)"
+                }
+            }
+        }
+    }
+    
+    private func executeCommand() {
+        let trimmedText = commandText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else { 
+            dismiss()
+            return 
+        }
+        
+        Task {
+            // 使用新的批量标签解析器
+            let success = await parseBatchTagCommand(trimmedText)
+            
+            await MainActor.run {
+                if success {
+                    store.objectWillChange.send()
+                    print("✅ 标签批量更新成功")
+                } else {
+                    print("❌ 标签批量更新失败")
+                }
+                dismiss()
+            }
+        }
+    }
+    
+    private func parseBatchTagCommand(_ input: String) async -> Bool {
+        // 分词：按空格分割
+        let tokens = input.components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+        
+        guard tokens.count >= 2 else { return false }
+        
+        // 第一个token应该是单词名，跳过
+        let wordText = tokens[0]
+        guard wordText == word.text else { 
+            print("❌ 单词名不匹配: \(wordText) vs \(word.text)")
+            return false 
+        }
+        
+        // 解析剩余的标签token
+        var newTags: [Tag] = []
+        var i = 1
+        
+        while i < tokens.count {
+            let token = tokens[i]
+            
+            // 检查是否是标签类型关键词
+            if let tagType = mapTokenToTagType(token) {
+                i += 1
+                
+                // 收集这个标签类型的值
+                var values: [String] = []
+                while i < tokens.count {
+                    let nextToken = tokens[i]
+                    
+                    // 如果遇到下一个标签类型，停止
+                    if mapTokenToTagType(nextToken) != nil {
+                        break
+                    }
+                    
+                    values.append(nextToken)
+                    i += 1
+                }
+                
+                // 创建标签
+                if !values.isEmpty {
+                    let value = values.joined(separator: " ")
+                    
+                    // 检查是否是location标签且包含坐标信息
+                    if tagType == .location && value.contains("@") {
+                        var locationName: String = ""
+                        var lat: Double = 0
+                        var lng: Double = 0
+                        var parsed = false
+                        
+                        // 格式1: 名称@纬度,经度 (如: 天马广场@37.45,121.61)
+                        if value.contains("@") && !value.hasPrefix("@") {
+                            let components = value.split(separator: "@", maxSplits: 1)
+                            if components.count == 2 {
+                                locationName = String(components[0])
+                                let coordString = String(components[1])
+                                let coords = coordString.split(separator: ",")
+                                
+                                if coords.count == 2,
+                                   let latitude = Double(coords[0]),
+                                   let longitude = Double(coords[1]) {
+                                    lat = latitude
+                                    lng = longitude
+                                    parsed = true
+                                }
+                            }
+                        }
+                        // 格式2: @纬度,经度[名称] (如: @37.45,121.61[天马广场])
+                        else if value.hasPrefix("@") && value.contains("[") && value.contains("]") {
+                            // 提取坐标部分 @纬度,经度
+                            if let atIndex = value.firstIndex(of: "@"),
+                               let bracketIndex = value.firstIndex(of: "[") {
+                                let coordString = String(value[value.index(after: atIndex)..<bracketIndex])
+                                let coords = coordString.split(separator: ",")
+                                
+                                if coords.count == 2,
+                                   let latitude = Double(coords[0]),
+                                   let longitude = Double(coords[1]) {
+                                    lat = latitude
+                                    lng = longitude
+                                    
+                                    // 提取名称部分 [名称]
+                                    if let startBracket = value.firstIndex(of: "["),
+                                       let endBracket = value.firstIndex(of: "]"),
+                                       startBracket < endBracket {
+                                        locationName = String(value[value.index(after: startBracket)..<endBracket])
+                                        parsed = true
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if parsed && !locationName.isEmpty {
+                            let tag = store.createTag(type: tagType, value: locationName, latitude: lat, longitude: lng)
+                            newTags.append(tag)
+                            print("✅ 创建位置标签: \(locationName) (\(lat), \(lng))")
+                            print("✅ 标签详情: type=\(tag.type.rawValue), value=\(tag.value), hasCoords=\(tag.hasCoordinates)")
+                            continue
+                        }
+                    }
+                    
+                    // 普通标签
+                    let tag = store.createTag(type: tagType, value: value)
+                    newTags.append(tag)
+                    print("✅ 创建标签: \(tagType.displayName) - \(value)")
+                }
+            } else {
+                i += 1
+            }
+        }
+        
+        // 替换单词的所有标签
+        await MainActor.run {
+            // 先删除所有现有标签
+            let currentWord = store.words.first { $0.id == word.id }
+            if let existingWord = currentWord {
+                for tag in existingWord.tags {
+                    store.removeTag(from: word.id, tagId: tag.id)
+                }
+            }
+            
+            // 添加新标签
+            for tag in newTags {
+                store.addTag(to: word.id, tag: tag)
+            }
+        }
+        
+        return !newTags.isEmpty
+    }
+    
+    private func mapTokenToTagType(_ token: String) -> Tag.TagType? {
+        let lowerToken = token.lowercased()
+        
+        // 根据原始值匹配
+        switch lowerToken {
+        case "memory": return .memory
+        case "location": return .location
+        case "root": return .root
+        case "shape": return .shape
+        case "sound": return .sound
+        default: break
+        }
+        
+        // 根据显示名称匹配
+        for tagType in Tag.TagType.allCases {
+            if tagType.displayName == token || tagType.rawValue == lowerToken {
+                return tagType
+            }
+        }
+        
+        return nil
+    }
+    
+    private func openMapForLocationSelection() {
+        // 发送通知打开地图窗口并进入位置选择模式
+        NotificationCenter.default.post(name: .openMapWindow, object: nil)
+        // 延迟发送位置选择模式通知，给地图窗口时间打开
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            NotificationCenter.default.post(
+                name: NSNotification.Name("openMapForLocationSelection"),
+                object: nil
+            )
         }
     }
     
@@ -541,6 +769,7 @@ struct TagEditCommandView: View {
                     do {
                         _ = try await command.execute(with: context)
                         await MainActor.run {
+                            store.objectWillChange.send()
                             dismiss()
                         }
                     } catch {
@@ -551,6 +780,8 @@ struct TagEditCommandView: View {
         }
     }
 }
+
+
 
 #Preview {
     WordManagerView()

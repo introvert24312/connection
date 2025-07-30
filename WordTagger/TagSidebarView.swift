@@ -201,7 +201,7 @@ struct TagRowView: View {
                     .frame(width: 12, height: 12)
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(tag.value)
+                    Text(tag.displayName)
                         .font(.system(size: 16, weight: .medium))
                         .foregroundColor(.primary)
                         .lineLimit(2)

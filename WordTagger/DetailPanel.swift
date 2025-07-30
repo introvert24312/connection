@@ -256,7 +256,7 @@ struct DetailTagCard: View {
                 }
             }
             
-            Text(tag.value)
+            Text(tag.displayName)
                 .font(.body)
                 .fontWeight(.medium)
                 .multilineTextAlignment(.leading)
@@ -346,24 +346,95 @@ struct WordMapView: View {
     )
     
     private var locationTags: [Tag] {
-        word.locationTags
+        let allTags = word.tags
+        let locationTypeTags = allTags.filter { $0.type == .location }
+        let locationWithCoords = word.locationTags
+        
+        print("🔍 DetailPanel调试:")
+        print("🔍 单词: \(word.text)")
+        print("🔍 所有标签数量: \(allTags.count)")
+        print("🔍 location类型标签数量: \(locationTypeTags.count)")
+        print("🔍 有坐标的location标签数量: \(locationWithCoords.count)")
+        
+        for tag in locationTypeTags {
+            print("🔍 location标签: \(tag.value), 类型: \(tag.type.rawValue), 有坐标: \(tag.hasCoordinates)")
+            print("🔍   纬度: \(tag.latitude?.description ?? "nil"), 经度: \(tag.longitude?.description ?? "nil")")
+        }
+        
+        return locationWithCoords
     }
     
     var body: some View {
         Group {
             if locationTags.isEmpty {
+                // 检查是否有location类型但没有坐标的标签
+                let locationTagsWithoutCoords = word.tags.filter { $0.type == .location && !$0.hasCoordinates }
+                
                 VStack(spacing: 16) {
                     Spacer()
                     Image(systemName: "map")
                         .font(.largeTitle)
                         .foregroundColor(.gray)
-                    Text("该单词暂无地点标签")
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                    Text("添加地点标签来在地图上显示相关位置")
-                        .font(.caption)
-                        .foregroundColor(Color.secondary)
-                        .multilineTextAlignment(.center)
+                    
+                    if locationTagsWithoutCoords.isEmpty {
+                        Text("该单词暂无地点标签") 
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                        Text("添加地点标签来在地图上显示相关位置")
+                            .font(.caption)
+                            .foregroundColor(Color.secondary)
+                            .multilineTextAlignment(.center)
+                    } else {
+                        Text("该单词有地点标签但缺少坐标信息")
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                        Text("现有地点标签: \(locationTagsWithoutCoords.map { $0.displayName }.joined(separator: ", "))")
+                            .font(.caption)
+                            .foregroundColor(Color.blue)
+                            .multilineTextAlignment(.center)
+                        
+                        VStack(spacing: 8) {
+                            Text("请使用以下格式添加坐标信息：")
+                                .font(.caption)
+                                .foregroundColor(Color.secondary)
+                            
+                            // 生成示例命令
+                            let exampleCommands = locationTagsWithoutCoords.map { tag in
+                                "location \(tag.value)@39.9042,116.4074"
+                            }
+                            
+                            ForEach(exampleCommands, id: \.self) { command in
+                                Text(command)
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.blue)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(Color.blue.opacity(0.1))
+                                    )
+                                    .onTapGesture {
+                                        NSPasteboard.general.clearContents()
+                                        NSPasteboard.general.setString(command, forType: .string)
+                                    }
+                            }
+                            
+                            Text("点击上方命令可复制到剪贴板")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Button("打开单词编辑") {
+                            // 触发编辑界面
+                            NotificationCenter.default.post(
+                                name: NSNotification.Name("editWord"), 
+                                object: word
+                            )
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
                     Spacer()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -371,7 +442,7 @@ struct WordMapView: View {
                 Map(position: $cameraPosition) {
                     ForEach(locationTags, id: \.id) { tag in
                         Annotation(
-                            tag.value,
+                            tag.displayName,
                             coordinate: CLLocationCoordinate2D(
                                 latitude: tag.latitude!,
                                 longitude: tag.longitude!
@@ -416,7 +487,7 @@ struct MapPinView: View {
                     .foregroundColor(.white)
             }
             
-            Text(tag.value)
+            Text(tag.displayName)
                 .font(.caption2)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
@@ -491,7 +562,7 @@ struct WordGraphNode: UniversalGraphNode {
     init(tag: Tag) {
         // 使用确定性ID确保相同标签总是有相同ID
         self.id = GraphNodeIDGenerator.shared.idForTag(tag)
-        self.label = tag.value
+        self.label = tag.displayName
         self.subtitle = tag.type.displayName
         self.word = nil
         self.tag = tag

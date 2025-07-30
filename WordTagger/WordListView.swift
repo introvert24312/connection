@@ -367,7 +367,7 @@ struct TagChip: View {
                     .frame(width: 3, height: 16)
                 
                 if searchQuery.isEmpty {
-                    Text(tag.value)
+                    Text(tag.displayName)
                         .font(.body)
                         .fontWeight(.medium)
                         .lineLimit(2)
@@ -375,7 +375,7 @@ struct TagChip: View {
                         .foregroundColor(.primary)
                 } else {
                     HighlightedText(
-                        text: tag.value,
+                        text: tag.displayName,
                         searchQuery: searchQuery,
                         font: .body,
                         fontWeight: .medium
@@ -419,7 +419,7 @@ struct TagChip: View {
                 isHovered = hovering
             }
         }
-        .help("标签: \(tag.value) (\(tag.type.displayName))")
+        .help("标签: \(tag.displayName) (\(tag.type.displayName))")
     }
 }
 
