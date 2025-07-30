@@ -382,6 +382,13 @@ struct QuickAddView: View {
                             .textFieldStyle(.plain).font(.system(size: 16, weight: .medium))
                             .onSubmit { processInput() }
                             .onChange(of: inputText) { _, newValue in updateSuggestions(for: newValue) }
+                        
+                        Button(action: openMapForLocationSelection) {
+                            Image(systemName: "location.fill")
+                                .foregroundColor(.blue)
+                        }
+                        .buttonStyle(.plain)
+                        .help("选择地点位置 (⌘P)")
                     }.padding(.horizontal, 16).padding(.vertical, 12)
                 }.background(RoundedRectangle(cornerRadius: 12).fill(.ultraThinMaterial).shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 8))
                 
@@ -408,6 +415,34 @@ struct QuickAddView: View {
             }.padding(20).frame(maxWidth: 600)
         }
         .onKeyPress(.escape) { onDismiss(); return .handled }
+        .onAppear {
+            // 监听位置选择通知
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("locationSelected"),
+                object: nil,
+                queue: .main
+            ) { notification in
+                if let locationData = notification.object as? [String: Any],
+                   let latitude = locationData["latitude"] as? Double,
+                   let longitude = locationData["longitude"] as? Double {
+                    // 只使用坐标，让用户自己输入地名
+                    let locationCommand = "loc @\(latitude),\(longitude)[] "
+                    inputText += locationCommand
+                }
+            }
+        }
+    }
+    
+    private func openMapForLocationSelection() {
+        print("📍 QuickAddView: Opening map for location selection...")
+        
+        // 打开地图窗口
+        NotificationCenter.default.post(name: .openMapWindow, object: nil)
+        
+        // 设置为位置选择模式
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            NotificationCenter.default.post(name: NSNotification.Name("openMapForLocationSelection"), object: nil)
+        }
     }
     
     private func updateSuggestions(for input: String) {
