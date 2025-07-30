@@ -554,11 +554,10 @@ struct MapContainer: View {
     private func confirmLocationSelection() {
         guard let coordinate = selectedLocation else { return }
         
-        print("Confirming location selection: \(selectedLocationName)")
+        print("Confirming location selection with coordinates: \(coordinate.latitude), \(coordinate.longitude)")
         
-        // 创建包含坐标信息的位置数据
+        // 只发送坐标信息，不包含地名，让用户自己输入名称
         let locationData: [String: Any] = [
-            "name": selectedLocationName,
             "latitude": coordinate.latitude,
             "longitude": coordinate.longitude
         ]

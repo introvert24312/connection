@@ -564,11 +564,10 @@ struct TagEditCommandView: View {
         )
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("locationSelected"))) { notification in
             if let locationData = notification.object as? [String: Any],
-               let locationName = locationData["name"] as? String,
                let latitude = locationData["latitude"] as? Double,
                let longitude = locationData["longitude"] as? Double {
-                // 添加位置标签到命令文本，包含坐标信息
-                let locationCommand = "location \(locationName)@\(latitude),\(longitude)"
+                // 只添加坐标信息，让用户自己输入地名
+                let locationCommand = "location @\(latitude),\(longitude)[]"
                 if commandText.isEmpty || commandText == initialCommand {
                     commandText = "\(word.text) \(locationCommand)"
                 } else {

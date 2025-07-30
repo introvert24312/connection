@@ -145,10 +145,10 @@ struct QuickAddSheetView: View {
                 queue: .main
             ) { notification in
                 if let locationData = notification.object as? [String: Any],
-                   let locationName = locationData["name"] as? String,
                    let latitude = locationData["latitude"] as? Double,
                    let longitude = locationData["longitude"] as? Double {
-                    let locationCommand = "location \(locationName)@\(latitude),\(longitude)"
+                    // 只使用坐标，让用户自己输入地名
+                    let locationCommand = "@\(latitude),\(longitude)[]"
                     insertLocationIntoInput(locationCommand)
                 } else if let locationName = notification.object as? String {
                     // 向后兼容旧格式
@@ -344,11 +344,11 @@ struct QuickAddSheetView: View {
         }
     }
     
-    private func insertLocationIntoInput(_ locationName: String) {
-        print("Inserting location into input: \(locationName)")
+    private func insertLocationIntoInput(_ locationCommand: String) {
+        print("Inserting location into input: \(locationCommand)")
         
-        // 在当前光标位置插入 "loc 地点名称 "
-        let locationText = "loc \(locationName) "
+        // 在当前光标位置插入 "loc 坐标格式 "，用户需要在[]中填入地名
+        let locationText = "loc \(locationCommand) "
         inputText += locationText
         isWaitingForLocationSelection = false
         
