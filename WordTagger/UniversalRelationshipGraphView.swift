@@ -645,17 +645,19 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                     network.once('stabilized', function() {
                         document.getElementById('loading').style.display = 'none';
                         container.style.display = 'block';
+                        
+                        var initialScale = \(initialScale);
+                        
+                        // 先fit让所有节点在视野中，然后立即应用用户缩放设置
                         network.fit();
                         
-                        // 应用初始缩放级别（仅在首次加载时）
-                        setTimeout(function() {
-                            var initialScale = \(initialScale);
-                            if (initialScale !== 1.0) {
-                                network.moveTo({
-                                    scale: initialScale
-                                });
-                            }
-                        }, 500); // 等待fit完成后再应用初始缩放
+                        if (initialScale !== 1.0) {
+                            // 立即应用用户设置的缩放级别，避免视觉跳跃
+                            network.moveTo({
+                                scale: initialScale,
+                                animation: false  // 禁用动画，直接跳转到目标缩放
+                            });
+                        }
                     });
                     
                     
