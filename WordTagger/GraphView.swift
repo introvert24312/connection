@@ -2,6 +2,7 @@ import SwiftUI
 
 struct GraphView: View {
     @EnvironmentObject private var store: WordStore
+    @AppStorage("globalGraphInitialScale") private var globalGraphInitialScale: Double = 1.0
     @State private var searchQuery: String = ""
     @State private var displayedWords: [Word] = []
     @State private var cachedNodes: [WordGraphNode] = []
@@ -150,6 +151,7 @@ struct GraphView: View {
                     nodes: cachedNodes,
                     edges: cachedEdges,
                     title: "全局图谱",
+                    initialScale: globalGraphInitialScale,
                     onNodeSelected: { nodeId in
                         // 当点击节点时，选择对应的单词（只有单词节点才会触发选择）
                         if let selectedNode = cachedNodes.first(where: { $0.id == nodeId }),

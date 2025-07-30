@@ -51,6 +51,8 @@ struct GeneralSettingsView: View {
     @AppStorage("autoSaveInterval") private var autoSaveInterval: Double = 30.0
     @AppStorage("showPhoneticByDefault") private var showPhoneticByDefault: Bool = true
     @AppStorage("defaultTagType") private var defaultTagType: String = "memory"
+    @AppStorage("globalGraphInitialScale") private var globalGraphInitialScale: Double = 1.0
+    @AppStorage("detailGraphInitialScale") private var detailGraphInitialScale: Double = 1.0
     
     var body: some View {
         ScrollView {
@@ -85,6 +87,38 @@ struct GeneralSettingsView: View {
                             Text("新建单词时默认使用的标签类型")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
+                        }
+                        
+                        Divider()
+                        
+                        SettingRow(
+                            title: "全局图谱初始缩放",
+                            description: "全局图谱窗口打开时的默认缩放级别"
+                        ) {
+                            HStack(spacing: 8) {
+                                Text("\(String(format: "%.1f", globalGraphInitialScale))x")
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 40, alignment: .trailing)
+                                
+                                Slider(value: $globalGraphInitialScale, in: 0.5...3.0, step: 0.1)
+                                    .frame(width: 120)
+                            }
+                        }
+                        
+                        Divider()
+                        
+                        SettingRow(
+                            title: "详情图谱初始缩放",
+                            description: "单词详情图谱的默认缩放级别"
+                        ) {
+                            HStack(spacing: 8) {
+                                Text("\(String(format: "%.1f", detailGraphInitialScale))x")
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 40, alignment: .trailing)
+                                
+                                Slider(value: $detailGraphInitialScale, in: 0.5...3.0, step: 0.1)
+                                    .frame(width: 120)
+                            }
                         }
                     }
                     .padding(12)

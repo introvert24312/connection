@@ -517,6 +517,7 @@ struct WordGraphEdge: UniversalGraphEdge {
 struct WordGraphView: View {
     let word: Word
     @EnvironmentObject private var store: WordStore
+    @AppStorage("detailGraphInitialScale") private var detailGraphInitialScale: Double = 1.0
     // 移除缓存变量，改为每次实时计算以确保数据同步
     
     private var relatedWords: [Word] {
@@ -626,6 +627,7 @@ struct WordGraphView: View {
                     nodes: graphData.nodes,
                     edges: graphData.edges,
                     title: "单词详情图谱",
+                    initialScale: detailGraphInitialScale,
                     onNodeSelected: { nodeId in
                         // 当点击节点时，选择对应的单词（只有单词节点才会触发选择）
                         if let selectedNode = graphData.nodes.first(where: { $0.id == nodeId }),

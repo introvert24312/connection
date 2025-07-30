@@ -155,6 +155,7 @@ struct UniversalRelationshipGraphView<Node: UniversalGraphNode, Edge: UniversalG
     let nodes: [Node]
     let edges: [Edge]
     let title: String
+    let initialScale: Double
     let onNodeSelected: ((Int) -> Void)?
     let onNodeDeselected: (() -> Void)?
     let onFitGraph: (() -> Void)?
@@ -162,10 +163,11 @@ struct UniversalRelationshipGraphView<Node: UniversalGraphNode, Edge: UniversalG
     @State private var viewId = ObjectIdentifier(UUID() as AnyObject)
     
     
-    init(nodes: [Node], edges: [Edge], title: String = "节点关系图", onNodeSelected: ((Int) -> Void)? = nil, onNodeDeselected: (() -> Void)? = nil, onFitGraph: (() -> Void)? = nil) {
+    init(nodes: [Node], edges: [Edge], title: String = "节点关系图", initialScale: Double = 1.0, onNodeSelected: ((Int) -> Void)? = nil, onNodeDeselected: (() -> Void)? = nil, onFitGraph: (() -> Void)? = nil) {
         self.nodes = nodes
         self.edges = edges
         self.title = title
+        self.initialScale = initialScale
         self.onNodeSelected = onNodeSelected
         self.onNodeDeselected = onNodeDeselected
         self.onFitGraph = onFitGraph
@@ -179,6 +181,7 @@ struct UniversalRelationshipGraphView<Node: UniversalGraphNode, Edge: UniversalG
                 UniversalGraphWebView(
                     nodes: nodes, 
                     edges: edges,
+                    initialScale: initialScale,
                     onDebugInfo: { info in
                         DispatchQueue.main.async {
                             debugInfo = info
@@ -221,14 +224,16 @@ struct UniversalRelationshipGraphView<Node: UniversalGraphNode, Edge: UniversalG
 struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>: NSViewRepresentable {
     let nodes: [Node]
     let edges: [Edge]
+    let initialScale: Double
     let onDebugInfo: (String) -> Void
     let onNodeSelected: ((Int) -> Void)?
     let onNodeDeselected: (() -> Void)?
     let onFitGraph: (() -> Void)?
     
-    init(nodes: [Node], edges: [Edge], onDebugInfo: @escaping (String) -> Void, onNodeSelected: ((Int) -> Void)? = nil, onNodeDeselected: (() -> Void)? = nil, onFitGraph: (() -> Void)? = nil) {
+    init(nodes: [Node], edges: [Edge], initialScale: Double = 1.0, onDebugInfo: @escaping (String) -> Void, onNodeSelected: ((Int) -> Void)? = nil, onNodeDeselected: (() -> Void)? = nil, onFitGraph: (() -> Void)? = nil) {
         self.nodes = nodes
         self.edges = edges
+        self.initialScale = initialScale
         self.onDebugInfo = onDebugInfo
         self.onNodeSelected = onNodeSelected
         self.onNodeDeselected = onNodeDeselected
@@ -276,7 +281,7 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         WKWebsiteDataStore.default().removeData(ofTypes: websiteDataTypes, modifiedSince: Date(timeIntervalSince1970: 0)) { [weak webView] in
             guard let webView = webView else { return }
             
-            let htmlContent = self.generateGraphHTML()
+            let htmlContent = self.generateGraphHTML(initialScale: self.initialScale)
             self.onDebugInfo("生成图形: \(self.nodes.count)个节点, \(self.edges.count)条边 (强制重新生成)")
             
             // 强制禁用缓存的baseURL
@@ -372,7 +377,7 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         return "\(nodeStrings)|\(edgeStrings)"
     }
     
-    private func generateGraphHTML() -> String {
+    private func generateGraphHTML(initialScale: Double = 1.0) -> String {
         // 获取调试设置
         @AppStorage("enableGraphDebug") var enableGraphDebug: Bool = false
         
@@ -641,6 +646,16 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                         document.getElementById('loading').style.display = 'none';
                         container.style.display = 'block';
                         network.fit();
+                        
+                        // 应用初始缩放级别（仅在首次加载时）
+                        setTimeout(function() {
+                            var initialScale = \(initialScale);
+                            if (initialScale !== 1.0) {
+                                network.moveTo({
+                                    scale: initialScale
+                                });
+                            }
+                        }, 500); // 等待fit完成后再应用初始缩放
                     });
                     
                     
