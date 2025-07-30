@@ -7,6 +7,9 @@ struct WordManagerView: View {
     @State private var showingDeleteAlert = false
     @State private var sortOption: SortOption = .alphabetical
     @State private var filterOption: FilterOption = .all
+    @State private var showingCommandPalette = false
+    @State private var commandPaletteWord: Word?
+    @State private var isSelectionMode = false
     
     enum SortOption: String, CaseIterable {
         case alphabetical = "按字母排序"
@@ -135,14 +138,30 @@ struct WordManagerView: View {
                     .foregroundColor(.blue)
                 }
                 .help("排序选项")
+                
+                // 模式切换按钮
+                Button(action: {
+                    isSelectionMode.toggle()
+                    if !isSelectionMode {
+                        selectedWords.removeAll()
+                    }
+                }) {
+                    HStack {
+                        Image(systemName: isSelectionMode ? "checkmark.circle.fill" : "cursor.rays")
+                        Text(isSelectionMode ? "选择模式" : "编辑模式")
+                    }
+                    .foregroundColor(isSelectionMode ? .orange : .blue)
+                }
+                .help(isSelectionMode ? "点击切换到编辑模式" : "点击切换到选择模式")
             }
             .padding()
             .background(Color(NSColor.controlBackgroundColor))
             
             Divider()
             
-            // 操作栏
-            HStack {
+            // 操作栏（只在选择模式下显示）
+            if isSelectionMode {
+                HStack {
                 Text("选中 \(selectedWords.count) / \(filteredAndSortedWords.count) 个单词")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -188,6 +207,7 @@ struct WordManagerView: View {
             .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
             
             Divider()
+            }
             
             // 单词列表
             if filteredAndSortedWords.isEmpty {
@@ -215,12 +235,17 @@ struct WordManagerView: View {
                             WordManagerRowView(
                                 word: word,
                                 isSelected: selectedWords.contains(word.id),
+                                isSelectionMode: isSelectionMode,
                                 onToggleSelection: {
                                     if selectedWords.contains(word.id) {
                                         selectedWords.remove(word.id)
                                     } else {
                                         selectedWords.insert(word.id)
                                     }
+                                },
+                                onWordEdit: { word in
+                                    commandPaletteWord = word
+                                    showingCommandPalette = true
                                 }
                             )
                         }
@@ -231,6 +256,12 @@ struct WordManagerView: View {
             }
         }
         .navigationTitle("单词管理")
+        .sheet(isPresented: $showingCommandPalette) {
+            if let word = commandPaletteWord {
+                TagEditCommandView(word: word)
+                    .environmentObject(store)
+            }
+        }
     }
     
     private func batchDeleteWords() {
@@ -246,17 +277,21 @@ struct WordManagerView: View {
 struct WordManagerRowView: View {
     let word: Word
     let isSelected: Bool
+    let isSelectionMode: Bool
     let onToggleSelection: () -> Void
+    let onWordEdit: (Word) -> Void
     
     var body: some View {
         HStack(spacing: 12) {
-            // 选择框
-            Button(action: onToggleSelection) {
-                Image(systemName: isSelected ? "checkmark.square.fill" : "square")
-                    .foregroundColor(isSelected ? .blue : .secondary)
-                    .font(.system(size: 18))
+            // 选择框（只在选择模式下显示）
+            if isSelectionMode {
+                Button(action: onToggleSelection) {
+                    Image(systemName: isSelected ? "checkmark.square.fill" : "square")
+                        .foregroundColor(isSelected ? .blue : .secondary)
+                        .font(.system(size: 18))
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
             
             // 单词信息
             VStack(alignment: .leading, spacing: 4) {
@@ -355,7 +390,164 @@ struct WordManagerRowView: View {
         )
         .contentShape(Rectangle())
         .onTapGesture {
-            onToggleSelection()
+            if isSelectionMode {
+                onToggleSelection()
+            } else {
+                onWordEdit(word)
+            }
+        }
+        .allowsHitTesting(true)
+    }
+}
+
+// MARK: - Tag Edit Command View
+
+struct TagEditCommandView: View {
+    let word: Word
+    @EnvironmentObject private var store: WordStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var commandText: String = ""
+    @State private var selectedIndex: Int = 0
+    @StateObject private var commandParser = CommandParser.shared
+    
+    private var initialCommand: String {
+        // 生成当前单词的完整命令
+        let tagCommands = word.tags.map { tag in
+            "\(tag.type.rawValue) \(tag.value)"
+        }.joined(separator: " ")
+        
+        return "\(word.text) \(tagCommands)"
+    }
+    
+    private var availableCommands: [Command] {
+        let context = CommandContext(store: store, currentWord: word)
+        return commandParser.parse(commandText, context: context)
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // 标题栏
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("编辑单词")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    Text("单词: \(word.text)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+                
+                Button("完成") {
+                    dismiss()
+                }
+                .keyboardShortcut(.return, modifiers: [.command])
+            }
+            .padding()
+            .background(Color(NSColor.controlBackgroundColor))
+            
+            Divider()
+            
+            // 命令输入框
+            VStack(alignment: .leading, spacing: 8) {
+                Text("命令输入:")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.primary)
+                
+                HStack {
+                    Image(systemName: "terminal")
+                        .foregroundColor(.blue)
+                    
+                    TextField("输入命令编辑标签...", text: $commandText)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.body)
+                    .onKeyPress(.upArrow) {
+                        selectedIndex = max(0, selectedIndex - 1)
+                        return .handled
+                    }
+                    .onKeyPress(.downArrow) {
+                        selectedIndex = min(availableCommands.count - 1, selectedIndex + 1)
+                        return .handled
+                    }
+                    .onKeyPress(.escape) {
+                        dismiss()
+                        return .handled
+                    }
+                    .onSubmit {
+                        executeSelectedCommand()
+                    }
+                }
+            }
+            .padding(16)
+            .background(Color(NSColor.controlBackgroundColor))
+            
+            Divider()
+            
+            // 提示信息
+            VStack(alignment: .leading, spacing: 8) {
+                Text("当前单词的标签:")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                
+                if word.tags.isEmpty {
+                    Text("暂无标签")
+                        .foregroundColor(.secondary)
+                        .font(.caption)
+                } else {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(word.tags, id: \.id) { tag in
+                                Text("\(tag.type.displayName): \(tag.value)")
+                                    .font(.caption)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(Color.from(tagType: tag.type).opacity(0.2))
+                                    )
+                                    .foregroundColor(Color.from(tagType: tag.type))
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    }
+                }
+                
+                Text("示例: memory 记忆法 root dict shape 长方形")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding()
+            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+            
+            Spacer()
+        }
+        .frame(width: 600, height: 400)
+        .background(Color(NSColor.windowBackgroundColor))
+        .onAppear {
+            commandText = initialCommand
+            print("TagEditCommandView appeared with word: \(word.text)")
+            print("Initial command: \(initialCommand)")
+        }
+    }
+    
+    private func executeSelectedCommand() {
+        if !commandText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if availableCommands.indices.contains(selectedIndex) {
+                let command = availableCommands[selectedIndex]
+                let context = CommandContext(store: store, currentWord: word)
+                Task {
+                    do {
+                        _ = try await command.execute(with: context)
+                        await MainActor.run {
+                            dismiss()
+                        }
+                    } catch {
+                        print("Command execution failed: \(error)")
+                    }
+                }
+            }
         }
     }
 }
