@@ -152,6 +152,31 @@ public final class WordStore: ObservableObject {
         return Tag(type: type, value: value, latitude: latitude, longitude: longitude)
     }
     
+    // MARK: - 位置标签管理
+    
+    public func getAllLocationTags() -> [Tag] {
+        var locationTags: [Tag] = []
+        for word in words {
+            for tag in word.tags {
+                if tag.type == .location && tag.hasCoordinates && !locationTags.contains(where: { $0.value == tag.value }) {
+                    locationTags.append(tag)
+                }
+            }
+        }
+        return locationTags.sorted { $0.value.localizedCompare($1.value) == .orderedAscending }
+    }
+    
+    public func findLocationTagByName(_ name: String) -> Tag? {
+        for word in words {
+            for tag in word.tags {
+                if tag.type == .location && tag.hasCoordinates && tag.value.localizedCaseInsensitiveContains(name) {
+                    return tag
+                }
+            }
+        }
+        return nil
+    }
+    
     // MARK: - 选择管理
     
     public func selectWord(_ word: Word?) {

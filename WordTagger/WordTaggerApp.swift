@@ -321,8 +321,8 @@ struct QuickAddSheetView: View {
                 if i + 1 < components.count { 
                     let content = components[i + 1]
                     
-                    // 检查是否是location标签且包含坐标信息
-                    if tagType == .location && content.contains("@") {
+                    // 检查是否是location标签
+                    if tagType == .location {
                         var locationName: String = ""
                         var lat: Double = 0
                         var lng: Double = 0
@@ -369,9 +369,28 @@ struct QuickAddSheetView: View {
                                 }
                             }
                         }
+                        // 格式3: 简单地名引用 (如: 武功山) - 新增功能
+                        else if !content.contains("@") && !content.contains("[") && !content.contains("]") {
+                            // 尝试在已有的位置标签中查找匹配的地名
+                            if let existingTag = store.findLocationTagByName(content) {
+                                locationName = existingTag.value
+                                if let existingLat = existingTag.latitude, let existingLng = existingTag.longitude {
+                                    lat = existingLat
+                                    lng = existingLng
+                                    parsed = true
+                                    print("🎯 QuickAdd: 找到已有位置标签: \(locationName) (\(lat), \(lng))")
+                                }
+                            }
+                        }
                         
                         if parsed && !locationName.isEmpty {
                             let tag = store.createTag(type: tagType, value: locationName, latitude: lat, longitude: lng)
+                            tags.append(tag)
+                        } else if !content.contains("@") {
+                            // 如果是location标签但没有找到匹配的位置，提示用户
+                            print("⚠️ QuickAdd: 未找到位置标签: \(content)，请使用完整格式或确保该位置已存在")
+                            // 创建普通标签作为fallback
+                            let tag = Tag(type: tagType, value: content)
                             tags.append(tag)
                         } else {
                             // 如果解析失败，创建普通标签

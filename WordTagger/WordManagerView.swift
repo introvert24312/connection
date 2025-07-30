@@ -705,8 +705,8 @@ struct TagEditCommandView: View {
                 if !values.isEmpty {
                     let value = values.joined(separator: " ")
                     
-                    // 检查是否是location标签且包含坐标信息
-                    if tagType == .location && value.contains("@") {
+                    // 检查是否是location标签
+                    if tagType == .location {
                         var locationName: String = ""
                         var lat: Double = 0
                         var lng: Double = 0
@@ -753,6 +753,19 @@ struct TagEditCommandView: View {
                                 }
                             }
                         }
+                        // 格式3: 简单地名引用 (如: 武功山) - 新增功能
+                        else if !value.contains("@") && !value.contains("[") && !value.contains("]") {
+                            // 尝试在已有的位置标签中查找匹配的地名
+                            if let existingTag = store.findLocationTagByName(value) {
+                                locationName = existingTag.value
+                                if let existingLat = existingTag.latitude, let existingLng = existingTag.longitude {
+                                    lat = existingLat
+                                    lng = existingLng
+                                    parsed = true
+                                    print("🎯 找到已有位置标签: \(locationName) (\(lat), \(lng))")
+                                }
+                            }
+                        }
                         
                         if parsed && !locationName.isEmpty {
                             let tag = store.createTag(type: tagType, value: locationName, latitude: lat, longitude: lng)
@@ -760,6 +773,9 @@ struct TagEditCommandView: View {
                             print("✅ 创建位置标签: \(locationName) (\(lat), \(lng))")
                             print("✅ 标签详情: type=\(tag.type.rawValue), value=\(tag.value), hasCoords=\(tag.hasCoordinates)")
                             continue
+                        } else if tagType == .location && !value.contains("@") {
+                            // 如果是location标签但没有找到匹配的位置，提示用户
+                            print("⚠️ 未找到位置标签: \(value)，请使用完整格式或确保该位置已存在")
                         }
                     }
                     
