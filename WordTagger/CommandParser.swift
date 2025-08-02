@@ -79,23 +79,18 @@ public final class CommandParser: ObservableObject {
     
     public func parse(_ input: String, context: CommandContext) -> [Command] {
         let cleanInput = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        print("🎯 CommandParser: parse() called with input='\(input)', cleanInput='\(cleanInput)'")
         
         guard !cleanInput.isEmpty else { 
-            print("🎯 CommandParser: empty input, returning default commands")
             return getDefaultCommands() 
         }
         
         // Try to detect command intent
         if let directCommand = parseDirectCommand(cleanInput, context: context) {
-            print("🎯 CommandParser: found direct command: \(directCommand.title)")
             return [directCommand]
         }
         
         // Use fuzzy matching for suggestions
-        let matches = findMatchingCommands(for: cleanInput, context: context)
-        print("🎯 CommandParser: found \(matches.count) matching commands")
-        return matches
+        return findMatchingCommands(for: cleanInput, context: context)
     }
     
     public func updateSuggestions(for input: String, context: CommandContext) {
@@ -103,7 +98,7 @@ public final class CommandParser: ObservableObject {
     }
     
     public func getDefaultCommands() -> [Command] {
-        let commands: [Command] = [
+        return [
             AddWordCommand(),
             SearchWordsCommand(),
             SwitchLayerCommand(layerName: "英语单词"),
@@ -113,8 +108,6 @@ public final class CommandParser: ObservableObject {
             OpenGraphCommand(),
             ShowSettingsCommand()
         ]
-        print("🎯 CommandParser: getDefaultCommands() returning \(commands.count) commands")
-        return commands
     }
     
     // MARK: - Command Setup

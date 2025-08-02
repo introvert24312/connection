@@ -38,24 +38,21 @@ struct CommandPaletteView: View {
             Divider()
             
             // 命令列表
-            ScrollViewReader { proxy in
-                List(Array(availableCommands.enumerated()), id: \.offset) { index, command in
-                    NewCommandRowView(
-                        command: command,
-                        isSelected: index == selectedIndex
-                    ) {
-                        executeCommand(command)
-                    }
-                    .id(index)
-                }
-                .listStyle(.plain)
-                .frame(height: min(CGFloat(availableCommands.count) * 44, 300))
-                .onChange(of: selectedIndex) { _, newIndex in
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        proxy.scrollTo(newIndex, anchor: .center)
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(availableCommands.enumerated()), id: \.offset) { index, command in
+                        NewCommandRowView(
+                            command: command,
+                            isSelected: index == selectedIndex
+                        ) {
+                            executeCommand(command)
+                        }
+                        .id(index)
                     }
                 }
+                .padding(.vertical, 8)
             }
+            .frame(height: 300)
             
             if availableCommands.isEmpty && !query.isEmpty {
                 VStack {
@@ -105,9 +102,9 @@ struct CommandPaletteView: View {
         )
         
         let commands = commandParser.parse(query, context: context)
-        print("🎯 CommandPalette: query='\(query)', commands count=\(commands.count)")
-        for (index, command) in commands.enumerated() {
-            print("  \(index): \(command.title)")
+        print("🎯 CommandPalette availableCommands: query='\(query)', commands=\(commands.count)")
+        for (i, cmd) in commands.enumerated() {
+            print("  \(i): '\(cmd.title)' - '\(cmd.description)'")
         }
         return commands
     }
@@ -230,7 +227,6 @@ private struct NewCommandRowView: View {
             }
             .padding(.vertical, 8)
             .padding(.horizontal, 12)
-            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .background(
