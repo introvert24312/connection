@@ -18,6 +18,7 @@ struct WordListView: View {
     @State private var lastSelectedTag: Tag? = nil
     @State private var lastSortOption: SortOption = .alphabetical
     @State private var updateTask: Task<Void, Never>?
+    @State private var isUpdating: Bool = false
     
     enum SortOption: String, CaseIterable {
         case alphabetical = "字母顺序"
@@ -35,11 +36,31 @@ struct WordListView: View {
                     TextField("搜索单词、音标、含义...", text: $localSearchQuery)
                         .textFieldStyle(.plain)
                         .focused($isSearchFieldFocused)
+                        .onChange(of: isSearchFieldFocused) { _, newValue in
+                            print("🎯 Focus changed: isSearchFieldFocused = \(newValue)")
+                        }
                         .onSubmit {
-                            // 搜索提交时的处理
+                            // 回车键选中第一个搜索结果并转移焦点到列表
+                            if !displayWords.isEmpty {
+                                selectedIndex = 0
+                                selectWordAtIndex()
+                                print("🎯 Enter pressed: transferring focus to list")
+                                isSearchFieldFocused = false
+                                isListFocused = true
+                            }
                         }
                         .onChange(of: localSearchQuery) { oldValue, newValue in
                             handleSearchQueryChange(newValue)
+                        }
+                        .id("search-field")  // 稳定的ID
+                        .background(Color.clear)  // 确保有明确的背景
+                        .onAppear {
+                            // 当TextField出现时立即获取焦点
+                            print("🎯 TextField onAppear: setting focus")
+                            DispatchQueue.main.async {
+                                print("🎯 TextField async: isSearchFieldFocused = true")
+                                isSearchFieldFocused = true
+                            }
                         }
                     
                     if !localSearchQuery.isEmpty {
@@ -59,10 +80,19 @@ struct WordListView: View {
                 // 筛选和排序选项
                 HStack {
                     Menu {
-                        Button("全部标签") { searchFilter.tagType = nil }
+                        Button("全部标签") { 
+                            searchFilter.tagType = nil
+                            store.selectTag(nil)
+                        }
                         Divider()
                         ForEach(Tag.TagType.allCases, id: \.self) { type in
-                            Button(type.displayName) { searchFilter.tagType = type }
+                            Button(type.displayName) { 
+                                searchFilter.tagType = type
+                                // 找到第一个匹配类型的标签并选中
+                                if let firstTag = store.allTags.first(where: { $0.type == type }) {
+                                    store.selectTag(firstTag)
+                                }
+                            }
                         }
                     } label: {
                         HStack {
@@ -120,7 +150,7 @@ struct WordListView: View {
                     List(Array(displayWords.enumerated()), id: \.element.id) { index, word in
                         WordRowView(
                             word: word,
-                            isSelected: selectedWord?.id == word.id || index == selectedIndex,
+                            isSelected: selectedWord?.id == word.id || (index == selectedIndex && selectedIndex >= 0),
                             searchQuery: store.searchQuery
                         ) {
                             selectedWord = word
@@ -128,9 +158,13 @@ struct WordListView: View {
                             selectedIndex = index
                         }
                         .id(word.id)
+                        .transition(.opacity.combined(with: .move(edge: .leading)))
                     }
                     .listStyle(.plain)
                     .focused($isListFocused)
+                    .onChange(of: isListFocused) { _, newValue in
+                        print("📋 List focus changed: isListFocused = \(newValue)")
+                    }
                     .onKeyPress(.upArrow) {
                         if selectedIndex > 0 {
                             selectedIndex -= 1
@@ -156,14 +190,18 @@ struct WordListView: View {
                         return .handled
                     }
                     .onChange(of: displayWords) { _, _ in
-                        selectedIndex = min(selectedIndex, max(0, displayWords.count - 1))
+                        // 不自动选中第一个结果，只确保索引不越界
+                        if selectedIndex >= displayWords.count {
+                            selectedIndex = displayWords.count - 1
+                        }
+                        if displayWords.isEmpty {
+                            selectedIndex = -1  // 没有结果时设为-1
+                        }
                     }
                     .onAppear {
-                        isListFocused = true
-                        // 初始化时更新缓存
-                        if cachedDisplayWords.isEmpty {
-                            updateCachedDisplayWords()
-                        }
+                        print("📋 List onAppear: NOT setting focus anymore")
+                        // 不要自动获取List焦点，这会抢夺搜索框焦点
+                        // isListFocused = true
                     }
                 }
             }
@@ -202,22 +240,19 @@ struct WordListView: View {
             return
         }
         
-        // 记住当前焦点状态
-        let wasFocused = isSearchFieldFocused
-        
         // 立即更新，因为Store已经处理了防抖
         print("🔧 Executing immediate updateCachedDisplayWords")
         updateCachedDisplayWords()
-        
-        // 如果之前有焦点，更新后恢复焦点
-        if wasFocused {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
-                isSearchFieldFocused = true
-            }
-        }
     }
     
     private func updateCachedDisplayWords() {
+        // 防止重复更新
+        guard !isUpdating else {
+            print("⏭️ Update already in progress, skipping")
+            return
+        }
+        
+        isUpdating = true
         print("🔄 updateCachedDisplayWords started")
         print("📊 Current store state - searchQuery: '\(store.searchQuery)', searchResults count: \(store.searchResults.count)")
         
@@ -232,16 +267,21 @@ struct WordListView: View {
             filteredWords = store.words(withTag: selectedTag)
             print("🏷️ Using tag filter: \(filteredWords.count) words")
         } else {
-            // 应用过滤器
-            filteredWords = store.search("", filter: searchFilter)
-            print("📋 Using all words with filter: \(filteredWords.count) words")
+            // 没有搜索也没有选中标签时，显示所有单词
+            filteredWords = store.words
+            print("📋 Using all words: \(filteredWords.count) words")
         }
         
         // 应用排序并更新缓存
         let oldCount = cachedDisplayWords.count
-        cachedDisplayWords = sortWords(filteredWords)
-        let newCount = cachedDisplayWords.count
+        let newWords = sortWords(filteredWords)
         
+        // 使用动画更新缓存，减少视觉闪烁
+        withAnimation(.easeInOut(duration: 0.2)) {
+            cachedDisplayWords = newWords
+        }
+        
+        let newCount = cachedDisplayWords.count
         print("✅ Cache updated: \(oldCount) → \(newCount) words")
         
         // 更新缓存状态
@@ -250,47 +290,53 @@ struct WordListView: View {
         lastSortOption = sortOption
         
         print("💾 Cache state updated - lastSearchQuery: '\(lastSearchQuery)'")
+        
+        // 重置更新标记
+        isUpdating = false
     }
     
     private func handleSearchQueryChange(_ newValue: String) {
+        // 直接更新store，让Store的debounce处理
         store.searchQuery = newValue
-        // 保持焦点在输入框（延迟确保在视图更新后执行）
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
-            isSearchFieldFocused = true
-        }
     }
     
     private func clearSearch() {
         localSearchQuery = ""
         store.searchQuery = ""
-        // 保持焦点在输入框
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
+    }
+    
+    private func setupView() {
+        print("🔧 setupView called")
+        // 初始化时同步搜索查询和设置焦点
+        localSearchQuery = store.searchQuery
+        
+        // 初始化时更新显示
+        updateCachedDisplayWords()
+        
+        // 延迟设置焦点，确保TextField已经渲染完成
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            print("🎯 setupView delayed: setting isSearchFieldFocused = true")
             isSearchFieldFocused = true
         }
     }
     
-    private func setupView() {
-        // 初始化时同步搜索查询和设置焦点
-        localSearchQuery = store.searchQuery
-        isSearchFieldFocused = true
-    }
-    
     private func handleStoreSearchQueryChange(_ newValue: String) {
         print("🔍 WordListView: searchQuery changed to '\(newValue)'")
-        scheduleUpdate()
         
-        // 同步store的搜索查询到本地变量（避免删除键问题）
-        if localSearchQuery != newValue {
-            localSearchQuery = newValue
+        // 如果是清空搜索，立即更新显示；否则等搜索结果完成后再更新
+        if newValue.isEmpty {
+            print("🧹 WordListView: Search cleared, updating display immediately")
+            scheduleUpdate()
         }
+        
+        // 不要同步回localSearchQuery，避免循环更新
+        // localSearchQuery由用户直接输入控制
     }
     
     private func handleSearchResultsChange(_ newValue: [SearchResult]) {
         print("📊 WordListView: searchResults changed to \(newValue.count) items")
-        // 只有在有搜索查询时才更新显示，避免重复更新
-        if !store.searchQuery.isEmpty {
-            scheduleUpdate()
-        }
+        // 搜索结果变化时总是更新显示
+        scheduleUpdate()
     }
     
     private func handleSelectedTagChange(_ newValue: UUID?) {
@@ -314,7 +360,7 @@ struct WordListView: View {
     }
     
     private func selectWordAtIndex() {
-        guard selectedIndex < displayWords.count else { return }
+        guard selectedIndex >= 0 && selectedIndex < displayWords.count else { return }
         let word = displayWords[selectedIndex]
         selectedWord = word
         store.selectWord(word)

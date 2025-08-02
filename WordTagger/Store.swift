@@ -100,12 +100,10 @@ public final class WordStore: ObservableObject {
     public func addWord(_ text: String, phonetic: String? = nil, meaning: String? = nil) {
         let word = Word(text: text, phonetic: phonetic, meaning: meaning)
         words.append(word)
-        objectWillChange.send()
     }
     
     public func addWord(_ word: Word) {
         words.append(word)
-        objectWillChange.send()
     }
     
     public func updateWord(_ wordId: UUID, text: String? = nil, phonetic: String? = nil, meaning: String? = nil) {
@@ -115,8 +113,6 @@ public final class WordStore: ObservableObject {
         if let phonetic = phonetic { words[index].phonetic = phonetic }
         if let meaning = meaning { words[index].meaning = meaning }
         words[index].updatedAt = Date()
-        
-        objectWillChange.send()
     }
     
     public func deleteWord(_ wordId: UUID) {
@@ -124,7 +120,6 @@ public final class WordStore: ObservableObject {
         if selectedWord?.id == wordId {
             selectedWord = nil
         }
-        objectWillChange.send()
     }
     
     // MARK: - 标签管理
@@ -136,7 +131,6 @@ public final class WordStore: ObservableObject {
         if !words[index].tags.contains(tag) {
             words[index].tags.append(tag)
             words[index].updatedAt = Date()
-            objectWillChange.send()
         }
     }
     
@@ -145,7 +139,6 @@ public final class WordStore: ObservableObject {
         
         words[index].tags.removeAll { $0.id == tagId }
         words[index].updatedAt = Date()
-        objectWillChange.send()
     }
     
     public func createTag(type: Tag.TagType, value: String, latitude: Double? = nil, longitude: Double? = nil) -> Tag {
@@ -181,12 +174,10 @@ public final class WordStore: ObservableObject {
     
     public func selectWord(_ word: Word?) {
         selectedWord = word
-        objectWillChange.send()
     }
     
     public func selectTag(_ tag: Tag?) {
         selectedTag = tag
-        objectWillChange.send()
     }
     
     // MARK: - 搜索功能
@@ -538,7 +529,6 @@ public final class WordStore: ObservableObject {
                     }
                     
                     self?.isImporting = false
-                    self?.objectWillChange.send()
                     
                     let message = replaceExisting ? 
                         "成功导入 \(validationResult.validCount) 个单词，已替换原有数据" :
@@ -595,7 +585,6 @@ public final class WordStore: ObservableObject {
         selectedTag = nil
         searchQuery = ""
         searchResults.removeAll()
-        objectWillChange.send()
     }
     
     public func getExportSummary() -> ExportSummary {
