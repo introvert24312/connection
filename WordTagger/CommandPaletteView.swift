@@ -104,7 +104,12 @@ struct CommandPaletteView: View {
             selectedTag: store.selectedTag
         )
         
-        return commandParser.parse(query, context: context)
+        let commands = commandParser.parse(query, context: context)
+        print("🎯 CommandPalette: query='\(query)', commands count=\(commands.count)")
+        for (index, command) in commands.enumerated() {
+            print("  \(index): \(command.title)")
+        }
+        return commands
     }
     
     private func executeSelectedCommand() {
