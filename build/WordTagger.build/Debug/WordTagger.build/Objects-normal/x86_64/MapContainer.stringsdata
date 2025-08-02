@@ -7,7 +7,39 @@
         "key": "地图视图",
         "location": {
           "startingColumn": 26,
-          "startingLine": 34
+          "startingLine": 37
+        }
+      },
+      {
+        "comment": "",
+        "key": "搜索位置: %@",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 234
+        }
+      },
+      {
+        "comment": "",
+        "key": "(5秒后自动消失)",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 236
+        }
+      },
+      {
+        "comment": "",
+        "key": "预览位置: %@",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 240
+        }
+      },
+      {
+        "comment": "",
+        "key": "(3秒后自动消失)",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 242
         }
       },
       {
@@ -15,7 +47,7 @@
         "key": "🐛 调试信息",
         "location": {
           "startingColumn": 26,
-          "startingLine": 144
+          "startingLine": 258
         }
       },
       {
@@ -23,15 +55,7 @@
         "key": "位置选择模式: %@",
         "location": {
           "startingColumn": 26,
-          "startingLine": 147
-        }
-      },
-      {
-        "comment": "",
-        "key": "显示确认界面: %@",
-        "location": {
-          "startingColumn": 26,
-          "startingLine": 149
+          "startingLine": 261
         }
       },
       {
@@ -39,7 +63,23 @@
         "key": "取消",
         "location": {
           "startingColumn": 32,
-          "startingLine": 197
+          "startingLine": 309
+        }
+      },
+      {
+        "comment": "",
+        "key": "点击地图选择位置",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 301
+        }
+      },
+      {
+        "comment": "",
+        "key": "点击地图任意位置放置3D大头针",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 303
         }
       },
       {
@@ -47,23 +87,7 @@
         "key": "已选择位置",
         "location": {
           "startingColumn": 38,
-          "startingLine": 172
-        }
-      },
-      {
-        "comment": "",
-        "key": "选择位置",
-        "location": {
-          "startingColumn": 38,
-          "startingLine": 189
-        }
-      },
-      {
-        "comment": "",
-        "key": "点击搜索结果、大头针或地图任意位置",
-        "location": {
-          "startingColumn": 38,
-          "startingLine": 191
+          "startingLine": 284
         }
       },
       {
@@ -71,7 +95,7 @@
         "key": "%@, %@",
         "location": {
           "startingColumn": 46,
-          "startingLine": 180
+          "startingLine": 292
         }
       },
       {
@@ -79,23 +103,31 @@
         "key": "按回车键确认添加到单词中",
         "location": {
           "startingColumn": 42,
-          "startingLine": 184
+          "startingLine": 296
         }
       },
       {
         "comment": "",
-        "key": "确认添加",
+        "key": "确认添加此位置",
         "location": {
-          "startingColumn": 42,
-          "startingLine": 212
+          "startingColumn": 46,
+          "startingLine": 325
         }
       },
       {
         "comment": "",
         "key": "重新选择",
         "location": {
-          "startingColumn": 42,
-          "startingLine": 224
+          "startingColumn": 46,
+          "startingLine": 337
+        }
+      },
+      {
+        "comment": "",
+        "key": "手动输入",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 349
         }
       },
       {
@@ -103,7 +135,7 @@
         "key": "搜索地点或单词...",
         "location": {
           "startingColumn": 23,
-          "startingLine": 265
+          "startingLine": 391
         }
       },
       {
@@ -111,7 +143,7 @@
         "key": "全览",
         "location": {
           "startingColumn": 26,
-          "startingLine": 648
+          "startingLine": 810
         }
       },
       {
@@ -119,7 +151,7 @@
         "key": "%lld 个位置",
         "location": {
           "startingColumn": 18,
-          "startingLine": 738
+          "startingLine": 900
         }
       },
       {
@@ -127,7 +159,7 @@
         "key": "位置信息",
         "location": {
           "startingColumn": 26,
-          "startingLine": 789
+          "startingLine": 951
         }
       },
       {
@@ -135,7 +167,7 @@
         "key": "%.4f, %.4f",
         "location": {
           "startingColumn": 38,
-          "startingLine": 803
+          "startingLine": 965
         }
       },
       {
@@ -143,7 +175,7 @@
         "key": "其他标签",
         "location": {
           "startingColumn": 26,
-          "startingLine": 816
+          "startingLine": 978
         }
       },
       {
@@ -151,7 +183,7 @@
         "key": "单词结果",
         "location": {
           "startingColumn": 30,
-          "startingLine": 900
+          "startingLine": 1062
         }
       },
       {
@@ -159,7 +191,7 @@
         "key": "%lld 个",
         "location": {
           "startingColumn": 30,
-          "startingLine": 907
+          "startingLine": 1069
         }
       },
       {
@@ -167,7 +199,7 @@
         "key": "地点结果",
         "location": {
           "startingColumn": 30,
-          "startingLine": 937
+          "startingLine": 1099
         }
       },
       {
@@ -175,7 +207,7 @@
         "key": "%lld 个",
         "location": {
           "startingColumn": 34,
-          "startingLine": 948
+          "startingLine": 1110
         }
       },
       {
@@ -183,7 +215,47 @@
         "key": "选择",
         "location": {
           "startingColumn": 30,
-          "startingLine": 1063
+          "startingLine": 1225
+        }
+      },
+      {
+        "comment": "",
+        "key": "手动输入坐标",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 1440
+        }
+      },
+      {
+        "comment": "",
+        "key": "请输入坐标信息，格式：纬度,经度",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 1444
+        }
+      },
+      {
+        "comment": "",
+        "key": "例如: 37.4535951640625,121.61110684570313",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 1448
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1459
+        }
+      },
+      {
+        "comment": "",
+        "key": "确认",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1464
         }
       }
     ]

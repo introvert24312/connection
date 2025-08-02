@@ -9,6 +9,15 @@ struct WordListView: View {
     @State private var sortOption: SortOption = .alphabetical
     @State private var selectedIndex: Int = 0
     @FocusState private var isListFocused: Bool
+    @FocusState private var isSearchFieldFocused: Bool
+    @State private var localSearchQuery: String = ""
+    
+    // 缓存机制，避免列表频繁重新渲染
+    @State private var cachedDisplayWords: [Word] = []
+    @State private var lastSearchQuery: String = ""
+    @State private var lastSelectedTag: Tag? = nil
+    @State private var lastSortOption: SortOption = .alphabetical
+    @State private var updateTask: Task<Void, Never>?
     
     enum SortOption: String, CaseIterable {
         case alphabetical = "字母顺序"
@@ -23,15 +32,28 @@ struct WordListView: View {
                 HStack {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.gray)
-                    TextField("搜索单词、音标、含义...", text: $store.searchQuery)
+                    TextField("搜索单词、音标、含义...", text: $localSearchQuery)
                         .textFieldStyle(.plain)
+                        .focused($isSearchFieldFocused)
                         .onSubmit {
                             // 搜索提交时的处理
                         }
+                        .onChange(of: localSearchQuery) { oldValue, newValue in
+                            // 保持焦点在输入框
+                            DispatchQueue.main.async {
+                                isSearchFieldFocused = true
+                            }
+                            store.searchQuery = newValue
+                        }
                     
-                    if !store.searchQuery.isEmpty {
+                    if !localSearchQuery.isEmpty {
                         Button(action: {
+                            localSearchQuery = ""
                             store.searchQuery = ""
+                            // 保持焦点在输入框
+                            DispatchQueue.main.async {
+                                isSearchFieldFocused = true
+                            }
                         }) {
                             Image(systemName: "xmark.circle.fill")
                                 .foregroundColor(.gray)
@@ -106,7 +128,7 @@ struct WordListView: View {
                 EmptyStateView()
             } else {
                 ScrollViewReader { proxy in
-                    List(Array(displayWords.enumerated()), id: \.offset) { index, word in
+                    List(Array(displayWords.enumerated()), id: \.element.id) { index, word in
                         WordRowView(
                             word: word,
                             isSelected: selectedWord?.id == word.id || index == selectedIndex,
@@ -116,7 +138,7 @@ struct WordListView: View {
                             store.selectWord(word)
                             selectedIndex = index
                         }
-                        .id(index)
+                        .id(word.id)
                     }
                     .listStyle(.plain)
                     .focused($isListFocused)
@@ -149,14 +171,80 @@ struct WordListView: View {
                     }
                     .onAppear {
                         isListFocused = true
+                        // 初始化时更新缓存
+                        if cachedDisplayWords.isEmpty {
+                            updateCachedDisplayWords()
+                        }
                     }
                 }
             }
         }
         .navigationTitle("单词")
+        .onChange(of: store.searchQuery) { oldValue, newValue in
+            print("🔍 WordListView: searchQuery changed from '\(oldValue)' to '\(newValue)'")
+            scheduleUpdate()
+        }
+        .onChange(of: store.searchResults) { oldValue, newValue in
+            print("📊 WordListView: searchResults changed from \(oldValue.count) to \(newValue.count) items")
+            // 当搜索结果更新时，立即更新显示
+            scheduleUpdate()
+        }
+        .onChange(of: store.selectedTag?.id) { oldValue, newValue in
+            let oldStr = oldValue?.uuidString ?? "nil"
+            let newStr = newValue?.uuidString ?? "nil"
+            print("🏷️ WordListView: selectedTag changed from '\(oldStr)' to '\(newStr)'")
+            scheduleUpdate()
+        }
+        .onChange(of: sortOption) { oldValue, newValue in
+            print("📊 WordListView: sortOption changed from '\(oldValue)' to '\(newValue)'")
+            scheduleUpdate()
+        }
+        .onChange(of: store.searchQuery) { oldValue, newValue in
+            // 同步store的搜索查询到本地变量（避免删除键问题）
+            if localSearchQuery != newValue {
+                localSearchQuery = newValue
+            }
+        }
+        .onAppear {
+            // 初始化时同步搜索查询和设置焦点
+            localSearchQuery = store.searchQuery
+            isSearchFieldFocused = true
+        }
     }
     
     private var displayWords: [Word] {
+        return cachedDisplayWords
+    }
+    
+    private func scheduleUpdate() {
+        print("⏰ WordListView.scheduleUpdate called")
+        
+        // 取消之前的更新任务
+        updateTask?.cancel()
+        
+        // 检查是否有实际变化
+        let hasSearchQueryChange = lastSearchQuery != store.searchQuery
+        let hasSelectedTagChange = lastSelectedTag?.id != store.selectedTag?.id
+        let hasSortOptionChange = lastSortOption != sortOption
+        
+        print("🔄 Changes detected - searchQuery: \(hasSearchQueryChange), selectedTag: \(hasSelectedTagChange), sortOption: \(hasSortOptionChange)")
+        print("🔄 Current state - searchQuery: '\(store.searchQuery)', lastSearchQuery: '\(lastSearchQuery)'")
+        
+        // 如果没有任何变化，不需要更新
+        guard hasSearchQueryChange || hasSelectedTagChange || hasSortOptionChange else {
+            print("⏭️ No changes detected, skipping update")
+            return
+        }
+        
+        // 立即更新，因为Store已经处理了防抖
+        print("🔧 Executing immediate updateCachedDisplayWords")
+        updateCachedDisplayWords()
+    }
+    
+    private func updateCachedDisplayWords() {
+        print("🔄 updateCachedDisplayWords started")
+        print("📊 Current store state - searchQuery: '\(store.searchQuery)', searchResults count: \(store.searchResults.count)")
+        
         let filteredWords: [Word]
         
         if !store.searchQuery.isEmpty {
@@ -164,19 +252,34 @@ struct WordListView: View {
             let searchResults = store.searchResults.map { $0.word }
             if let selectedTag = store.selectedTag {
                 filteredWords = searchResults.filter { $0.hasTag(selectedTag) }
+                print("🔍 Using search results filtered by tag: \(filteredWords.count) words")
             } else {
                 filteredWords = searchResults
+                print("🔍 Using search results: \(filteredWords.count) words")
             }
         } else if let selectedTag = store.selectedTag {
             // 如果选中了标签，只显示包含该标签的单词
             filteredWords = store.words(withTag: selectedTag)
+            print("🏷️ Using tag filter: \(filteredWords.count) words")
         } else {
             // 应用过滤器
             filteredWords = store.search("", filter: searchFilter)
+            print("📋 Using all words with filter: \(filteredWords.count) words")
         }
         
-        // 应用排序
-        return sortWords(filteredWords)
+        // 应用排序并更新缓存
+        let oldCount = cachedDisplayWords.count
+        cachedDisplayWords = sortWords(filteredWords)
+        let newCount = cachedDisplayWords.count
+        
+        print("✅ Cache updated: \(oldCount) → \(newCount) words")
+        
+        // 更新缓存状态
+        lastSearchQuery = store.searchQuery
+        lastSelectedTag = store.selectedTag
+        lastSortOption = sortOption
+        
+        print("💾 Cache state updated - lastSearchQuery: '\(lastSearchQuery)'")
     }
     
     private func sortWords(_ words: [Word]) -> [Word] {

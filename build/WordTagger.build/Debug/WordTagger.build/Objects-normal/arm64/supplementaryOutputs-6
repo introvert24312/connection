@@ -1,18 +1,18 @@
+"/Users/Patronum/Desktop/WordTagger/WordTagger/Geocoder.swift":
+  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Geocoder.dia"
+  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Geocoder.swiftdeps"
+  dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Geocoder.d"
+  const-values: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Geocoder.swiftconstvalues"
+  object: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Geocoder.o"
+"/Users/Patronum/Desktop/WordTagger/WordTagger/GraphService.swift":
+  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphService.dia"
+  dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphService.d"
+  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphService.swiftdeps"
+  const-values: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphService.swiftconstvalues"
+  object: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphService.o"
 "/Users/Patronum/Desktop/WordTagger/WordTagger/CommandParser.swift":
   dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandParser.d"
   object: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandParser.o"
-  const-values: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandParser.swiftconstvalues"
   swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandParser.swiftdeps"
+  const-values: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandParser.swiftconstvalues"
   diagnostics: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/CommandParser.dia"
-"/Users/Patronum/Desktop/WordTagger/WordTagger/GraphService.swift":
-  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphService.dia"
-  object: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphService.o"
-  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphService.swiftdeps"
-  const-values: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphService.swiftconstvalues"
-  dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/GraphService.d"
-"/Users/Patronum/Desktop/WordTagger/WordTagger/Geocoder.swift":
-  const-values: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Geocoder.swiftconstvalues"
-  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Geocoder.swiftdeps"
-  dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Geocoder.d"
-  object: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Geocoder.o"
-  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Geocoder.dia"

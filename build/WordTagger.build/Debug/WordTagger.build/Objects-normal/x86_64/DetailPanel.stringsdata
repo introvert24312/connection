@@ -39,7 +39,7 @@
         "key": "%lld",
         "location": {
           "startingColumn": 22,
-          "startingLine": 161
+          "startingLine": 214
         }
       },
       {
@@ -47,7 +47,7 @@
         "key": "%@, %@",
         "location": {
           "startingColumn": 22,
-          "startingLine": 203
+          "startingLine": 266
         }
       },
       {
@@ -55,7 +55,7 @@
         "key": "暂无标签",
         "location": {
           "startingColumn": 18,
-          "startingLine": 229
+          "startingLine": 295
         }
       },
       {
@@ -63,71 +63,79 @@
         "key": "为这个单词添加标签来更好地组织和记忆",
         "location": {
           "startingColumn": 18,
-          "startingLine": 233
+          "startingLine": 299
         }
       },
       {
         "comment": "",
         "key": "该单词暂无地点标签",
         "location": {
-          "startingColumn": 26,
-          "startingLine": 294
+          "startingColumn": 30,
+          "startingLine": 380
         }
       },
       {
         "comment": "",
         "key": "添加地点标签来在地图上显示相关位置",
         "location": {
-          "startingColumn": 26,
-          "startingLine": 297
+          "startingColumn": 30,
+          "startingLine": 383
         }
       },
       {
         "comment": "",
-        "key": "相关单词",
+        "key": "该单词有地点标签但缺少坐标信息",
         "location": {
-          "startingColumn": 26,
-          "startingLine": 384
+          "startingColumn": 30,
+          "startingLine": 388
         }
       },
       {
         "comment": "",
-        "key": "%lld 个",
+        "key": "现有地点标签: %@",
         "location": {
-          "startingColumn": 26,
-          "startingLine": 389
+          "startingColumn": 30,
+          "startingLine": 391
         }
       },
       {
         "comment": "",
-        "key": "共同标签",
+        "key": "打开单词编辑",
         "location": {
-          "startingColumn": 26,
-          "startingLine": 437
+          "startingColumn": 32,
+          "startingLine": 428
         }
       },
       {
         "comment": "",
-        "key": "+%lld",
+        "key": "请使用以下格式添加坐标信息：",
         "location": {
           "startingColumn": 34,
-          "startingLine": 449
+          "startingLine": 397
         }
       },
       {
         "comment": "",
-        "key": "暂无相关单词",
+        "key": "点击上方命令可复制到剪贴板",
         "location": {
-          "startingColumn": 18,
-          "startingLine": 479
+          "startingColumn": 34,
+          "startingLine": 423
         }
       },
       {
         "comment": "",
-        "key": "当其他单词具有相同的标签时，它们会在这里显示",
+        "key": "单词详情图谱",
         "location": {
-          "startingColumn": 18,
-          "startingLine": 483
+          "startingColumn": 22,
+          "startingLine": 691
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld 个节点",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 696
         }
       },
       {
@@ -135,7 +143,7 @@
         "key": "编辑单词",
         "location": {
           "startingColumn": 30,
-          "startingLine": 520
+          "startingLine": 756
         }
       },
       {
@@ -143,7 +151,7 @@
         "key": "单词信息",
         "location": {
           "startingColumn": 25,
-          "startingLine": 513
+          "startingLine": 749
         }
       },
       {
@@ -151,7 +159,7 @@
         "key": "单词",
         "location": {
           "startingColumn": 31,
-          "startingLine": 514
+          "startingLine": 750
         }
       },
       {
@@ -159,7 +167,7 @@
         "key": "音标（可选）",
         "location": {
           "startingColumn": 31,
-          "startingLine": 515
+          "startingLine": 751
         }
       },
       {
@@ -167,7 +175,7 @@
         "key": "含义（可选）",
         "location": {
           "startingColumn": 31,
-          "startingLine": 516
+          "startingLine": 752
         }
       },
       {
@@ -175,7 +183,7 @@
         "key": "取消",
         "location": {
           "startingColumn": 28,
-          "startingLine": 523
+          "startingLine": 759
         }
       },
       {
@@ -183,7 +191,7 @@
         "key": "保存",
         "location": {
           "startingColumn": 28,
-          "startingLine": 527
+          "startingLine": 763
         }
       }
     ]

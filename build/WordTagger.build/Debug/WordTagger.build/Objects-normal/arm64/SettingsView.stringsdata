@@ -36,170 +36,202 @@
       },
       {
         "comment": "",
-        "key": "界面",
+        "key": "界面设置",
         "location": {
-          "startingColumn": 21,
-          "startingLine": 56
+          "startingColumn": 26,
+          "startingLine": 61
         }
       },
       {
         "comment": "",
-        "key": "性能",
+        "key": "性能设置",
         "location": {
-          "startingColumn": 21,
-          "startingLine": 66
+          "startingColumn": 26,
+          "startingLine": 128
         }
       },
       {
         "comment": "",
-        "key": "开发",
+        "key": "开发选项",
         "location": {
-          "startingColumn": 21,
-          "startingLine": 77
+          "startingColumn": 26,
+          "startingLine": 150
         }
       },
       {
         "comment": "",
-        "key": "默认显示音标",
+        "key": "",
         "location": {
-          "startingColumn": 24,
-          "startingLine": 57
+          "startingColumn": 36,
+          "startingLine": 67
+        }
+      },
+      {
+        "comment": "",
+        "key": "新建单词时默认使用的标签类型",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 87
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 80
         }
       },
       {
         "comment": "",
         "key": "默认标签类型",
         "location": {
-          "startingColumn": 24,
-          "startingLine": 59
+          "startingColumn": 38,
+          "startingLine": 75
         }
       },
       {
         "comment": "",
-        "key": "自动保存间隔",
+        "key": "%@x",
         "location": {
-          "startingColumn": 26,
-          "startingLine": 68
+          "startingColumn": 38,
+          "startingLine": 99
         }
       },
       {
         "comment": "",
-        "key": "%lld 秒",
+        "key": "%@x",
         "location": {
-          "startingColumn": 29,
-          "startingLine": 70
+          "startingColumn": 38,
+          "startingLine": 115
         }
       },
       {
         "comment": "",
-        "key": "启用调试模式",
+        "key": "%lld秒",
         "location": {
-          "startingColumn": 24,
-          "startingLine": 78
+          "startingColumn": 38,
+          "startingLine": 135
         }
       },
       {
         "comment": "",
-        "key": "显示调试信息和性能指标",
+        "key": "",
         "location": {
-          "startingColumn": 27,
-          "startingLine": 79
+          "startingColumn": 41,
+          "startingLine": 139
+        }
+      },
+      {
+        "comment": "",
+        "key": "⚠️ 启用后会在图谱中显示详细的节点和边数据，用于调试数据传递问题",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 171
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 156
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 166
         }
       },
       {
         "comment": "",
         "key": "搜索范围",
         "location": {
-          "startingColumn": 21,
-          "startingLine": 98
+          "startingColumn": 26,
+          "startingLine": 201
         }
       },
       {
         "comment": "",
         "key": "搜索算法",
         "location": {
-          "startingColumn": 21,
-          "startingLine": 104
+          "startingColumn": 26,
+          "startingLine": 235
         }
       },
       {
         "comment": "",
-        "key": "结果限制",
+        "key": "结果设置",
         "location": {
-          "startingColumn": 21,
-          "startingLine": 119
+          "startingColumn": 26,
+          "startingLine": 269
         }
       },
       {
         "comment": "",
-        "key": "搜索音标",
+        "key": "",
         "location": {
-          "startingColumn": 24,
-          "startingLine": 99
+          "startingColumn": 36,
+          "startingLine": 207
         }
       },
       {
         "comment": "",
-        "key": "搜索含义",
+        "key": "",
         "location": {
-          "startingColumn": 24,
-          "startingLine": 100
+          "startingColumn": 36,
+          "startingLine": 217
         }
       },
       {
         "comment": "",
-        "key": "搜索标签",
+        "key": "",
         "location": {
-          "startingColumn": 24,
-          "startingLine": 101
+          "startingColumn": 36,
+          "startingLine": 227
         }
       },
       {
         "comment": "",
-        "key": "启用模糊搜索",
+        "key": "",
         "location": {
-          "startingColumn": 24,
-          "startingLine": 105
-        }
-      },
-      {
-        "comment": "",
-        "key": "允许拼写错误和近似匹配",
-        "location": {
-          "startingColumn": 27,
-          "startingLine": 106
-        }
-      },
-      {
-        "comment": "",
-        "key": "匹配阈值: %@",
-        "location": {
-          "startingColumn": 30,
-          "startingLine": 110
+          "startingColumn": 36,
+          "startingLine": 241
         }
       },
       {
         "comment": "",
         "key": "较低的值需要更精确的匹配",
         "location": {
-          "startingColumn": 30,
-          "startingLine": 112
+          "startingColumn": 38,
+          "startingLine": 259
         }
       },
       {
         "comment": "",
-        "key": "最大搜索结果",
+        "key": "匹配阈值",
         "location": {
-          "startingColumn": 26,
-          "startingLine": 121
+          "startingColumn": 42,
+          "startingLine": 250
         }
       },
       {
         "comment": "",
         "key": "%lld",
         "location": {
-          "startingColumn": 29,
-          "startingLine": 123
+          "startingColumn": 38,
+          "startingLine": 276
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 41,
+          "startingLine": 280
         }
       },
       {
@@ -207,39 +239,207 @@
         "key": "确认清除数据",
         "location": {
           "startingColumn": 16,
-          "startingLine": 198
+          "startingLine": 469
+        }
+      },
+      {
+        "comment": "",
+        "key": "导入选项",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 477
+        }
+      },
+      {
+        "comment": "",
+        "key": "成功",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 484
+        }
+      },
+      {
+        "comment": "",
+        "key": "错误",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 484
         }
       },
       {
         "comment": "",
         "key": "数据统计",
         "location": {
-          "startingColumn": 22,
-          "startingLine": 145
+          "startingColumn": 26,
+          "startingLine": 314
         }
       },
       {
         "comment": "",
-        "key": "数据操作",
+        "key": "数据备份与恢复",
         "location": {
-          "startingColumn": 22,
-          "startingLine": 164
+          "startingColumn": 26,
+          "startingLine": 363
+        }
+      },
+      {
+        "comment": "",
+        "key": "危险操作",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 440
+        }
+      },
+      {
+        "comment": "",
+        "key": "数据概览",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 317
+        }
+      },
+      {
+        "comment": "",
+        "key": "单词总数",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 327
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 329
+        }
+      },
+      {
+        "comment": "",
+        "key": "标签总数",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 334
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 336
+        }
+      },
+      {
+        "comment": "",
+        "key": "地点标签",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 341
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 343
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@标签",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 352
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld 个单词",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 354
+        }
+      },
+      {
+        "comment": "",
+        "key": "将所有单词和标签数据导出为JSON文件",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 375
         }
       },
       {
         "comment": "",
         "key": "导出数据",
         "location": {
-          "startingColumn": 32,
-          "startingLine": 167
+          "startingColumn": 38,
+          "startingLine": 370
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 43,
+          "startingLine": 382
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 43,
+          "startingLine": 383
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 43,
+          "startingLine": 384
+        }
+      },
+      {
+        "comment": "",
+        "key": "导出数据文件",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 398
+        }
+      },
+      {
+        "comment": "",
+        "key": "从JSON文件导入单词和标签数据",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 417
         }
       },
       {
         "comment": "",
         "key": "导入数据",
         "location": {
-          "startingColumn": 32,
-          "startingLine": 172
+          "startingColumn": 38,
+          "startingLine": 412
+        }
+      },
+      {
+        "comment": "",
+        "key": "选择导入文件",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 429
+        }
+      },
+      {
+        "comment": "",
+        "key": "此操作将删除所有单词和标签数据，且无法撤销",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 450
         }
       },
       {
@@ -247,7 +447,15 @@
         "key": "清除所有数据",
         "location": {
           "startingColumn": 32,
-          "startingLine": 183
+          "startingLine": 454
+        }
+      },
+      {
+        "comment": "",
+        "key": "数据重置",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 445
         }
       },
       {
@@ -255,7 +463,7 @@
         "key": "取消",
         "location": {
           "startingColumn": 20,
-          "startingLine": 199
+          "startingLine": 470
         }
       },
       {
@@ -263,7 +471,7 @@
         "key": "清除",
         "location": {
           "startingColumn": 20,
-          "startingLine": 200
+          "startingLine": 471
         }
       },
       {
@@ -271,7 +479,55 @@
         "key": "此操作将删除所有单词和标签数据，且无法撤销。",
         "location": {
           "startingColumn": 18,
-          "startingLine": 204
+          "startingLine": 475
+        }
+      },
+      {
+        "comment": "",
+        "key": "合并数据",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 478
+        }
+      },
+      {
+        "comment": "",
+        "key": "替换数据",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 479
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 480
+        }
+      },
+      {
+        "comment": "",
+        "key": "选择导入方式：合并会添加新数据到现有数据中，替换会清除所有现有数据。",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 482
+        }
+      },
+      {
+        "comment": "",
+        "key": "确定",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 485
+        }
+      },
+      {
+        "comment": "",
+        "key": "查看详情",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 487
         }
       },
       {
@@ -279,7 +535,7 @@
         "key": "单词标签管理器",
         "location": {
           "startingColumn": 22,
-          "startingLine": 271
+          "startingLine": 591
         }
       },
       {
@@ -287,7 +543,7 @@
         "key": "版本 1.0.0",
         "location": {
           "startingColumn": 22,
-          "startingLine": 275
+          "startingLine": 595
         }
       },
       {
@@ -295,7 +551,7 @@
         "key": "功能特点:",
         "location": {
           "startingColumn": 22,
-          "startingLine": 281
+          "startingLine": 601
         }
       },
       {
@@ -303,7 +559,7 @@
         "key": "基于 SwiftUI 构建",
         "location": {
           "startingColumn": 22,
-          "startingLine": 296
+          "startingLine": 616
         }
       },
       {
@@ -311,7 +567,7 @@
         "key": "© 2024 WordTagger. All rights reserved.",
         "location": {
           "startingColumn": 22,
-          "startingLine": 300
+          "startingLine": 620
         }
       }
     ]

@@ -7,7 +7,7 @@
         "key": "单词",
         "location": {
           "startingColumn": 26,
-          "startingLine": 119
+          "startingLine": 167
         }
       },
       {
@@ -15,7 +15,7 @@
         "key": "搜索单词、音标、含义...",
         "location": {
           "startingColumn": 31,
-          "startingLine": 24
+          "startingLine": 33
         }
       },
       {
@@ -23,7 +23,7 @@
         "key": "%lld 个单词",
         "location": {
           "startingColumn": 26,
-          "startingLine": 85
+          "startingLine": 94
         }
       },
       {
@@ -31,7 +31,7 @@
         "key": "全部标签",
         "location": {
           "startingColumn": 32,
-          "startingLine": 49
+          "startingLine": 58
         }
       },
       {
@@ -39,7 +39,7 @@
         "key": "排序: %@",
         "location": {
           "startingColumn": 34,
-          "startingLine": 72
+          "startingLine": 81
         }
       },
       {
@@ -47,7 +47,7 @@
         "key": "搜索中...",
         "location": {
           "startingColumn": 34,
-          "startingLine": 99
+          "startingLine": 108
         }
       },
       {
@@ -55,7 +55,7 @@
         "key": "已编辑",
         "location": {
           "startingColumn": 30,
-          "startingLine": 208
+          "startingLine": 349
         }
       },
       {
@@ -63,7 +63,7 @@
         "key": "+%lld",
         "location": {
           "startingColumn": 22,
-          "startingLine": 281
+          "startingLine": 423
         }
       },
       {
@@ -71,7 +71,7 @@
         "key": "标签: %@ (%@)",
         "location": {
           "startingColumn": 15,
-          "startingLine": 365
+          "startingLine": 510
         }
       },
       {
@@ -79,7 +79,7 @@
         "key": "•",
         "location": {
           "startingColumn": 22,
-          "startingLine": 333
+          "startingLine": 477
         }
       },
       {
@@ -87,7 +87,7 @@
         "key": "开始添加你的第一个单词吧！",
         "location": {
           "startingColumn": 22,
-          "startingLine": 387
+          "startingLine": 532
         }
       },
       {
@@ -95,7 +95,7 @@
         "key": "尝试使用不同的关键词搜索",
         "location": {
           "startingColumn": 22,
-          "startingLine": 391
+          "startingLine": 536
         }
       },
       {
@@ -103,7 +103,7 @@
         "key": "暂无单词",
         "location": {
           "startingColumn": 46,
-          "startingLine": 382
+          "startingLine": 527
         }
       },
       {
@@ -111,7 +111,7 @@
         "key": "未找到匹配的单词",
         "location": {
           "startingColumn": 63,
-          "startingLine": 382
+          "startingLine": 527
         }
       }
     ]

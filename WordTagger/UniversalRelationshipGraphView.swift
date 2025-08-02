@@ -261,55 +261,73 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         context.coordinator.onNodeDeselected = onNodeDeselected
         context.coordinator.onFitGraph = onFitGraph
         context.coordinator.webView = webView
+        
+        // 立即加载初始内容并设置数据签名
+        let nodeIds = nodes.map { $0.id }.sorted()
+        let edgeSignature = edges.map { "\($0.fromId)-\($0.toId)" }.sorted().joined(separator:",")
+        let initialDataSignature = "\(nodeIds)-\(edgeSignature)"
+        context.coordinator.lastDataSignature = initialDataSignature
+        
+        let htmlContent = generateGraphHTML(initialScale: initialScale)
+        let baseURL = URL(string: "about:blank")
+        webView.loadHTMLString(htmlContent, baseURL: baseURL)
+        onDebugInfo("初始加载: \(nodes.count)个节点, \(edges.count)条边")
+        
         return webView
     }
     
     func updateNSView(_ webView: WKWebView, context: Context) {
         @AppStorage("enableGraphDebug") var enableGraphDebug: Bool = false
         
+        // 设置coordinator引用（先设置，避免重复设置）
+        if context.coordinator.webView !== webView {
+            context.coordinator.webView = webView
+            context.coordinator.onDebugInfo = onDebugInfo
+            context.coordinator.onNodeSelected = onNodeSelected
+            context.coordinator.onNodeDeselected = onNodeDeselected
+            context.coordinator.onFitGraph = onFitGraph
+            
+            // 注册coordinator到全局管理器
+            let viewId = ObjectIdentifier(webView)
+            GraphManager.shared.registerCoordinator(context.coordinator, for: viewId)
+        }
+        
+        // 计算当前数据签名
+        let nodeIds = nodes.map { $0.id }.sorted()
+        let edgeSignature = edges.map { "\($0.fromId)-\($0.toId)" }.sorted().joined(separator:",")
+        let currentDataSignature = "\(nodeIds)-\(edgeSignature)"
+        
         #if DEBUG
         if enableGraphDebug {
-            print("🔄 开始强制重新创建WebView内容")
+            print("🔍 updateNSView: lastSignature='\(context.coordinator.lastDataSignature)', currentSignature='\(currentDataSignature)'")
         }
         #endif
         
-        // 彻底清除所有缓存
-        webView.stopLoading()
-        
-        // 清除网站数据
-        let websiteDataTypes = WKWebsiteDataStore.allWebsiteDataTypes()
-        WKWebsiteDataStore.default().removeData(ofTypes: websiteDataTypes, modifiedSince: Date(timeIntervalSince1970: 0)) { [weak webView] in
-            guard let webView = webView else { return }
-            
-            let htmlContent = self.generateGraphHTML(initialScale: self.initialScale)
-            self.onDebugInfo("生成图形: \(self.nodes.count)个节点, \(self.edges.count)条边 (强制重新生成)")
-            
-            // 强制禁用缓存的baseURL
-            let timestamp = Int(Date().timeIntervalSince1970 * 1000000) // 微秒级时间戳
-            let baseURL = URL(string: "https://nocache.local/\(timestamp)")
-            
-            DispatchQueue.main.async {
-                // 同步加载，不使用延迟
-                webView.loadHTMLString(htmlContent, baseURL: baseURL)
-                
-                #if DEBUG
-                if enableGraphDebug {
-                    print("🔄 WebView重新创建完成，时间戳: \(timestamp)")
-                }
-                #endif
+        // 强化的重复加载检查：只在数据真正变化时才更新
+        if context.coordinator.lastDataSignature == currentDataSignature {
+            #if DEBUG
+            if enableGraphDebug {
+                print("⏭️ 数据签名相同，跳过WebView更新")
             }
+            #endif
+            return
         }
         
-        // 设置coordinator引用
-        context.coordinator.webView = webView
-        context.coordinator.onDebugInfo = onDebugInfo
-        context.coordinator.onNodeSelected = onNodeSelected
-        context.coordinator.onNodeDeselected = onNodeDeselected
-        context.coordinator.onFitGraph = onFitGraph
+        // 数据确实发生了变化，进行更新
+        context.coordinator.lastDataSignature = currentDataSignature
         
-        // 注册coordinator到全局管理器
-        let viewId = ObjectIdentifier(webView)
-        GraphManager.shared.registerCoordinator(context.coordinator, for: viewId)
+        #if DEBUG
+        if enableGraphDebug {
+            print("🔄 数据发生变化，更新WebView内容")
+        }
+        #endif
+        
+        let htmlContent = self.generateGraphHTML(initialScale: self.initialScale)
+        self.onDebugInfo("更新图形: \(self.nodes.count)个节点, \(self.edges.count)条边")
+        
+        // 使用简单的baseURL，避免缓存问题
+        let baseURL = URL(string: "about:blank")
+        webView.loadHTMLString(htmlContent, baseURL: baseURL)
     }
     
     func makeCoordinator() -> Coordinator {
@@ -322,10 +340,7 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         var onNodeDeselected: (() -> Void)?
         var onFitGraph: (() -> Void)?
         weak var webView: WKWebView?
-        
-        // 禁用缓存机制，确保每次都生成新内容
-        // var cachedHTML: String = ""
-        // var lastContentHash: String = ""
+        var lastDataSignature: String = ""
         
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
             print("WebView加载失败: \(error)")

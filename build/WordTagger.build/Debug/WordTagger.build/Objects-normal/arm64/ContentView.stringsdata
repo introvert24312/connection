@@ -7,15 +7,15 @@
         "key": "打开地图视图 (⌘M)",
         "location": {
           "startingColumn": 23,
-          "startingLine": 37
+          "startingLine": 42
         }
       },
       {
         "comment": "",
-        "key": "打开关系图谱 (⌘G)",
+        "key": "打开全局图谱 (⌘G)",
         "location": {
           "startingColumn": 23,
-          "startingLine": 45
+          "startingLine": 50
         }
       },
       {
@@ -23,7 +23,7 @@
         "key": "清除选择",
         "location": {
           "startingColumn": 23,
-          "startingLine": 54
+          "startingLine": 59
         }
       },
       {
@@ -31,7 +31,7 @@
         "key": "欢迎使用单词标签管理器",
         "location": {
           "startingColumn": 22,
-          "startingLine": 98
+          "startingLine": 134
         }
       },
       {
@@ -39,7 +39,7 @@
         "key": "使用智能标签系统来组织和记忆单词",
         "location": {
           "startingColumn": 22,
-          "startingLine": 102
+          "startingLine": 138
         }
       },
       {
@@ -47,7 +47,7 @@
         "key": "按 ⌘N 添加新单词",
         "location": {
           "startingColumn": 26,
-          "startingLine": 112
+          "startingLine": 148
         }
       },
       {
@@ -55,7 +55,7 @@
         "key": "按 ⌘F 搜索单词",
         "location": {
           "startingColumn": 26,
-          "startingLine": 118
+          "startingLine": 154
         }
       },
       {
@@ -63,7 +63,7 @@
         "key": "按 ⌘K 打开命令面板",
         "location": {
           "startingColumn": 26,
-          "startingLine": 124
+          "startingLine": 160
         }
       },
       {
@@ -71,7 +71,7 @@
         "key": "当前统计",
         "location": {
           "startingColumn": 22,
-          "startingLine": 133
+          "startingLine": 169
         }
       }
     ]

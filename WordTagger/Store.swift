@@ -192,29 +192,38 @@ public final class WordStore: ObservableObject {
     // MARK: - 搜索功能
     
     private func setupSearchBinding() {
+        print("🔧 Store: Setting up search binding")
         $searchQuery
-            .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
+            .debounce(for: .milliseconds(100), scheduler: DispatchQueue.main)
+            .removeDuplicates()
             .sink { [weak self] query in
+                print("🔍 Store: searchQuery changed to '\(query)' (after debounce)")
                 self?.performSearch(query)
             }
             .store(in: &cancellables)
     }
     
     private func performSearch(_ query: String) {
+        print("🔍 Store: performSearch called with query '\(query)'")
+        
         if query.isEmpty {
+            print("🧹 Store: Query is empty, clearing results")
             searchResults = []
             return
         }
         
         isLoading = true
+        print("⏳ Store: Starting search...")
         
         // 模拟异步搜索
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let results = self?.searchWords(query) ?? []
+            print("📊 Store: Search completed, found \(results.count) results")
             
             DispatchQueue.main.async {
                 self?.searchResults = results
                 self?.isLoading = false
+                print("✅ Store: Search results updated on main thread")
             }
         }
     }
@@ -310,29 +319,41 @@ public final class WordStore: ObservableObject {
         return words.flatMap { $0.tags }.unique()
     }
     
-    // 获取与搜索查询相关的标签
+    // 获取与搜索查询相关的标签，按相关性排序
     public func getRelevantTags(for query: String) -> [Tag] {
         if query.isEmpty {
             return allTags
         }
         
-        // 查找包含搜索查询的单词
-        let relevantWords = words.filter { word in
-            word.text.localizedCaseInsensitiveContains(query) ||
-            (word.meaning?.localizedCaseInsensitiveContains(query) ?? false) ||
-            (word.phonetic?.localizedCaseInsensitiveContains(query) ?? false)
+        // 优先查找单词文本直接匹配的单词
+        let directWordMatches = words.filter { word in
+            word.text.localizedCaseInsensitiveContains(query)
         }
         
-        // 收集这些单词的所有标签
-        let relevantTags = relevantWords.flatMap { $0.tags }.unique()
+        // 其次查找含义或音标匹配的单词
+        let semanticMatches = words.filter { word in
+            !word.text.localizedCaseInsensitiveContains(query) && (
+                (word.meaning?.localizedCaseInsensitiveContains(query) ?? false) ||
+                (word.phonetic?.localizedCaseInsensitiveContains(query) ?? false)
+            )
+        }
         
-        // 同时包含标签值直接匹配搜索查询的标签
-        let directMatchTags = allTags.filter { tag in
+        // 按优先级收集标签
+        let directWordTags = directWordMatches.flatMap { $0.tags }.unique()
+        let semanticTags = semanticMatches.flatMap { $0.tags }.unique()
+        
+        // 标签值直接匹配的标签（优先级最高）
+        let directTagMatches = allTags.filter { tag in
             tag.value.localizedCaseInsensitiveContains(query)
         }
         
-        // 合并并去重
-        return (relevantTags + directMatchTags).unique()
+        // 按优先级合并：直接单词匹配的标签 > 语义匹配的标签 > 直接标签匹配
+        var result: [Tag] = []
+        result.append(contentsOf: directWordTags)
+        result.append(contentsOf: semanticTags.filter { !result.contains($0) })
+        result.append(contentsOf: directTagMatches.filter { !result.contains($0) })
+        
+        return result
     }
     
     public func words(withTag tag: Tag) -> [Word] {

@@ -4,130 +4,34 @@
     "Localizable": [
       {
         "comment": "",
-        "key": "节点类型过滤",
+        "key": "全局图谱",
         "location": {
-          "startingColumn": 23,
-          "startingLine": 122
-        }
-      },
-      {
-        "comment": "",
-        "key": "节点簇过滤",
-        "location": {
-          "startingColumn": 23,
-          "startingLine": 176
-        }
-      },
-      {
-        "comment": "",
-        "key": "重新构建图谱",
-        "location": {
-          "startingColumn": 23,
-          "startingLine": 187
-        }
-      },
-      {
-        "comment": "",
-        "key": "节点关系图谱",
-        "location": {
-          "startingColumn": 26,
-          "startingLine": 30
-        }
-      },
-      {
-        "comment": "",
-        "key": "→",
-        "location": {
-          "startingColumn": 30,
-          "startingLine": 37
-        }
-      },
-      {
-        "comment": "",
-        "key": "%@",
-        "location": {
-          "startingColumn": 30,
-          "startingLine": 40
-        }
-      },
-      {
-        "comment": "",
-        "key": "返回全图",
-        "location": {
-          "startingColumn": 31,
-          "startingLine": 53
-        }
-      },
-      {
-        "comment": "",
-        "key": "节点簇统计",
-        "location": {
-          "startingColumn": 30,
-          "startingLine": 60
-        }
-      },
-      {
-        "comment": "",
-        "key": "总计: %lld",
-        "location": {
-          "startingColumn": 34,
-          "startingLine": 64
-        }
-      },
-      {
-        "comment": "",
-        "key": "显示: %lld",
-        "location": {
-          "startingColumn": 34,
-          "startingLine": 67
-        }
-      },
-      {
-        "comment": "",
-        "key": "节点: %lld",
-        "location": {
-          "startingColumn": 34,
-          "startingLine": 70
+          "startingColumn": 22,
+          "startingLine": 113
         }
       },
       {
         "comment": "",
         "key": "搜索单词或标签...",
         "location": {
-          "startingColumn": 31,
-          "startingLine": 90
+          "startingColumn": 27,
+          "startingLine": 120
         }
       },
       {
         "comment": "",
-        "key": "全部显示",
+        "key": "搜索",
         "location": {
-          "startingColumn": 34,
-          "startingLine": 130
+          "startingColumn": 24,
+          "startingLine": 128
         }
       },
       {
         "comment": "",
-        "key": "全部隐藏",
+        "key": "显示全部",
         "location": {
-          "startingColumn": 34,
-          "startingLine": 141
-        }
-      },
-      {
-        "comment": "",
-        "key": "节点簇 %lld (%lld个节点)",
-        "location": {
-          "startingColumn": 38,
-          "startingLine": 162
-        }
-      },
-      {
-        "comment": "",
-        "key": "节点簇 (%lld/%lld)",
-        "location": {
-          "startingColumn": 30,
-          "startingLine": 172
+          "startingColumn": 28,
+          "startingLine": 135
         }
       },
       {
@@ -135,31 +39,15 @@
         "key": "暂无图谱数据",
         "location": {
           "startingColumn": 18,
-          "startingLine": 500
+          "startingLine": 228
         }
       },
       {
         "comment": "",
-        "key": "• 添加更多单词和标签",
+        "key": "添加一些单词来生成全局图谱",
         "location": {
-          "startingColumn": 22,
-          "startingLine": 505
-        }
-      },
-      {
-        "comment": "",
-        "key": "• 调整过滤器设置",
-        "location": {
-          "startingColumn": 22,
-          "startingLine": 506
-        }
-      },
-      {
-        "comment": "",
-        "key": "• 点击刷新按钮重新构建图谱",
-        "location": {
-          "startingColumn": 22,
-          "startingLine": 507
+          "startingColumn": 18,
+          "startingLine": 232
         }
       }
     ]

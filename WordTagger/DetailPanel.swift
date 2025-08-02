@@ -583,20 +583,60 @@ struct WordGraphEdge: UniversalGraphEdge {
     }
 }
 
-// MARK: - 单词关系图谱视图
-
-struct WordGraphView: View {
-    let word: Word
-    @EnvironmentObject private var store: WordStore
-    @AppStorage("detailGraphInitialScale") private var detailGraphInitialScale: Double = 1.0
-    // 移除缓存变量，改为每次实时计算以确保数据同步
+// MARK: - 全局图谱数据缓存管理器
+class WordGraphDataCache: ObservableObject {
+    static let shared = WordGraphDataCache()
     
-    private var relatedWords: [Word] {
-        // 返回空数组，因为我们要显示标签关系而不是单词关系
-        return []
+    private var cache: [UUID: (nodes: [WordGraphNode], edges: [WordGraphEdge])] = [:]
+    
+    private init() {}
+    
+    func getCachedGraphData(for word: Word) -> (nodes: [WordGraphNode], edges: [WordGraphEdge]) {
+        // 检查缓存
+        if let cached = cache[word.id] {
+            #if DEBUG
+            @AppStorage("enableGraphDebug") var enableGraphDebug: Bool = false
+            if enableGraphDebug {
+                print("📋 使用缓存的图谱数据: \(word.text)")
+            }
+            #endif
+            return cached
+        }
+        
+        // 计算新的图谱数据
+        let graphData = calculateGraphData(for: word)
+        cache[word.id] = graphData
+        
+        #if DEBUG
+        @AppStorage("enableGraphDebug") var enableGraphDebug: Bool = false
+        if enableGraphDebug {
+            print("📊 计算新的图谱数据: \(word.text)")
+        }
+        #endif
+        
+        return graphData
     }
     
-    private func calculateGraphNodes() -> [WordGraphNode] {
+    private func calculateGraphData(for word: Word) -> (nodes: [WordGraphNode], edges: [WordGraphEdge]) {
+        let nodes = calculateGraphNodes(for: word)
+        var edges: [WordGraphEdge] = []
+        let centerNode = nodes.first { $0.isCenter }!
+        
+        // 为每个标签节点创建与中心单词的连接
+        for node in nodes where !node.isCenter {
+            if let tag = node.tag {
+                edges.append(WordGraphEdge(
+                    from: centerNode,
+                    to: node,
+                    relationshipType: tag.type.displayName
+                ))
+            }
+        }
+        
+        return (nodes: nodes, edges: edges)
+    }
+    
+    private func calculateGraphNodes(for word: Word) -> [WordGraphNode] {
         var nodes: [WordGraphNode] = []
         var addedTagKeys: Set<String> = []
         
@@ -621,57 +661,29 @@ struct WordGraphView: View {
             }
         }
         
-        // 调试信息（可选：在release版本中移除）
-        #if DEBUG
-        @AppStorage("enableGraphDebug") var enableGraphDebug: Bool = false
-        if enableGraphDebug {
-            print("🔍 Word: \(word.text), Tags: \(word.tags.count), Graph nodes: \(nodes.count)")
-        }
-        #endif
-        
         return nodes
     }
     
-    private func calculateGraphData() -> (nodes: [WordGraphNode], edges: [WordGraphEdge]) {
-        let nodes = calculateGraphNodes()
-        var edges: [WordGraphEdge] = []
-        let centerNode = nodes.first { $0.isCenter }!
-        
-        // 为每个标签节点创建与中心单词的连接
-        for node in nodes where !node.isCenter {
-            if let tag = node.tag {
-                edges.append(WordGraphEdge(
-                    from: centerNode,
-                    to: node,
-                    relationshipType: tag.type.displayName
-                ))
-            }
-        }
-        
-        // 调试信息：确认图谱数据计算
-        #if DEBUG
-        @AppStorage("enableGraphDebug") var enableGraphDebug: Bool = false
-        if enableGraphDebug {
-            print("📊 DetailPanel.calculateGraphData for word: \(word.text)")
-            print("📊 Generated \(nodes.count) nodes, \(edges.count) edges")
-            for node in nodes {
-                if let nodeWord = node.word {
-                    let centerMark = nodeWord.id == word.id ? "⭐" : "  "
-                    print("📊 \(centerMark) Node: \(nodeWord.text) (word)")
-                } else if let nodeTag = node.tag {
-                    print("📊    Node: \(nodeTag.value) (tag: \(nodeTag.type.displayName))")
-                }
-            }
-        }
-        #endif
-        
-        return (nodes: nodes, edges: edges)
+    func clearCache() {
+        cache.removeAll()
     }
     
-    // updateGraphData函数已移除，改为在body中直接计算数据
+    func invalidateCache(for wordId: UUID) {
+        cache.removeValue(forKey: wordId)
+    }
+}
+
+// MARK: - 单词关系图谱视图
+
+struct WordGraphView: View {
+    let word: Word
+    @EnvironmentObject private var store: WordStore
+    @AppStorage("detailGraphInitialScale") private var detailGraphInitialScale: Double = 1.0
+    @StateObject private var graphCache = WordGraphDataCache.shared
     
     var body: some View {
-        let graphData = calculateGraphData()
+        // 使用全局缓存获取图谱数据，避免重复计算
+        let graphData = graphCache.getCachedGraphData(for: word)
         
         VStack(spacing: 0) {
             // 标题栏
@@ -707,7 +719,6 @@ struct WordGraphView: View {
                         }
                     }
                 )
-                .id("graph-\(word.id)-\(word.tags.count)") // 强制每次word变化时重新创建WebView
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }

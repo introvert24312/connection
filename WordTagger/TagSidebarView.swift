@@ -137,11 +137,15 @@ struct TagSidebarView: View {
         guard index < filteredTags.count else { return }
         let tag = filteredTags[index]
         selectedIndex = index
-        store.selectTag(tag)
-        let relatedWords = store.words(withTag: tag)
-        if let firstWord = relatedWords.first {
-            selectedWord = firstWord
-            store.selectWord(firstWord)
+        
+        // 使用异步调度避免在视图更新期间修改状态
+        DispatchQueue.main.async {
+            store.selectTag(tag)
+            let relatedWords = store.words(withTag: tag)
+            if let firstWord = relatedWords.first {
+                self.selectedWord = firstWord
+                store.selectWord(firstWord)
+            }
         }
     }
     

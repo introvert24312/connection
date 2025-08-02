@@ -5,13 +5,15 @@ import CoreLocation
 struct WordManagerView: View {
     @EnvironmentObject private var store: WordStore
     @State private var selectedWords: Set<UUID> = []
-    @State private var searchQuery: String = ""
+    @State private var localSearchQuery: String = ""
+    @State private var searchTask: Task<Void, Never>?
     @State private var showingDeleteAlert = false
     @State private var sortOption: SortOption = .alphabetical
     @State private var filterOption: FilterOption = .all
     @State private var showingCommandPalette = false
     @State private var commandPaletteWord: Word?
     @State private var isSelectionMode = false
+    @FocusState private var isSearchFieldFocused: Bool
     
     enum SortOption: String, CaseIterable {
         case alphabetical = "按字母排序"
@@ -32,12 +34,12 @@ struct WordManagerView: View {
         var words = store.words
         
         // 如果有搜索查询，优先显示搜索结果，忽略selectedTag过滤
-        if !searchQuery.isEmpty {
+        if !localSearchQuery.isEmpty {
             words = words.filter { word in
-                word.text.localizedCaseInsensitiveContains(searchQuery) ||
-                (word.meaning?.localizedCaseInsensitiveContains(searchQuery) ?? false) ||
-                (word.phonetic?.localizedCaseInsensitiveContains(searchQuery) ?? false) ||
-                word.tags.contains { $0.value.localizedCaseInsensitiveContains(searchQuery) }
+                word.text.localizedCaseInsensitiveContains(localSearchQuery) ||
+                (word.meaning?.localizedCaseInsensitiveContains(localSearchQuery) ?? false) ||
+                (word.phonetic?.localizedCaseInsensitiveContains(localSearchQuery) ?? false) ||
+                word.tags.contains { $0.value.localizedCaseInsensitiveContains(localSearchQuery) }
             }
         } else if let selectedTag = store.selectedTag {
             // 只在没有搜索查询时应用selectedTag过滤
@@ -83,14 +85,14 @@ struct WordManagerView: View {
                         .fontWeight(.semibold)
                     
                     // 显示当前过滤状态
-                    if !searchQuery.isEmpty {
+                    if !localSearchQuery.isEmpty {
                         HStack(spacing: 4) {
-                            Text("搜索: \"\(searchQuery)\" - 忽略标签过滤")
+                            Text("搜索: \"\(localSearchQuery)\" - 忽略标签过滤")
                                 .font(.caption)
                                 .foregroundColor(.green)
                             
                             Button("✕") {
-                                searchQuery = ""
+                                localSearchQuery = ""
                             }
                             .font(.caption)
                             .foregroundColor(.green)
@@ -121,9 +123,25 @@ struct WordManagerView: View {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.secondary)
                     
-                    TextField("搜索单词、释义、音标或标签...", text: $searchQuery)
+                    TextField("搜索单词、释义、音标或标签...", text: $localSearchQuery)
                         .textFieldStyle(.plain)
                         .frame(width: 200)
+                        .focused($isSearchFieldFocused)
+                        .onChange(of: localSearchQuery) { oldValue, newValue in
+                            print("🔤 WordManagerView: localSearchQuery changed from '\(oldValue)' to '\(newValue)'")
+                            
+                            // 取消之前的搜索任务
+                            searchTask?.cancel()
+                            
+                            // 立即更新store的搜索查询，让Store的防抖机制处理重复请求
+                            print("🔄 WordManagerView: Immediately updating store.searchQuery to '\(newValue)'")
+                            store.searchQuery = newValue
+                            
+                            // 保持焦点在输入框
+                            DispatchQueue.main.async {
+                                isSearchFieldFocused = true
+                            }
+                        }
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
@@ -256,28 +274,28 @@ struct WordManagerView: View {
                         .foregroundColor(.gray)
                     
                     Group {
-                        if searchQuery.isEmpty {
+                        if localSearchQuery.isEmpty {
                             if store.selectedTag != nil {
                                 Text("当前标签下暂无单词")
                             } else {
                                 Text("暂无单词")
                             }
                         } else {
-                            Text("未找到匹配 \"\(searchQuery)\" 的单词")
+                            Text("未找到匹配 \"\(localSearchQuery)\" 的单词")
                         }
                     }
                     .font(.title3)
                     .foregroundColor(.secondary)
                     
                     VStack(spacing: 8) {
-                        if !searchQuery.isEmpty {
+                        if !localSearchQuery.isEmpty {
                             Button("清除搜索") {
-                                searchQuery = ""
+                                localSearchQuery = ""
                             }
                             .foregroundColor(.blue)
                         }
                         
-                        if store.selectedTag != nil && searchQuery.isEmpty {
+                        if store.selectedTag != nil && localSearchQuery.isEmpty {
                             Button("清除标签过滤") {
                                 store.selectTag(nil)
                             }
@@ -325,6 +343,9 @@ struct WordManagerView: View {
         )) { word in
             TagEditCommandView(word: word)
                 .environmentObject(store)
+        }
+        .onDisappear {
+            searchTask?.cancel()
         }
     }
     
