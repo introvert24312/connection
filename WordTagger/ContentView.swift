@@ -61,7 +61,9 @@ struct ContentView: View {
         }
         .onAppear {
             // 同步selectedWord状态
-            selectedWord = store.selectedWord
+            DispatchQueue.main.async {
+                selectedWord = store.selectedWord
+            }
             
             // 注册通知监听器
             NotificationCenter.default.addObserver(
@@ -100,12 +102,16 @@ struct ContentView: View {
             }
         }
         .onChange(of: store.selectedWord) { _, newValue in
-            selectedWord = newValue
+            DispatchQueue.main.async {
+                selectedWord = newValue
+            }
         }
         .onChange(of: store.words) { _, _ in
             // 当words变化时，检查selectedWord是否还有效
-            if let current = selectedWord, !store.words.contains(where: { $0.id == current.id }) {
-                selectedWord = nil
+            DispatchQueue.main.async {
+                if let current = selectedWord, !store.words.contains(where: { $0.id == current.id }) {
+                    selectedWord = nil
+                }
             }
         }
     }

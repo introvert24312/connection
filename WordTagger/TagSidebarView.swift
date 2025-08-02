@@ -91,10 +91,14 @@ struct TagSidebarView: View {
                     return .handled
                 }
                 .onChange(of: filteredTags) { _, _ in
-                    selectedIndex = min(selectedIndex, max(0, filteredTags.count - 1))
+                    DispatchQueue.main.async {
+                        selectedIndex = min(selectedIndex, max(0, filteredTags.count - 1))
+                    }
                 }
                 .onAppear {
-                    isListFocused = true
+                    DispatchQueue.main.async {
+                        isListFocused = true
+                    }
                 }
             }
             .navigationTitle("标签")

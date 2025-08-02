@@ -112,12 +112,108 @@ struct QuickAddSheetView: View {
     @State private var isWaitingForLocationSelection = false
     
     var body: some View {
-        VStack(spacing: 20) {
-            contentView
-            Spacer()
+        VStack(spacing: 0) {
+            // 搜索输入框 - 采用CommandPalette样式
+            HStack {
+                Image(systemName: "plus.circle.fill")
+                    .foregroundColor(.blue)
+                
+                TextField("输入: 单词 root 词根内容 memory 记忆内容...", text: $inputText)
+                    .textFieldStyle(.plain)
+                    .font(.title3)
+                    .focused($isInputFocused)
+                    .onChange(of: inputText) { _, newValue in updateSuggestions(for: newValue) }
+                    .onKeyPress(.upArrow) {
+                        if !suggestions.isEmpty {
+                            selectedSuggestionIndex = max(0, selectedSuggestionIndex - 1)
+                        }
+                        return .handled
+                    }
+                    .onKeyPress(.downArrow) {
+                        if !suggestions.isEmpty {
+                            selectedSuggestionIndex = min(suggestions.count - 1, selectedSuggestionIndex + 1)
+                        }
+                        return .handled
+                    }
+                    .onKeyPress(.tab) {
+                        if selectedSuggestionIndex >= 0 && selectedSuggestionIndex < suggestions.count {
+                            selectSuggestion(suggestions[selectedSuggestionIndex])
+                        }
+                        return .handled
+                    }
+                    .onKeyPress(.escape) {
+                        presentationMode.wrappedValue.dismiss()
+                        return .handled
+                    }
+                
+                Button(action: openMapForLocationSelection) {
+                    Image(systemName: "location.fill")
+                        .foregroundColor(.blue)
+                }
+                .buttonStyle(.plain)
+                .help("选择地点位置 (⌘P)")
+                .keyboardShortcut("p", modifiers: .command)
+            }
+            .padding(16)
+            .background(Color(NSColor.controlBackgroundColor))
+            
+            Divider()
+            
+            // 建议列表 - 采用CommandPalette的NewCommandRowView样式
+            if !suggestions.isEmpty {
+                ScrollViewReader { proxy in
+                    List(Array(suggestions.enumerated()), id: \.offset) { index, suggestion in
+                        QuickAddSuggestionRow(
+                            suggestion: suggestion,
+                            tagTypeName: tagManager.mappingDictionary[suggestion]?.0 ?? "自定义",
+                            isSelected: index == selectedSuggestionIndex
+                        ) {
+                            selectSuggestion(suggestion)
+                        }
+                        .id(index)
+                    }
+                    .listStyle(.plain)
+                    .frame(height: min(CGFloat(suggestions.count) * 44, 300))
+                    .onChange(of: selectedSuggestionIndex) { _, newIndex in
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            proxy.scrollTo(newIndex, anchor: .center)
+                        }
+                    }
+                }
+            }
+            
+            if suggestions.isEmpty && !inputText.isEmpty {
+                VStack {
+                    Text("输入标签快捷键获得建议")
+                        .foregroundColor(.secondary)
+                        .padding()
+                }
+                .frame(height: 100)
+            }
+            
+            // 底部帮助信息
+            VStack(alignment: .leading, spacing: 8) {
+                Text("💡 使用方法:")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                Text("输入格式: 单词 快捷键 内容")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Text("例如: apple root 苹果 memory 红苹果")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                HStack {
+                    Text("快捷键: ↑↓选择建议 • Tab选择 • ⌘+R提交 • Esc关闭")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .background(Color(NSColor.controlBackgroundColor))
         }
-        .padding(24)
-        .frame(minWidth: 500, minHeight: 400)
+        .frame(width: 600)
         .navigationTitle("快速添加单词")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -130,6 +226,7 @@ struct QuickAddSheetView: View {
                     processInput()
                 }
                 .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .keyboardShortcut("r", modifiers: .command)
             }
         }
         .onAppear {
@@ -173,107 +270,6 @@ struct QuickAddSheetView: View {
         //     }
         //     return .ignored
         // }
-    }
-    
-    private var contentView: some View {
-        VStack(spacing: 16) {
-            Text("快速添加单词")
-                .font(.title2)
-                .fontWeight(.semibold)
-            
-            instructionView
-            inputSection
-        }
-    }
-    
-    private var instructionView: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("输入格式")
-                .font(.headline)
-            Text("单词 标签1 内容1 标签2 内容2...")
-                .font(.caption)
-                .foregroundColor(.secondary)
-            Text("例如: rotate root rot memory 旋转 time 2018年")
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(Color.gray.opacity(0.1))
-        .cornerRadius(8)
-    }
-    
-    private var inputSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            inputField
-            if !suggestions.isEmpty {
-                suggestionsView
-            }
-        }
-    }
-    
-    private var inputField: some View {
-        HStack {
-            Image(systemName: "plus.circle.fill")
-                .foregroundColor(.blue)
-                .font(.title2)
-            TextField("输入单词和标签...", text: $inputText)
-                .textFieldStyle(.roundedBorder)
-                .font(.system(size: 16, weight: .medium))
-                .focused($isInputFocused)
-                .onSubmit { processInput() }
-                .onChange(of: inputText) { _, newValue in 
-                    updateSuggestions(for: newValue) 
-                }
-            
-            Button(action: openMapForLocationSelection) {
-                Image(systemName: "location.fill")
-                    .foregroundColor(.blue)
-            }
-            .buttonStyle(.plain)
-            .help("选择地点位置 (⌘P)")
-            .keyboardShortcut("p", modifiers: .command)
-        }
-    }
-    
-    private var suggestionsView: some View {
-        VStack(spacing: 4) {
-            Text("建议标签:")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 120))], spacing: 8) {
-                ForEach(Array(suggestions.enumerated()), id: \.offset) { index, suggestion in
-                    suggestionButton(suggestion, index: index)
-                }
-            }
-        }
-        .padding()
-        .background(Color.gray.opacity(0.05))
-        .cornerRadius(8)
-    }
-    
-    private func suggestionButton(_ suggestion: String, index: Int) -> some View {
-        Button(action: { selectSuggestion(suggestion) }) {
-            HStack(spacing: 6) {
-                Image(systemName: "tag.fill")
-                    .foregroundColor(.blue)
-                    .font(.caption)
-                Text(suggestion)
-                    .font(.system(size: 14, weight: .medium))
-                Text("(\(tagManager.mappingDictionary[suggestion]?.0 ?? "自定义"))")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(selectedSuggestionIndex == index ? Color.blue.opacity(0.1) : Color.gray.opacity(0.1))
-            )
-        }
-        .buttonStyle(.plain)
     }
     
     private func updateSuggestions(for input: String) {
@@ -447,6 +443,66 @@ struct QuickAddSheetView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             isInputFocused = true
         }
+    }
+}
+
+// MARK: - Quick Add Suggestion Row
+
+private struct QuickAddSuggestionRow: View {
+    let suggestion: String
+    let tagTypeName: String
+    let isSelected: Bool
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                Image(systemName: "tag.fill")
+                    .font(.title3)
+                    .foregroundColor(.blue)
+                    .frame(width: 24)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(suggestion)
+                        .font(.body)
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                    
+                    Text("标签快捷键")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+                
+                Spacer()
+                
+                // Type badge
+                Text(tagTypeName)
+                    .font(.caption2)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        Capsule()
+                            .fill(Color.blue.opacity(0.2))
+                    )
+                    .foregroundColor(.blue)
+                
+                if isSelected {
+                    Image(systemName: "return")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isSelected ? Color.blue.opacity(0.15) : Color.clear)
+        )
     }
 }
 

@@ -23,7 +23,9 @@
       "Bash(mkdir:*)",
       "Bash(rm:*)",
       "Bash(ls:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(npm i:*)",
+      "Bash(npm uninstall:*)"
     ],
     "deny": []
   }
