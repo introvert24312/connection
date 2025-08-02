@@ -114,11 +114,21 @@ public final class WordStore: ObservableObject {
     
     public func createLayer(name: String, displayName: String, color: String = "blue") -> Layer {
         let layer = Layer(name: name, displayName: displayName, color: color)
-        layers.append(layer)
+        
+        // 确保在主线程修改 @Published 属性
+        if Thread.isMainThread {
+            layers.append(layer)
+        } else {
+            DispatchQueue.main.sync {
+                layers.append(layer)
+            }
+        }
+        
         return layer
     }
     
-    public func switchToLayer(_ layer: Layer) {
+    @MainActor
+    public func switchToLayer(_ layer: Layer) async {
         // Deactivate current layer
         if let currentIndex = layers.firstIndex(where: { $0.isActive }) {
             layers[currentIndex].isActive = false
@@ -131,17 +141,19 @@ public final class WordStore: ObservableObject {
         } else {
             // Create layer if it doesn't exist
             _ = createLayer(name: layer.name, displayName: layer.displayName, color: layer.color)
-            layers[layers.count - 1].isActive = true
-            currentLayer = layers.last
+            if let lastIndex = layers.indices.last {
+                layers[lastIndex].isActive = true
+                currentLayer = layers[lastIndex]
+            }
         }
     }
     
-    public func switchToLayer(named layerName: String) {
+    public func switchToLayer(named layerName: String) async {
         if let existingLayer = layers.first(where: { $0.name.lowercased() == layerName.lowercased() || $0.displayName.lowercased() == layerName.lowercased() }) {
-            switchToLayer(existingLayer)
+            await switchToLayer(existingLayer)
         } else {
             let newLayer = createLayer(name: layerName.lowercased(), displayName: layerName)
-            switchToLayer(newLayer)
+            await switchToLayer(newLayer)
         }
     }
     

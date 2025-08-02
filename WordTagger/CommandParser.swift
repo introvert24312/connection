@@ -756,7 +756,7 @@ public struct SwitchLayerCommand: Command {
     }
     
     public func execute(with context: CommandContext) async throws -> CommandResult {
-        context.store.switchToLayer(named: layerName)
+        await context.store.switchToLayer(named: layerName)
         
         if let currentLayer = context.store.currentLayer {
             return .layerSwitched(currentLayer)
