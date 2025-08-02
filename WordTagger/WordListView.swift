@@ -39,22 +39,11 @@ struct WordListView: View {
                             // 搜索提交时的处理
                         }
                         .onChange(of: localSearchQuery) { oldValue, newValue in
-                            // 保持焦点在输入框
-                            DispatchQueue.main.async {
-                                isSearchFieldFocused = true
-                            }
-                            store.searchQuery = newValue
+                            handleSearchQueryChange(newValue)
                         }
                     
                     if !localSearchQuery.isEmpty {
-                        Button(action: {
-                            localSearchQuery = ""
-                            store.searchQuery = ""
-                            // 保持焦点在输入框
-                            DispatchQueue.main.async {
-                                isSearchFieldFocused = true
-                            }
-                        }) {
+                        Button(action: clearSearch) {
                             Image(systemName: "xmark.circle.fill")
                                 .foregroundColor(.gray)
                         }
@@ -180,36 +169,13 @@ struct WordListView: View {
             }
         }
         .navigationTitle("单词")
-        .onChange(of: store.searchQuery) { oldValue, newValue in
-            print("🔍 WordListView: searchQuery changed from '\(oldValue)' to '\(newValue)'")
-            scheduleUpdate()
-        }
-        .onChange(of: store.searchResults) { oldValue, newValue in
-            print("📊 WordListView: searchResults changed from \(oldValue.count) to \(newValue.count) items")
-            // 当搜索结果更新时，立即更新显示
-            scheduleUpdate()
-        }
-        .onChange(of: store.selectedTag?.id) { oldValue, newValue in
-            let oldStr = oldValue?.uuidString ?? "nil"
-            let newStr = newValue?.uuidString ?? "nil"
-            print("🏷️ WordListView: selectedTag changed from '\(oldStr)' to '\(newStr)'")
-            scheduleUpdate()
-        }
-        .onChange(of: sortOption) { oldValue, newValue in
-            print("📊 WordListView: sortOption changed from '\(oldValue)' to '\(newValue)'")
-            scheduleUpdate()
-        }
-        .onChange(of: store.searchQuery) { oldValue, newValue in
-            // 同步store的搜索查询到本地变量（避免删除键问题）
-            if localSearchQuery != newValue {
-                localSearchQuery = newValue
-            }
-        }
         .onAppear {
-            // 初始化时同步搜索查询和设置焦点
-            localSearchQuery = store.searchQuery
-            isSearchFieldFocused = true
+            setupView()
         }
+        .onChange(of: store.searchQuery, perform: handleStoreSearchQueryChange)
+        .onChange(of: store.searchResults, perform: handleSearchResultsChange)
+        .onChange(of: store.selectedTag?.id, perform: handleSelectedTagChange)
+        .onChange(of: sortOption, perform: handleSortOptionChange)
     }
     
     private var displayWords: [Word] {
@@ -280,6 +246,57 @@ struct WordListView: View {
         lastSortOption = sortOption
         
         print("💾 Cache state updated - lastSearchQuery: '\(lastSearchQuery)'")
+    }
+    
+    private func handleSearchQueryChange(_ newValue: String) {
+        // 保持焦点在输入框
+        DispatchQueue.main.async {
+            isSearchFieldFocused = true
+        }
+        store.searchQuery = newValue
+    }
+    
+    private func clearSearch() {
+        localSearchQuery = ""
+        store.searchQuery = ""
+        // 保持焦点在输入框
+        DispatchQueue.main.async {
+            isSearchFieldFocused = true
+        }
+    }
+    
+    private func setupView() {
+        // 初始化时同步搜索查询和设置焦点
+        localSearchQuery = store.searchQuery
+        isSearchFieldFocused = true
+    }
+    
+    private func handleStoreSearchQueryChange(_ oldValue: String, _ newValue: String) {
+        print("🔍 WordListView: searchQuery changed from '\(oldValue)' to '\(newValue)'")
+        scheduleUpdate()
+        
+        // 同步store的搜索查询到本地变量（避免删除键问题）
+        if localSearchQuery != newValue {
+            localSearchQuery = newValue
+        }
+    }
+    
+    private func handleSearchResultsChange(_ oldValue: [SearchResult], _ newValue: [SearchResult]) {
+        print("📊 WordListView: searchResults changed from \(oldValue.count) to \(newValue.count) items")
+        // 当搜索结果更新时，立即更新显示
+        scheduleUpdate()
+    }
+    
+    private func handleSelectedTagChange(_ oldValue: UUID?, _ newValue: UUID?) {
+        let oldStr = oldValue?.uuidString ?? "nil"
+        let newStr = newValue?.uuidString ?? "nil"
+        print("🏷️ WordListView: selectedTag changed from '\(oldStr)' to '\(newStr)'")
+        scheduleUpdate()
+    }
+    
+    private func handleSortOptionChange(_ oldValue: SortOption, _ newValue: SortOption) {
+        print("📊 WordListView: sortOption changed from '\(oldValue)' to '\(newValue)'")
+        scheduleUpdate()
     }
     
     private func sortWords(_ words: [Word]) -> [Word] {

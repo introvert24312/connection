@@ -25,7 +25,9 @@
       "Bash(ls:*)",
       "Bash(curl:*)",
       "Bash(npm i:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(timeout 30 xcodebuild:*)",
+      "Bash(gtimeout:*)"
     ],
     "deny": []
   }
