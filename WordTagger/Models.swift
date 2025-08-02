@@ -179,12 +179,12 @@ public struct SearchFilter {
     }
 }
 
-public struct SearchResult {
+public struct SearchResult: Equatable {
     public let word: Word
     public let score: Double
     public let matchedFields: Set<MatchField>
     
-    public enum MatchField {
+    public enum MatchField: Equatable {
         case text, phonetic, meaning, tagValue
     }
     

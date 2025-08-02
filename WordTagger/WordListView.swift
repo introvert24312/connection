@@ -271,8 +271,8 @@ struct WordListView: View {
         isSearchFieldFocused = true
     }
     
-    private func handleStoreSearchQueryChange(_ oldValue: String, _ newValue: String) {
-        print("🔍 WordListView: searchQuery changed from '\(oldValue)' to '\(newValue)'")
+    private func handleStoreSearchQueryChange(_ newValue: String) {
+        print("🔍 WordListView: searchQuery changed to '\(newValue)'")
         scheduleUpdate()
         
         // 同步store的搜索查询到本地变量（避免删除键问题）
@@ -281,21 +281,20 @@ struct WordListView: View {
         }
     }
     
-    private func handleSearchResultsChange(_ oldValue: [SearchResult], _ newValue: [SearchResult]) {
-        print("📊 WordListView: searchResults changed from \(oldValue.count) to \(newValue.count) items")
+    private func handleSearchResultsChange(_ newValue: [SearchResult]) {
+        print("📊 WordListView: searchResults changed to \(newValue.count) items")
         // 当搜索结果更新时，立即更新显示
         scheduleUpdate()
     }
     
-    private func handleSelectedTagChange(_ oldValue: UUID?, _ newValue: UUID?) {
-        let oldStr = oldValue?.uuidString ?? "nil"
+    private func handleSelectedTagChange(_ newValue: UUID?) {
         let newStr = newValue?.uuidString ?? "nil"
-        print("🏷️ WordListView: selectedTag changed from '\(oldStr)' to '\(newStr)'")
+        print("🏷️ WordListView: selectedTag changed to '\(newStr)'")
         scheduleUpdate()
     }
     
-    private func handleSortOptionChange(_ oldValue: SortOption, _ newValue: SortOption) {
-        print("📊 WordListView: sortOption changed from '\(oldValue)' to '\(newValue)'")
+    private func handleSortOptionChange(_ newValue: SortOption) {
+        print("📊 WordListView: sortOption changed to '\(newValue)'")
         scheduleUpdate()
     }
     
