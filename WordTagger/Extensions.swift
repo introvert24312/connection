@@ -41,6 +41,20 @@ extension Color {
         }
     }
     
+    public static func from(colorName: String) -> Color {
+        switch colorName.lowercased() {
+        case "blue": return Color(.systemBlue)
+        case "green": return Color(.systemGreen)
+        case "orange": return Color(.systemOrange)
+        case "red": return Color(.systemRed)
+        case "purple": return Color(.systemPurple)
+        case "pink": return Color(.systemPink)
+        case "yellow": return Color(.systemYellow)
+        case "gray", "grey": return Color(.systemGray)
+        default: return Color(.systemBlue)
+        }
+    }
+    
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var int: UInt64 = 0

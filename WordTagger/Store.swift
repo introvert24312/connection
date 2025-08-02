@@ -77,7 +77,11 @@ enum DataError: LocalizedError {
 
 public final class WordStore: ObservableObject {
     @Published public private(set) var words: [Word] = []
+    @Published public private(set) var nodes: [Node] = []
+    @Published public private(set) var layers: [Layer] = []
+    @Published public private(set) var currentLayer: Layer?
     @Published public private(set) var selectedWord: Word?
+    @Published public private(set) var selectedNode: Node?
     @Published public private(set) var selectedTag: Tag?
     @Published public var searchQuery: String = ""
     @Published public private(set) var searchResults: [SearchResult] = []
@@ -92,9 +96,97 @@ public final class WordStore: ObservableObject {
     
     private init() {
         setupSearchBinding()
+        setupDefaultLayers()
         loadSampleData() // 加载示例数据
     }
     
+    // MARK: - 层级管理
+    
+    private func setupDefaultLayers() {
+        let englishLayer = Layer(name: "english", displayName: "英语单词", color: "blue")
+        let statisticsLayer = Layer(name: "statistics", displayName: "统计学", color: "green")
+        let psychologyLayer = Layer(name: "psychology", displayName: "教育心理学", color: "orange")
+        
+        layers = [englishLayer, statisticsLayer, psychologyLayer]
+        currentLayer = englishLayer
+        layers[0].isActive = true
+    }
+    
+    public func createLayer(name: String, displayName: String, color: String = "blue") -> Layer {
+        let layer = Layer(name: name, displayName: displayName, color: color)
+        layers.append(layer)
+        return layer
+    }
+    
+    public func switchToLayer(_ layer: Layer) {
+        // Deactivate current layer
+        if let currentIndex = layers.firstIndex(where: { $0.isActive }) {
+            layers[currentIndex].isActive = false
+        }
+        
+        // Activate new layer
+        if let newIndex = layers.firstIndex(where: { $0.id == layer.id }) {
+            layers[newIndex].isActive = true
+            currentLayer = layers[newIndex]
+        } else {
+            // Create layer if it doesn't exist
+            _ = createLayer(name: layer.name, displayName: layer.displayName, color: layer.color)
+            layers[layers.count - 1].isActive = true
+            currentLayer = layers.last
+        }
+    }
+    
+    public func switchToLayer(named layerName: String) {
+        if let existingLayer = layers.first(where: { $0.name.lowercased() == layerName.lowercased() || $0.displayName.lowercased() == layerName.lowercased() }) {
+            switchToLayer(existingLayer)
+        } else {
+            let newLayer = createLayer(name: layerName.lowercased(), displayName: layerName)
+            switchToLayer(newLayer)
+        }
+    }
+    
+    public func getLayer(by id: UUID) -> Layer? {
+        return layers.first { $0.id == id }
+    }
+    
+    // MARK: - 节点管理
+    
+    public func addNode(_ text: String, phonetic: String? = nil, meaning: String? = nil, to layerId: UUID? = nil) -> Node {
+        let targetLayerId = layerId ?? currentLayer?.id ?? layers.first?.id ?? UUID()
+        let node = Node(text: text, phonetic: phonetic, meaning: meaning, layerId: targetLayerId)
+        nodes.append(node)
+        return node
+    }
+    
+    public func addNode(_ node: Node) {
+        nodes.append(node)
+    }
+    
+    public func updateNode(_ nodeId: UUID, text: String? = nil, phonetic: String? = nil, meaning: String? = nil) {
+        guard let index = nodes.firstIndex(where: { $0.id == nodeId }) else { return }
+        
+        if let text = text { nodes[index].text = text }
+        if let phonetic = phonetic { nodes[index].phonetic = phonetic }
+        if let meaning = meaning { nodes[index].meaning = meaning }
+        nodes[index].updatedAt = Date()
+    }
+    
+    public func deleteNode(_ nodeId: UUID) {
+        nodes.removeAll { $0.id == nodeId }
+        if selectedNode?.id == nodeId {
+            selectedNode = nil
+        }
+    }
+    
+    public func getNodesInCurrentLayer() -> [Node] {
+        guard let currentLayer = currentLayer else { return [] }
+        return nodes.filter { $0.layerId == currentLayer.id }
+    }
+    
+    public func getNodes(in layerId: UUID) -> [Node] {
+        return nodes.filter { $0.layerId == layerId }
+    }
+
     // MARK: - 单词管理
     
     public func addWord(_ text: String, phonetic: String? = nil, meaning: String? = nil) {
@@ -176,6 +268,10 @@ public final class WordStore: ObservableObject {
         selectedWord = word
     }
     
+    public func selectNode(_ node: Node?) {
+        selectedNode = node
+    }
+    
     public func selectTag(_ tag: Tag?) {
         selectedTag = tag
     }
@@ -222,6 +318,63 @@ public final class WordStore: ObservableObject {
     private func searchWords(_ query: String) -> [SearchResult] {
         var results: [SearchResult] = []
         
+        // Search in current layer's nodes first
+        let searchNodes = currentLayer != nil ? getNodesInCurrentLayer() : nodes
+        
+        for node in searchNodes {
+            var matchedFields: Set<SearchResult.MatchField> = []
+            var totalScore: Double = 0
+            var matchCount = 0
+            
+            // Layer match bonus - if searching in current layer
+            var layerBonus: Double = 0
+            if currentLayer != nil && node.layerId == currentLayer!.id {
+                layerBonus = 0.3
+            }
+            
+            // 搜索节点文本
+            if node.text.localizedCaseInsensitiveContains(query) {
+                matchedFields.insert(.text)
+                let similarity = node.text.similarity(to: query)
+                totalScore += (similarity * 2.0) + layerBonus // 文本匹配权重最高
+                matchCount += 1
+            }
+            
+            // 搜索音标
+            if let phonetic = node.phonetic,
+               phonetic.localizedCaseInsensitiveContains(query) {
+                matchedFields.insert(.phonetic)
+                let similarity = phonetic.similarity(to: query)
+                totalScore += (similarity * 1.5) + layerBonus
+                matchCount += 1
+            }
+            
+            // 搜索含义
+            if let meaning = node.meaning,
+               meaning.localizedCaseInsensitiveContains(query) {
+                matchedFields.insert(.meaning)
+                let similarity = meaning.similarity(to: query)
+                totalScore += (similarity * 1.8) + layerBonus
+                matchCount += 1
+            }
+            
+            // 搜索标签值
+            for tag in node.tags {
+                if tag.value.localizedCaseInsensitiveContains(query) {
+                    matchedFields.insert(.tagValue)
+                    let similarity = tag.value.similarity(to: query)
+                    totalScore += (similarity * 1.2) + layerBonus
+                    matchCount += 1
+                }
+            }
+            
+            if matchCount > 0 {
+                let averageScore = totalScore / Double(matchCount)
+                results.append(SearchResult(node: node, score: averageScore, matchedFields: matchedFields))
+            }
+        }
+        
+        // Also search in legacy words for backward compatibility
         for word in words {
             var matchedFields: Set<SearchResult.MatchField> = []
             var totalScore: Double = 0
@@ -265,7 +418,9 @@ public final class WordStore: ObservableObject {
             
             if matchCount > 0 {
                 let averageScore = totalScore / Double(matchCount)
-                results.append(SearchResult(word: word, score: averageScore, matchedFields: matchedFields))
+                // Convert Word to Node for compatibility
+                let legacyNode = Node(text: word.text, phonetic: word.phonetic, meaning: word.meaning, layerId: currentLayer?.id ?? UUID(), tags: word.tags)
+                results.append(SearchResult(node: legacyNode, score: averageScore, matchedFields: matchedFields))
             }
         }
         
@@ -297,8 +452,8 @@ public final class WordStore: ObservableObject {
         // 应用搜索查询
         if !query.isEmpty {
             let searchResults = searchWords(query)
-            let resultWordIds = Set(searchResults.map { $0.word.id })
-            filteredWords = filteredWords.filter { resultWordIds.contains($0.id) }
+            let resultNodeTexts = Set(searchResults.map { $0.node.text })
+            filteredWords = filteredWords.filter { resultNodeTexts.contains($0.text) }
         }
         
         return filteredWords
@@ -360,6 +515,9 @@ public final class WordStore: ObservableObject {
     // MARK: - 示例数据
     
     private func loadSampleData() {
+        // 迁移现有单词数据到新的Layer-Node结构
+        migrateWordsToNodes()
+        
         // 创建一些示例标签
         let memoryTag1 = createTag(type: .memory, value: "联想记忆")
         let memoryTag2 = createTag(type: .memory, value: "图像记忆")
@@ -368,28 +526,68 @@ public final class WordStore: ObservableObject {
         let locationTag1 = createTag(type: .location, value: "图书馆", latitude: 39.9042, longitude: 116.4074)
         let locationTag2 = createTag(type: .location, value: "咖啡厅", latitude: 40.7589, longitude: -73.9851)
         
-        // 创建示例单词
-        let word1 = Word(text: "spectacular", phonetic: "/spekˈtækjələr/", meaning: "壮观的，惊人的")
-        words.append(word1)
-        addTag(to: word1.id, tag: rootTag1)
-        addTag(to: word1.id, tag: memoryTag1)
-        addTag(to: word1.id, tag: locationTag1)
+        // 确保有英语层
+        guard let englishLayer = layers.first(where: { $0.name == "english" }) else { return }
         
-        let word2 = Word(text: "dictionary", phonetic: "/ˈdɪkʃəneri/", meaning: "字典")
-        words.append(word2)
-        addTag(to: word2.id, tag: rootTag2)
-        addTag(to: word2.id, tag: memoryTag2)
-        addTag(to: word2.id, tag: locationTag2)
+        // 创建示例节点
+        let node1 = Node(text: "spectacular", phonetic: "/spekˈtækjələr/", meaning: "壮观的，惊人的", layerId: englishLayer.id, tags: [rootTag1, memoryTag1, locationTag1])
+        nodes.append(node1)
         
-        let word3 = Word(text: "perspective", phonetic: "/pərˈspektɪv/", meaning: "观点，视角")
-        words.append(word3)
-        addTag(to: word3.id, tag: rootTag1)
-        addTag(to: word3.id, tag: memoryTag1)
+        let node2 = Node(text: "dictionary", phonetic: "/ˈdɪkʃəneri/", meaning: "字典", layerId: englishLayer.id, tags: [rootTag2, memoryTag2, locationTag2])
+        nodes.append(node2)
         
-        let word4 = Word(text: "predict", phonetic: "/prɪˈdɪkt/", meaning: "预测")
-        words.append(word4)
-        addTag(to: word4.id, tag: rootTag2)
-        addTag(to: word4.id, tag: memoryTag2)
+        let node3 = Node(text: "perspective", phonetic: "/pərˈspektɪv/", meaning: "观点，视角", layerId: englishLayer.id, tags: [rootTag1, memoryTag1])
+        nodes.append(node3)
+        
+        let node4 = Node(text: "predict", phonetic: "/prɪˈdɪkt/", meaning: "预测", layerId: englishLayer.id, tags: [rootTag2, memoryTag2])
+        nodes.append(node4)
+        
+        // 创建统计学层的示例节点
+        guard let statsLayer = layers.first(where: { $0.name == "statistics" }) else { return }
+        
+        let statsNode1 = Node(text: "regression", phonetic: "/rɪˈɡrɛʃən/", meaning: "回归分析", layerId: statsLayer.id, tags: [memoryTag1])
+        nodes.append(statsNode1)
+        
+        let statsNode2 = Node(text: "correlation", phonetic: "/ˌkɔːrəˈleɪʃən/", meaning: "相关性", layerId: statsLayer.id, tags: [memoryTag2])
+        nodes.append(statsNode2)
+        
+        // 保留原有的Word数据作为兼容性
+        if words.isEmpty {
+            let word1 = Word(text: "spectacular", phonetic: "/spekˈtækjələr/", meaning: "壮观的，惊人的")
+            words.append(word1)
+            addTag(to: word1.id, tag: rootTag1)
+            addTag(to: word1.id, tag: memoryTag1)
+            addTag(to: word1.id, tag: locationTag1)
+            
+            let word2 = Word(text: "dictionary", phonetic: "/ˈdɪkʃəneri/", meaning: "字典")
+            words.append(word2)
+            addTag(to: word2.id, tag: rootTag2)
+            addTag(to: word2.id, tag: memoryTag2)
+            addTag(to: word2.id, tag: locationTag2)
+            
+            let word3 = Word(text: "perspective", phonetic: "/pərˈspektɪv/", meaning: "观点，视角")
+            words.append(word3)
+            addTag(to: word3.id, tag: rootTag1)
+            addTag(to: word3.id, tag: memoryTag1)
+            
+            let word4 = Word(text: "predict", phonetic: "/prɪˈdɪkt/", meaning: "预测")
+            words.append(word4)
+            addTag(to: word4.id, tag: rootTag2)
+            addTag(to: word4.id, tag: memoryTag2)
+        }
+    }
+    
+    private func migrateWordsToNodes() {
+        // 确保有默认层级
+        guard let defaultLayer = currentLayer ?? layers.first else { return }
+        
+        // 将现有的Word数据迁移到Node结构
+        for word in words {
+            let node = Node(text: word.text, phonetic: word.phonetic, meaning: word.meaning, layerId: defaultLayer.id, tags: word.tags)
+            if !nodes.contains(where: { $0.text == node.text && $0.layerId == node.layerId }) {
+                nodes.append(node)
+            }
+        }
     }
     
     // MARK: - 数据导入导出

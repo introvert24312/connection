@@ -12,6 +12,30 @@ struct TagSidebarView: View {
     
     var body: some View {
         VStack(spacing: 0) {
+            // 当前层级指示器
+            if let currentLayer = store.currentLayer {
+                HStack {
+                    Circle()
+                        .fill(Color.from(colorName: currentLayer.color))
+                        .frame(width: 12, height: 12)
+                    
+                    Text(currentLayer.displayName)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.primary)
+                    
+                    Spacer()
+                    
+                    Text("\(store.getNodesInCurrentLayer().count) 个节点")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+                .background(Color.from(colorName: currentLayer.color).opacity(0.1))
+                
+                Divider()
+            }
+            
             // 搜索栏
             VStack(alignment: .leading, spacing: 12) {
                 HStack {

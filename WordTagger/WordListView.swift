@@ -260,7 +260,7 @@ struct WordListView: View {
         
         if !store.searchQuery.isEmpty {
             // 搜索时优先显示搜索结果，忽略标签过滤
-            filteredWords = store.searchResults.map { $0.word }
+            filteredWords = store.searchResults.map { Word(text: $0.node.text, phonetic: $0.node.phonetic, meaning: $0.node.meaning, tags: $0.node.tags) }
             print("🔍 Using search results: \(filteredWords.count) words (tag filter ignored during search)")
         } else if let selectedTag = store.selectedTag {
             // 只有在没有搜索时才应用标签过滤

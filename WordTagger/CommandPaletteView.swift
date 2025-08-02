@@ -152,6 +152,8 @@ struct CommandPaletteView: View {
             break
         case .navigationRequested(let destination):
             handleNavigation(destination)
+        case .layerSwitched(let layer):
+            print("已切换到层: \(layer.displayName)")
         case .error(let message):
             print("Error: \(message)")
         }
@@ -239,6 +241,7 @@ private struct NewCommandRowView: View {
         case .search: return .blue
         case .navigation: return .red
         case .system: return .gray
+        case .layer: return .purple
         }
     }
 }

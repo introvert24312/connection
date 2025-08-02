@@ -18,6 +18,7 @@ public enum CommandCategory: String, CaseIterable {
     case search = "搜索"
     case navigation = "导航"
     case system = "系统"
+    case layer = "层"
     
     public var icon: String {
         switch self {
@@ -26,6 +27,7 @@ public enum CommandCategory: String, CaseIterable {
         case .search: return "magnifyingglass"
         case .navigation: return "map"
         case .system: return "gear"
+        case .layer: return "layers"
         }
     }
 }
@@ -49,6 +51,7 @@ public enum CommandResult {
     case tagAdded(Tag, to: Word)
     case searchPerformed(results: [SearchResult])
     case navigationRequested(destination: NavigationDestination)
+    case layerSwitched(Layer)
     case error(String)
 }
 
@@ -156,6 +159,9 @@ public final class CommandParser: ObservableObject {
             
         case .navigateTo(let destination):
             return NavigationCommand(destination: destination)
+            
+        case .switchLayer(let layerName):
+            return SwitchLayerCommand(layerName: layerName)
             
         case .unknown:
             return nil
@@ -276,6 +282,24 @@ private class NLPProcessor {
             }
         }
         
+        // Layer switching patterns
+        if tokens.contains("切换") || tokens.contains("进入") || tokens.contains("到") {
+            let layerKeywords = tokens.filter { !["切换", "进入", "到", "层"].contains($0) }
+            if !layerKeywords.isEmpty {
+                let layerName = layerKeywords.joined(separator: " ")
+                return .switchLayer(layerName: layerName)
+            }
+        }
+        
+        // Direct layer name detection - for commands like "英语单词", "统计学", etc.
+        let possibleLayerNames = ["英语", "英语单词", "统计学", "教育心理学", "数学", "物理", "化学", "生物"]
+        for layerName in possibleLayerNames {
+            let layerTokens = layerName.components(separatedBy: .whitespaces)
+            if layerTokens.allSatisfy({ tokens.contains($0) }) {
+                return .switchLayer(layerName: layerName)
+            }
+        }
+        
         return .unknown
     }
     
@@ -322,6 +346,7 @@ private enum CommandIntent {
     case searchWord(query: String?)
     case addTag(tagType: Tag.TagType?, value: String?)
     case navigateTo(NavigationDestination)
+    case switchLayer(layerName: String)
     case unknown
 }
 
@@ -710,5 +735,32 @@ public struct NavigationCommand: Command {
     
     public func execute(with context: CommandContext) async throws -> CommandResult {
         return .navigationRequested(destination: destination)
+    }
+}
+
+public struct SwitchLayerCommand: Command {
+    public let id = UUID()
+    public let title: String
+    public let description: String
+    public let icon = "layers"
+    public let category = CommandCategory.layer
+    public let keywords = ["切换", "层", "学科", "分类"]
+    
+    private let layerName: String
+    
+    public init(layerName: String) {
+        self.layerName = layerName
+        self.title = "切换到 \(layerName)"
+        self.description = "切换到 \(layerName) 学科层"
+    }
+    
+    public func execute(with context: CommandContext) async throws -> CommandResult {
+        context.store.switchToLayer(named: layerName)
+        
+        if let currentLayer = context.store.currentLayer {
+            return .layerSwitched(currentLayer)
+        } else {
+            return .error("切换层失败")
+        }
     }
 }

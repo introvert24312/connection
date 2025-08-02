@@ -1,5 +1,75 @@
 import Foundation
 
+// MARK: - 分层系统模型
+
+public struct Layer: Identifiable, Hashable, Codable {
+    public let id: UUID
+    public var name: String
+    public var displayName: String
+    public var color: String
+    public var isActive: Bool
+    public var createdAt: Date
+    
+    public init(name: String, displayName: String, color: String = "blue") {
+        self.id = UUID()
+        self.name = name
+        self.displayName = displayName
+        self.color = color
+        self.isActive = false
+        self.createdAt = Date()
+    }
+    
+    public static func == (lhs: Layer, rhs: Layer) -> Bool {
+        return lhs.id == rhs.id
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+}
+
+public struct Node: Identifiable, Hashable, Codable {
+    public let id: UUID
+    public var text: String
+    public var phonetic: String?
+    public var meaning: String?
+    public var layerId: UUID
+    public var tags: [Tag]
+    public var createdAt: Date
+    public var updatedAt: Date
+    
+    public init(text: String, phonetic: String? = nil, meaning: String? = nil, layerId: UUID, tags: [Tag] = []) {
+        self.id = UUID()
+        self.text = text
+        self.phonetic = phonetic
+        self.meaning = meaning
+        self.layerId = layerId
+        self.tags = tags
+        self.createdAt = Date()
+        self.updatedAt = Date()
+    }
+    
+    public func tags(of type: Tag.TagType) -> [Tag] {
+        return tags.filter { $0.type == type }
+    }
+    
+    public func hasTag(_ tag: Tag) -> Bool {
+        return tags.contains(tag)
+    }
+    
+    public var locationTags: [Tag] {
+        return tags.filter { $0.hasCoordinates }
+    }
+    
+    public static func == (lhs: Node, rhs: Node) -> Bool {
+        return lhs.id == rhs.id
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+}
+
 public struct Tag: Identifiable, Hashable, Codable {
     public enum TagType: Codable, Hashable {
         case memory
@@ -180,7 +250,7 @@ public struct SearchFilter {
 }
 
 public struct SearchResult: Equatable {
-    public let word: Word
+    public let node: Node
     public let score: Double
     public let matchedFields: Set<MatchField>
     
@@ -188,9 +258,15 @@ public struct SearchResult: Equatable {
         case text, phonetic, meaning, tagValue
     }
     
-    public init(word: Word, score: Double, matchedFields: Set<MatchField>) {
-        self.word = word
+    public init(node: Node, score: Double, matchedFields: Set<MatchField>) {
+        self.node = node
         self.score = score
         self.matchedFields = matchedFields
+    }
+    
+    // 向后兼容
+    @available(*, deprecated, message: "Use node instead")
+    public var word: Word {
+        return Word(text: node.text, phonetic: node.phonetic, meaning: node.meaning, tags: node.tags)
     }
 }
