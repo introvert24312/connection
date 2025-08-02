@@ -515,66 +515,66 @@ public final class WordStore: ObservableObject {
     // MARK: - 示例数据
     
     private func loadSampleData() {
-        // 迁移现有单词数据到新的Layer-Node结构
-        migrateWordsToNodes()
+        // 如果已有数据，先迁移现有单词数据到新的Layer-Node结构
+        if !words.isEmpty {
+            migrateWordsToNodes()
+            return // 如果有现有数据，就不创建示例数据了
+        }
         
+        // 只有在没有数据时才创建示例数据
+        createSampleData()
+    }
+    
+    private func createSampleData() {
         // 创建一些示例标签
         let memoryTag1 = createTag(type: .memory, value: "联想记忆")
         let memoryTag2 = createTag(type: .memory, value: "图像记忆")
+        let memoryTag3 = createTag(type: .memory, value: "概念记忆")
         let rootTag1 = createTag(type: .root, value: "spect")
         let rootTag2 = createTag(type: .root, value: "dict")
+        let rootTag3 = createTag(type: .root, value: "psych")
         let locationTag1 = createTag(type: .location, value: "图书馆", latitude: 39.9042, longitude: 116.4074)
         let locationTag2 = createTag(type: .location, value: "咖啡厅", latitude: 40.7589, longitude: -73.9851)
+        let locationTag3 = createTag(type: .location, value: "实验室", latitude: 39.9055, longitude: 116.4078)
         
-        // 确保有英语层
-        guard let englishLayer = layers.first(where: { $0.name == "english" }) else { return }
+        // 获取各个层级
+        guard let englishLayer = layers.first(where: { $0.name == "english" }),
+              let statsLayer = layers.first(where: { $0.name == "statistics" }),
+              let psychologyLayer = layers.first(where: { $0.name == "psychology" }) else { return }
         
-        // 创建示例节点
-        let node1 = Node(text: "spectacular", phonetic: "/spekˈtækjələr/", meaning: "壮观的，惊人的", layerId: englishLayer.id, tags: [rootTag1, memoryTag1, locationTag1])
-        nodes.append(node1)
+        // === 英语单词层 ===
+        let englishNodes = [
+            Node(text: "spectacular", phonetic: "/spekˈtækjələr/", meaning: "壮观的，惊人的", layerId: englishLayer.id, tags: [rootTag1, memoryTag1, locationTag1]),
+            Node(text: "dictionary", phonetic: "/ˈdɪkʃəneri/", meaning: "字典", layerId: englishLayer.id, tags: [rootTag2, memoryTag2, locationTag2]),
+            Node(text: "perspective", phonetic: "/pərˈspektɪv/", meaning: "观点，视角", layerId: englishLayer.id, tags: [rootTag1, memoryTag1]),
+            Node(text: "predict", phonetic: "/prɪˈdɪkt/", meaning: "预测", layerId: englishLayer.id, tags: [rootTag2, memoryTag2]),
+            Node(text: "analyze", phonetic: "/ˈænəˌlaɪz/", meaning: "分析", layerId: englishLayer.id, tags: [memoryTag3])
+        ]
         
-        let node2 = Node(text: "dictionary", phonetic: "/ˈdɪkʃəneri/", meaning: "字典", layerId: englishLayer.id, tags: [rootTag2, memoryTag2, locationTag2])
-        nodes.append(node2)
+        // === 统计学层 ===
+        let statisticsNodes = [
+            Node(text: "regression", phonetic: "/rɪˈɡrɛʃən/", meaning: "回归分析", layerId: statsLayer.id, tags: [memoryTag1, locationTag3]),
+            Node(text: "correlation", phonetic: "/ˌkɔːrəˈleɪʃən/", meaning: "相关性", layerId: statsLayer.id, tags: [memoryTag2]),
+            Node(text: "hypothesis", phonetic: "/haɪˈpɑːθəsɪs/", meaning: "假设", layerId: statsLayer.id, tags: [memoryTag3]),
+            Node(text: "variance", phonetic: "/ˈvɛriəns/", meaning: "方差", layerId: statsLayer.id, tags: [memoryTag1]),
+            Node(text: "distribution", phonetic: "/ˌdɪstrəˈbjuːʃən/", meaning: "分布", layerId: statsLayer.id, tags: [memoryTag2, locationTag3])
+        ]
         
-        let node3 = Node(text: "perspective", phonetic: "/pərˈspektɪv/", meaning: "观点，视角", layerId: englishLayer.id, tags: [rootTag1, memoryTag1])
-        nodes.append(node3)
+        // === 教育心理学层 ===  
+        let psychologyNodes = [
+            Node(text: "cognitive", phonetic: "/ˈkɑːɡnətɪv/", meaning: "认知的", layerId: psychologyLayer.id, tags: [rootTag3, memoryTag3]),
+            Node(text: "motivation", phonetic: "/ˌmoʊtəˈveɪʃən/", meaning: "动机", layerId: psychologyLayer.id, tags: [memoryTag1]),
+            Node(text: "reinforcement", phonetic: "/ˌriːɪnˈfɔːrsmənt/", meaning: "强化", layerId: psychologyLayer.id, tags: [memoryTag2]),
+            Node(text: "metacognition", phonetic: "/ˌmetəkɑːɡˈnɪʃən/", meaning: "元认知", layerId: psychologyLayer.id, tags: [rootTag3, memoryTag3, locationTag3]),
+            Node(text: "scaffolding", phonetic: "/ˈskæfəldɪŋ/", meaning: "脚手架式教学", layerId: psychologyLayer.id, tags: [memoryTag1])
+        ]
         
-        let node4 = Node(text: "predict", phonetic: "/prɪˈdɪkt/", meaning: "预测", layerId: englishLayer.id, tags: [rootTag2, memoryTag2])
-        nodes.append(node4)
+        // 添加所有节点
+        nodes.append(contentsOf: englishNodes)
+        nodes.append(contentsOf: statisticsNodes) 
+        nodes.append(contentsOf: psychologyNodes)
         
-        // 创建统计学层的示例节点
-        guard let statsLayer = layers.first(where: { $0.name == "statistics" }) else { return }
-        
-        let statsNode1 = Node(text: "regression", phonetic: "/rɪˈɡrɛʃən/", meaning: "回归分析", layerId: statsLayer.id, tags: [memoryTag1])
-        nodes.append(statsNode1)
-        
-        let statsNode2 = Node(text: "correlation", phonetic: "/ˌkɔːrəˈleɪʃən/", meaning: "相关性", layerId: statsLayer.id, tags: [memoryTag2])
-        nodes.append(statsNode2)
-        
-        // 保留原有的Word数据作为兼容性
-        if words.isEmpty {
-            let word1 = Word(text: "spectacular", phonetic: "/spekˈtækjələr/", meaning: "壮观的，惊人的")
-            words.append(word1)
-            addTag(to: word1.id, tag: rootTag1)
-            addTag(to: word1.id, tag: memoryTag1)
-            addTag(to: word1.id, tag: locationTag1)
-            
-            let word2 = Word(text: "dictionary", phonetic: "/ˈdɪkʃəneri/", meaning: "字典")
-            words.append(word2)
-            addTag(to: word2.id, tag: rootTag2)
-            addTag(to: word2.id, tag: memoryTag2)
-            addTag(to: word2.id, tag: locationTag2)
-            
-            let word3 = Word(text: "perspective", phonetic: "/pərˈspektɪv/", meaning: "观点，视角")
-            words.append(word3)
-            addTag(to: word3.id, tag: rootTag1)
-            addTag(to: word3.id, tag: memoryTag1)
-            
-            let word4 = Word(text: "predict", phonetic: "/prɪˈdɪkt/", meaning: "预测")
-            words.append(word4)
-            addTag(to: word4.id, tag: rootTag2)
-            addTag(to: word4.id, tag: memoryTag2)
-        }
+        print("📚 Created sample data with \(nodes.count) nodes across \(layers.count) layers")
     }
     
     private func migrateWordsToNodes() {
@@ -779,10 +779,17 @@ public final class WordStore: ObservableObject {
     
     public func clearAllData() {
         words.removeAll()
+        nodes.removeAll()
         selectedWord = nil
+        selectedNode = nil
         selectedTag = nil
         searchQuery = ""
         searchResults.removeAll()
+    }
+    
+    public func resetToSampleData() {
+        clearAllData()
+        createSampleData()
     }
     
     public func getExportSummary() -> ExportSummary {

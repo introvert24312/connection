@@ -136,7 +136,8 @@ public final class CommandParser: ObservableObject {
             ClearCacheCommand(),
             ExportDataCommand(),
             ImportDataCommand(),
-            ShowStatsCommand()
+            ShowStatsCommand(),
+            ResetSampleDataCommand()
         ]
     }
     
@@ -762,5 +763,19 @@ public struct SwitchLayerCommand: Command {
         } else {
             return .error("切换层失败")
         }
+    }
+}
+
+public struct ResetSampleDataCommand: Command {
+    public let id = UUID()
+    public let title = "重置示例数据"
+    public let description = "清除所有数据并重新创建示例数据"
+    public let icon = "arrow.clockwise.circle"
+    public let category = CommandCategory.system
+    public let keywords = ["重置", "示例", "数据", "清除"]
+    
+    public func execute(with context: CommandContext) async throws -> CommandResult {
+        context.store.resetToSampleData()
+        return .success(message: "已重置为示例数据")
     }
 }
