@@ -462,7 +462,10 @@ public final class WordStore: ObservableObject {
     // MARK: - 数据统计
     
     public var allTags: [Tag] {
-        return words.flatMap { $0.tags }.unique()
+        // 合并来自 words 和 nodes 的标签
+        let wordTags = words.flatMap { $0.tags }
+        let nodeTags = nodes.flatMap { $0.tags }
+        return (wordTags + nodeTags).unique()
     }
     
     // 获取与搜索查询相关的标签，按相关性排序
@@ -471,31 +474,35 @@ public final class WordStore: ObservableObject {
             return allTags
         }
         
-        // 优先查找单词文本直接匹配的单词
-        let directWordMatches = words.filter { word in
-            word.text.localizedCaseInsensitiveContains(query)
+        // 合并 words 和 nodes 的搜索结果
+        let allItems = words.map { ($0.text, $0.phonetic, $0.meaning, $0.tags) } + 
+                      nodes.map { ($0.text, $0.phonetic, $0.meaning, $0.tags) }
+        
+        // 优先查找文本直接匹配的项目
+        let directMatches = allItems.filter { item in
+            item.0.localizedCaseInsensitiveContains(query)
         }
         
-        // 其次查找含义或音标匹配的单词
-        let semanticMatches = words.filter { word in
-            !word.text.localizedCaseInsensitiveContains(query) && (
-                (word.meaning?.localizedCaseInsensitiveContains(query) ?? false) ||
-                (word.phonetic?.localizedCaseInsensitiveContains(query) ?? false)
+        // 其次查找含义或音标匹配的项目
+        let semanticMatches = allItems.filter { item in
+            !item.0.localizedCaseInsensitiveContains(query) && (
+                (item.2?.localizedCaseInsensitiveContains(query) ?? false) ||
+                (item.1?.localizedCaseInsensitiveContains(query) ?? false)
             )
         }
         
         // 按优先级收集标签
-        let directWordTags = directWordMatches.flatMap { $0.tags }.unique()
-        let semanticTags = semanticMatches.flatMap { $0.tags }.unique()
+        let directTags = directMatches.flatMap { $0.3 }.unique()
+        let semanticTags = semanticMatches.flatMap { $0.3 }.unique()
         
         // 标签值直接匹配的标签（优先级最高）
         let directTagMatches = allTags.filter { tag in
             tag.value.localizedCaseInsensitiveContains(query)
         }
         
-        // 按优先级合并：直接单词匹配的标签 > 语义匹配的标签 > 直接标签匹配
+        // 按优先级合并：直接文本匹配的标签 > 语义匹配的标签 > 直接标签匹配
         var result: [Tag] = []
-        result.append(contentsOf: directWordTags)
+        result.append(contentsOf: directTags)
         result.append(contentsOf: semanticTags.filter { !result.contains($0) })
         result.append(contentsOf: directTagMatches.filter { !result.contains($0) })
         
@@ -503,13 +510,28 @@ public final class WordStore: ObservableObject {
     }
     
     public func words(withTag tag: Tag) -> [Word] {
-        return words.filter { $0.hasTag(tag) }
+        // 从 words 中获取
+        let wordsWithTag = words.filter { $0.hasTag(tag) }
+        
+        // 从 nodes 中获取并转换为 Word
+        let nodesWithTag = nodes.filter { $0.hasTag(tag) }
+        let convertedWords = nodesWithTag.map { node in
+            Word(text: node.text, phonetic: node.phonetic, meaning: node.meaning, tags: node.tags)
+        }
+        
+        return wordsWithTag + convertedWords
     }
     
     public func wordsCount(forTagType type: Tag.TagType) -> Int {
-        return words.filter { word in
+        let wordCount = words.filter { word in
             word.tags.contains { $0.type == type }
         }.count
+        
+        let nodeCount = nodes.filter { node in
+            node.tags.contains { $0.type == type }
+        }.count
+        
+        return wordCount + nodeCount
     }
     
     // MARK: - 示例数据
