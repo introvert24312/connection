@@ -16,7 +16,7 @@ struct TagSidebarView: View {
             if let currentLayer = store.currentLayer {
                 HStack {
                     Circle()
-                        .fill(Color.from(colorName: currentLayer.color))
+                        .fill(Color.from(currentLayer.color))
                         .frame(width: 12, height: 12)
                     
                     Text(currentLayer.displayName)
@@ -31,7 +31,7 @@ struct TagSidebarView: View {
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 8)
-                .background(Color.from(colorName: currentLayer.color).opacity(0.1))
+                .background(Color.from(currentLayer.color).opacity(0.1))
                 
                 Divider()
             }

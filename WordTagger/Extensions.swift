@@ -41,7 +41,7 @@ extension Color {
         }
     }
     
-    public static func from(colorName: String) -> Color {
+    public static func from(_ colorName: String) -> Color {
         switch colorName.lowercased() {
         case "blue": return Color(.systemBlue)
         case "green": return Color(.systemGreen)
