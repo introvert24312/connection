@@ -27,7 +27,7 @@ public enum CommandCategory: String, CaseIterable {
         case .search: return "magnifyingglass"
         case .navigation: return "map"
         case .system: return "gear"
-        case .layer: return "layers"
+        case .layer: return "rectangle.stack"
         }
     }
 }
@@ -98,6 +98,9 @@ public final class CommandParser: ObservableObject {
         return [
             AddWordCommand(),
             SearchWordsCommand(),
+            SwitchLayerCommand(layerName: "英语单词"),
+            SwitchLayerCommand(layerName: "统计学"),
+            SwitchLayerCommand(layerName: "教育心理学"),
             OpenMapCommand(),
             OpenGraphCommand(),
             ShowSettingsCommand()
@@ -131,6 +134,11 @@ public final class CommandParser: ObservableObject {
             OpenGraphCommand(),
             ShowSettingsCommand(),
             SelectWordCommand(),
+            
+            // Layer commands
+            SwitchLayerCommand(layerName: "英语单词"),
+            SwitchLayerCommand(layerName: "统计学"),
+            SwitchLayerCommand(layerName: "教育心理学"),
             
             // System commands
             ClearCacheCommand(),
@@ -743,7 +751,7 @@ public struct SwitchLayerCommand: Command {
     public let id = UUID()
     public let title: String
     public let description: String
-    public let icon = "layers"
+    public let icon = "rectangle.stack"
     public let category = CommandCategory.layer
     public let keywords = ["切换", "层", "学科", "分类"]
     
