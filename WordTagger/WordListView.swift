@@ -202,9 +202,19 @@ struct WordListView: View {
             return
         }
         
+        // 记住当前焦点状态
+        let wasFocused = isSearchFieldFocused
+        
         // 立即更新，因为Store已经处理了防抖
         print("🔧 Executing immediate updateCachedDisplayWords")
         updateCachedDisplayWords()
+        
+        // 如果之前有焦点，更新后恢复焦点
+        if wasFocused {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
+                isSearchFieldFocused = true
+            }
+        }
     }
     
     private func updateCachedDisplayWords() {
@@ -214,17 +224,11 @@ struct WordListView: View {
         let filteredWords: [Word]
         
         if !store.searchQuery.isEmpty {
-            // 使用搜索结果，但同时考虑selectedTag过滤
-            let searchResults = store.searchResults.map { $0.word }
-            if let selectedTag = store.selectedTag {
-                filteredWords = searchResults.filter { $0.hasTag(selectedTag) }
-                print("🔍 Using search results filtered by tag: \(filteredWords.count) words")
-            } else {
-                filteredWords = searchResults
-                print("🔍 Using search results: \(filteredWords.count) words")
-            }
+            // 搜索时优先显示搜索结果，忽略标签过滤
+            filteredWords = store.searchResults.map { $0.word }
+            print("🔍 Using search results: \(filteredWords.count) words (tag filter ignored during search)")
         } else if let selectedTag = store.selectedTag {
-            // 如果选中了标签，只显示包含该标签的单词
+            // 只有在没有搜索时才应用标签过滤
             filteredWords = store.words(withTag: selectedTag)
             print("🏷️ Using tag filter: \(filteredWords.count) words")
         } else {
@@ -249,18 +253,18 @@ struct WordListView: View {
     }
     
     private func handleSearchQueryChange(_ newValue: String) {
-        // 保持焦点在输入框
-        DispatchQueue.main.async {
+        store.searchQuery = newValue
+        // 保持焦点在输入框（延迟确保在视图更新后执行）
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
             isSearchFieldFocused = true
         }
-        store.searchQuery = newValue
     }
     
     private func clearSearch() {
         localSearchQuery = ""
         store.searchQuery = ""
         // 保持焦点在输入框
-        DispatchQueue.main.async {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
             isSearchFieldFocused = true
         }
     }
@@ -283,8 +287,10 @@ struct WordListView: View {
     
     private func handleSearchResultsChange(_ newValue: [SearchResult]) {
         print("📊 WordListView: searchResults changed to \(newValue.count) items")
-        // 当搜索结果更新时，立即更新显示
-        scheduleUpdate()
+        // 只有在有搜索查询时才更新显示，避免重复更新
+        if !store.searchQuery.isEmpty {
+            scheduleUpdate()
+        }
     }
     
     private func handleSelectedTagChange(_ newValue: UUID?) {
