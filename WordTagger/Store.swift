@@ -310,6 +310,31 @@ public final class WordStore: ObservableObject {
         return words.flatMap { $0.tags }.unique()
     }
     
+    // 获取与搜索查询相关的标签
+    public func getRelevantTags(for query: String) -> [Tag] {
+        if query.isEmpty {
+            return allTags
+        }
+        
+        // 查找包含搜索查询的单词
+        let relevantWords = words.filter { word in
+            word.text.localizedCaseInsensitiveContains(query) ||
+            (word.meaning?.localizedCaseInsensitiveContains(query) ?? false) ||
+            (word.phonetic?.localizedCaseInsensitiveContains(query) ?? false)
+        }
+        
+        // 收集这些单词的所有标签
+        let relevantTags = relevantWords.flatMap { $0.tags }.unique()
+        
+        // 同时包含标签值直接匹配搜索查询的标签
+        let directMatchTags = allTags.filter { tag in
+            tag.value.localizedCaseInsensitiveContains(query)
+        }
+        
+        // 合并并去重
+        return (relevantTags + directMatchTags).unique()
+    }
+    
     public func words(withTag tag: Tag) -> [Word] {
         return words.filter { $0.hasTag(tag) }
     }

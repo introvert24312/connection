@@ -31,6 +31,19 @@ struct WordManagerView: View {
     var filteredAndSortedWords: [Word] {
         var words = store.words
         
+        // 如果有搜索查询，优先显示搜索结果，忽略selectedTag过滤
+        if !searchQuery.isEmpty {
+            words = words.filter { word in
+                word.text.localizedCaseInsensitiveContains(searchQuery) ||
+                (word.meaning?.localizedCaseInsensitiveContains(searchQuery) ?? false) ||
+                (word.phonetic?.localizedCaseInsensitiveContains(searchQuery) ?? false) ||
+                word.tags.contains { $0.value.localizedCaseInsensitiveContains(searchQuery) }
+            }
+        } else if let selectedTag = store.selectedTag {
+            // 只在没有搜索查询时应用selectedTag过滤
+            words = words.filter { $0.hasTag(selectedTag) }
+        }
+        
         // 应用过滤器
         switch filterOption {
         case .all:
@@ -43,15 +56,6 @@ struct WordManagerView: View {
             words = words.filter { $0.meaning != nil && !$0.meaning!.isEmpty }
         case .withoutMeaning:
             words = words.filter { $0.meaning == nil || $0.meaning!.isEmpty }
-        }
-        
-        // 应用搜索
-        if !searchQuery.isEmpty {
-            words = words.filter { word in
-                word.text.localizedCaseInsensitiveContains(searchQuery) ||
-                (word.meaning?.localizedCaseInsensitiveContains(searchQuery) ?? false) ||
-                word.tags.contains { $0.value.localizedCaseInsensitiveContains(searchQuery) }
-            }
         }
         
         // 应用排序
@@ -73,9 +77,42 @@ struct WordManagerView: View {
         VStack(spacing: 0) {
             // 工具栏
             HStack {
-                Text("单词管理")
-                    .font(.title2)
-                    .fontWeight(.semibold)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("单词管理")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                    
+                    // 显示当前过滤状态
+                    if !searchQuery.isEmpty {
+                        HStack(spacing: 4) {
+                            Text("搜索: \"\(searchQuery)\" - 忽略标签过滤")
+                                .font(.caption)
+                                .foregroundColor(.green)
+                            
+                            Button("✕") {
+                                searchQuery = ""
+                            }
+                            .font(.caption)
+                            .foregroundColor(.green)
+                            .buttonStyle(.plain)
+                            .help("清除搜索")
+                        }
+                    } else if let selectedTag = store.selectedTag {
+                        HStack(spacing: 4) {
+                            Text("过滤: \(selectedTag.type.displayName) - \(selectedTag.value)")
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                            
+                            Button("✕") {
+                                store.selectTag(nil)
+                            }
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                            .buttonStyle(.plain)
+                            .help("清除标签过滤")
+                        }
+                    }
+                }
                 
                 Spacer()
                 
@@ -84,7 +121,7 @@ struct WordManagerView: View {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.secondary)
                     
-                    TextField("搜索单词、释义或标签...", text: $searchQuery)
+                    TextField("搜索单词、释义、音标或标签...", text: $searchQuery)
                         .textFieldStyle(.plain)
                         .frame(width: 200)
                 }
@@ -218,15 +255,34 @@ struct WordManagerView: View {
                         .font(.system(size: 48))
                         .foregroundColor(.gray)
                     
-                    Text(searchQuery.isEmpty ? "暂无单词" : "未找到匹配的单词")
-                        .font(.title3)
-                        .foregroundColor(.secondary)
-                    
-                    if !searchQuery.isEmpty {
-                        Button("清除搜索") {
-                            searchQuery = ""
+                    Group {
+                        if searchQuery.isEmpty {
+                            if store.selectedTag != nil {
+                                Text("当前标签下暂无单词")
+                            } else {
+                                Text("暂无单词")
+                            }
+                        } else {
+                            Text("未找到匹配 \"\(searchQuery)\" 的单词")
                         }
-                        .foregroundColor(.blue)
+                    }
+                    .font(.title3)
+                    .foregroundColor(.secondary)
+                    
+                    VStack(spacing: 8) {
+                        if !searchQuery.isEmpty {
+                            Button("清除搜索") {
+                                searchQuery = ""
+                            }
+                            .foregroundColor(.blue)
+                        }
+                        
+                        if store.selectedTag != nil && searchQuery.isEmpty {
+                            Button("清除标签过滤") {
+                                store.selectTag(nil)
+                            }
+                            .foregroundColor(.blue)
+                        }
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

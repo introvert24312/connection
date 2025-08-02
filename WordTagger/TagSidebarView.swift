@@ -106,14 +106,20 @@ struct TagSidebarView: View {
     }
     
     private var filteredTags: [Tag] {
-        var tags = store.allTags
+        // 如果有全局搜索查询，优先显示相关标签
+        var tags: [Tag]
+        if !store.searchQuery.isEmpty {
+            tags = store.getRelevantTags(for: store.searchQuery)
+        } else {
+            tags = store.allTags
+        }
         
         // 按类型过滤
         if let selectedType = selectedTagType {
             tags = tags.filter { $0.type == selectedType }
         }
         
-        // 按搜索文本过滤
+        // 按本地搜索文本过滤
         if !filter.isEmpty {
             tags = tags.filter { $0.value.localizedCaseInsensitiveContains(filter) }
         }
