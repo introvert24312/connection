@@ -568,9 +568,14 @@ struct TagEditCommandView: View {
         }
     }
     
-    @MainActor private var availableCommands: [Command] {
+    @State private var availableCommands: [Command] = []
+    
+    @MainActor
+    private func updateAvailableCommands() {
         let context = CommandContext(store: store, currentWord: word)
-        return commandParser.parse(commandText, context: context)
+        Task {
+            availableCommands = await commandParser.parse(commandText, context: context)
+        }
     }
     
     var body: some View {
@@ -603,6 +608,9 @@ struct TagEditCommandView: View {
                     .font(.body)
                     .onSubmit {
                         executeCommand()
+                    }
+                    .onChange(of: commandText) { _, _ in
+                        updateAvailableCommands()
                     }
                 
                 Text("当前命令: \(commandText)")
@@ -680,6 +688,7 @@ struct TagEditCommandView: View {
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
             commandText = initialCommand
+            updateAvailableCommands()
         }
         .onKeyPress(.return) {
             executeCommand()

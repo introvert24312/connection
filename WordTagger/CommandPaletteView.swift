@@ -73,6 +73,7 @@ struct CommandPaletteView: View {
             // 重置状态
             query = ""
             selectedIndex = 0
+            updateAvailableCommands()
             
             // 立即聚焦到输入框
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -80,14 +81,7 @@ struct CommandPaletteView: View {
             }
         }
         .onChange(of: query) { _, newQuery in
-            commandParser.updateSuggestions(
-                for: newQuery,
-                context: CommandContext(
-                    store: store,
-                    currentWord: store.selectedWord,
-                    selectedTag: store.selectedTag
-                )
-            )
+            updateAvailableCommands()
             selectedIndex = 0
         }
         .background(
@@ -100,14 +94,19 @@ struct CommandPaletteView: View {
         )
     }
     
-    @MainActor private var availableCommands: [Command] {
+    @State private var availableCommands: [Command] = []
+    
+    @MainActor
+    private func updateAvailableCommands() {
         let context = CommandContext(
             store: store,
             currentWord: store.selectedWord,
             selectedTag: store.selectedTag
         )
         
-        return commandParser.parse(query, context: context)
+        Task {
+            availableCommands = await commandParser.parse(query, context: context)
+        }
     }
     
     private func executeSelectedCommand() {

@@ -77,11 +77,11 @@ public final class CommandParser: ObservableObject {
     
     // MARK: - Public API
     
-    @MainActor public func parse(_ input: String, context: CommandContext) -> [Command] {
+    @MainActor public func parse(_ input: String, context: CommandContext) async -> [Command] {
         let cleanInput = input.trimmingCharacters(in: .whitespacesAndNewlines)
         
         guard !cleanInput.isEmpty else { 
-            return getDefaultCommands(context: context) 
+            return await getDefaultCommands(context: context) 
         }
         
         // Try to detect command intent
@@ -90,14 +90,16 @@ public final class CommandParser: ObservableObject {
         }
         
         // Use fuzzy matching for suggestions
-        return findMatchingCommands(for: cleanInput, context: context)
+        return await findMatchingCommands(for: cleanInput, context: context)
     }
     
     @MainActor public func updateSuggestions(for input: String, context: CommandContext) {
-        suggestions = parse(input, context: context)
+        Task {
+            suggestions = await parse(input, context: context)
+        }
     }
     
-    public func getDefaultCommands(context: CommandContext? = nil) -> [Command] {
+    public func getDefaultCommands(context: CommandContext? = nil) async -> [Command] {
         guard let context = context else {
             return [
                 SwitchLayerCommand(layerName: "英语单词"),
@@ -107,7 +109,7 @@ public final class CommandParser: ObservableObject {
         }
         
         // 动态获取所有层
-        return context.store.layers.map { layer in
+        return await context.store.layers.map { layer in
             SwitchLayerCommand(layerName: layer.displayName)
         }
     }
@@ -182,11 +184,11 @@ public final class CommandParser: ObservableObject {
         }
     }
     
-    private func findMatchingCommands(for input: String, context: CommandContext) -> [Command] {
+    private func findMatchingCommands(for input: String, context: CommandContext) async -> [Command] {
         let searchTokens = nlpProcessor.tokenize(input)
         
         // 动态获取所有层切换命令
-        let layerCommands = context.store.layers.map { layer in
+        let layerCommands = await context.store.layers.map { layer in
             SwitchLayerCommand(layerName: layer.displayName)
         }
         
