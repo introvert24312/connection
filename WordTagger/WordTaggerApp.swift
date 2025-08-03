@@ -829,6 +829,18 @@ struct WordTaggerApp: App {
     @State private var showQuickAdd = false
     @State private var showQuickSearch = false
     @State private var showTagManager = false
+    
+    init() {
+        // 设置环境变量以抑制SQLite系统数据库访问警告
+        setenv("SQLITE_ENABLE_FTS4", "0", 1)
+        setenv("SQLITE_ENABLE_FTS5", "0", 1)
+        setenv("SQLITE_SECURE_DELETE", "fast", 1)
+        
+        // 减少macOS系统服务的数据库查询
+        UserDefaults.standard.set(false, forKey: "NSApplicationCrashOnExceptions")
+        
+        print("🚀 WordTagger 启动，已优化SQLite设置")
+    }
 
     var body: some Scene {
         WindowGroup("单词标签管理器") {

@@ -15,6 +15,11 @@ public class ExternalDataManager: ObservableObject {
     private let dataPathKey = "WordTagger_ExternalDataPath"
     private let bookmarkKey = "WordTagger_DataPathBookmark"
     
+    // 缓存以减少UserDefaults访问
+    private var cachedBookmarkData: Data?
+    private var lastBookmarkCheck: Date = Date.distantPast
+    private let bookmarkCacheTimeout: TimeInterval = 300 // 5分钟缓存
+    
     public static let shared = ExternalDataManager()
     
     private init() {
@@ -74,20 +79,46 @@ public class ExternalDataManager: ObservableObject {
     
     private func performDataPathChange(url: URL, createBookmark: Bool) {
         do {
+            // 先检查是否已经有有效的bookmark，避免重复创建
+            var needsNewBookmark = createBookmark
+            if createBookmark {
+                if let existingBookmark = userDefaults.data(forKey: bookmarkKey) {
+                    do {
+                        var isStale = false
+                        let existingURL = try URL(
+                            resolvingBookmarkData: existingBookmark,
+                            options: .withSecurityScope,
+                            relativeTo: nil,
+                            bookmarkDataIsStale: &isStale
+                        )
+                        // 如果现有bookmark有效且指向同一位置，不需要重新创建
+                        if !isStale && existingURL.path == url.path {
+                            needsNewBookmark = false
+                            print("💾 使用现有bookmark，避免重复创建")
+                        }
+                    } catch {
+                        print("⚠️ 现有bookmark无效，将创建新的")
+                    }
+                }
+            }
+            
             // 如果需要创建bookmark，先获取访问权限
             var shouldStopAccessing = false
-            if createBookmark {
+            if needsNewBookmark {
                 shouldStopAccessing = url.startAccessingSecurityScopedResource()
+                print("🔐 开始访问安全范围资源: \(url.path)")
             }
             
             // 创建Security-Scoped Bookmark
-            if createBookmark {
+            if needsNewBookmark {
+                print("💾 创建新的Security-Scoped Bookmark")
                 let bookmarkData = try url.bookmarkData(
                     options: .withSecurityScope,
                     includingResourceValuesForKeys: nil,
                     relativeTo: nil
                 )
-                userDefaults.set(bookmarkData, forKey: bookmarkKey)
+                setCachedBookmarkData(bookmarkData)
+                print("✅ Bookmark创建成功")
             }
             
             currentDataPath = url
@@ -102,6 +133,7 @@ public class ExternalDataManager: ObservableObject {
             // 释放安全范围资源
             if shouldStopAccessing {
                 url.stopAccessingSecurityScopedResource()
+                print("🔓 释放安全范围资源")
             }
             
             lastError = nil
@@ -120,8 +152,11 @@ public class ExternalDataManager: ObservableObject {
     }
     
     private func loadSavedDataPath() {
+        print("🔄 加载保存的数据路径...")
+        
         // 首先尝试使用Security-Scoped Bookmark
-        if let bookmarkData = userDefaults.data(forKey: bookmarkKey) {
+        let bookmarkData = getCachedBookmarkData()
+        if let bookmarkData = bookmarkData {
             do {
                 var isStale = false
                 let url = try URL(
@@ -134,14 +169,16 @@ public class ExternalDataManager: ObservableObject {
                 if !isStale && fileManager.fileExists(atPath: url.path) {
                     currentDataPath = url
                     isDataPathSelected = true
+                    print("✅ 成功从bookmark加载数据路径: \(url.path)")
                     return
                 } else if isStale {
                     // Bookmark已过期，清除它
-                    userDefaults.removeObject(forKey: bookmarkKey)
+                    print("⚠️ Bookmark已过期，清除缓存")
+                    clearBookmarkCache()
                 }
             } catch {
                 print("⚠️ 加载bookmark失败: \(error)")
-                userDefaults.removeObject(forKey: bookmarkKey)
+                clearBookmarkCache()
             }
         }
         
@@ -291,6 +328,7 @@ public class ExternalDataManager: ObservableObject {
         }
         
         // 没有权限，需要重新选择
+        print("❌ 所有访问方式均失败")
         lastError = "没有文件夹访问权限，请重新选择数据文件夹"
         return false
     }
@@ -376,6 +414,32 @@ public class ExternalDataManager: ObservableObject {
         } catch {
             lastError = "重置数据文件夹失败: \(error.localizedDescription)"
         }
+    }
+    
+    // MARK: - Bookmark缓存优化
+    
+    private func getCachedBookmarkData() -> Data? {
+        let now = Date()
+        if now.timeIntervalSince(lastBookmarkCheck) > bookmarkCacheTimeout || cachedBookmarkData == nil {
+            print("📋 刷新bookmark缓存")
+            cachedBookmarkData = userDefaults.data(forKey: bookmarkKey)
+            lastBookmarkCheck = now
+        }
+        return cachedBookmarkData
+    }
+    
+    private func setCachedBookmarkData(_ data: Data) {
+        cachedBookmarkData = data
+        lastBookmarkCheck = Date()
+        userDefaults.set(data, forKey: bookmarkKey)
+        print("💾 Bookmark缓存已更新")
+    }
+    
+    private func clearBookmarkCache() {
+        cachedBookmarkData = nil
+        lastBookmarkCheck = Date.distantPast
+        userDefaults.removeObject(forKey: bookmarkKey)
+        print("🗑️ Bookmark缓存已清理")
     }
 }
 
