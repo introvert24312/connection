@@ -77,7 +77,7 @@ public final class CommandParser: ObservableObject {
     
     // MARK: - Public API
     
-    public func parse(_ input: String, context: CommandContext) -> [Command] {
+    @MainActor public func parse(_ input: String, context: CommandContext) -> [Command] {
         let cleanInput = input.trimmingCharacters(in: .whitespacesAndNewlines)
         
         guard !cleanInput.isEmpty else { 
@@ -93,7 +93,7 @@ public final class CommandParser: ObservableObject {
         return findMatchingCommands(for: cleanInput, context: context)
     }
     
-    public func updateSuggestions(for input: String, context: CommandContext) {
+    @MainActor public func updateSuggestions(for input: String, context: CommandContext) {
         suggestions = parse(input, context: context)
     }
     
@@ -401,9 +401,9 @@ public struct AddWordCommand: Command {
             return .error("请提供单词文本")
         }
         
-        context.store.addWord(wordText, phonetic: phonetic, meaning: meaning)
+        await context.store.addWord(wordText, phonetic: phonetic, meaning: meaning)
         
-        if let newWord = context.store.words.first(where: { $0.text == wordText }) {
+        if let newWord = await context.store.words.first(where: { $0.text == wordText }) {
             return .wordCreated(newWord)
         } else {
             return .error("创建单词失败")
@@ -438,12 +438,14 @@ public struct SearchWordsCommand: Command {
             return .error("请提供搜索关键词")
         }
         
-        context.store.searchQuery = searchQuery
+        await MainActor.run {
+            context.store.searchQuery = searchQuery
+        }
         
         // Wait a bit for the search to process
         try await Task.sleep(nanoseconds: 300_000_000)
         
-        return .searchPerformed(results: context.store.searchResults.map { word in
+        return .searchPerformed(results: await context.store.searchResults.map { word in
             let node = Node(text: word.text, phonetic: word.phonetic, meaning: word.meaning, layerId: UUID(), tags: word.tags)
             return SearchResult(node: node, score: 1.0, matchedFields: [.text])
         })
@@ -523,10 +525,10 @@ public struct AddTagCommand: Command {
             return .error("请提供标签类型和值")
         }
         
-        let tag = context.store.createTag(type: tagType, value: value)
-        context.store.addTag(tag)
+        let tag = await context.store.createTag(type: tagType, value: value)
+        await context.store.addTag(tag)
         
-        if let word = context.store.words.first(where: { $0.id == wordId }) {
+        if let word = await context.store.words.first(where: { $0.id == wordId }) {
             return .tagAdded(tag, to: word)
         } else {
             return .error("未找到指定单词")
@@ -778,7 +780,7 @@ public struct SwitchLayerCommand: Command {
     public func execute(with context: CommandContext) async throws -> CommandResult {
         await context.store.switchToLayer(named: layerName)
         
-        if let currentLayer = context.store.currentLayer {
+        if let currentLayer = await context.store.currentLayer {
             return .layerSwitched(currentLayer)
         } else {
             return .error("切换层失败")
@@ -795,7 +797,7 @@ public struct ResetSampleDataCommand: Command {
     public let keywords = ["重置", "示例", "数据", "清除"]
     
     public func execute(with context: CommandContext) async throws -> CommandResult {
-        context.store.resetToSampleData()
+        await context.store.resetToSampleData()
         return .success(message: "已重置为示例数据")
     }
 }

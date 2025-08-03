@@ -100,7 +100,7 @@ struct CommandPaletteView: View {
         )
     }
     
-    private var availableCommands: [Command] {
+    @MainActor private var availableCommands: [Command] {
         let context = CommandContext(
             store: store,
             currentWord: store.selectedWord,

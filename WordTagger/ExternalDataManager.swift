@@ -3,6 +3,7 @@ import SwiftUI
 
 // MARK: - 外部数据管理器
 
+@MainActor
 public class ExternalDataManager: ObservableObject {
     @Published public var currentDataPath: URL?
     @Published public var isDataPathSelected: Bool = false
@@ -25,7 +26,7 @@ public class ExternalDataManager: ObservableObject {
     public func selectDataFolder() {
         let panel = NSOpenPanel()
         panel.title = "选择数据存储文件夹"
-        panel.message = "建议选择：Documents、Desktop 或自建文件夹\n避免选择：Downloads、临时文件夹"
+        panel.message = "建议选择：Documents、Desktop 或自建文件夹\n避免选择：Downloads、系统文件夹、临时文件夹"
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
@@ -38,12 +39,40 @@ public class ExternalDataManager: ObservableObject {
         
         panel.begin { [weak self] response in
             if response == .OK, let url = panel.url {
+                // 检查是否是系统敏感目录
+                if self?.isSystemSensitiveDirectory(url) == true {
+                    Task { @MainActor in
+                        self?.lastError = "不允许选择系统目录，请选择Documents、Desktop或其他用户目录"
+                    }
+                    return
+                }
                 self?.setDataPath(url, createBookmark: true)
             }
         }
     }
     
     public func setDataPath(_ url: URL, createBookmark: Bool = false) {
+        Task {
+            // 在切换路径前，先通知保存当前数据
+            if await MainActor.run { isDataPathSelected && currentDataPath != url } {
+                print("💾 切换路径前保存当前数据...")
+                NotificationCenter.default.post(
+                    name: .saveCurrentDataBeforeSwitch,
+                    object: self,
+                    userInfo: ["oldPath": await MainActor.run { currentDataPath } as Any, "newPath": url]
+                )
+                
+                // 等待一段时间确保数据保存完成
+                try? await Task.sleep(nanoseconds: 1_000_000_000) // 1秒
+            }
+            
+            await MainActor.run {
+                self.performDataPathChange(url: url, createBookmark: createBookmark)
+            }
+        }
+    }
+    
+    private func performDataPathChange(url: URL, createBookmark: Bool) {
         do {
             // 如果需要创建bookmark，先获取访问权限
             var shouldStopAccessing = false
@@ -76,6 +105,13 @@ public class ExternalDataManager: ObservableObject {
             }
             
             lastError = nil
+            
+            // 通知数据路径已更改，需要重新加载数据
+            NotificationCenter.default.post(
+                name: .dataPathChanged,
+                object: self,
+                userInfo: ["newPath": url]
+            )
             
         } catch {
             lastError = "设置数据路径失败: \(error.localizedDescription)"
@@ -260,6 +296,11 @@ public class ExternalDataManager: ObservableObject {
     }
     
     private func testWritePermission(at url: URL) -> Bool {
+        // 首先检查是否是系统敏感目录
+        if isSystemSensitiveDirectory(url) {
+            return false
+        }
+        
         let testFile = url.appendingPathComponent(".wordtagger_test")
         do {
             try "test".write(to: testFile, atomically: true, encoding: .utf8)
@@ -268,6 +309,45 @@ public class ExternalDataManager: ObservableObject {
         } catch {
             return false
         }
+    }
+    
+    // 检查是否是系统敏感目录
+    private func isSystemSensitiveDirectory(_ url: URL) -> Bool {
+        let path = url.path.lowercased()
+        
+        // 禁止的系统目录列表
+        let prohibitedPaths = [
+            "/private/var/db",
+            "/system",
+            "/library",
+            "/private/var/log",
+            "/private/tmp",
+            "/var/db",
+            "/var/log",
+            "/tmp",
+            "/bin",
+            "/sbin",
+            "/usr/bin",
+            "/usr/sbin",
+            "/private/var/folders"
+        ]
+        
+        // 检查是否以禁止路径开头
+        for prohibitedPath in prohibitedPaths {
+            if path.hasPrefix(prohibitedPath) {
+                return true
+            }
+        }
+        
+        // 检查是否包含敏感关键词
+        let sensitiveKeywords = ["detachedsignatures", "sqlitedb", "coredata"]
+        for keyword in sensitiveKeywords {
+            if path.contains(keyword) {
+                return true
+            }
+        }
+        
+        return false
     }
     
     // MARK: - 清理和重置
@@ -345,4 +425,11 @@ public struct DataMetadata: Codable {
         self.lastBackup = lastBackup
         self.syncEnabled = syncEnabled
     }
+}
+
+// MARK: - 通知扩展
+
+extension Notification.Name {
+    static let dataPathChanged = Notification.Name("ExternalDataPathChanged")
+    static let saveCurrentDataBeforeSwitch = Notification.Name("SaveCurrentDataBeforeSwitch")
 }

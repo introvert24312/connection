@@ -568,6 +568,7 @@ struct FeatureRow: View {
 struct ExternalDataStoragePanel: View {
     @StateObject private var dataManager = ExternalDataManager.shared
     @StateObject private var dataService = ExternalDataService.shared
+    @EnvironmentObject private var store: WordStore
     
     var body: some View {
         GroupBox(label: Text("外部数据存储").font(.headline)) {
@@ -591,10 +592,10 @@ struct ExternalDataStoragePanel: View {
                     // 同步状态
                     HStack {
                         Circle()
-                            .fill(dataService.isSaving ? .orange : .green)
+                            .fill(store.isLoading ? .blue : (dataService.isSaving ? .orange : .green))
                             .frame(width: 6, height: 6)
                         
-                        Text(dataService.isSaving ? "同步中..." : "已同步")
+                        Text(store.isLoading ? "加载数据..." : (dataService.isSaving ? "同步中..." : "已同步"))
                             .font(.caption)
                         
                         Spacer()
@@ -645,6 +646,25 @@ struct ExternalDataStoragePanel: View {
                     .buttonStyle(.bordered)
                     
                     if dataManager.isDataPathSelected {
+                        Button("保存") {
+                            Task {
+                                await store.forceSaveToExternalStorage()
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(store.isLoading || dataService.isSaving)
+                        
+                        Button("刷新") {
+                            // 手动触发数据重新加载
+                            NotificationCenter.default.post(
+                                name: .dataPathChanged,
+                                object: dataManager,
+                                userInfo: ["newPath": dataManager.currentDataPath ?? URL(fileURLWithPath: "")]
+                            )
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(store.isLoading)
+                        
                         Button("清除") {
                             dataManager.clearDataPath()
                         }

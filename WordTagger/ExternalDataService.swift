@@ -3,6 +3,7 @@ import SwiftUI
 
 // MARK: - 外部数据服务
 
+@MainActor
 public class ExternalDataService: ObservableObject {
     @Published public var isSaving: Bool = false
     @Published public var isLoading: Bool = false
@@ -39,13 +40,24 @@ public class ExternalDataService: ObservableObject {
         await MainActor.run { isSaving = true }
         
         do {
-            // 创建备份
-            try await createBackup(store: store)
-            
-            // 保存各个数据文件
-            try await saveLayers(store.layers)
-            try await saveNodes(store.nodes)
-            try await saveMetadata(store: store)
+            // 在后台线程执行文件I/O操作
+            try await withCheckedThrowingContinuation { continuation in
+                Task.detached {
+                    do {
+                        // 创建备份
+                        try await self.createBackup(store: store)
+                        
+                        // 保存各个数据文件
+                        try await self.saveLayers(store.layers)
+                        try await self.saveNodes(store.nodes)
+                        try await self.saveMetadata(store: store)
+                        
+                        continuation.resume()
+                    } catch {
+                        continuation.resume(throwing: error)
+                    }
+                }
+            }
             
             await MainActor.run {
                 lastSyncTime = Date()
@@ -112,8 +124,18 @@ public class ExternalDataService: ObservableObject {
         await MainActor.run { isLoading = true }
         
         do {
-            let layers = try await loadLayers()
-            let nodes = try await loadNodes()
+            // 在后台线程执行文件I/O操作
+            let (layers, nodes) = try await withCheckedThrowingContinuation { continuation in
+                Task.detached {
+                    do {
+                        let layers = try await self.loadLayers()
+                        let nodes = try await self.loadNodes()
+                        continuation.resume(returning: (layers, nodes))
+                    } catch {
+                        continuation.resume(throwing: error)
+                    }
+                }
+            }
             
             await MainActor.run {
                 syncStatus = .success
@@ -222,10 +244,11 @@ public class ExternalDataService: ObservableObject {
     
     // MARK: - 自动同步
     
+    @MainActor
     public func startAutoSync(store: WordStore) {
         // 每5分钟自动保存一次
         Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { _ in
-            Task {
+            Task { @MainActor in
                 try? await self.saveAllData(store: store)
             }
         }

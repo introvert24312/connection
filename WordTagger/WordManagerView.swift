@@ -568,7 +568,7 @@ struct TagEditCommandView: View {
         }
     }
     
-    private var availableCommands: [Command] {
+    @MainActor private var availableCommands: [Command] {
         let context = CommandContext(store: store, currentWord: word)
         return commandParser.parse(commandText, context: context)
     }

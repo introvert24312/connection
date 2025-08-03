@@ -3,6 +3,7 @@ import Foundation
 import AppKit
 import SwiftUI
 
+@MainActor
 public final class WordStore: ObservableObject {
     @Published public private(set) var words: [Word] = []
     @Published public private(set) var nodes: [Node] = []
@@ -27,6 +28,7 @@ public final class WordStore: ObservableObject {
         setupInitialData()
         setupSearchBinding()
         setupExternalDataSync()
+        setupDataPathChangeListener()
     }
     
     // MARK: - 初始化
@@ -93,14 +95,15 @@ public final class WordStore: ObservableObject {
     }
     
     private func setupExternalDataSync() {
-        // 监听数据变化，自动保存到外部存储
+        // 监听数据变化，自动保存到外部存储（缩短延迟时间）
         Publishers.CombineLatest3($words, $nodes, $layers)
-            .debounce(for: .seconds(2), scheduler: RunLoop.main)
+            .debounce(for: .milliseconds(800), scheduler: RunLoop.main)
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] (words, nodes, layers) in
                 guard let self = self else { return }
                 
                 if self.externalDataManager.isDataPathSelected {
-                    Task {
+                    Task { @MainActor in
                         do {
                             try await self.externalDataService.saveAllData(store: self)
                             print("💾 数据已自动同步到外部存储")
@@ -113,8 +116,86 @@ public final class WordStore: ObservableObject {
             .store(in: &cancellables)
     }
     
+    private func setupDataPathChangeListener() {
+        // 监听路径切换前的保存通知
+        NotificationCenter.default.addObserver(
+            forName: .saveCurrentDataBeforeSwitch,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self else { return }
+            
+            print("💾 收到保存请求，立即保存当前数据...")
+            
+            Task { @MainActor in
+                do {
+                    // 立即保存当前数据到旧路径
+                    try await self.externalDataService.saveAllData(store: self)
+                    print("✅ 切换前数据保存成功")
+                } catch {
+                    print("❌ 切换前数据保存失败: \(error)")
+                }
+            }
+        }
+        
+        // 监听路径切换后的加载通知
+        NotificationCenter.default.addObserver(
+            forName: .dataPathChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self else { return }
+            
+            print("🔄 数据路径已更改，重新加载数据...")
+            
+            Task { @MainActor in
+                await self.reloadDataFromExternalStorage()
+            }
+        }
+    }
+    
+    @MainActor
+    private func reloadDataFromExternalStorage() async {
+        do {
+            isLoading = true
+            let (loadedLayers, loadedNodes) = try await externalDataService.loadAllData()
+            
+            if !loadedLayers.isEmpty {
+                // 如果新路径有数据，替换当前数据
+                layers = loadedLayers
+                nodes = loadedNodes
+                words.removeAll() // 清空旧的 words 数据，使用 nodes
+                
+                // 设置活跃层
+                if let activeLayer = loadedLayers.first(where: { $0.isActive }) {
+                    currentLayer = activeLayer
+                } else if let firstLayer = loadedLayers.first {
+                    currentLayer = firstLayer
+                }
+                
+                print("📚 从新路径加载了 \(loadedNodes.count) 个节点，分布在 \(loadedLayers.count) 个层中")
+            } else {
+                // 如果新路径没有数据，保存当前数据到新路径
+                print("💾 新路径为空，将当前数据保存到新位置...")
+                try await externalDataService.saveAllData(store: self)
+            }
+            
+            isLoading = false
+            
+        } catch {
+            print("⚠️ 重新加载数据失败: \(error)")
+            isLoading = false
+            
+            // 如果加载失败，至少保存当前数据到新路径
+            Task {
+                try? await externalDataService.saveAllData(store: self)
+            }
+        }
+    }
+    
     // MARK: - 搜索功能
     
+    @MainActor
     public func performSearch(query: String) {
         print("🔍 Store: performSearch called with query '\(query)'")
         
@@ -158,25 +239,30 @@ public final class WordStore: ObservableObject {
     
     // MARK: - 数据管理
     
+    @MainActor
     public func addWord(_ word: Word) {
         words.append(word)
     }
     
+    @MainActor
     public func addWord(_ text: String, phonetic: String?, meaning: String?) {
         let word = Word(text: text, phonetic: phonetic, meaning: meaning, tags: [])
         addWord(word)
     }
     
+    @MainActor
     public func addNode(_ node: Node) {
         nodes.append(node)
     }
     
+    @MainActor
     public func updateWord(_ word: Word) {
         if let index = words.firstIndex(where: { $0.id == word.id }) {
             words[index] = word
         }
     }
     
+    @MainActor
     public func updateWord(_ wordId: UUID, text: String?, phonetic: String?, meaning: String?) {
         if let index = words.firstIndex(where: { $0.id == wordId }) {
             var updatedWord = words[index]
@@ -188,12 +274,14 @@ public final class WordStore: ObservableObject {
         }
     }
     
+    @MainActor
     public func updateNode(_ node: Node) {
         if let index = nodes.firstIndex(where: { $0.id == node.id }) {
             nodes[index] = node
         }
     }
     
+    @MainActor
     public func deleteWord(_ word: Word) {
         words.removeAll { $0.id == word.id }
         if selectedWord?.id == word.id {
@@ -201,6 +289,7 @@ public final class WordStore: ObservableObject {
         }
     }
     
+    @MainActor
     public func deleteWord(_ wordId: UUID) {
         words.removeAll { $0.id == wordId }
         if selectedWord?.id == wordId {
@@ -208,6 +297,7 @@ public final class WordStore: ObservableObject {
         }
     }
     
+    @MainActor
     public func deleteNode(_ node: Node) {
         nodes.removeAll { $0.id == node.id }
         if selectedNode?.id == node.id {
@@ -215,14 +305,17 @@ public final class WordStore: ObservableObject {
         }
     }
     
+    @MainActor
     public func setSelectedWord(_ word: Word?) {
         selectedWord = word
     }
     
+    @MainActor
     public func setSelectedNode(_ node: Node?) {
         selectedNode = node
     }
     
+    @MainActor
     public func setSelectedTag(_ tag: Tag?) {
         selectedTag = tag
     }
@@ -251,6 +344,7 @@ public final class WordStore: ObservableObject {
         }
     }
     
+    @MainActor
     public func setCurrentLayer(_ layer: Layer) {
         // 更新所有层的活跃状态
         for i in layers.indices {
@@ -261,16 +355,19 @@ public final class WordStore: ObservableObject {
     
     // MARK: - 层管理
     
+    @MainActor
     public func addLayer(_ layer: Layer) {
         layers.append(layer)
     }
     
+    @MainActor
     public func updateLayer(_ layer: Layer) {
         if let index = layers.firstIndex(where: { $0.id == layer.id }) {
             layers[index] = layer
         }
     }
     
+    @MainActor
     public func deleteLayer(_ layer: Layer) {
         layers.removeAll { $0.id == layer.id }
         // 删除该层的所有节点
@@ -478,6 +575,7 @@ public final class WordStore: ObservableObject {
     
     // MARK: - 数据清理
     
+    @MainActor
     public func clearAllData() {
         words.removeAll()
         nodes.removeAll()
@@ -488,6 +586,7 @@ public final class WordStore: ObservableObject {
         searchResults.removeAll()
     }
     
+    @MainActor
     public func resetToSampleData() {
         clearAllData()
         createSampleData()
@@ -517,6 +616,20 @@ public final class WordStore: ObservableObject {
     public func removeTag(from wordId: UUID, tagId: UUID) {
         if let index = words.firstIndex(where: { $0.id == wordId }) {
             words[index].tags.removeAll { $0.id == tagId }
+        }
+    }
+    
+    // MARK: - 手动保存功能
+    
+    @MainActor
+    public func forceSaveToExternalStorage() async {
+        guard externalDataManager.isDataPathSelected else { return }
+        
+        do {
+            try await externalDataService.saveAllData(store: self)
+            print("✅ 手动保存成功")
+        } catch {
+            print("❌ 手动保存失败: \(error)")
         }
     }
 }
