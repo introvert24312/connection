@@ -40,12 +40,13 @@ public final class WordStore: ObservableObject {
         // 尝试加载外部数据
         Task {
             do {
-                let (loadedLayers, loadedNodes) = try await externalDataService.loadAllData()
+                let (loadedLayers, loadedNodes, loadedWords) = try await externalDataService.loadAllData()
                 
                 await MainActor.run {
                     if !loadedLayers.isEmpty {
                         self.layers = loadedLayers
                         self.nodes = loadedNodes
+                        self.words = loadedWords
                         
                         // 设置活跃层
                         if let activeLayer = loadedLayers.first(where: { $0.isActive }) {
@@ -54,7 +55,7 @@ public final class WordStore: ObservableObject {
                             self.currentLayer = firstLayer
                         }
                         
-                        print("📚 从外部存储加载了 \(loadedNodes.count) 个节点，分布在 \(loadedLayers.count) 个层中")
+                        print("📚 从外部存储加载了 \(loadedNodes.count) 个节点和 \(loadedWords.count) 个单词，分布在 \(loadedLayers.count) 个层中")
                     }
                 }
             } catch {
@@ -102,15 +103,24 @@ public final class WordStore: ObservableObject {
             .sink { [weak self] (words, nodes, layers) in
                 guard let self = self else { return }
                 
+                print("🔄 数据变化触发自动同步:")
+                print("   - Words: \(words.count) 个")
+                print("   - Nodes: \(nodes.count) 个")
+                print("   - Layers: \(layers.count) 个")
+                print("   - 外部数据路径已选择: \(self.externalDataManager.isDataPathSelected)")
+                
                 if self.externalDataManager.isDataPathSelected {
                     Task { @MainActor in
                         do {
+                            print("💾 开始自动同步数据...")
                             try await self.externalDataService.saveAllData(store: self)
-                            print("💾 数据已自动同步到外部存储")
+                            print("✅ 数据已自动同步到外部存储")
                         } catch {
-                            print("⚠️ 保存外部数据失败: \(error)")
+                            print("❌ 保存外部数据失败: \(error)")
                         }
                     }
+                } else {
+                    print("⚠️ 未选择外部数据路径，跳过自动同步")
                 }
             }
             .store(in: &cancellables)
@@ -158,13 +168,13 @@ public final class WordStore: ObservableObject {
     private func reloadDataFromExternalStorage() async {
         do {
             isLoading = true
-            let (loadedLayers, loadedNodes) = try await externalDataService.loadAllData()
+            let (loadedLayers, loadedNodes, loadedWords) = try await externalDataService.loadAllData()
             
             if !loadedLayers.isEmpty {
                 // 如果新路径有数据，替换当前数据
                 layers = loadedLayers
                 nodes = loadedNodes
-                words.removeAll() // 清空旧的 words 数据，使用 nodes
+                words = loadedWords
                 
                 // 设置活跃层
                 if let activeLayer = loadedLayers.first(where: { $0.isActive }) {
@@ -173,7 +183,7 @@ public final class WordStore: ObservableObject {
                     currentLayer = firstLayer
                 }
                 
-                print("📚 从新路径加载了 \(loadedNodes.count) 个节点，分布在 \(loadedLayers.count) 个层中")
+                print("📚 从新路径加载了 \(loadedNodes.count) 个节点和 \(loadedWords.count) 个单词，分布在 \(loadedLayers.count) 个层中")
             } else {
                 // 如果新路径没有数据，保存当前数据到新路径
                 print("💾 新路径为空，将当前数据保存到新位置...")
@@ -241,18 +251,30 @@ public final class WordStore: ObservableObject {
     
     @MainActor
     public func addWord(_ word: Word) {
+        print("📝 Store: 添加单词 - \(word.text)")
+        print("   - 音标: \(word.phonetic ?? "nil")")
+        print("   - 含义: \(word.meaning ?? "nil")")
+        print("   - 标签: \(word.tags.count) 个")
         words.append(word)
+        print("✅ 单词添加成功，当前总数: \(words.count)")
     }
     
     @MainActor
     public func addWord(_ text: String, phonetic: String?, meaning: String?) {
+        print("📝 Store: 添加单词(简化) - \(text)")
         let word = Word(text: text, phonetic: phonetic, meaning: meaning, tags: [])
         addWord(word)
     }
     
     @MainActor
     public func addNode(_ node: Node) {
+        print("🔗 Store: 添加节点 - \(node.text)")
+        print("   - 层ID: \(node.layerId)")
+        print("   - 音标: \(node.phonetic ?? "nil")")
+        print("   - 含义: \(node.meaning ?? "nil")")
+        print("   - 标签: \(node.tags.count) 个")
         nodes.append(node)
+        print("✅ 节点添加成功，当前总数: \(nodes.count)")
     }
     
     @MainActor

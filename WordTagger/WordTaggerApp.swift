@@ -887,6 +887,9 @@ struct WordTaggerApp: App {
                 QuickAddSheetView()
                     .environmentObject(store)
             }
+            .onReceive(NotificationCenter.default.publisher(for: .addNewWord)) { _ in
+                showQuickAdd = true
+            }
         }
         .defaultSize(width: 1200, height: 800)
         .commands {

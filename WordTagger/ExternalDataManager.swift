@@ -205,6 +205,7 @@ public class ExternalDataManager: ObservableObject {
                 baseURL.appendingPathComponent("data"),
                 baseURL.appendingPathComponent("data/layers"),
                 baseURL.appendingPathComponent("data/nodes"),
+                baseURL.appendingPathComponent("data/words"),
                 baseURL.appendingPathComponent("data/tags"),
                 baseURL.appendingPathComponent("data/metadata"),
                 baseURL.appendingPathComponent("backups")
@@ -252,6 +253,11 @@ public class ExternalDataManager: ObservableObject {
     public func getNodesURL() -> URL? {
         guard let basePath = currentDataPath else { return nil }
         return basePath.appendingPathComponent("data/nodes/nodes.json")
+    }
+    
+    public func getWordsURL() -> URL? {
+        guard let basePath = currentDataPath else { return nil }
+        return basePath.appendingPathComponent("data/words/words.json")
     }
     
     public func getMetadataURL() -> URL? {
