@@ -81,7 +81,7 @@ public final class CommandParser: ObservableObject {
         let cleanInput = input.trimmingCharacters(in: .whitespacesAndNewlines)
         
         guard !cleanInput.isEmpty else { 
-            return getDefaultCommands() 
+            return getDefaultCommands(context: context) 
         }
         
         // Try to detect command intent
@@ -97,17 +97,19 @@ public final class CommandParser: ObservableObject {
         suggestions = parse(input, context: context)
     }
     
-    public func getDefaultCommands() -> [Command] {
-        return [
-            AddWordCommand(),
-            SearchWordsCommand(),
-            SwitchLayerCommand(layerName: "英语单词"),
-            SwitchLayerCommand(layerName: "统计学"),
-            SwitchLayerCommand(layerName: "教育心理学"),
-            OpenMapCommand(),
-            OpenGraphCommand(),
-            ShowSettingsCommand()
-        ]
+    public func getDefaultCommands(context: CommandContext? = nil) -> [Command] {
+        guard let context = context else {
+            return [
+                SwitchLayerCommand(layerName: "英语单词"),
+                SwitchLayerCommand(layerName: "统计学"),
+                SwitchLayerCommand(layerName: "教育心理学")
+            ]
+        }
+        
+        // 动态获取所有层
+        return context.store.layers.map { layer in
+            SwitchLayerCommand(layerName: layer.displayName)
+        }
     }
     
     // MARK: - Command Setup
@@ -183,9 +185,14 @@ public final class CommandParser: ObservableObject {
     private func findMatchingCommands(for input: String, context: CommandContext) -> [Command] {
         let searchTokens = nlpProcessor.tokenize(input)
         
+        // 动态获取所有层切换命令
+        let layerCommands = context.store.layers.map { layer in
+            SwitchLayerCommand(layerName: layer.displayName)
+        }
+        
         var scoredCommands: [(Command, Double)] = []
         
-        for command in allCommands {
+        for command in layerCommands {
             let score = calculateMatchScore(command: command, tokens: searchTokens, context: context)
             if score > 0.3 {
                 scoredCommands.append((command, score))
@@ -194,7 +201,6 @@ public final class CommandParser: ObservableObject {
         
         return scoredCommands
             .sorted { $0.1 > $1.1 }
-            .prefix(8)
             .map { $0.0 }
     }
     

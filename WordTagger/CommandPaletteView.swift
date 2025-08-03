@@ -8,6 +8,7 @@ struct CommandPaletteView: View {
     @State private var query: String = ""
     @State private var selectedIndex: Int = 0
     @StateObject private var commandParser = CommandParser.shared
+    @FocusState private var isTextFieldFocused: Bool
     
     var body: some View {
         VStack(spacing: 0) {
@@ -16,9 +17,9 @@ struct CommandPaletteView: View {
                 Image(systemName: "command")
                     .foregroundColor(.blue)
                 
-                TextField("输入命令或搜索单词...", text: $query, onCommit: executeSelectedCommand)
-                    .textFieldStyle(.plain)
-                    .font(.title3)
+                TextField("输入层名称 (⌘+R创建新层)...", text: $query, onCommit: executeSelectedCommand)
+                    .font(.title2)
+                    .focused($isTextFieldFocused)
                     .onKeyPress(.upArrow) {
                         selectedIndex = max(0, selectedIndex - 1)
                         return .handled
@@ -64,7 +65,7 @@ struct CommandPaletteView: View {
             }
         }
         .frame(width: 600)
-        .background(.ultraThickMaterial)
+        .background(Color(NSColor.windowBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(radius: 20)
         .padding()
@@ -73,12 +74,9 @@ struct CommandPaletteView: View {
             query = ""
             selectedIndex = 0
             
-            // 延迟聚焦到输入框
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                // 确保窗口是活跃的
-                if let window = NSApplication.shared.keyWindow {
-                    window.makeKeyAndOrderFront(nil)
-                }
+            // 立即聚焦到输入框
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                isTextFieldFocused = true
             }
         }
         .onChange(of: query) { _, newQuery in
@@ -92,6 +90,13 @@ struct CommandPaletteView: View {
             )
             selectedIndex = 0
         }
+        .background(
+            Button("") {
+                createNewLayer()
+            }
+            .keyboardShortcut("r", modifiers: .command)
+            .hidden()
+        )
     }
     
     private var availableCommands: [Command] {
@@ -101,12 +106,7 @@ struct CommandPaletteView: View {
             selectedTag: store.selectedTag
         )
         
-        let commands = commandParser.parse(query, context: context)
-        print("🎯 CommandPalette availableCommands: query='\(query)', commands=\(commands.count)")
-        for (i, cmd) in commands.enumerated() {
-            print("  \(i): '\(cmd.title)' - '\(cmd.description)'")
-        }
-        return commands
+        return commandParser.parse(query, context: context)
     }
     
     private func executeSelectedCommand() {
@@ -176,6 +176,32 @@ struct CommandPaletteView: View {
             }
         }
     }
+    
+    private func createNewLayer() {
+        guard !query.isEmpty else { return }
+        
+        // 检查是否已存在同名层
+        let existingLayer = store.layers.first { 
+            $0.name.lowercased() == query.lowercased() || 
+            $0.displayName.lowercased() == query.lowercased() 
+        }
+        
+        if existingLayer == nil {
+            // 创建新层
+            let newLayer = store.createLayer(name: query.lowercased(), displayName: query)
+            
+            // 切换到新层
+            Task {
+                await store.switchToLayer(newLayer)
+                await MainActor.run {
+                    print("已创建并切换到新层: \(newLayer.displayName)")
+                    isPresented = false
+                }
+            }
+        } else {
+            print("层 '\(query)' 已存在")
+        }
+    }
 }
 
 // MARK: - 新命令行视图
@@ -189,19 +215,19 @@ private struct NewCommandRowView: View {
         Button(action: onTap) {
             HStack(spacing: 12) {
                 Image(systemName: command.icon)
-                    .font(.title3)
+                    .font(.title2)
                     .foregroundColor(iconColor)
-                    .frame(width: 24)
+                    .frame(width: 28)
                 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(command.title)
-                        .font(.body)
-                        .fontWeight(.medium)
+                        .font(.title3)
+                        .fontWeight(.semibold)
                         .foregroundColor(.primary)
                         .lineLimit(1)
                     
                     Text(command.description)
-                        .font(.caption)
+                        .font(.body)
                         .foregroundColor(.secondary)
                         .lineLimit(1)
                 }
@@ -255,6 +281,7 @@ extension Notification.Name {
     static let addNewWord = Notification.Name("addNewWord")
     static let focusSearch = Notification.Name("focusSearch")
 }
+
 
 #Preview {
     CommandPaletteView(isPresented: .constant(true))
