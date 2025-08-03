@@ -93,6 +93,7 @@ struct CommandPaletteView: View {
         .background(
             Button("") {
                 createNewLayer()
+    
             }
             .keyboardShortcut("r", modifiers: .command)
             .hidden()

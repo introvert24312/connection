@@ -443,7 +443,10 @@ public struct SearchWordsCommand: Command {
         // Wait a bit for the search to process
         try await Task.sleep(nanoseconds: 300_000_000)
         
-        return .searchPerformed(results: context.store.searchResults)
+        return .searchPerformed(results: context.store.searchResults.map { word in
+            let node = Node(text: word.text, phonetic: word.phonetic, meaning: word.meaning, layerId: UUID(), tags: word.tags)
+            return SearchResult(node: node, score: 1.0, matchedFields: [.text])
+        })
     }
 }
 
@@ -521,7 +524,7 @@ public struct AddTagCommand: Command {
         }
         
         let tag = context.store.createTag(type: tagType, value: value)
-        context.store.addTag(to: wordId, tag: tag)
+        context.store.addTag(tag)
         
         if let word = context.store.words.first(where: { $0.id == wordId }) {
             return .tagAdded(tag, to: word)

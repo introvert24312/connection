@@ -298,18 +298,19 @@ struct SearchSettingsView: View {
 
 struct DataManagementView: View {
     @EnvironmentObject private var store: WordStore
-    @State private var showingExportDialog = false
-    @State private var showingImportDialog = false
-    @State private var showingImportOptionsDialog = false
+    @StateObject private var dataManager = ExternalDataManager.shared
+    @StateObject private var dataService = ExternalDataService.shared
     @State private var showingClearDataAlert = false
     @State private var showingResultAlert = false
     @State private var resultMessage = ""
     @State private var isSuccess = false
-    @State private var importValidationResult: ImportValidationResult?
     
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                // 外部数据存储设置
+                ExternalDataStoragePanel()
+                
                 // 数据统计
                 GroupBox("数据统计") {
                     Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
@@ -322,6 +323,20 @@ struct DataManagementView: View {
                         
                         Divider()
                             .gridCellUnsizedAxes(.horizontal)
+                        
+                        GridRow {
+                            Text("层数量")
+                                .foregroundColor(.secondary)
+                            Text("\(store.layers.count)")
+                                .fontWeight(.medium)
+                        }
+                        
+                        GridRow {
+                            Text("节点总数")
+                                .foregroundColor(.secondary)
+                            Text("\(store.nodes.count)")
+                                .fontWeight(.medium)
+                        }
                         
                         GridRow {
                             Text("单词总数")
@@ -359,82 +374,6 @@ struct DataManagementView: View {
                     .padding(12)
                 }
                 
-                // 数据操作
-                GroupBox("数据备份与恢复") {
-                    VStack(alignment: .leading, spacing: 16) {
-                        // 导出功能
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Image(systemName: "square.and.arrow.up")
-                                    .foregroundColor(.blue)
-                                Text("导出数据")
-                                    .fontWeight(.medium)
-                                Spacer()
-                            }
-                            
-                            Text("将所有单词和标签数据导出为JSON文件")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            
-                            if !store.words.isEmpty {
-                                let summary = store.getExportSummary()
-                                HStack(spacing: 12) {
-                                    Label("\(summary.totalWords)", systemImage: "textformat")
-                                    Label("\(summary.totalTags)", systemImage: "tag")
-                                    Label("\(summary.wordsWithLocation)", systemImage: "location")
-                                }
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                            }
-                            
-                            Button(action: exportData) {
-                                HStack {
-                                    if store.isExporting {
-                                        ProgressView()
-                                            .scaleEffect(0.8)
-                                    } else {
-                                        Image(systemName: "square.and.arrow.up")
-                                    }
-                                    Text("导出数据文件")
-                                }
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(store.isExporting || store.words.isEmpty)
-                        }
-                        
-                        Divider()
-                        
-                        // 导入功能
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Image(systemName: "square.and.arrow.down")
-                                    .foregroundColor(.green)
-                                Text("导入数据")
-                                    .fontWeight(.medium)
-                                Spacer()
-                            }
-                            
-                            Text("从JSON文件导入单词和标签数据")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            
-                            Button(action: { showingImportOptionsDialog = true }) {
-                                HStack {
-                                    if store.isImporting {
-                                        ProgressView()
-                                            .scaleEffect(0.8)
-                                    } else {
-                                        Image(systemName: "square.and.arrow.down")
-                                    }
-                                    Text("选择导入文件")
-                                }
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(store.isImporting)
-                        }
-                    }
-                    .padding(12)
-                }
                 
                 // 危险操作区域
                 GroupBox("危险操作") {
@@ -451,13 +390,20 @@ struct DataManagementView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                         
+                        if dataManager.isDataPathSelected {
+                            Text("⚠️ 同时会清除外部存储文件中的所有数据")
+                                .font(.caption2)
+                                .foregroundColor(.orange)
+                                .padding(.top, 2)
+                        }
+                        
                         Button("清除所有数据") {
                             showingClearDataAlert = true
                         }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.small)
                         .tint(.red)
-                        .disabled(store.words.isEmpty)
+                        .disabled(store.words.isEmpty && store.nodes.isEmpty)
                     }
                     .padding(12)
                 }
@@ -474,64 +420,40 @@ struct DataManagementView: View {
         } message: {
             Text("此操作将删除所有单词和标签数据，且无法撤销。")
         }
-        .alert("导入选项", isPresented: $showingImportOptionsDialog) {
-            Button("合并数据", action: { importData(replaceExisting: false) })
-            Button("替换数据", role: .destructive, action: { importData(replaceExisting: true) })
-            Button("取消", role: .cancel) { }
-        } message: {
-            Text("选择导入方式：合并会添加新数据到现有数据中，替换会清除所有现有数据。")
-        }
         .alert(isSuccess ? "成功" : "错误", isPresented: $showingResultAlert) {
             Button("确定") { }
-            if let result = importValidationResult, result.hasWarnings {
-                Button("查看详情") {
-                    showImportDetails()
-                }
-            }
         } message: {
             Text(resultMessage)
         }
     }
     
-    private func exportData() {
-        store.exportData { success, message in
-            isSuccess = success
-            resultMessage = message ?? (success ? "导出成功" : "导出失败")
-            showingResultAlert = true
-        }
-    }
-    
-    private func importData(replaceExisting: Bool) {
-        store.importData(replaceExisting: replaceExisting) { success, message, validationResult in
-            isSuccess = success
-            resultMessage = message ?? (success ? "导入成功" : "导入失败")
-            importValidationResult = validationResult
-            showingResultAlert = true
-        }
-    }
-    
     private func clearAllData() {
+        // 清除内存数据
         store.clearAllData()
-        resultMessage = "所有数据已清除"
-        isSuccess = true
-        showingResultAlert = true
-    }
-    
-    private func showImportDetails() {
-        guard let result = importValidationResult else { return }
         
-        var details = "导入详情:\n"
-        details += "原始数量: \(result.originalCount)\n"
-        details += "有效数量: \(result.validCount)\n"
-        
-        if result.hasWarnings {
-            details += "\n警告:\n"
-            for warning in result.warnings {
-                details += "• \(warning)\n"
+        // 如果有外部数据存储，也清除外部文件
+        if dataManager.isDataPathSelected {
+            Task {
+                do {
+                    try await dataService.saveAllData(store: store)
+                    await MainActor.run {
+                        resultMessage = "所有数据已清除（包括外部存储）"
+                        isSuccess = true
+                        showingResultAlert = true
+                    }
+                } catch {
+                    await MainActor.run {
+                        resultMessage = "数据已清除，但同步外部存储失败: \(error.localizedDescription)"
+                        isSuccess = false
+                        showingResultAlert = true
+                    }
+                }
             }
+        } else {
+            resultMessage = "所有数据已清除"
+            isSuccess = true
+            showingResultAlert = true
         }
-        
-        print(details) // 在控制台显示详情，也可以显示在单独的窗口中
     }
 }
 
@@ -641,6 +563,280 @@ struct FeatureRow: View {
     }
 }
 
+// MARK: - 外部数据存储面板
+
+struct ExternalDataStoragePanel: View {
+    @StateObject private var dataManager = ExternalDataManager.shared
+    @StateObject private var dataService = ExternalDataService.shared
+    
+    var body: some View {
+        GroupBox(label: Text("外部数据存储").font(.headline)) {
+            VStack(alignment: .leading, spacing: 12) {
+                
+                if dataManager.isDataPathSelected {
+                    // 当前路径
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("存储位置:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Text(dataManager.currentDataPath?.path ?? "未设置")
+                            .font(.system(.caption, design: .monospaced))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color(.controlBackgroundColor))
+                            .cornerRadius(4)
+                    }
+                    
+                    // 同步状态
+                    HStack {
+                        Circle()
+                            .fill(dataService.isSaving ? .orange : .green)
+                            .frame(width: 6, height: 6)
+                        
+                        Text(dataService.isSaving ? "同步中..." : "已同步")
+                            .font(.caption)
+                        
+                        Spacer()
+                        
+                        if let lastSync = dataService.lastSyncTime {
+                            Text(formatTime(lastSync))
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                } else {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("未设置外部数据存储位置")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Text("📁 选择文件夹来启用外部数据存储")
+                            .font(.caption2)
+                            .foregroundColor(.blue)
+                    }
+                }
+                
+                // 错误提示
+                if let error = dataManager.lastError {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                            .font(.caption)
+                        
+                        Text(error)
+                            .font(.caption2)
+                            .foregroundColor(.orange)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.orange.opacity(0.1))
+                    .cornerRadius(4)
+                }
+                
+                // 操作按钮
+                HStack {
+                    Button(dataManager.isDataPathSelected ? "更改" : "设置") {
+                        // 清除之前的错误
+                        dataManager.lastError = nil
+                        dataManager.selectDataFolder()
+                    }
+                    .buttonStyle(.bordered)
+                    
+                    if dataManager.isDataPathSelected {
+                        Button("清除") {
+                            dataManager.clearDataPath()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    
+                    // 如果有错误，显示重试按钮
+                    if dataManager.lastError != nil {
+                        Button("重试") {
+                            dataManager.lastError = nil
+                            dataManager.selectDataFolder()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                    }
+                }
+                
+                // 错误提示
+                if let error = dataManager.lastError {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                            .font(.caption)
+                        
+                        Text(error)
+                            .font(.caption2)
+                            .foregroundColor(.orange)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.orange.opacity(0.1))
+                    .cornerRadius(4)
+                }
+            }
+            .padding(.vertical, 8)
+        }
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+}
+
+// MARK: - 数据文件夹设置弹窗
+
+struct DataFolderSetupView: View {
+    @StateObject private var dataManager = ExternalDataManager.shared
+    @StateObject private var dataService = ExternalDataService.shared
+    @Binding var isPresented: Bool
+    
+    var body: some View {
+        VStack(spacing: 24) {
+            // 标题
+            VStack(spacing: 8) {
+                Image(systemName: "folder.badge.gearshape")
+                    .font(.system(size: 48))
+                    .foregroundColor(.blue)
+                
+                Text("设置数据存储位置")
+                    .font(.title)
+                    .fontWeight(.bold)
+                
+                Text("选择一个文件夹来存储WordTagger的数据")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            
+            // 当前路径显示
+            if let currentPath = dataManager.currentDataPath {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("当前数据路径:")
+                        .font(.headline)
+                    
+                    HStack {
+                        Image(systemName: "folder.fill")
+                            .foregroundColor(.blue)
+                        
+                        Text(currentPath.path)
+                            .font(.system(.body, design: .monospaced))
+                            .foregroundColor(.secondary)
+                            .lineLimit(2)
+                        
+                        Spacer()
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color(.controlBackgroundColor))
+                    .cornerRadius(8)
+                }
+            }
+            
+            // 错误信息
+            if let error = dataManager.lastError {
+                HStack {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.red)
+                    
+                    Text(error)
+                        .font(.body)
+                        .foregroundColor(.red)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.red.opacity(0.1))
+                .cornerRadius(8)
+            }
+            
+            // 同步状态
+            if dataManager.isDataPathSelected {
+                HStack {
+                    Circle()
+                        .fill(dataService.isSaving ? .orange : .green)
+                        .frame(width: 8, height: 8)
+                    
+                    Text(dataService.isSaving ? "同步中..." : "已同步")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    if let lastSync = dataService.lastSyncTime {
+                        Text("• 上次同步: \(formatTime(lastSync))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            
+            Spacer()
+            
+            // 操作按钮
+            VStack(spacing: 12) {
+                // 选择文件夹按钮
+                Button(action: {
+                    dataManager.selectDataFolder()
+                }) {
+                    HStack {
+                        Image(systemName: "folder.badge.plus")
+                        Text(dataManager.isDataPathSelected ? "更改数据文件夹" : "选择数据文件夹")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                }
+                
+                // 完成按钮
+                if dataManager.isDataPathSelected {
+                    Button(action: {
+                        isPresented = false
+                    }) {
+                        HStack {
+                            Image(systemName: "checkmark")
+                            Text("完成设置")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.green)
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                    }
+                }
+                
+                // 取消按钮
+                Button(action: {
+                    isPresented = false
+                }) {
+                    Text("取消")
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color(.controlBackgroundColor))
+                        .foregroundColor(.primary)
+                        .cornerRadius(10)
+                }
+            }
+        }
+        .padding(32)
+        .frame(width: 500, height: 600)
+        .background(Color(.windowBackgroundColor))
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+    
+}
 
 #Preview {
     SettingsView()

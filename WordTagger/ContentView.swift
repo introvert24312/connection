@@ -4,8 +4,10 @@ import MapKit
 
 struct ContentView: View {
     @EnvironmentObject private var store: WordStore
+    @StateObject private var dataManager = ExternalDataManager.shared
     @State private var selectedWord: Word?
     @State private var showSidebar: Bool = true
+    @State private var showingDataSetup = false
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -100,6 +102,13 @@ struct ContentView: View {
                     showSidebar.toggle()
                 }
             }
+            
+            // 检查数据路径设置
+            if !dataManager.isDataPathSelected {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    showingDataSetup = true
+                }
+            }
         }
         .onChange(of: store.selectedWord) { _, newValue in
             DispatchQueue.main.async {
@@ -113,6 +122,9 @@ struct ContentView: View {
                     selectedWord = nil
                 }
             }
+        }
+        .sheet(isPresented: $showingDataSetup) {
+            DataFolderSetupView(isPresented: $showingDataSetup)
         }
     }
 }

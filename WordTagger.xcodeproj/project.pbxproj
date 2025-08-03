@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		54209B7C2E3F248300388A1B /* ExternalDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54209B7B2E3F248300388A1B /* ExternalDataService.swift */; };
+		54209B7D2E3F248300388A1B /* ExternalDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54209B7A2E3F248300388A1B /* ExternalDataManager.swift */; };
 		A001 /* WordTaggerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101 /* WordTaggerApp.swift */; };
 		A002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B102 /* ContentView.swift */; };
 		A003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B103 /* Assets.xcassets */; };
@@ -30,7 +32,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		C100 /* WordTagger.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WordTagger.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		54209B7A2E3F248300388A1B /* ExternalDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalDataManager.swift; sourceTree = "<group>"; };
+		54209B7B2E3F248300388A1B /* ExternalDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalDataService.swift; sourceTree = "<group>"; };
 		B101 /* WordTaggerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordTaggerApp.swift; sourceTree = "<group>"; };
 		B102 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		B103 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -49,9 +52,10 @@
 		B116 /* WordListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordListView.swift; sourceTree = "<group>"; };
 		B117 /* MapWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapWindow.swift; sourceTree = "<group>"; };
 		B118 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-	B120 /* WordTagger.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WordTagger.entitlements; sourceTree = "<group>"; };
+		B120 /* WordTagger.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WordTagger.entitlements; sourceTree = "<group>"; };
 		B121 /* UniversalRelationshipGraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UniversalRelationshipGraphView.swift; sourceTree = "<group>"; };
 		B122 /* WordManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordManagerView.swift; sourceTree = "<group>"; };
+		C100 /* WordTagger.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WordTagger.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -84,6 +88,8 @@
 		E302 /* WordTagger */ = {
 			isa = PBXGroup;
 			children = (
+				54209B7A2E3F248300388A1B /* ExternalDataManager.swift */,
+				54209B7B2E3F248300388A1B /* ExternalDataService.swift */,
 				B101 /* WordTaggerApp.swift */,
 				B102 /* ContentView.swift */,
 				B104 /* Models.swift */,
@@ -196,6 +202,8 @@
 				A017 /* MapWindow.swift in Sources */,
 				A018 /* SettingsView.swift in Sources */,
 				A020 /* UniversalRelationshipGraphView.swift in Sources */,
+				54209B7C2E3F248300388A1B /* ExternalDataService.swift in Sources */,
+				54209B7D2E3F248300388A1B /* ExternalDataManager.swift in Sources */,
 				A021 /* WordManagerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
