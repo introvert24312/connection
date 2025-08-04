@@ -172,6 +172,12 @@ class TagMappingManager: ObservableObject {
         return customTagType
     }
     
+    // 检查是否是地图/位置标签的key
+    private func isLocationTagKey(_ key: String) -> Bool {
+        let locationKeys = ["loc", "location", "地点", "位置"]
+        return locationKeys.contains(key.lowercased())
+    }
+    
     // 删除标签映射
     func deleteMapping(withId id: UUID) {
         print("🗑️ TagMappingManager.deleteMapping() 开始")
@@ -631,8 +637,8 @@ struct QuickAddSheetView: View {
                 if i + 1 < components.count { 
                     let content = components[i + 1]
                     
-                    // 检查是否是location标签
-                    if tagType == .location {
+                    // 检查是否是地图标签（通过key识别）
+                    if isLocationTagKey(tagKey) {
                         var locationName: String = ""
                         var lat: Double = 0
                         var lng: Double = 0
@@ -956,8 +962,8 @@ struct QuickAddView: View {
                 if i + 1 < components.count {
                     let content = components[i + 1]
                     
-                    // 检查是否是location标签且包含坐标信息
-                    if tagType == .location && content.contains("@") {
+                    // 检查是否是地图标签且包含坐标信息
+                    if isLocationTagKey(tagKey) && content.contains("@") {
                         var locationName: String = ""
                         var lat: Double = 0
                         var lng: Double = 0

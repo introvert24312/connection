@@ -345,9 +345,18 @@ struct WordMapView: View {
         )
     )
     
+    // 检查是否是地图/位置标签
+    private func isLocationTag(_ tag: Tag) -> Bool {
+        if case .custom(let key) = tag.type {
+            let locationKeys = ["loc", "location", "地点", "位置"]
+            return locationKeys.contains(key.lowercased())
+        }
+        return false
+    }
+    
     private var locationTags: [Tag] {
         let allTags = word.tags
-        let locationTypeTags = allTags.filter { $0.type == .location }
+        let locationTypeTags = allTags.filter { isLocationTag($0) }
         let locationWithCoords = word.locationTags
         
         print("🔍 DetailPanel调试:")
@@ -368,7 +377,7 @@ struct WordMapView: View {
         Group {
             if locationTags.isEmpty {
                 // 检查是否有location类型但没有坐标的标签
-                let locationTagsWithoutCoords = word.tags.filter { $0.type == .location && !$0.hasCoordinates }
+                let locationTagsWithoutCoords = word.tags.filter { isLocationTag($0) && !$0.hasCoordinates }
                 
                 VStack(spacing: 16) {
                     Spacer()

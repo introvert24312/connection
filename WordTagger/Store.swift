@@ -790,8 +790,17 @@ public final class WordStore: ObservableObject {
     
     public func findLocationTagByName(_ name: String) -> Tag? {
         return allTags.first { tag in
-            tag.type == .location && tag.displayName == name
+            isLocationTag(tag) && tag.displayName == name
         }
+    }
+    
+    // 检查是否是地图/位置标签
+    private func isLocationTag(_ tag: Tag) -> Bool {
+        if case .custom(let key) = tag.type {
+            let locationKeys = ["loc", "location", "地点", "位置"]
+            return locationKeys.contains(key.lowercased())
+        }
+        return false
     }
     
     public func removeTag(from wordId: UUID, tagId: UUID) {

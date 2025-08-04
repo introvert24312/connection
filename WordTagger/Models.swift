@@ -173,7 +173,16 @@ public struct Tag: Identifiable, Hashable, Codable {
     
     // 是否为地点标签且有坐标
     public var hasCoordinates: Bool {
-        return type == .location && latitude != nil && longitude != nil
+        return isLocationTag() && latitude != nil && longitude != nil
+    }
+    
+    // 检查是否是地图/位置标签
+    private func isLocationTag() -> Bool {
+        if case .custom(let key) = type {
+            let locationKeys = ["loc", "location", "地点", "位置"]
+            return locationKeys.contains(key.lowercased())
+        }
+        return false
     }
     
     // 显示名称：如果value包含[显示名]格式，则返回[]内的内容，否则返回原value
