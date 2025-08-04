@@ -35,6 +35,69 @@ class TagMappingManager: ObservableObject {
         saveToUserDefaults()
     }
     
+    // 动态添加缺失的标签映射
+    func addMappingIfNeeded(key: String, typeName: String) {
+        // 检查是否已存在该映射
+        if !tagMappings.contains(where: { $0.key == key.lowercased() }) {
+            let newMapping = TagMapping(key: key.lowercased(), typeName: typeName)
+            tagMappings.append(newMapping)
+            saveToUserDefaults()
+            print("🔄 自动添加标签映射: \(key) -> \(typeName)")
+        }
+    }
+    
+    // 智能解析token为TagType，支持动态创建
+    func parseTokenToTagType(_ token: String, store: WordStore? = nil) -> Tag.TagType? {
+        let lowerToken = token.lowercased()
+        
+        // 1. 首先检查TagMappingManager中的映射
+        if let (typeName, tagType) = mappingDictionary[lowerToken] {
+            print("✅ 找到标签映射: \(lowerToken) -> \(typeName) (\(tagType))")
+            return tagType
+        }
+        
+        // 2. 根据原始值匹配预定义类型
+        switch lowerToken {
+        case "memory": return .memory
+        case "location", "loc": return .location  // 支持 location 和 loc 两种写法
+        case "root": return .root
+        case "shape": return .shape
+        case "sound": return .sound
+        default: break
+        }
+        
+        // 3. 根据显示名称匹配预定义类型
+        for tagType in Tag.TagType.allCases {
+            if tagType.displayName == token || tagType.rawValue == lowerToken {
+                return tagType
+            }
+        }
+        
+        // 4. 检查已存在的自定义标签类型（如果提供了store）
+        if let store = store {
+            let allExistingTags = store.allTags
+            for existingTag in allExistingTags {
+                if case .custom(let customName) = existingTag.type {
+                    // 检查是否匹配自定义标签的名称或token
+                    if customName.lowercased() == lowerToken || 
+                       existingTag.type.displayName.lowercased() == lowerToken {
+                        print("✅ 找到已有自定义标签类型: \(lowerToken) -> \(customName)")
+                        return existingTag.type
+                    }
+                }
+            }
+        }
+        
+        // 5. 创建新的自定义标签类型并自动添加到映射管理器
+        print("🆕 创建新的自定义标签类型: \(token)")
+        let customTagType = Tag.TagType.custom(token)
+        
+        // 自动添加到标签映射管理器
+        addMappingIfNeeded(key: lowerToken, typeName: token)
+        
+        return customTagType
+    }
+    
     // 删除标签映射
     func deleteMapping(withId id: UUID) {
         tagMappings.removeAll { $0.id == id }
@@ -49,7 +112,8 @@ class TagMappingManager: ObservableObject {
             TagMapping(key: "loc", typeName: "地点"),
             TagMapping(key: "time", typeName: "时间"),
             TagMapping(key: "shape", typeName: "形近"),
-            TagMapping(key: "sound", typeName: "音近")
+            TagMapping(key: "sound", typeName: "音近"),
+            TagMapping(key: "sub", typeName: "子类")
         ]
         saveToUserDefaults()
     }
@@ -68,9 +132,40 @@ class TagMappingManager: ObservableObject {
         if let data = UserDefaults.standard.data(forKey: userDefaultsKey),
            let savedMappings = try? decoder.decode([TagMapping].self, from: data) {
             tagMappings = savedMappings
+            
+            // 迁移：确保包含新的默认映射
+            migrateToLatestMappings()
         } else {
             // 如果没有保存的数据，使用默认值
             resetToDefaults()
+        }
+    }
+    
+    // 迁移到最新的映射（确保新添加的默认映射被包含）
+    private func migrateToLatestMappings() {
+        let defaultMappings = [
+            ("root", "词根"),
+            ("memory", "记忆"),
+            ("loc", "地点"),
+            ("time", "时间"),
+            ("shape", "形近"),
+            ("sound", "音近"),
+            ("sub", "子类")
+        ]
+        
+        var hasChanges = false
+        
+        for (key, typeName) in defaultMappings {
+            if !tagMappings.contains(where: { $0.key == key }) {
+                let newMapping = TagMapping(key: key, typeName: typeName)
+                tagMappings.append(newMapping)
+                hasChanges = true
+                print("🔄 迁移添加标签映射: \(key) -> \(typeName)")
+            }
+        }
+        
+        if hasChanges {
+            saveToUserDefaults()
         }
     }
 }
@@ -329,8 +424,8 @@ struct QuickAddSheetView: View {
         var i = 1
         
         while i < components.count {
-            let tagKey = components[i].lowercased()
-            if let (_, tagType) = tagManager.mappingDictionary[tagKey] {
+            let tagKey = components[i]
+            if let tagType = tagManager.parseTokenToTagType(tagKey, store: store) {
                 if i + 1 < components.count { 
                     let content = components[i + 1]
                     
@@ -654,8 +749,8 @@ struct QuickAddView: View {
         var i = 1
         
         while i < components.count {
-            let tagKey = components[i].lowercased()
-            if let (_, tagType) = tagManager.mappingDictionary[tagKey] {
+            let tagKey = components[i]
+            if let tagType = tagManager.parseTokenToTagType(tagKey, store: store) {
                 if i + 1 < components.count {
                     let content = components[i + 1]
                     

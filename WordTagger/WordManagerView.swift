@@ -918,26 +918,8 @@ struct TagEditCommandView: View {
     }
     
     private func mapTokenToTagType(_ token: String) -> Tag.TagType? {
-        let lowerToken = token.lowercased()
-        
-        // 根据原始值匹配
-        switch lowerToken {
-        case "memory": return .memory
-        case "location", "loc": return .location  // 支持 location 和 loc 两种写法
-        case "root": return .root
-        case "shape": return .shape
-        case "sound": return .sound
-        default: break
-        }
-        
-        // 根据显示名称匹配
-        for tagType in Tag.TagType.allCases {
-            if tagType.displayName == token || tagType.rawValue == lowerToken {
-                return tagType
-            }
-        }
-        
-        return nil
+        let tagManager = TagMappingManager.shared
+        return tagManager.parseTokenToTagType(token, store: store)
     }
     
     private func openMapForLocationSelection() {
