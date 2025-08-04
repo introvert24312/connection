@@ -173,7 +173,7 @@ class TagMappingManager: ObservableObject {
     }
     
     // 检查是否是地图/位置标签的key
-    private func isLocationTagKey(_ key: String) -> Bool {
+    func isLocationTagKey(_ key: String) -> Bool {
         let locationKeys = ["loc", "location", "地点", "位置"]
         return locationKeys.contains(key.lowercased())
     }
@@ -638,7 +638,7 @@ struct QuickAddSheetView: View {
                     let content = components[i + 1]
                     
                     // 检查是否是地图标签（通过key识别）
-                    if isLocationTagKey(tagKey) {
+                    if tagManager.isLocationTagKey(tagKey) {
                         var locationName: String = ""
                         var lat: Double = 0
                         var lng: Double = 0
@@ -963,7 +963,7 @@ struct QuickAddView: View {
                     let content = components[i + 1]
                     
                     // 检查是否是地图标签且包含坐标信息
-                    if isLocationTagKey(tagKey) && content.contains("@") {
+                    if tagManager.isLocationTagKey(tagKey) && content.contains("@") {
                         var locationName: String = ""
                         var lat: Double = 0
                         var lng: Double = 0

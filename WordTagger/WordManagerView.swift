@@ -428,7 +428,7 @@ struct WordManagerRowView: View {
                         HStack(spacing: 6) {
                             ForEach(word.tags.prefix(5), id: \.id) { tag in
                                 Group {
-                                    if isLocationTagKey(getTagKey(tag)) && tag.hasCoordinates {
+                                    if case .custom(let key) = tag.type, TagMappingManager.shared.isLocationTagKey(key), tag.hasCoordinates {
                                         // 位置标签添加点击预览功能
                                         Button(action: {
                                             previewLocation(tag: tag)
@@ -551,10 +551,10 @@ struct TagEditCommandView: View {
         // 生成当前单词的完整命令
         let tagCommands = word.tags.map { tag in
             // 对于location标签且有坐标信息，生成完整的loc命令
-            if isLocationTagKey(getTagKey(tag)) && tag.hasCoordinates,
+            if case .custom(let key) = tag.type, TagMappingManager.shared.isLocationTagKey(key), tag.hasCoordinates,
                let lat = tag.latitude, let lng = tag.longitude {
                 return "loc @\(lat),\(lng)[\(tag.value)]"
-            } else if isLocationTagKey(getTagKey(tag)) {
+            } else if case .custom(let key) = tag.type, TagMappingManager.shared.isLocationTagKey(key) {
                 // 对于没有坐标的location标签，提供提示格式让用户补充坐标
                 return "loc @需要添加坐标[\(tag.value)]"
             } else {
@@ -810,7 +810,7 @@ struct TagEditCommandView: View {
                     let value = values.joined(separator: " ")
                     
                     // 检查是否是地图标签（通过key识别）
-                    if isLocationTagKey(tagKey) {
+                    if TagMappingManager.shared.isLocationTagKey(tagKey) {
                         var locationName: String = ""
                         var lat: Double = 0
                         var lng: Double = 0
@@ -876,7 +876,7 @@ struct TagEditCommandView: View {
                             newTags.append(tag)
                             print("✅ 创建位置标签: \(locationName) (\(lat), \(lng))")
                             print("✅ 标签详情: type=\(tag.type.rawValue), value=\(tag.value), hasCoords=\(tag.hasCoordinates)")
-                        } else if isLocationTagKey(tagKey) && !value.contains("@") {
+                        } else if TagMappingManager.shared.isLocationTagKey(tagKey) && !value.contains("@") {
                             // 如果是location标签但没有找到匹配的位置，提示用户
                             print("⚠️ 未找到位置标签: \(value)，请使用完整格式或确保该位置已存在")
                             // 创建无坐标的位置标签作为fallback
@@ -929,13 +929,6 @@ struct TagEditCommandView: View {
         return locationKeys.contains(key.lowercased())
     }
     
-    // 从标签中提取key
-    private func getTagKey(_ tag: Tag) -> String {
-        if case .custom(let key) = tag.type {
-            return key
-        }
-        return tag.type.rawValue
-    }
     
     private func openMapForLocationSelection() {
         // 发送通知打开地图窗口并进入位置选择模式
