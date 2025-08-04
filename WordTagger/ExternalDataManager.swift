@@ -473,11 +473,11 @@ public struct DataConfig: Codable {
 // MARK: - 外部数据存储模型
 
 public struct ExternalDataFormat: Codable {
-    let config: DataConfig
-    let layers: [Layer]
-    let nodes: [Node]
-    let metadata: DataMetadata
-    let tagMappings: [TagMapping]
+    public let config: DataConfig
+    public let layers: [Layer]
+    public let nodes: [Node]
+    public let metadata: DataMetadata
+    public let tagMappings: [TagMapping]
     
     public init(config: DataConfig, layers: [Layer], nodes: [Node], metadata: DataMetadata, tagMappings: [TagMapping] = []) {
         self.config = config

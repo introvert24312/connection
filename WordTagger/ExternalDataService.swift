@@ -384,6 +384,13 @@ public class ExternalDataService: ObservableObject {
             throw DataError.invalidPath
         }
         
+        // 确保备份文件夹存在
+        let backupDir = backupURL.deletingLastPathComponent()
+        if !FileManager.default.fileExists(atPath: backupDir.path) {
+            print("📁 创建备份文件夹: \(backupDir.path)")
+            try FileManager.default.createDirectory(at: backupDir, withIntermediateDirectories: true, attributes: nil)
+        }
+        
         let config = DataConfig(
             version: "1.0",
             createdAt: Date(),

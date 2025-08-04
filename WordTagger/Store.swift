@@ -721,14 +721,26 @@ public final class WordStore: ObservableObject {
         searchQuery = ""
         searchResults.removeAll()
         
-        // 重置标签映射到默认值
-        TagMappingManager.shared.resetToDefaults()
-        print("🏷️ 标签映射已重置为默认值")
+        // 完全清空标签映射
+        TagMappingManager.shared.clearAll()
+        print("🏷️ 标签映射已完全清空")
     }
     
     @MainActor
     public func resetToSampleData() {
-        clearAllData()
+        // 清理数据但保留默认标签映射
+        words.removeAll()
+        nodes.removeAll()
+        selectedWord = nil
+        selectedNode = nil
+        selectedTag = nil
+        searchQuery = ""
+        searchResults.removeAll()
+        
+        // 重置标签映射为默认值（不是完全清空）
+        TagMappingManager.shared.resetToDefaults()
+        print("🏷️ 标签映射已重置为默认值")
+        
         createSampleData()
         
         // 如果有外部数据存储，保存新的示例数据到外部存储

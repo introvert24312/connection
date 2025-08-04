@@ -256,6 +256,30 @@ class TagMappingManager: ObservableObject {
         print("✅ TagMappingManager.resetToDefaults() 完成")
     }
     
+    // 完全清空所有标签映射（用于彻底清除数据）
+    func clearAll() {
+        print("🗑️ TagMappingManager.clearAll() 开始")
+        print("   - 清空前映射数量: \(tagMappings.count)")
+        
+        tagMappings.removeAll()
+        
+        print("   - 清空后映射数量: \(tagMappings.count)")
+        
+        saveToUserDefaults()
+        
+        // 同步到外部存储
+        Task {
+            do {
+                try await ExternalDataService.shared.saveTagMappingsOnly()
+                print("✅ 标签映射清空已同步到外部存储")
+            } catch {
+                print("⚠️ 标签映射清空同步到外部存储失败: \(error)")
+            }
+        }
+        
+        print("✅ TagMappingManager.clearAll() 完成")
+    }
+    
     // 公共方法：重新从外部存储加载标签映射（用于切换位置时）
     @MainActor
     public func reloadFromExternalStorage() async {
