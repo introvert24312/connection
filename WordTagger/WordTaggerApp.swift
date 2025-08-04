@@ -238,7 +238,7 @@ struct TagMapping: Identifiable, Codable {
 
 struct QuickAddSheetView: View {
     @EnvironmentObject private var store: WordStore
-    @StateObject private var tagManager = TagMappingManager.shared
+    @ObservedObject private var tagManager = TagMappingManager.shared
     @Environment(\.presentationMode) var presentationMode
     @State private var inputText: String = ""
     @State private var suggestions: [String] = []
@@ -665,7 +665,7 @@ private struct QuickAddSuggestionRow: View {
 
 struct QuickAddView: View {
     @EnvironmentObject private var store: WordStore
-    @StateObject private var tagManager = TagMappingManager.shared
+    @ObservedObject private var tagManager = TagMappingManager.shared
     @State private var inputText: String = ""
     @State private var suggestions: [String] = []
     @State private var selectedSuggestionIndex: Int = -1
@@ -1159,7 +1159,7 @@ struct WordTaggerApp: App {
 // MARK: - Tag Manager View (New Implementation)
 
 struct TagManagerView: View {
-    @StateObject private var tagManager = TagMappingManager.shared
+    @ObservedObject private var tagManager = TagMappingManager.shared
     
     @State private var newKey: String = ""
     @State private var newTypeName: String = ""
