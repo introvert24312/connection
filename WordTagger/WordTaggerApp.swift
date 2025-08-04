@@ -374,19 +374,19 @@ class TagMappingManager: ObservableObject {
     }
 }
 
-struct TagMapping: Identifiable, Codable {
-    let id: UUID
-    let key: String
-    let typeName: String
+public struct TagMapping: Identifiable, Codable {
+    public let id: UUID
+    public let key: String
+    public let typeName: String
     
-    init(id: UUID = UUID(), key: String, typeName: String) {
+    public init(id: UUID = UUID(), key: String, typeName: String) {
         self.id = id
         self.key = key
         self.typeName = typeName
     }
     
     // 转换为 Tag.TagType
-    var tagType: Tag.TagType {
+    public var tagType: Tag.TagType {
         switch typeName {
         case "记忆": return .memory
         case "地点": return .location
