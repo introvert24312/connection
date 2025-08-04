@@ -638,33 +638,28 @@ struct ExternalDataStoragePanel: View {
                 
                 // 操作按钮
                 HStack {
-                    Button(dataManager.isDataPathSelected ? "更改" : "设置") {
-                        // 清除之前的错误
-                        dataManager.lastError = nil
-                        dataManager.selectDataFolder()
-                    }
-                    .buttonStyle(.bordered)
-                    
-                    if dataManager.isDataPathSelected {
-                        Button("保存") {
-                            Task {
+                    Button(dataManager.isDataPathSelected ? "更改位置" : "设置存储") {
+                        Task {
+                            // 清除之前的错误
+                            dataManager.lastError = nil
+                            dataManager.selectDataFolder()
+                            
+                            // 选择完成后自动保存并刷新
+                            if dataManager.isDataPathSelected {
                                 await store.forceSaveToExternalStorage()
+                                // 触发数据重新加载
+                                NotificationCenter.default.post(
+                                    name: .dataPathChanged,
+                                    object: dataManager,
+                                    userInfo: ["newPath": dataManager.currentDataPath ?? URL(fileURLWithPath: "")]
+                                )
                             }
                         }
-                        .buttonStyle(.bordered)
-                        .disabled(store.isLoading || dataService.isSaving)
-                        
-                        Button("刷新") {
-                            // 手动触发数据重新加载
-                            NotificationCenter.default.post(
-                                name: .dataPathChanged,
-                                object: dataManager,
-                                userInfo: ["newPath": dataManager.currentDataPath ?? URL(fileURLWithPath: "")]
-                            )
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(store.isLoading)
-                        
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(store.isLoading || dataService.isSaving)
+                    
+                    if dataManager.isDataPathSelected {
                         Button("清除") {
                             dataManager.clearDataPath()
                         }
@@ -674,29 +669,24 @@ struct ExternalDataStoragePanel: View {
                     // 如果有错误，显示重试按钮
                     if dataManager.lastError != nil {
                         Button("重试") {
-                            dataManager.lastError = nil
-                            dataManager.selectDataFolder()
+                            Task {
+                                dataManager.lastError = nil
+                                dataManager.selectDataFolder()
+                                
+                                // 重试成功后也自动保存并刷新
+                                if dataManager.isDataPathSelected {
+                                    await store.forceSaveToExternalStorage()
+                                    NotificationCenter.default.post(
+                                        name: .dataPathChanged,
+                                        object: dataManager,
+                                        userInfo: ["newPath": dataManager.currentDataPath ?? URL(fileURLWithPath: "")]
+                                    )
+                                }
+                            }
                         }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.small)
                     }
-                }
-                
-                // 错误提示
-                if let error = dataManager.lastError {
-                    HStack {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(.orange)
-                            .font(.caption)
-                        
-                        Text(error)
-                            .font(.caption2)
-                            .foregroundColor(.orange)
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.orange.opacity(0.1))
-                    .cornerRadius(4)
                 }
             }
             .padding(.vertical, 8)

@@ -21,6 +21,7 @@ public final class WordStore: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private let externalDataService = ExternalDataService.shared
     private let externalDataManager = ExternalDataManager.shared
+    private var isLoadingFromExternal = false
     
     public static let shared = WordStore()
     
@@ -40,6 +41,7 @@ public final class WordStore: ObservableObject {
         // 尝试加载外部数据
         Task {
             do {
+                isLoadingFromExternal = true
                 let (loadedLayers, loadedNodes, loadedWords) = try await externalDataService.loadAllData()
                 
                 await MainActor.run {
@@ -57,9 +59,13 @@ public final class WordStore: ObservableObject {
                         
                         print("📚 从外部存储加载了 \(loadedNodes.count) 个节点和 \(loadedWords.count) 个单词，分布在 \(loadedLayers.count) 个层中")
                     }
+                    self.isLoadingFromExternal = false
                 }
             } catch {
                 print("⚠️ 加载外部数据失败: \(error)")
+                await MainActor.run {
+                    self.isLoadingFromExternal = false
+                }
                 // 使用默认示例数据
                 await MainActor.run {
                     if self.nodes.isEmpty {
@@ -102,6 +108,11 @@ public final class WordStore: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] (words, nodes, layers) in
                 guard let self = self else { return }
+                
+                // 如果正在从外部存储加载数据，跳过自动同步
+                if self.isLoadingFromExternal {
+                    return
+                }
                 
                 print("🔄 数据变化触发自动同步:")
                 print("   - Words: \(words.count) 个")
@@ -167,6 +178,7 @@ public final class WordStore: ObservableObject {
     @MainActor
     private func reloadDataFromExternalStorage() async {
         do {
+            isLoadingFromExternal = true
             isLoading = true
             let (loadedLayers, loadedNodes, loadedWords) = try await externalDataService.loadAllData()
             
@@ -191,10 +203,12 @@ public final class WordStore: ObservableObject {
             }
             
             isLoading = false
+            isLoadingFromExternal = false
             
         } catch {
             print("⚠️ 重新加载数据失败: \(error)")
             isLoading = false
+            isLoadingFromExternal = false
             
             // 如果加载失败，至少保存当前数据到新路径
             Task {
@@ -650,6 +664,14 @@ public final class WordStore: ObservableObject {
         do {
             try await externalDataService.saveAllData(store: self)
             print("✅ 手动保存成功")
+            
+            // 保存成功后自动刷新数据，避免手动点击刷新按钮
+            print("🔄 保存成功，自动触发界面刷新...")
+            NotificationCenter.default.post(
+                name: .dataPathChanged,
+                object: externalDataManager,
+                userInfo: ["newPath": externalDataManager.currentDataPath ?? URL(fileURLWithPath: "")]
+            )
         } catch {
             print("❌ 手动保存失败: \(error)")
         }
