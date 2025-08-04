@@ -505,13 +505,30 @@ public final class WordStore: ObservableObject {
     
     @MainActor
     public func deleteLayer(_ layer: Layer) {
-        layers.removeAll { $0.id == layer.id }
-        // 删除该层的所有节点
+        print("🗑️ 删除层: \(layer.displayName) (ID: \(layer.id))")
+        
+        // 删除该层中的所有节点
+        let nodesToDelete = nodes.filter { $0.layerId == layer.id }
+        print("🗑️ 将删除 \(nodesToDelete.count) 个节点")
         nodes.removeAll { $0.layerId == layer.id }
         
+        // 删除层
+        layers.removeAll { $0.id == layer.id }
+        
+        // 如果删除的是当前层，切换到其他层
         if currentLayer?.id == layer.id {
             currentLayer = layers.first
+            if let newLayer = currentLayer {
+                print("🔄 切换到新的当前层: \(newLayer.displayName)")
+            } else {
+                print("⚠️ 没有剩余的层，当前层为空")
+            }
         }
+        
+        // 强制触发UI更新
+        objectWillChange.send()
+        
+        print("✅ 层删除完成，剩余 \(layers.count) 个层")
     }
     
     // MARK: - 标签功能
@@ -713,6 +730,8 @@ public final class WordStore: ObservableObject {
     
     @MainActor
     public func clearAllData() {
+        print("🧹 开始彻底清理所有数据...")
+        
         words.removeAll()
         nodes.removeAll()
         layers.removeAll()  // 清空所有层
@@ -727,6 +746,36 @@ public final class WordStore: ObservableObject {
         TagMappingManager.shared.clearAll()
         print("🏷️ 标签映射已完全清空")
         print("📂 所有层已清空")
+        
+        // 强制触发UI更新
+        objectWillChange.send()
+        
+        // 如果需要，清理外部数据缓存
+        if externalDataManager.isDataPathSelected {
+            Task {
+                do {
+                    try await externalDataService.clearAllExternalData()
+                    print("✅ 外部数据也已清理")
+                } catch {
+                    print("⚠️ 清理外部数据时出错: \(error)")
+                }
+            }
+        }
+        
+        print("✅ 数据清理完成")
+    }
+    
+    // 强制刷新所有数据和界面
+    @MainActor
+    public func forceRefreshUI() {
+        print("🔄 强制刷新UI...")
+        objectWillChange.send()
+        
+        // 延迟再次触发，确保界面完全刷新
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.objectWillChange.send()
+            print("✅ UI刷新完成")
+        }
     }
     
     @MainActor

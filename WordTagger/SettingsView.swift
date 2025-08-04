@@ -702,13 +702,24 @@ struct DataManagementView: View {
                                 .padding(.top, 2)
                         }
                         
-                        Button("清除所有数据") {
-                            showingClearDataAlert = true
+                        HStack(spacing: 8) {
+                            Button("清除所有数据") {
+                                showingClearDataAlert = true
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
+                            .tint(.red)
+                            .disabled(store.words.isEmpty && store.nodes.isEmpty)
+                            
+                            Button("强制刷新界面") {
+                                store.forceRefreshUI()
+                                resultMessage = "界面已强制刷新"
+                                isSuccess = true
+                                showingResultAlert = true
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
-                        .tint(.red)
-                        .disabled(store.words.isEmpty && store.nodes.isEmpty)
                     }
                     .padding(12)
                 }
