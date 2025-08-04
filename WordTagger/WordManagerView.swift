@@ -835,26 +835,44 @@ struct TagEditCommandView: View {
                         }
                         // 格式2: @纬度,经度[名称] (如: @37.45,121.61[天马广场])
                         else if value.hasPrefix("@") && value.contains("[") && value.contains("]") {
+                            print("🔍 解析格式2坐标: \(value)")
                             // 提取坐标部分 @纬度,经度
                             if let atIndex = value.firstIndex(of: "@"),
                                let bracketIndex = value.firstIndex(of: "[") {
                                 let coordString = String(value[value.index(after: atIndex)..<bracketIndex])
+                                print("🔍 提取的坐标字符串: '\(coordString)'")
                                 let coords = coordString.split(separator: ",")
+                                print("🔍 分割后的坐标: \(coords)")
                                 
-                                if coords.count == 2,
-                                   let latitude = Double(coords[0]),
-                                   let longitude = Double(coords[1]) {
-                                    lat = latitude
-                                    lng = longitude
+                                if coords.count == 2 {
+                                    let latString = String(coords[0]).trimmingCharacters(in: .whitespacesAndNewlines)
+                                    let lngString = String(coords[1]).trimmingCharacters(in: .whitespacesAndNewlines)
+                                    print("🔍 纬度字符串: '\(latString)', 经度字符串: '\(lngString)'")
                                     
-                                    // 提取名称部分 [名称]
-                                    if let startBracket = value.firstIndex(of: "["),
-                                       let endBracket = value.firstIndex(of: "]"),
-                                       startBracket < endBracket {
-                                        locationName = String(value[value.index(after: startBracket)..<endBracket])
-                                        parsed = true
+                                    if let latitude = Double(latString),
+                                       let longitude = Double(lngString) {
+                                        lat = latitude
+                                        lng = longitude
+                                        print("🔍 坐标解析成功: lat=\(lat), lng=\(lng)")
+                                        
+                                        // 提取名称部分 [名称]
+                                        if let startBracket = value.firstIndex(of: "["),
+                                           let endBracket = value.firstIndex(of: "]"),
+                                           startBracket < endBracket {
+                                            locationName = String(value[value.index(after: startBracket)..<endBracket])
+                                            print("🔍 地名解析成功: '\(locationName)'")
+                                            parsed = true
+                                        } else {
+                                            print("❌ 地名解析失败")
+                                        }
+                                    } else {
+                                        print("❌ 坐标转换为Double失败")
                                     }
+                                } else {
+                                    print("❌ 坐标分割后不是2个部分")
                                 }
+                            } else {
+                                print("❌ 找不到@或[符号")
                             }
                         }
                         // 格式3: 简单地名引用 (如: 武功山) - 新增功能
@@ -872,18 +890,27 @@ struct TagEditCommandView: View {
                         }
                         
                         if parsed && !locationName.isEmpty {
-                            let tag = store.createTag(type: tagType, value: locationName, latitude: lat, longitude: lng)
+                            // 对于成功解析的位置标签，保存完整的原始格式作为value
+                            let tag = store.createTag(type: tagType, value: value, latitude: lat, longitude: lng)
                             newTags.append(tag)
                             print("✅ 创建位置标签: \(locationName) (\(lat), \(lng))")
                             print("✅ 标签详情: type=\(tag.type.rawValue), value=\(tag.value), hasCoords=\(tag.hasCoordinates)")
+                            print("✅ 坐标验证: lat=\(tag.latitude?.description ?? "nil"), lng=\(tag.longitude?.description ?? "nil")")
                         } else if TagMappingManager.shared.isLocationTagKey(tagKey) && !value.contains("@") {
                             // 如果是location标签但没有找到匹配的位置，提示用户
                             print("⚠️ 未找到位置标签: \(value)，请使用完整格式或确保该位置已存在")
                             // 创建无坐标的位置标签作为fallback
                             let tag = store.createTag(type: tagType, value: value)
                             newTags.append(tag)
+                        } else if TagMappingManager.shared.isLocationTagKey(tagKey) {
+                            // 如果是location标签但解析失败，打印详细错误信息
+                            print("❌ 位置标签解析失败: \(value)")
+                            print("❌   parsed: \(parsed), locationName: '\(locationName)', lat: \(lat), lng: \(lng)")
+                            // 创建无坐标的位置标签作为fallback
+                            let tag = store.createTag(type: tagType, value: value)
+                            newTags.append(tag)
                         } else {
-                            // 其他location标签处理失败的情况
+                            // 普通标签
                             let tag = store.createTag(type: tagType, value: value)
                             newTags.append(tag)
                         }
