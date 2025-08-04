@@ -263,21 +263,92 @@ public final class WordStore: ObservableObject {
     
     // MARK: - 数据管理
     
+    @Published public var duplicateWordAlert: DuplicateWordAlert?
+    
+    // 重复单词检测结果
+    public struct DuplicateWordAlert {
+        let message: String
+        let isDuplicate: Bool
+        let existingWord: Word?
+        let newWord: Word
+    }
+    
     @MainActor
-    public func addWord(_ word: Word) {
+    public func addWord(_ word: Word) -> Bool {
         print("📝 Store: 添加单词 - \(word.text)")
         print("   - 音标: \(word.phonetic ?? "nil")")
         print("   - 含义: \(word.meaning ?? "nil")")
         print("   - 标签: \(word.tags.count) 个")
-        words.append(word)
-        print("✅ 单词添加成功，当前总数: \(words.count)")
+        
+        // 检查是否存在相同的单词
+        if let existingWord = words.first(where: { $0.text.lowercased() == word.text.lowercased() }) {
+            print("⚠️ 发现重复单词: \(word.text)")
+            
+            // 检查是否有相同的标签
+            let duplicateTags = word.tags.filter { newTag in
+                existingWord.tags.contains { existingTag in
+                    existingTag.type == newTag.type && existingTag.value.lowercased() == newTag.value.lowercased()
+                }
+            }
+            
+            if !duplicateTags.isEmpty {
+                // 有相同标签，提示用户
+                let tagNames = duplicateTags.map { "\($0.type.displayName)-\($0.value)" }.joined(separator: ", ")
+                duplicateWordAlert = DuplicateWordAlert(
+                    message: "单词 \"\(word.text)\" 已存在相同的标签: \(tagNames)",
+                    isDuplicate: true,
+                    existingWord: existingWord,
+                    newWord: word
+                )
+                print("❌ 相同单词相同标签，不添加")
+                return false
+            } else {
+                // 有不同标签，自动合并
+                let newTags = word.tags.filter { newTag in
+                    !existingWord.tags.contains { existingTag in
+                        existingTag.type == newTag.type && existingTag.value.lowercased() == newTag.value.lowercased()
+                    }
+                }
+                
+                if !newTags.isEmpty {
+                    // 添加新标签到现有单词
+                    for tag in newTags {
+                        addTag(to: existingWord.id, tag: tag)
+                    }
+                    
+                    let tagNames = newTags.map { "\($0.type.displayName)-\($0.value)" }.joined(separator: ", ")
+                    duplicateWordAlert = DuplicateWordAlert(
+                        message: "已将新标签 \(tagNames) 合并到现有单词 \"\(word.text)\"",
+                        isDuplicate: false,
+                        existingWord: existingWord,
+                        newWord: word
+                    )
+                    print("✅ 单词合并成功，添加了 \(newTags.count) 个新标签")
+                    return true
+                } else {
+                    duplicateWordAlert = DuplicateWordAlert(
+                        message: "单词 \"\(word.text)\" 已存在，且所有标签都相同",
+                        isDuplicate: true,
+                        existingWord: existingWord,
+                        newWord: word
+                    )
+                    print("❌ 完全重复，不添加")
+                    return false
+                }
+            }
+        } else {
+            // 新单词，直接添加
+            words.append(word)
+            print("✅ 单词添加成功，当前总数: \(words.count)")
+            return true
+        }
     }
     
     @MainActor
-    public func addWord(_ text: String, phonetic: String?, meaning: String?) {
+    public func addWord(_ text: String, phonetic: String?, meaning: String?) -> Bool {
         print("📝 Store: 添加单词(简化) - \(text)")
         let word = Word(text: text, phonetic: phonetic, meaning: meaning, tags: [])
-        addWord(word)
+        return addWord(word)
     }
     
     @MainActor

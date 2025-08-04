@@ -110,6 +110,7 @@ struct QuickAddSheetView: View {
     @State private var selectedSuggestionIndex: Int = -1
     @FocusState private var isInputFocused: Bool
     @State private var isWaitingForLocationSelection = false
+    @State private var showingDuplicateAlert = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -227,6 +228,22 @@ struct QuickAddSheetView: View {
                 }
                 .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 .keyboardShortcut("r", modifiers: .command)
+            }
+        }
+        .alert("重复检测", isPresented: $showingDuplicateAlert) {
+            Button("确定") { }
+        } message: {
+            if let alert = store.duplicateWordAlert {
+                Text(alert.message)
+            }
+        }
+        .onReceive(store.$duplicateWordAlert) { alert in
+            if alert != nil {
+                showingDuplicateAlert = true
+                // 延迟清除alert以避免立即触发下一次
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    store.duplicateWordAlert = nil
+                }
             }
         }
         .onAppear {
@@ -408,9 +425,12 @@ struct QuickAddSheetView: View {
         }
         
         let newWord = Word(text: wordText, tags: tags)
-        store.addWord(newWord)
+        let success = store.addWord(newWord)
         inputText = ""
-        presentationMode.wrappedValue.dismiss()
+        if success {
+            presentationMode.wrappedValue.dismiss()
+        }
+        // 如果不成功，保持窗口打开让用户看到警告
     }
     
     private func openMapForLocationSelection() {
@@ -514,6 +534,7 @@ struct QuickAddView: View {
     @State private var inputText: String = ""
     @State private var suggestions: [String] = []
     @State private var selectedSuggestionIndex: Int = -1
+    @State private var showingDuplicateAlert = false
     let onDismiss: () -> Void
     
     var body: some View {
@@ -560,6 +581,22 @@ struct QuickAddView: View {
             }.padding(20).frame(maxWidth: 600)
         }
         .onKeyPress(.escape) { onDismiss(); return .handled }
+        .alert("重复检测", isPresented: $showingDuplicateAlert) {
+            Button("确定") { }
+        } message: {
+            if let alert = store.duplicateWordAlert {
+                Text(alert.message)
+            }
+        }
+        .onReceive(store.$duplicateWordAlert) { alert in
+            if alert != nil {
+                showingDuplicateAlert = true
+                // 延迟清除alert以避免立即触发下一次
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    store.duplicateWordAlert = nil
+                }
+            }
+        }
         .onAppear {
             // 监听位置选择通知
             NotificationCenter.default.addObserver(
@@ -694,9 +731,12 @@ struct QuickAddView: View {
         }
         
         let newWord = Word(text: wordText, tags: tags)
-        store.addWord(newWord)
+        let success = store.addWord(newWord)
         inputText = ""
-        onDismiss()
+        if success {
+            onDismiss()
+        }
+        // 如果不成功，保持窗口打开让用户看到警告
     }
 }
 

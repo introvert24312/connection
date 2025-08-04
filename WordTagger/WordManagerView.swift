@@ -545,6 +545,7 @@ struct TagEditCommandView: View {
     @State private var selectedIndex: Int = 0
     @State private var showingLocationPicker = false
     @StateObject private var commandParser = CommandParser.shared
+    @State private var showingDuplicateAlert = false
     
     private var initialCommand: String {
         // 生成当前单词的完整命令
@@ -720,6 +721,22 @@ struct TagEditCommandView: View {
                     commandText = "\(word.text) \(locationCommand)"
                 } else {
                     commandText += " \(locationCommand)"
+                }
+            }
+        }
+        .alert("重复检测", isPresented: $showingDuplicateAlert) {
+            Button("确定") { }
+        } message: {
+            if let alert = store.duplicateWordAlert {
+                Text(alert.message)
+            }
+        }
+        .onReceive(store.$duplicateWordAlert) { alert in
+            if alert != nil {
+                showingDuplicateAlert = true
+                // 延迟清除alert以避免立即触发下一次
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    store.duplicateWordAlert = nil
                 }
             }
         }

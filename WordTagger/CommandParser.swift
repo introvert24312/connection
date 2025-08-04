@@ -403,7 +403,11 @@ public struct AddWordCommand: Command {
             return .error("请提供单词文本")
         }
         
-        await context.store.addWord(wordText, phonetic: phonetic, meaning: meaning)
+        let success = await context.store.addWord(wordText, phonetic: phonetic, meaning: meaning)
+        
+        if !success {
+            return .error("单词添加被拒绝（可能是重复）")
+        }
         
         if let newWord = await context.store.words.first(where: { $0.text == wordText }) {
             return .wordCreated(newWord)
