@@ -715,6 +715,8 @@ public final class WordStore: ObservableObject {
     public func clearAllData() {
         words.removeAll()
         nodes.removeAll()
+        layers.removeAll()  // 清空所有层
+        currentLayer = nil  // 清空当前层
         selectedWord = nil
         selectedNode = nil
         selectedTag = nil
@@ -724,6 +726,7 @@ public final class WordStore: ObservableObject {
         // 完全清空标签映射
         TagMappingManager.shared.clearAll()
         print("🏷️ 标签映射已完全清空")
+        print("📂 所有层已清空")
     }
     
     @MainActor
@@ -731,6 +734,8 @@ public final class WordStore: ObservableObject {
         // 清理数据但保留默认标签映射
         words.removeAll()
         nodes.removeAll()
+        layers.removeAll()  // 清空所有层
+        currentLayer = nil  // 清空当前层
         selectedWord = nil
         selectedNode = nil
         selectedTag = nil
@@ -741,6 +746,8 @@ public final class WordStore: ObservableObject {
         TagMappingManager.shared.resetToDefaults()
         print("🏷️ 标签映射已重置为默认值")
         
+        // 重新创建默认层
+        setupDefaultLayers()
         createSampleData()
         
         // 如果有外部数据存储，保存新的示例数据到外部存储

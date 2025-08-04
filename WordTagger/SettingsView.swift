@@ -27,6 +27,13 @@ struct SettingsView: View {
                 Label("搜索", systemImage: "magnifyingglass")
             }
             
+            // 层管理
+            LayerManagementView()
+                .tabItem {
+                    Label("层管理", systemImage: "square.stack.3d.up")
+                }
+                .environmentObject(store)
+            
             // 数据管理
             DataManagementView()
                 .tabItem {
@@ -290,6 +297,322 @@ struct SearchSettingsView: View {
                 Spacer()
             }
             .padding()
+        }
+    }
+}
+
+// MARK: - 层管理
+
+struct LayerManagementView: View {
+    @EnvironmentObject private var store: WordStore
+    @State private var showingCreateLayerSheet = false
+    @State private var showingDeleteAlert = false
+    @State private var layerToDelete: Layer?
+    
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                // 当前活跃层
+                GroupBox("当前活跃层") {
+                    if let currentLayer = store.currentLayer {
+                        HStack {
+                            Circle()
+                                .fill(Color(hex: currentLayer.color))
+                                .frame(width: 16, height: 16)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(currentLayer.displayName)
+                                    .font(.headline)
+                                Text(currentLayer.name)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text("\(store.getNodesInCurrentLayer().count)")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                Text("节点")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    } else {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle")
+                                .foregroundColor(.orange)
+                            Text("未选择活跃层")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                
+                // 所有层列表
+                GroupBox("所有层") {
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack {
+                            Text("层列表")
+                                .font(.headline)
+                            Spacer()
+                            Button(action: {
+                                showingCreateLayerSheet = true
+                            }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "plus")
+                                    Text("创建新层")
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
+                        }
+                        .padding(.bottom, 12)
+                        
+                        if store.layers.isEmpty {
+                            VStack(spacing: 12) {
+                                Image(systemName: "square.stack.3d.up")
+                                    .font(.largeTitle)
+                                    .foregroundColor(.gray)
+                                Text("暂无层")
+                                    .font(.body)
+                                    .foregroundColor(.secondary)
+                                Text("创建第一个层来开始组织您的数据")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 100)
+                        } else {
+                            LazyVStack(spacing: 8) {
+                                ForEach(store.layers, id: \.id) { layer in
+                                    LayerRowView(
+                                        layer: layer,
+                                        nodeCount: store.nodes.filter { $0.layerId == layer.id }.count,
+                                        isActive: store.currentLayer?.id == layer.id,
+                                        onActivate: {
+                                            Task {
+                                                await store.switchToLayer(layer)
+                                            }
+                                        },
+                                        onDelete: {
+                                            layerToDelete = layer
+                                            showingDeleteAlert = true
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    .padding(12)
+                }
+                
+                Spacer()
+            }
+            .padding()
+        }
+        .sheet(isPresented: $showingCreateLayerSheet) {
+            CreateLayerSheet()
+                .environmentObject(store)
+        }
+        .alert("删除层", isPresented: $showingDeleteAlert) {
+            Button("取消", role: .cancel) {
+                layerToDelete = nil
+            }
+            Button("删除", role: .destructive) {
+                if let layer = layerToDelete {
+                    store.deleteLayer(layer)
+                    layerToDelete = nil
+                }
+            }
+        } message: {
+            if let layer = layerToDelete {
+                let nodeCount = store.nodes.filter { $0.layerId == layer.id }.count
+                Text("确定要删除层 \"\(layer.displayName)\" 吗？\n这将同时删除该层中的 \(nodeCount) 个节点，此操作无法撤销。")
+            }
+        }
+    }
+}
+
+struct LayerRowView: View {
+    let layer: Layer
+    let nodeCount: Int
+    let isActive: Bool
+    let onActivate: () -> Void
+    let onDelete: () -> Void
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // 颜色指示器
+            Circle()
+                .fill(Color(hex: layer.color))
+                .frame(width: 20, height: 20)
+                .overlay(
+                    Circle()
+                        .stroke(isActive ? Color.blue : Color.clear, lineWidth: 2)
+                )
+            
+            // 层信息
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(layer.displayName)
+                        .font(.body)
+                        .fontWeight(isActive ? .semibold : .medium)
+                    
+                    if isActive {
+                        Text("活跃")
+                            .font(.caption2)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.blue.opacity(0.2))
+                            .foregroundColor(.blue)
+                            .cornerRadius(4)
+                    }
+                }
+                
+                HStack(spacing: 8) {
+                    Text(layer.name)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Text("•")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Text("\(nodeCount) 个节点")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            Spacer()
+            
+            // 操作按钮
+            HStack(spacing: 8) {
+                if !isActive {
+                    Button("激活") {
+                        onActivate()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+                
+                Button(action: onDelete) {
+                    Image(systemName: "trash")
+                        .foregroundColor(.red)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isActive ? Color.blue.opacity(0.1) : Color.clear)
+        )
+    }
+}
+
+struct CreateLayerSheet: View {
+    @EnvironmentObject private var store: WordStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var name: String = ""
+    @State private var displayName: String = ""
+    @State private var selectedColor: String = "blue"
+    
+    let availableColors = [
+        ("blue", Color.blue),
+        ("green", Color.green),
+        ("orange", Color.orange),
+        ("red", Color.red),
+        ("purple", Color.purple),
+        ("pink", Color.pink),
+        ("yellow", Color.yellow),
+        ("teal", Color.teal),
+        ("indigo", Color.indigo),
+        ("brown", Color.brown)
+    ]
+    
+    var body: some View {
+        NavigationView {
+            Form {
+                Section("层信息") {
+                    TextField("层名称（英文）", text: $name)
+                        .textFieldStyle(.roundedBorder)
+                    TextField("显示名称（中文）", text: $displayName)
+                        .textFieldStyle(.roundedBorder)
+                }
+                
+                Section("层颜色") {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 12) {
+                        ForEach(availableColors, id: \.0) { colorName, color in
+                            Button(action: {
+                                selectedColor = colorName
+                            }) {
+                                Circle()
+                                    .fill(color)
+                                    .frame(width: 30, height: 30)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(selectedColor == colorName ? Color.primary : Color.clear, lineWidth: 2)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+            }
+            .navigationTitle("创建新层")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") {
+                        dismiss()
+                    }
+                }
+                
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("创建") {
+                        let newLayer = store.createLayer(
+                            name: name.isEmpty ? displayName.lowercased() : name,
+                            displayName: displayName.isEmpty ? name : displayName,
+                            color: selectedColor
+                        )
+                        
+                        // 如果这是第一个层，自动激活
+                        if store.layers.count == 1 {
+                            Task {
+                                await store.switchToLayer(newLayer)
+                            }
+                        }
+                        
+                        dismiss()
+                    }
+                    .disabled(name.isEmpty && displayName.isEmpty)
+                }
+            }
+        }
+        .frame(width: 400, height: 300)
+    }
+}
+
+// 扩展Color以支持十六进制字符串初始化
+extension Color {
+    init(hex: String) {
+        switch hex.lowercased() {
+        case "blue": self = .blue
+        case "green": self = .green
+        case "orange": self = .orange
+        case "red": self = .red
+        case "purple": self = .purple
+        case "pink": self = .pink
+        case "yellow": self = .yellow
+        case "teal": self = .teal
+        case "indigo": self = .indigo
+        case "brown": self = .brown
+        default: self = .blue
         }
     }
 }
