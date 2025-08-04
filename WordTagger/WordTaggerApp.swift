@@ -27,12 +27,28 @@ class TagMappingManager: ObservableObject {
     
     // 添加或更新标签映射
     func saveMapping(_ mapping: TagMapping) {
+        print("🔄 TagMappingManager.saveMapping() 开始")
+        print("   - 输入映射: id=\(mapping.id), key=\(mapping.key), typeName=\(mapping.typeName)")
+        print("   - 当前映射数量: \(tagMappings.count)")
+        
         if let index = tagMappings.firstIndex(where: { $0.id == mapping.id }) {
+            print("   - 找到现有映射在索引 \(index), 更新中...")
+            print("   - 旧值: key=\(tagMappings[index].key), typeName=\(tagMappings[index].typeName)")
             tagMappings[index] = mapping
+            print("   - 新值: key=\(tagMappings[index].key), typeName=\(tagMappings[index].typeName)")
         } else {
+            print("   - 未找到现有映射，添加新映射...")
             tagMappings.append(mapping)
         }
+        
+        print("   - 更新后映射数量: \(tagMappings.count)")
+        print("   - 所有映射:")
+        for (i, m) in tagMappings.enumerated() {
+            print("     [\(i)] id=\(m.id), key=\(m.key), typeName=\(m.typeName)")
+        }
+        
         saveToUserDefaults()
+        print("✅ TagMappingManager.saveMapping() 完成")
     }
     
     // 动态添加缺失的标签映射
@@ -1201,15 +1217,19 @@ struct TagManagerView: View {
                 // 现有标签列表
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(tagManager.tagMappings) { mapping in
+                        ForEach(tagManager.tagMappings, id: \.id) { mapping in
                             TagMappingRow(
                                 mapping: mapping,
                                 onEdit: {
+                                    print("🎯 TagManagerView: 开始编辑映射")
+                                    print("   - 选中映射: id=\(mapping.id), key=\(mapping.key), typeName=\(mapping.typeName)")
                                     editingMapping = mapping
                                     newKey = mapping.key
                                     newTypeName = mapping.typeName
+                                    print("   - 表单已填充: newKey=\(newKey), newTypeName=\(newTypeName)")
                                 },
                                 onDelete: {
+                                    print("🗑️ TagManagerView: 删除映射 id=\(mapping.id)")
                                     tagManager.deleteMapping(withId: mapping.id)
                                 }
                             )
@@ -1295,20 +1315,34 @@ struct TagManagerView: View {
     }
     
     private func saveMapping() {
+        print("💾 TagManagerView: saveMapping() 开始")
+        print("   - editingMapping存在: \(editingMapping != nil)")
+        print("   - newKey: '\(newKey)'")
+        print("   - newTypeName: '\(newTypeName)'")
+        
         let mapping = TagMapping(
             id: editingMapping?.id ?? UUID(),
             key: newKey.lowercased(),
             typeName: newTypeName
         )
         
+        print("   - 创建的映射: id=\(mapping.id), key=\(mapping.key), typeName=\(mapping.typeName)")
+        print("   - 是否编辑模式: \(editingMapping != nil)")
+        if let editing = editingMapping {
+            print("   - 编辑中的原始映射: id=\(editing.id), key=\(editing.key), typeName=\(editing.typeName)")
+        }
+        
         tagManager.saveMapping(mapping)
         resetForm()
+        print("✅ TagManagerView: saveMapping() 完成")
     }
     
     private func resetForm() {
+        print("🔄 TagManagerView: resetForm() 重置表单")
         newKey = ""
         newTypeName = ""
         editingMapping = nil
+        print("   - 表单已重置")
     }
     
 }
@@ -1319,6 +1353,8 @@ struct TagMappingRow: View {
     let onDelete: () -> Void
     
     var body: some View {
+        print("🎨 TagMappingRow: 渲染 id=\(mapping.id), key=\(mapping.key), typeName=\(mapping.typeName)")
+        return
         HStack {
             // 标签颜色指示器
             Circle()
