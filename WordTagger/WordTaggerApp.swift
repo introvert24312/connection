@@ -34,8 +34,14 @@ class TagMappingManager: ObservableObject {
         if let index = tagMappings.firstIndex(where: { $0.id == mapping.id }) {
             print("   - 找到现有映射在索引 \(index), 更新中...")
             print("   - 旧值: key=\(tagMappings[index].key), typeName=\(tagMappings[index].typeName)")
-            tagMappings[index] = mapping
+            
+            // 强制重新创建数组以触发SwiftUI更新
+            var newMappings = tagMappings
+            newMappings[index] = mapping
+            tagMappings = newMappings
+            
             print("   - 新值: key=\(tagMappings[index].key), typeName=\(tagMappings[index].typeName)")
+            print("   - 数组已重新创建以触发UI更新")
         } else {
             print("   - 未找到现有映射，添加新映射...")
             tagMappings.append(mapping)
