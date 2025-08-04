@@ -281,15 +281,38 @@ public final class WordStore: ObservableObject {
         print("   - 标签: \(word.tags.count) 个")
         
         // 检查是否存在相同的单词
+        print("🔍 检查重复 - 新单词: '\(word.text)', 现有单词数量: \(words.count)")
+        for (index, existingWord) in words.enumerated() {
+            print("🔍 现有单词[\(index)]: '\(existingWord.text)' (小写: '\(existingWord.text.lowercased())')")
+        }
+        
         if let existingWord = words.first(where: { $0.text.lowercased() == word.text.lowercased() }) {
             print("⚠️ 发现重复单词: \(word.text)")
+            print("⚠️ 现有单词: '\(existingWord.text)' 标签数: \(existingWord.tags.count)")
+            print("⚠️ 新单词: '\(word.text)' 标签数: \(word.tags.count)")
             
             // 检查是否有相同的标签
-            let duplicateTags = word.tags.filter { newTag in
-                existingWord.tags.contains { existingTag in
-                    existingTag.type == newTag.type && existingTag.value.lowercased() == newTag.value.lowercased()
-                }
+            print("🏷️ 检查标签重复:")
+            print("🏷️ 现有单词标签:")
+            for (i, tag) in existingWord.tags.enumerated() {
+                print("   [\(i)] \(tag.type.displayName): '\(tag.value)'")
             }
+            print("🏷️ 新单词标签:")
+            for (i, tag) in word.tags.enumerated() {
+                print("   [\(i)] \(tag.type.displayName): '\(tag.value)'")
+            }
+            
+            let duplicateTags = word.tags.filter { newTag in
+                let isDuplicate = existingWord.tags.contains { existingTag in
+                    let typeMatch = existingTag.type == newTag.type
+                    let valueMatch = existingTag.value.lowercased() == newTag.value.lowercased()
+                    print("🏷️ 比较: \(existingTag.type.displayName):'\(existingTag.value)' vs \(newTag.type.displayName):'\(newTag.value)' -> type:\(typeMatch), value:\(valueMatch)")
+                    return typeMatch && valueMatch
+                }
+                return isDuplicate
+            }
+            
+            print("🏷️ 重复标签数量: \(duplicateTags.count)")
             
             if !duplicateTags.isEmpty {
                 // 有相同标签，提示用户
@@ -324,6 +347,7 @@ public final class WordStore: ObservableObject {
                         newWord: word
                     )
                     print("✅ 单词合并成功，添加了 \(newTags.count) 个新标签")
+                    print("🚨 设置警告弹窗: \(duplicateWordAlert?.message ?? "nil")")
                     return true
                 } else {
                     duplicateWordAlert = DuplicateWordAlert(
@@ -338,6 +362,7 @@ public final class WordStore: ObservableObject {
             }
         } else {
             // 新单词，直接添加
+            print("✅ 未发现重复，直接添加新单词")
             words.append(word)
             print("✅ 单词添加成功，当前总数: \(words.count)")
             return true
