@@ -239,20 +239,31 @@ public final class WordStore: ObservableObject {
             return
         }
         
-        // 搜索words和nodes
+        // 搜索当前层的words和nodes
+        guard let currentLayer = currentLayer else {
+            print("⚠️ Store: 没有当前层，搜索结果为空")
+            searchResults = []
+            return
+        }
+        
         let wordResults = words.filter { word in
-            word.text.localizedCaseInsensitiveContains(trimmedQuery) ||
-            (word.meaning?.localizedCaseInsensitiveContains(trimmedQuery) ?? false) ||
-            (word.phonetic?.localizedCaseInsensitiveContains(trimmedQuery) ?? false) ||
-            word.tags.contains { $0.value.localizedCaseInsensitiveContains(trimmedQuery) }
+            // 只搜索当前层的单词
+            word.layerId == currentLayer.id && (
+                word.text.localizedCaseInsensitiveContains(trimmedQuery) ||
+                (word.meaning?.localizedCaseInsensitiveContains(trimmedQuery) ?? false) ||
+                (word.phonetic?.localizedCaseInsensitiveContains(trimmedQuery) ?? false) ||
+                word.tags.contains { $0.value.localizedCaseInsensitiveContains(trimmedQuery) }
+            )
         }
         
         let nodeResults = nodes.compactMap { node -> Word? in
-            if node.text.localizedCaseInsensitiveContains(trimmedQuery) ||
+            // 只搜索当前层的节点
+            if node.layerId == currentLayer.id && (
+               node.text.localizedCaseInsensitiveContains(trimmedQuery) ||
                (node.meaning?.localizedCaseInsensitiveContains(trimmedQuery) ?? false) ||
                (node.phonetic?.localizedCaseInsensitiveContains(trimmedQuery) ?? false) ||
-               node.tags.contains { $0.value.localizedCaseInsensitiveContains(trimmedQuery) } {
-                return Word(text: node.text, phonetic: node.phonetic, meaning: node.meaning, tags: node.tags)
+               node.tags.contains { $0.value.localizedCaseInsensitiveContains(trimmedQuery) }) {
+                return Word(text: node.text, phonetic: node.phonetic, meaning: node.meaning, layerId: node.layerId, tags: node.tags)
             }
             return nil
         }
@@ -262,7 +273,7 @@ public final class WordStore: ObservableObject {
         allResults = allResults.unique()
         
         searchResults = Array(allResults.prefix(50)) // 限制结果数量
-        print("🔍 Store: Search completed, found \(searchResults.count) results")
+        print("🔍 Store: Search completed in layer '\(currentLayer.displayName)', found \(searchResults.count) results")
     }
     
     // MARK: - 数据管理
@@ -367,7 +378,15 @@ public final class WordStore: ObservableObject {
         } else {
             // 新单词，直接添加
             print("✅ 未发现重复，直接添加新单词")
-            words.append(word)
+            
+            // 确保单词与当前层关联
+            var wordWithLayer = word
+            if wordWithLayer.layerId == nil, let currentLayerId = currentLayer?.id {
+                wordWithLayer.layerId = currentLayerId
+                print("🔗 设置单词层ID: \(currentLayerId)")
+            }
+            
+            words.append(wordWithLayer)
             print("✅ 单词添加成功，当前总数: \(words.count)")
             return true
         }
@@ -512,6 +531,20 @@ public final class WordStore: ObservableObject {
         print("🗑️ 将删除 \(nodesToDelete.count) 个节点")
         nodes.removeAll { $0.layerId == layer.id }
         
+        // 删除该层中的所有单词
+        let wordsToDelete = words.filter { $0.layerId == layer.id }
+        print("🗑️ 将删除 \(wordsToDelete.count) 个单词")
+        words.removeAll { $0.layerId == layer.id }
+        
+        // 检查孤儿单词（layerId为nil的单词）
+        let orphanWords = words.filter { $0.layerId == nil }
+        if !orphanWords.isEmpty {
+            print("⚠️ 发现 \(orphanWords.count) 个孤儿单词（无层关联）")
+            for orphan in orphanWords {
+                print("   - \(orphan.text)")
+            }
+        }
+        
         // 删除层
         layers.removeAll { $0.id == layer.id }
         
@@ -528,7 +561,38 @@ public final class WordStore: ObservableObject {
         // 强制触发UI更新
         objectWillChange.send()
         
-        print("✅ 层删除完成，剩余 \(layers.count) 个层")
+        print("✅ 层删除完成，剩余 \(layers.count) 个层，\(nodes.count) 个节点，\(words.count) 个单词")
+    }
+    
+    // MARK: - 数据清理功能
+    
+    @MainActor
+    public func fixOrphanWords() {
+        let orphanWords = words.filter { $0.layerId == nil }
+        guard !orphanWords.isEmpty else {
+            print("✅ 没有发现孤儿单词")
+            return
+        }
+        
+        print("🔧 开始修复 \(orphanWords.count) 个孤儿单词...")
+        
+        // 如果有当前层，使用当前层；否则使用第一个可用层
+        guard let targetLayer = currentLayer ?? layers.first else {
+            print("❌ 无法修复孤儿单词：没有可用的层")
+            return
+        }
+        
+        var fixedCount = 0
+        for i in 0..<words.count {
+            if words[i].layerId == nil {
+                words[i].layerId = targetLayer.id
+                print("🔗 修复单词: '\(words[i].text)' -> 层: \(targetLayer.displayName)")
+                fixedCount += 1
+            }
+        }
+        
+        print("✅ 已修复 \(fixedCount) 个孤儿单词，关联到层: \(targetLayer.displayName)")
+        objectWillChange.send()
     }
     
     // MARK: - 标签功能
@@ -834,6 +898,41 @@ public final class WordStore: ObservableObject {
     public func getNodesInCurrentLayer() -> [Node] {
         guard let currentLayer = currentLayer else { return [] }
         return nodes.filter { $0.layerId == currentLayer.id }
+    }
+    
+    public func getWordsInCurrentLayer() -> [Word] {
+        guard let currentLayer = currentLayer else { 
+            print("⚠️ getWordsInCurrentLayer: 没有当前层")
+            return [] 
+        }
+        
+        let layerWords = words.filter { $0.layerId == currentLayer.id }
+        let orphanWords = words.filter { $0.layerId == nil }
+        
+        print("📊 getWordsInCurrentLayer: 当前层 '\(currentLayer.displayName)' 有 \(layerWords.count) 个单词")
+        if !orphanWords.isEmpty {
+            print("⚠️ getWordsInCurrentLayer: 发现 \(orphanWords.count) 个孤儿单词（layerId为nil）")
+            for orphan in orphanWords {
+                print("   - 孤儿单词: '\(orphan.text)'")
+            }
+        }
+        
+        return layerWords
+    }
+    
+    public func wordsInCurrentLayer(withTag tag: Tag) -> [Word] {
+        guard let currentLayer = currentLayer else { return [] }
+        
+        // 从当前层的 words 中获取有该标签的单词
+        let wordsWithTag = words.filter { $0.layerId == currentLayer.id && $0.hasTag(tag) }
+        
+        // 从当前层的 nodes 中获取有该标签的节点并转换为 Word
+        let nodesWithTag = nodes.filter { $0.layerId == currentLayer.id && $0.hasTag(tag) }
+        let convertedWords = nodesWithTag.map { node in
+            Word(text: node.text, phonetic: node.phonetic, meaning: node.meaning, layerId: node.layerId, tags: node.tags)
+        }
+        
+        return wordsWithTag + convertedWords
     }
     
     public func getRelevantTags(for query: String) -> [Tag] {

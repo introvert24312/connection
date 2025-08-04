@@ -222,15 +222,17 @@ public struct Word: Identifiable, Hashable, Codable {
     public var text: String
     public var phonetic: String?
     public var meaning: String?
+    public var layerId: UUID?  // 添加层ID字段，可选以保持向后兼容
     public var tags: [Tag]
     public var createdAt: Date
     public var updatedAt: Date
     
-    public init(text: String, phonetic: String? = nil, meaning: String? = nil, tags: [Tag] = []) {
+    public init(text: String, phonetic: String? = nil, meaning: String? = nil, layerId: UUID? = nil, tags: [Tag] = []) {
         self.id = UUID()
         self.text = text
         self.phonetic = phonetic
         self.meaning = meaning
+        self.layerId = layerId
         self.tags = tags
         self.createdAt = Date()
         self.updatedAt = Date()

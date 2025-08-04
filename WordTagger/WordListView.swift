@@ -16,6 +16,7 @@ struct WordListView: View {
     @State private var cachedDisplayWords: [Word] = []
     @State private var lastSearchQuery: String = ""
     @State private var lastSelectedTag: Tag? = nil
+    @State private var lastCurrentLayer: UUID? = nil
     @State private var lastSortOption: SortOption = .alphabetical
     @State private var updateTask: Task<Void, Never>?
     @State private var isUpdating: Bool = false
@@ -213,6 +214,7 @@ struct WordListView: View {
         .onChange(of: store.searchQuery, perform: handleStoreSearchQueryChange)
         .onChange(of: store.searchResults, perform: handleSearchResultsChange)
         .onChange(of: store.selectedTag?.id, perform: handleSelectedTagChange)
+        .onChange(of: store.currentLayer?.id, perform: handleCurrentLayerChange)
         .onChange(of: sortOption, perform: handleSortOptionChange)
     }
     
@@ -229,13 +231,14 @@ struct WordListView: View {
         // 检查是否有实际变化
         let hasSearchQueryChange = lastSearchQuery != store.searchQuery
         let hasSelectedTagChange = lastSelectedTag?.id != store.selectedTag?.id
+        let hasCurrentLayerChange = lastCurrentLayer != store.currentLayer?.id
         let hasSortOptionChange = lastSortOption != sortOption
         
-        print("🔄 Changes detected - searchQuery: \(hasSearchQueryChange), selectedTag: \(hasSelectedTagChange), sortOption: \(hasSortOptionChange)")
+        print("🔄 Changes detected - searchQuery: \(hasSearchQueryChange), selectedTag: \(hasSelectedTagChange), currentLayer: \(hasCurrentLayerChange), sortOption: \(hasSortOptionChange)")
         print("🔄 Current state - searchQuery: '\(store.searchQuery)', lastSearchQuery: '\(lastSearchQuery)'")
         
         // 如果没有任何变化，不需要更新
-        guard hasSearchQueryChange || hasSelectedTagChange || hasSortOptionChange else {
+        guard hasSearchQueryChange || hasSelectedTagChange || hasCurrentLayerChange || hasSortOptionChange else {
             print("⏭️ No changes detected, skipping update")
             return
         }
@@ -263,13 +266,13 @@ struct WordListView: View {
             filteredWords = store.searchResults
             print("🔍 Using search results: \(filteredWords.count) words (tag filter ignored during search)")
         } else if let selectedTag = store.selectedTag {
-            // 只有在没有搜索时才应用标签过滤
-            filteredWords = store.words(withTag: selectedTag)
-            print("🏷️ Using tag filter: \(filteredWords.count) words")
+            // 只有在没有搜索时才应用标签过滤，只在当前层中搜索
+            filteredWords = store.wordsInCurrentLayer(withTag: selectedTag)
+            print("🏷️ Using tag filter in current layer: \(filteredWords.count) words")
         } else {
-            // 没有搜索也没有选中标签时，显示所有单词
-            filteredWords = store.words
-            print("📋 Using all words: \(filteredWords.count) words")
+            // 没有搜索也没有选中标签时，显示当前层的单词
+            filteredWords = store.getWordsInCurrentLayer()
+            print("📋 Using current layer words: \(filteredWords.count) words")
         }
         
         // 应用排序并更新缓存
@@ -287,6 +290,7 @@ struct WordListView: View {
         // 更新缓存状态
         lastSearchQuery = store.searchQuery
         lastSelectedTag = store.selectedTag
+        lastCurrentLayer = store.currentLayer?.id
         lastSortOption = sortOption
         
         print("💾 Cache state updated - lastSearchQuery: '\(lastSearchQuery)'")
@@ -342,6 +346,12 @@ struct WordListView: View {
     private func handleSelectedTagChange(_ newValue: UUID?) {
         let newStr = newValue?.uuidString ?? "nil"
         print("🏷️ WordListView: selectedTag changed to '\(newStr)'")
+        scheduleUpdate()
+    }
+    
+    private func handleCurrentLayerChange(_ newValue: UUID?) {
+        let newStr = newValue?.uuidString ?? "nil"
+        print("🔄 WordListView: currentLayer changed to '\(newStr)'")
         scheduleUpdate()
     }
     
