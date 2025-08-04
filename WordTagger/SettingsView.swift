@@ -431,19 +431,20 @@ struct DataManagementView: View {
         // 清除内存数据
         store.clearAllData()
         
-        // 如果有外部数据存储，也清除外部文件
+        // 如果有外部数据存储，清除所有外部文件（包括标签映射）
         if dataManager.isDataPathSelected {
             Task {
                 do {
-                    try await dataService.saveAllData(store: store)
+                    // 使用新的清理方法，彻底删除所有外部数据文件
+                    try await dataService.clearAllExternalData()
                     await MainActor.run {
-                        resultMessage = "所有数据已清除（包括外部存储）"
+                        resultMessage = "所有数据已完全清除（包括外部存储和标签设置）"
                         isSuccess = true
                         showingResultAlert = true
                     }
                 } catch {
                     await MainActor.run {
-                        resultMessage = "数据已清除，但同步外部存储失败: \(error.localizedDescription)"
+                        resultMessage = "数据已清除，但清理外部存储失败: \(error.localizedDescription)"
                         isSuccess = false
                         showingResultAlert = true
                     }

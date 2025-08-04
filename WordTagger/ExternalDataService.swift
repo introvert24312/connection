@@ -214,6 +214,56 @@ public class ExternalDataService: ObservableObject {
         try await saveTagMappings()
     }
     
+    // 清理所有外部数据文件
+    public func clearAllExternalData() async throws {
+        guard dataManager.isDataPathSelected else {
+            throw DataError.noDataPathSelected
+        }
+        
+        // 检查并确保访问权限
+        guard dataManager.ensureAccess() else {
+            throw DataError.accessDenied
+        }
+        
+        print("🗑️ ExternalDataService: 开始清理所有外部数据文件...")
+        
+        // 删除各个数据文件
+        let filesToDelete = [
+            dataManager.getLayersURL(),
+            dataManager.getNodesURL(), 
+            dataManager.getWordsURL(),
+            dataManager.getMetadataURL(),
+            dataManager.getTagMappingsURL()
+        ].compactMap { $0 }
+        
+        for fileURL in filesToDelete {
+            if FileManager.default.fileExists(atPath: fileURL.path) {
+                do {
+                    try FileManager.default.removeItem(at: fileURL)
+                    print("🗑️ 已删除: \(fileURL.lastPathComponent)")
+                } catch {
+                    print("⚠️ 删除文件失败: \(fileURL.lastPathComponent) - \(error)")
+                    // 继续删除其他文件，不因单个文件失败而中断
+                }
+            }
+        }
+        
+        // 清理备份文件夹
+        if let basePath = dataManager.currentDataPath {
+            let backupsPath = basePath.appendingPathComponent("backups")
+            if FileManager.default.fileExists(atPath: backupsPath.path) {
+                do {
+                    try FileManager.default.removeItem(at: backupsPath)
+                    print("🗑️ 已删除备份文件夹")
+                } catch {
+                    print("⚠️ 删除备份文件夹失败: \(error)")
+                }
+            }
+        }
+        
+        print("✅ 外部数据文件清理完成")
+    }
+    
     // MARK: - 数据加载
     
     public func loadAllData() async throws -> (layers: [Layer], nodes: [Node], words: [Word]) {

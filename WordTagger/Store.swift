@@ -730,6 +730,35 @@ public final class WordStore: ObservableObject {
     public func resetToSampleData() {
         clearAllData()
         createSampleData()
+        
+        // 如果有外部数据存储，保存新的示例数据到外部存储
+        if externalDataManager.isDataPathSelected {
+            Task {
+                do {
+                    try await externalDataService.saveAllData(store: self)
+                    print("✅ 示例数据已保存到外部存储")
+                } catch {
+                    print("⚠️ 保存示例数据到外部存储失败: \(error)")
+                }
+            }
+        }
+    }
+    
+    // 完整清理数据（包括外部存储）
+    @MainActor
+    public func clearAllDataIncludingExternal() async {
+        // 先清理内存数据
+        clearAllData()
+        
+        // 如果有外部数据存储，也清理外部文件
+        if externalDataManager.isDataPathSelected {
+            do {
+                try await externalDataService.clearAllExternalData()
+                print("✅ 已完全清理所有数据（包括外部存储和标签设置）")
+            } catch {
+                print("⚠️ 清理外部存储失败: \(error)")
+            }
+        }
     }
     
     // MARK: - Missing methods for TagSidebarView
