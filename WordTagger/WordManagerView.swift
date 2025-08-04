@@ -919,7 +919,7 @@ struct TagEditCommandView: View {
     
     private func mapTokenToTagType(_ token: String) -> Tag.TagType? {
         let tagManager = TagMappingManager.shared
-        return tagManager.parseTokenToTagType(token, store: store)
+        return tagManager.parseTokenToTagTypeWithStore(token, store: store)
     }
     
     private func openMapForLocationSelection() {

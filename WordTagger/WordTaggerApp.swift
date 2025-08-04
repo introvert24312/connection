@@ -74,16 +74,56 @@ class TagMappingManager: ObservableObject {
         }
         
         // 4. 检查已存在的自定义标签类型（如果提供了store）
-        if let store = store {
-            let allExistingTags = store.allTags
-            for existingTag in allExistingTags {
-                if case .custom(let customName) = existingTag.type {
-                    // 检查是否匹配自定义标签的名称或token
-                    if customName.lowercased() == lowerToken || 
-                       existingTag.type.displayName.lowercased() == lowerToken {
-                        print("✅ 找到已有自定义标签类型: \(lowerToken) -> \(customName)")
-                        return existingTag.type
-                    }
+        // 注意：由于MainActor隔离，这部分检查需要在调用时处理
+        // 这里先跳过，直接创建新的自定义标签类型
+        
+        // 5. 创建新的自定义标签类型并自动添加到映射管理器
+        print("🆕 创建新的自定义标签类型: \(token)")
+        let customTagType = Tag.TagType.custom(token)
+        
+        // 自动添加到标签映射管理器
+        addMappingIfNeeded(key: lowerToken, typeName: token)
+        
+        return customTagType
+    }
+    
+    // MainActor隔离的版本，用于需要访问store的情况
+    @MainActor
+    func parseTokenToTagTypeWithStore(_ token: String, store: WordStore) -> Tag.TagType? {
+        let lowerToken = token.lowercased()
+        
+        // 1. 首先检查TagMappingManager中的映射
+        if let (typeName, tagType) = mappingDictionary[lowerToken] {
+            print("✅ 找到标签映射: \(lowerToken) -> \(typeName) (\(tagType))")
+            return tagType
+        }
+        
+        // 2. 根据原始值匹配预定义类型
+        switch lowerToken {
+        case "memory": return .memory
+        case "location", "loc": return .location  // 支持 location 和 loc 两种写法
+        case "root": return .root
+        case "shape": return .shape
+        case "sound": return .sound
+        default: break
+        }
+        
+        // 3. 根据显示名称匹配预定义类型
+        for tagType in Tag.TagType.allCases {
+            if tagType.displayName == token || tagType.rawValue == lowerToken {
+                return tagType
+            }
+        }
+        
+        // 4. 检查已存在的自定义标签类型
+        let allExistingTags = store.allTags
+        for existingTag in allExistingTags {
+            if case .custom(let customName) = existingTag.type {
+                // 检查是否匹配自定义标签的名称或token
+                if customName.lowercased() == lowerToken || 
+                   existingTag.type.displayName.lowercased() == lowerToken {
+                    print("✅ 找到已有自定义标签类型: \(lowerToken) -> \(customName)")
+                    return existingTag.type
                 }
             }
         }
@@ -425,7 +465,7 @@ struct QuickAddSheetView: View {
         
         while i < components.count {
             let tagKey = components[i]
-            if let tagType = tagManager.parseTokenToTagType(tagKey, store: store) {
+            if let tagType = tagManager.parseTokenToTagTypeWithStore(tagKey, store: store) {
                 if i + 1 < components.count { 
                     let content = components[i + 1]
                     
@@ -750,7 +790,7 @@ struct QuickAddView: View {
         
         while i < components.count {
             let tagKey = components[i]
-            if let tagType = tagManager.parseTokenToTagType(tagKey, store: store) {
+            if let tagType = tagManager.parseTokenToTagTypeWithStore(tagKey, store: store) {
                 if i + 1 < components.count {
                     let content = components[i + 1]
                     
