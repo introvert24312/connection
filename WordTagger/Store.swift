@@ -30,6 +30,7 @@ public final class WordStore: ObservableObject {
         setupSearchBinding()
         setupExternalDataSync()
         setupDataPathChangeListener()
+        setupTagTypeNameChangeListener()
     }
     
     // MARK: - 初始化
@@ -770,6 +771,92 @@ public final class WordStore: ObservableObject {
             )
         } catch {
             print("❌ 手动保存失败: \(error)")
+        }
+    }
+    
+    // MARK: - 标签类型名称变化监听
+    
+    private func setupTagTypeNameChangeListener() {
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("tagTypeNameChanged"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self,
+                  let userInfo = notification.userInfo,
+                  let oldName = userInfo["oldName"] as? String,
+                  let newName = userInfo["newName"] as? String,
+                  let key = userInfo["key"] as? String else { return }
+            
+            print("🔄 Store收到标签类型名称变化通知: \(oldName) -> \(newName), key: \(key)")
+            Task {
+                await self.updateTagTypeNames(from: oldName, to: newName, key: key)
+            }
+        }
+    }
+    
+    private func updateTagTypeNames(from oldName: String, to newName: String, key: String) {
+        print("🔄 开始更新标签类型名称: \(oldName) -> \(newName), key: \(key)")
+        print("📊 当前Store状态:")
+        print("   - 单词总数: \(words.count)")
+        print("   🔍 使用提供的key: '\(key)'")
+        
+        // 打印所有单词和标签的详细信息
+        for (wordIndex, word) in words.enumerated() {
+            print("   - 单词[\(wordIndex)]: '\(word.text)' 有 \(word.tags.count) 个标签")
+            for (tagIndex, tag) in word.tags.enumerated() {
+                print("     - 标签[\(tagIndex)]: type=\(tag.type), value='\(tag.value)'")
+                if case .custom(let customKey) = tag.type {
+                    print("       - 自定义标签key: '\(customKey)'")
+                    print("       - 是否匹配目标key '\(key)': \(customKey == key)")
+                }
+            }
+        }
+        
+        var updatedWords: [Word] = []
+        var hasChanges = false
+        
+        for word in words {
+            var updatedWord = word
+            var wordHasChanges = false
+            
+            for (index, tag) in word.tags.enumerated() {
+                // 通过key匹配，而不是typeName
+                if case .custom(let customKey) = tag.type, customKey == key {
+                    print("   ✅ 找到匹配的标签！更新单词 '\(word.text)' 的标签: key='\(key)', \(oldName) -> \(newName)")
+                    // 保持key不变，只是TagType的displayName会通过TagMappingManager更新
+                    // 这里实际上不需要更新Tag.type，因为displayName是通过TagMappingManager计算的
+                    wordHasChanges = true
+                    hasChanges = true
+                }
+            }
+            
+            if wordHasChanges {
+                updatedWord.updatedAt = Date()
+                updatedWords.append(updatedWord)
+                print("   📝 单词 '\(word.text)' 已更新")
+            } else {
+                updatedWords.append(word)
+            }
+        }
+        
+        if hasChanges {
+            print("✅ 标签类型名称更新完成，更新了 \(updatedWords.filter { $0.updatedAt > Date().addingTimeInterval(-1) }.count) 个单词")
+            words = updatedWords
+            print("🔄 触发UI更新和自动同步")
+            
+            // 触发自动同步
+            if !isLoadingFromExternal {
+                Task {
+                    await forceSaveToExternalStorage()
+                }
+            }
+        } else {
+            print("❌ 没有找到需要更新的标签")
+            print("🔍 可能的原因:")
+            print("   1. 没有使用key '\(key)' 的自定义标签类型的单词")
+            print("   2. 标签类型不是 .custom 类型")
+            print("   3. 自定义标签key不匹配")
         }
     }
 }

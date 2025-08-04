@@ -231,7 +231,8 @@ struct TagRowView: View {
     }
     
     var body: some View {
-        Button(action: onTap) {
+        let _ = print("🏷️ TagRowView: 渲染标签 value='\(tag.value)', type=\(tag.type), displayName='\(tag.type.displayName)'")
+        return Button(action: onTap) {
             HStack(spacing: 16) {
                 // 标签类型指示器
                 Circle()

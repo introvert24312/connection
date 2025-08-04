@@ -31,9 +31,13 @@ class TagMappingManager: ObservableObject {
         print("   - 输入映射: id=\(mapping.id), key=\(mapping.key), typeName=\(mapping.typeName)")
         print("   - 当前映射数量: \(tagMappings.count)")
         
+        var oldTypeName: String?
+        
         if let index = tagMappings.firstIndex(where: { $0.id == mapping.id }) {
             print("   - 找到现有映射在索引 \(index), 更新中...")
             print("   - 旧值: key=\(tagMappings[index].key), typeName=\(tagMappings[index].typeName)")
+            
+            oldTypeName = tagMappings[index].typeName
             
             // 强制重新创建数组以触发SwiftUI更新
             var newMappings = tagMappings
@@ -54,7 +58,27 @@ class TagMappingManager: ObservableObject {
         }
         
         saveToUserDefaults()
+        
+        // 如果是更新操作且typeName发生了变化，通知Store更新相关Tag
+        if let oldName = oldTypeName, oldName != mapping.typeName {
+            print("🔄 标签类型名称发生变化: \(oldName) -> \(mapping.typeName)")
+            notifyTagTypeNameChanged(from: oldName, to: mapping.typeName, key: mapping.key)
+        }
+        
         print("✅ TagMappingManager.saveMapping() 完成")
+    }
+    
+    // 通知标签类型名称变化
+    private func notifyTagTypeNameChanged(from oldName: String, to newName: String, key: String) {
+        NotificationCenter.default.post(
+            name: NSNotification.Name("tagTypeNameChanged"),
+            object: nil,
+            userInfo: [
+                "oldName": oldName,
+                "newName": newName,
+                "key": key
+            ]
+        )
     }
     
     // 动态添加缺失的标签映射
@@ -1239,6 +1263,7 @@ struct TagManagerView: View {
                                     tagManager.deleteMapping(withId: mapping.id)
                                 }
                             )
+                            .id("\(mapping.id)-\(mapping.typeName)")
                         }
                     }
                 }
@@ -1359,9 +1384,8 @@ struct TagMappingRow: View {
     let onDelete: () -> Void
     
     var body: some View {
-        print("🎨 TagMappingRow: 渲染 id=\(mapping.id), key=\(mapping.key), typeName=\(mapping.typeName)")
-        return
-        HStack {
+        let _ = print("🎨 TagMappingRow: 渲染 id=\(mapping.id), key=\(mapping.key), typeName=\(mapping.typeName)")
+        return HStack {
             // 标签颜色指示器
             Circle()
                 .fill(Color.from(tagType: mapping.tagType))

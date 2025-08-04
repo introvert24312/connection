@@ -97,7 +97,13 @@ public struct Tag: Identifiable, Hashable, Codable {
             case .root: return "词根"
             case .shape: return "形近"
             case .sound: return "音近"
-            case .custom(let name): return name
+            case .custom(let key): 
+                // 从TagMappingManager获取最新的typeName
+                let tagManager = TagMappingManager.shared
+                if let mapping = tagManager.tagMappings.first(where: { $0.key == key }) {
+                    return mapping.typeName
+                }
+                return key // fallback to key if not found
             }
         }
         

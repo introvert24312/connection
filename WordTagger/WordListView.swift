@@ -528,7 +528,8 @@ struct TagChip: View {
     }
     
     var body: some View {
-        Button(action: {
+        let _ = print("🏷️ TagChip: 渲染标签 value='\(tag.value)', type=\(tag.type), displayName='\(tag.type.displayName)'")
+        return Button(action: {
             // 标签点击行为 - 可以添加选择/过滤逻辑
         }) {
             HStack(spacing: 6) {
