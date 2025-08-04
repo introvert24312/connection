@@ -197,6 +197,9 @@ public final class WordStore: ObservableObject {
                 }
                 
                 print("📚 从新路径加载了 \(loadedNodes.count) 个节点和 \(loadedWords.count) 个单词，分布在 \(loadedLayers.count) 个层中")
+                
+                // 重新加载标签映射
+                await TagMappingManager.shared.reloadFromExternalStorage()
             } else {
                 // 如果新路径没有数据，保存当前数据到新路径
                 print("💾 新路径为空，将当前数据保存到新位置...")

@@ -348,11 +348,16 @@ public class ExternalDataService: ObservableObject {
             syncEnabled: true
         )
         
+        let tagMappings = await MainActor.run {
+            return TagMappingManager.shared.tagMappings
+        }
+        
         let backupData = ExternalDataFormat(
             config: config,
             layers: store.layers,
             nodes: store.nodes,
-            metadata: metadata
+            metadata: metadata,
+            tagMappings: tagMappings
         )
         
         let data = try encoder.encode(backupData)

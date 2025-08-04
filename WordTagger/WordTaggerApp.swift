@@ -13,7 +13,13 @@ class TagMappingManager: ObservableObject {
     private let userDefaultsKey = "tagMappings"
     
     private init() {
-        loadTagMappings()
+        // 启动时延迟加载，等待外部数据服务准备好
+        tagMappings = getDefaultMappings()
+        
+        // 异步尝试从外部存储加载
+        Task {
+            await loadFromExternalStorageOrFallback()
+        }
     }
     
     // 获取字典格式的映射（用于快速查找）
@@ -196,12 +202,33 @@ class TagMappingManager: ObservableObject {
     
     // 删除标签映射
     func deleteMapping(withId id: UUID) {
+        print("🗑️ TagMappingManager.deleteMapping() 开始")
+        print("   - 删除映射ID: \(id)")
+        print("   - 删除前映射数量: \(tagMappings.count)")
+        
         tagMappings.removeAll { $0.id == id }
+        
+        print("   - 删除后映射数量: \(tagMappings.count)")
+        
         saveToUserDefaults()
+        
+        // 同步到外部存储
+        Task {
+            do {
+                try await ExternalDataService.shared.saveTagMappingsOnly()
+                print("✅ 标签删除已同步到外部存储")
+            } catch {
+                print("⚠️ 标签删除同步到外部存储失败: \(error)")
+            }
+        }
+        
+        print("✅ TagMappingManager.deleteMapping() 完成")
     }
     
     // 重置为默认映射
     func resetToDefaults() {
+        print("🔄 TagMappingManager.resetToDefaults() 开始")
+        
         tagMappings = [
             TagMapping(key: "root", typeName: "词根"),
             TagMapping(key: "memory", typeName: "记忆"),
@@ -211,7 +238,102 @@ class TagMappingManager: ObservableObject {
             TagMapping(key: "sound", typeName: "音近"),
             TagMapping(key: "sub", typeName: "子类")
         ]
+        
+        print("   - 重置后映射数量: \(tagMappings.count)")
+        
         saveToUserDefaults()
+        
+        // 同步到外部存储
+        Task {
+            do {
+                try await ExternalDataService.shared.saveTagMappingsOnly()
+                print("✅ 标签重置已同步到外部存储")
+            } catch {
+                print("⚠️ 标签重置同步到外部存储失败: \(error)")
+            }
+        }
+        
+        print("✅ TagMappingManager.resetToDefaults() 完成")
+    }
+    
+    // 公共方法：重新从外部存储加载标签映射（用于切换位置时）
+    @MainActor
+    public func reloadFromExternalStorage() async {
+        print("🔄 TagMappingManager: 重新从外部存储加载标签映射...")
+        await loadFromExternalStorageOrFallback()
+    }
+    
+    // 获取默认映射
+    private func getDefaultMappings() -> [TagMapping] {
+        return [
+            TagMapping(key: "root", typeName: "词根"),
+            TagMapping(key: "memory", typeName: "记忆"),
+            TagMapping(key: "loc", typeName: "地点"),
+            TagMapping(key: "time", typeName: "时间"),
+            TagMapping(key: "shape", typeName: "形近"),
+            TagMapping(key: "sound", typeName: "音近"),
+            TagMapping(key: "sub", typeName: "子类")
+        ]
+    }
+    
+    // 优先从外部存储加载，失败时从UserDefaults加载
+    @MainActor
+    private func loadFromExternalStorageOrFallback() async {
+        print("🏷️ TagMappingManager: 尝试从外部存储加载标签映射...")
+        
+        do {
+            // 尝试从外部存储加载
+            if let url = ExternalDataManager.shared.getTagMappingsURL(),
+               FileManager.default.fileExists(atPath: url.path) {
+                
+                let data = try Data(contentsOf: url)
+                let decoder = JSONDecoder()
+                let loadedMappings = try decoder.decode([TagMapping].self, from: data)
+                
+                await MainActor.run {
+                    tagMappings = loadedMappings
+                    print("✅ 从外部存储成功加载 \(loadedMappings.count) 个标签映射")
+                    
+                    // 同步到UserDefaults作为备份
+                    saveToUserDefaults()
+                }
+                return
+            }
+        } catch {
+            print("⚠️ 从外部存储加载标签映射失败: \(error)")
+        }
+        
+        // 外部存储失败，尝试从UserDefaults加载
+        print("🏷️ TagMappingManager: 从UserDefaults加载标签映射...")
+        await MainActor.run {
+            loadTagMappingsFromUserDefaults()
+        }
+    }
+    
+    // 从UserDefaults加载（作为fallback）
+    private func loadTagMappingsFromUserDefaults() {
+        let decoder = JSONDecoder()
+        if let data = UserDefaults.standard.data(forKey: userDefaultsKey),
+           let savedMappings = try? decoder.decode([TagMapping].self, from: data) {
+            tagMappings = savedMappings
+            print("✅ 从UserDefaults成功加载 \(savedMappings.count) 个标签映射")
+            
+            // 迁移：确保包含新的默认映射
+            migrateToLatestMappings()
+            
+            // 同步到外部存储
+            Task {
+                do {
+                    try await ExternalDataService.shared.saveTagMappingsOnly()
+                    print("✅ 已将UserDefaults中的标签映射同步到外部存储")
+                } catch {
+                    print("⚠️ 同步标签映射到外部存储失败: \(error)")
+                }
+            }
+        } else {
+            print("⚠️ UserDefaults中也没有标签映射，使用默认值")
+            tagMappings = getDefaultMappings()
+        }
     }
     
     // 保存到UserDefaults
@@ -222,20 +344,6 @@ class TagMappingManager: ObservableObject {
         }
     }
     
-    // 从UserDefaults加载
-    private func loadTagMappings() {
-        let decoder = JSONDecoder()
-        if let data = UserDefaults.standard.data(forKey: userDefaultsKey),
-           let savedMappings = try? decoder.decode([TagMapping].self, from: data) {
-            tagMappings = savedMappings
-            
-            // 迁移：确保包含新的默认映射
-            migrateToLatestMappings()
-        } else {
-            // 如果没有保存的数据，使用默认值
-            resetToDefaults()
-        }
-    }
     
     // 迁移到最新的映射（确保新添加的默认映射被包含）
     private func migrateToLatestMappings() {

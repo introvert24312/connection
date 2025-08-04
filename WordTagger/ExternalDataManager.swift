@@ -477,12 +477,14 @@ public struct ExternalDataFormat: Codable {
     let layers: [Layer]
     let nodes: [Node]
     let metadata: DataMetadata
+    let tagMappings: [TagMapping]
     
-    public init(config: DataConfig, layers: [Layer], nodes: [Node], metadata: DataMetadata) {
+    public init(config: DataConfig, layers: [Layer], nodes: [Node], metadata: DataMetadata, tagMappings: [TagMapping] = []) {
         self.config = config
         self.layers = layers
         self.nodes = nodes
         self.metadata = metadata
+        self.tagMappings = tagMappings
     }
 }
 
