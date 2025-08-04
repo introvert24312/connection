@@ -118,24 +118,10 @@ class TagMappingManager: ObservableObject {
             return tagType
         }
         
-        // 2. 根据原始值匹配预定义类型
-        switch lowerToken {
-        case "memory": return .memory
-        case "location", "loc": return .location  // 支持 location 和 loc 两种写法
-        case "root": return .root
-        case "shape": return .shape
-        case "sound": return .sound
-        default: break
-        }
+        // 2. 不再使用硬编码的预定义标签类型匹配
+        // 让用户完全控制标签系统
         
-        // 3. 根据显示名称匹配预定义类型
-        for tagType in Tag.TagType.allCases {
-            if tagType.displayName == token || tagType.rawValue == lowerToken {
-                return tagType
-            }
-        }
-        
-        // 4. 检查已存在的自定义标签类型（如果提供了store）
+        // 3. 检查已存在的自定义标签类型（如果提供了store）
         // 注意：由于MainActor隔离，这部分检查需要在调用时处理
         // 这里先跳过，直接创建新的自定义标签类型
         
@@ -160,24 +146,10 @@ class TagMappingManager: ObservableObject {
             return tagType
         }
         
-        // 2. 根据原始值匹配预定义类型
-        switch lowerToken {
-        case "memory": return .memory
-        case "location", "loc": return .location  // 支持 location 和 loc 两种写法
-        case "root": return .root
-        case "shape": return .shape
-        case "sound": return .sound
-        default: break
-        }
+        // 2. 不再使用硬编码的预定义标签类型匹配
+        // 让用户完全控制标签系统
         
-        // 3. 根据显示名称匹配预定义类型
-        for tagType in Tag.TagType.allCases {
-            if tagType.displayName == token || tagType.rawValue == lowerToken {
-                return tagType
-            }
-        }
-        
-        // 4. 检查已存在的自定义标签类型
+        // 3. 检查已存在的自定义标签类型
         let allExistingTags = store.allTags
         for existingTag in allExistingTags {
             if case .custom(let customName) = existingTag.type {
@@ -289,15 +261,8 @@ class TagMappingManager: ObservableObject {
     
     // 获取默认映射
     private func getDefaultMappings() -> [TagMapping] {
-        return [
-            TagMapping(key: "root", typeName: "词根"),
-            TagMapping(key: "memory", typeName: "记忆"),
-            TagMapping(key: "loc", typeName: "地点"),
-            TagMapping(key: "time", typeName: "时间"),
-            TagMapping(key: "shape", typeName: "形近"),
-            TagMapping(key: "sound", typeName: "音近"),
-            TagMapping(key: "sub", typeName: "子类")
-        ]
+        // 不再提供默认映射，让用户完全控制标签系统
+        return []
     }
     
     // 优先从外部存储加载，失败时从UserDefaults加载
@@ -369,32 +334,10 @@ class TagMappingManager: ObservableObject {
     }
     
     
-    // 迁移到最新的映射（确保新添加的默认映射被包含）
+    // 迁移到最新的映射（不再自动添加预定义映射）
     private func migrateToLatestMappings() {
-        let defaultMappings = [
-            ("root", "词根"),
-            ("memory", "记忆"),
-            ("loc", "地点"),
-            ("time", "时间"),
-            ("shape", "形近"),
-            ("sound", "音近"),
-            ("sub", "子类")
-        ]
-        
-        var hasChanges = false
-        
-        for (key, typeName) in defaultMappings {
-            if !tagMappings.contains(where: { $0.key == key }) {
-                let newMapping = TagMapping(key: key, typeName: typeName)
-                tagMappings.append(newMapping)
-                hasChanges = true
-                print("🔄 迁移添加标签映射: \(key) -> \(typeName)")
-            }
-        }
-        
-        if hasChanges {
-            saveToUserDefaults()
-        }
+        // 不再自动添加预定义映射，让用户完全控制标签系统
+        print("🔄 迁移检查完成，不再自动添加预定义标签映射")
     }
 }
 
@@ -411,14 +354,8 @@ public struct TagMapping: Identifiable, Codable {
     
     // 转换为 Tag.TagType
     public var tagType: Tag.TagType {
-        switch typeName {
-        case "记忆": return .memory
-        case "地点": return .location
-        case "词根": return .root
-        case "形近": return .shape
-        case "音近": return .sound
-        default: return .custom(typeName)
-        }
+        // 所有标签都使用自定义类型，让用户完全控制
+        return .custom(key)
     }
 }
 

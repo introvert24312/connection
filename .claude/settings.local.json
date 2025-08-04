@@ -28,7 +28,8 @@
       "Bash(npm uninstall:*)",
       "Bash(timeout 30 xcodebuild:*)",
       "Bash(gtimeout:*)",
-      "WebFetch(domain:docs.anthropic.com)"
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(git restore:*)"
     ],
     "deny": []
   }
