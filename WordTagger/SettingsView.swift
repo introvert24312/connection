@@ -317,7 +317,7 @@ struct LayerManagementView: View {
                     if let currentLayer = store.currentLayer {
                         HStack {
                             Circle()
-                                .fill(Color(hex: currentLayer.color))
+                                .fill(Color.from(currentLayer.color))
                                 .frame(width: 16, height: 16)
                             
                             VStack(alignment: .leading, spacing: 4) {
@@ -446,7 +446,7 @@ struct LayerRowView: View {
         HStack(spacing: 12) {
             // 颜色指示器
             Circle()
-                .fill(Color(hex: layer.color))
+                .fill(Color.from(layer.color))
                 .frame(width: 20, height: 20)
                 .overlay(
                     Circle()
@@ -598,24 +598,6 @@ struct CreateLayerSheet: View {
     }
 }
 
-// 扩展Color以支持十六进制字符串初始化
-extension Color {
-    init(hex: String) {
-        switch hex.lowercased() {
-        case "blue": self = .blue
-        case "green": self = .green
-        case "orange": self = .orange
-        case "red": self = .red
-        case "purple": self = .purple
-        case "pink": self = .pink
-        case "yellow": self = .yellow
-        case "teal": self = .teal
-        case "indigo": self = .indigo
-        case "brown": self = .brown
-        default: self = .blue
-        }
-    }
-}
 
 // MARK: - 数据管理
 
