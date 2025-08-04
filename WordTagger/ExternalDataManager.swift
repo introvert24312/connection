@@ -265,6 +265,11 @@ public class ExternalDataManager: ObservableObject {
         return basePath.appendingPathComponent("data/metadata/metadata.json")
     }
     
+    public func getTagMappingsURL() -> URL? {
+        guard let basePath = currentDataPath else { return nil }
+        return basePath.appendingPathComponent("data/tagmappings/tagmappings.json")
+    }
+    
     public func getBackupURL(for date: Date) -> URL? {
         guard let basePath = currentDataPath else { return nil }
         let formatter = DateFormatter()

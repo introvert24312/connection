@@ -94,6 +94,10 @@ public class ExternalDataService: ObservableObject {
                         try await self.saveMetadata(store: store)
                         print("✅ Metadata保存成功")
                         
+                        print("💾 保存TagMappings...")
+                        try await self.saveTagMappings()
+                        print("✅ TagMappings保存成功")
+                        
                         continuation.resume()
                     } catch {
                         print("❌ 数据保存失败: \(error)")
@@ -168,6 +172,48 @@ public class ExternalDataService: ObservableObject {
         try data.write(to: url)
     }
     
+    private func saveTagMappings() async throws {
+        guard let url = dataManager.getTagMappingsURL() else {
+            throw DataError.invalidPath
+        }
+        
+        // 确保 tagmappings 文件夹存在
+        let tagMappingsDir = url.deletingLastPathComponent()
+        if !FileManager.default.fileExists(atPath: tagMappingsDir.path) {
+            print("📁 创建 tagmappings 文件夹: \(tagMappingsDir.path)")
+            try FileManager.default.createDirectory(at: tagMappingsDir, withIntermediateDirectories: true, attributes: nil)
+        }
+        
+        await MainActor.run {
+            let tagMappings = TagMappingManager.shared.tagMappings
+            print("💾 保存TagMappings: \(tagMappings.count) 个映射")
+            for mapping in tagMappings {
+                print("   - \(mapping.key) -> \(mapping.typeName)")
+            }
+        }
+        
+        let tagMappings = await MainActor.run {
+            return TagMappingManager.shared.tagMappings
+        }
+        
+        let data = try encoder.encode(tagMappings)
+        try data.write(to: url)
+    }
+    
+    // 单独保存标签映射的方法（用于实时同步）
+    public func saveTagMappingsOnly() async throws {
+        guard dataManager.isDataPathSelected else {
+            throw DataError.noDataPathSelected
+        }
+        
+        // 检查并确保访问权限
+        guard dataManager.ensureAccess() else {
+            throw DataError.accessDenied
+        }
+        
+        try await saveTagMappings()
+    }
+    
     // MARK: - 数据加载
     
     public func loadAllData() async throws -> (layers: [Layer], nodes: [Node], words: [Word]) {
@@ -190,6 +236,10 @@ public class ExternalDataService: ObservableObject {
                         let layers = try await self.loadLayers()
                         let nodes = try await self.loadNodes()
                         let words = try await self.loadWords()
+                        
+                        // 加载标签映射
+                        try await self.loadTagMappings()
+                        
                         continuation.resume(returning: (layers, nodes, words))
                     } catch {
                         continuation.resume(throwing: error)
@@ -250,6 +300,31 @@ public class ExternalDataService: ObservableObject {
         
         let data = try Data(contentsOf: url)
         return try decoder.decode([Word].self, from: data)
+    }
+    
+    private func loadTagMappings() async throws {
+        guard let url = dataManager.getTagMappingsURL() else {
+            throw DataError.invalidPath
+        }
+        
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            print("🏷️ TagMappings文件不存在，使用默认值")
+            return // 使用现有的默认映射
+        }
+        
+        print("🏷️ 从外部存储加载TagMappings...")
+        let data = try Data(contentsOf: url)
+        let tagMappings = try decoder.decode([TagMapping].self, from: data)
+        
+        await MainActor.run {
+            print("🏷️ 加载了 \(tagMappings.count) 个标签映射:")
+            for mapping in tagMappings {
+                print("   - \(mapping.key) -> \(mapping.typeName)")
+            }
+            
+            // 直接更新TagMappingManager的数据，不触发保存到UserDefaults
+            TagMappingManager.shared.tagMappings = tagMappings
+        }
     }
     
     // MARK: - 备份管理

@@ -717,6 +717,10 @@ public final class WordStore: ObservableObject {
         selectedTag = nil
         searchQuery = ""
         searchResults.removeAll()
+        
+        // 重置标签映射到默认值
+        TagMappingManager.shared.resetToDefaults()
+        print("🏷️ 标签映射已重置为默认值")
     }
     
     @MainActor

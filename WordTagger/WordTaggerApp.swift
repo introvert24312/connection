@@ -59,6 +59,16 @@ class TagMappingManager: ObservableObject {
         
         saveToUserDefaults()
         
+        // 同步到外部存储
+        Task {
+            do {
+                try await ExternalDataService.shared.saveTagMappingsOnly()
+                print("✅ TagMappings已同步到外部存储")
+            } catch {
+                print("⚠️ TagMappings同步到外部存储失败: \(error)")
+            }
+        }
+        
         // 如果是更新操作且typeName发生了变化，通知Store更新相关Tag
         if let oldName = oldTypeName, oldName != mapping.typeName {
             print("🔄 标签类型名称发生变化: \(oldName) -> \(mapping.typeName)")
