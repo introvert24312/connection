@@ -511,6 +511,43 @@ struct QuickAddSheetView: View {
         
         while i < components.count {
             let tagKey = components[i]
+            
+            // 检查是否是标签重命名语法: tagtype[newName]
+            if tagKey.contains("[") && tagKey.contains("]") {
+                if let startBracket = tagKey.firstIndex(of: "["),
+                   let endBracket = tagKey.firstIndex(of: "]"),
+                   startBracket < endBracket {
+                    
+                    let actualTagKey = String(tagKey[..<startBracket])
+                    let newTypeName = String(tagKey[tagKey.index(after: startBracket)..<endBracket])
+                    
+                    print("🏷️ QuickAdd: 检测到标签重命名 - key: '\(actualTagKey)', newName: '\(newTypeName)'")
+                    
+                    // 处理标签重命名
+                    if let existingMapping = tagManager.tagMappings.first(where: { $0.key == actualTagKey }) {
+                        let oldTypeName = existingMapping.typeName
+                        print("🔄 QuickAdd: 更新标签映射 - \(oldTypeName) -> \(newTypeName)")
+                        
+                        // 创建更新后的映射
+                        let updatedMapping = TagMapping(
+                            id: existingMapping.id,
+                            key: actualTagKey,
+                            typeName: newTypeName
+                        )
+                        
+                        // 保存到TagManager，会自动触发UI更新
+                        tagManager.saveMapping(updatedMapping)
+                        
+                        print("✅ QuickAdd: 标签重命名完成")
+                    } else {
+                        print("⚠️ QuickAdd: 未找到key '\(actualTagKey)' 对应的映射")
+                    }
+                    
+                    i += 1
+                    continue
+                }
+            }
+            
             if let tagType = tagManager.parseTokenToTagTypeWithStore(tagKey, store: store) {
                 if i + 1 < components.count { 
                     let content = components[i + 1]

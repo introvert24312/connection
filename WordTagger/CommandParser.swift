@@ -162,6 +162,11 @@ public final class CommandParser: ObservableObject {
         let tokens = nlpProcessor.tokenize(input)
         let intent = nlpProcessor.detectIntent(from: tokens)
         
+        // 首先检查是否包含标签重命名语法
+        if input.contains("[") && input.contains("]") {
+            return TagRenameCommand(input: input)
+        }
+        
         switch intent {
         case .addWord(let text, let meaning, let phonetic):
             return AddWordCommand(text: text, meaning: meaning, phonetic: phonetic)
@@ -805,5 +810,81 @@ public struct ResetSampleDataCommand: Command {
     public func execute(with context: CommandContext) async throws -> CommandResult {
         await context.store.resetToSampleData()
         return .success(message: "已重置为示例数据")
+    }
+}
+
+public struct TagRenameCommand: Command {
+    public let id = UUID()
+    public let title: String
+    public let description: String
+    public let icon = "tag.circle"
+    public let category = CommandCategory.tag
+    public let keywords = ["重命名", "标签", "修改"]
+    
+    private let input: String
+    
+    public init(input: String) {
+        self.input = input
+        self.title = "标签重命名"
+        self.description = "重命名标签类型显示名称"
+    }
+    
+    public func execute(with context: CommandContext) async throws -> CommandResult {
+        let tagManager = TagMappingManager.shared
+        let components = input.components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+        
+        var renamedCount = 0
+        
+        // 检查每个component是否包含重命名语法
+        for component in components {
+            if component.contains("[") && component.contains("]") {
+                if let startBracket = component.firstIndex(of: "["),
+                   let endBracket = component.firstIndex(of: "]"),
+                   startBracket < endBracket {
+                    
+                    let actualTagKey = String(component[..<startBracket])
+                    let newTypeName = String(component[component.index(after: startBracket)..<endBracket])
+                    
+                    print("🏷️ CommandParser: 检测到标签重命名 - key: '\(actualTagKey)', newName: '\(newTypeName)'")
+                    
+                    // 处理标签重命名
+                    if let existingMapping = tagManager.tagMappings.first(where: { $0.key == actualTagKey }) {
+                        let oldTypeName = existingMapping.typeName
+                        print("🔄 CommandParser: 更新标签映射 - \(oldTypeName) -> \(newTypeName)")
+                        
+                        // 创建更新后的映射
+                        let updatedMapping = TagMapping(
+                            id: existingMapping.id,
+                            key: actualTagKey,
+                            typeName: newTypeName
+                        )
+                        
+                        // 保存到TagManager，会自动触发UI更新
+                        await MainActor.run {
+                            tagManager.saveMapping(updatedMapping)
+                        }
+                        
+                        renamedCount += 1
+                        print("✅ CommandParser: 标签重命名完成")
+                    } else {
+                        print("⚠️ CommandParser: 未找到key '\(actualTagKey)' 对应的映射")
+                        // 创建新映射
+                        let newMapping = TagMapping(key: actualTagKey, typeName: newTypeName)
+                        await MainActor.run {
+                            tagManager.saveMapping(newMapping)
+                        }
+                        renamedCount += 1
+                        print("✅ CommandParser: 创建新标签映射: \(actualTagKey) -> \(newTypeName)")
+                    }
+                }
+            }
+        }
+        
+        if renamedCount > 0 {
+            return .success(message: "成功重命名 \(renamedCount) 个标签")
+        } else {
+            return .error("未找到可重命名的标签")
+        }
     }
 }
