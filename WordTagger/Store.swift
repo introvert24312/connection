@@ -275,6 +275,30 @@ public final class NodeStore: ObservableObject {
         print("   - 含义: \(node.meaning ?? "nil")")
         print("   - 标签: \(node.tags.count) 个")
         
+        // 检查是否有可用的层
+        guard !layers.isEmpty else {
+            print("❌ 无法添加节点：没有可用的层！请先创建至少一个层。")
+            duplicateNodeAlert = DuplicateNodeAlert(
+                message: "无法添加节点：请先创建至少一个层",
+                isDuplicate: false,
+                existingNode: nil,
+                newNode: node
+            )
+            return false
+        }
+        
+        // 检查当前层是否有效
+        guard let currentLayer = currentLayer else {
+            print("❌ 无法添加节点：没有选中的当前层！")
+            duplicateNodeAlert = DuplicateNodeAlert(
+                message: "无法添加节点：请先选择一个层",
+                isDuplicate: false,
+                existingNode: nil,
+                newNode: node
+            )
+            return false
+        }
+        
         // 检查是否存在相同的节点
         print("🔍 检查重复 - 新节点: '\(node.text)', 现有节点数量: \(nodes.count)")
         for (index, existingNode) in nodes.enumerated() {
@@ -361,10 +385,8 @@ public final class NodeStore: ObservableObject {
             
             // 确保节点与当前层关联
             var nodeWithLayer = node
-            if nodeWithLayer.layerId == nil, let currentLayerId = currentLayer?.id {
-                nodeWithLayer.layerId = currentLayerId
-                print("🔗 设置节点层ID: \(currentLayerId)")
-            }
+            nodeWithLayer.layerId = currentLayer.id
+            print("🔗 设置节点层ID: \(currentLayer.id)")
             
             nodes.append(nodeWithLayer)
             print("✅ 节点添加成功，当前总数: \(nodes.count)")
@@ -375,7 +397,20 @@ public final class NodeStore: ObservableObject {
     @MainActor
     public func addNode(_ text: String, phonetic: String?, meaning: String?) -> Bool {
         print("📝 Store: 添加节点(简化) - \(text)")
-        let node = Node(text: text, phonetic: phonetic, meaning: meaning, layerId: currentLayer?.id ?? UUID(), tags: [])
+        
+        // 检查是否有可用的层
+        guard !layers.isEmpty, let currentLayer = currentLayer else {
+            print("❌ 无法添加节点：没有可用的层或未选中层！")
+            duplicateNodeAlert = DuplicateNodeAlert(
+                message: "无法添加节点：请先创建并选择一个层",
+                isDuplicate: false,
+                existingNode: nil,
+                newNode: Node(text: text, phonetic: phonetic, meaning: meaning, layerId: UUID(), tags: [])
+            )
+            return false
+        }
+        
+        let node = Node(text: text, phonetic: phonetic, meaning: meaning, layerId: currentLayer.id, tags: [])
         return addNode(node)
     }
     
@@ -450,11 +485,29 @@ public final class NodeStore: ObservableObject {
     
     @MainActor
     public func setCurrentLayer(_ layer: Layer) {
+        print("🔄 切换到层: \(layer.displayName) (ID: \(layer.id))")
+        
+        // 清理当前选择状态，避免跨层显示问题
+        selectedNode = nil
+        selectedTag = nil
+        searchQuery = ""
+        searchResults.removeAll()
+        
         // 更新所有层的活跃状态
         for i in layers.indices {
             layers[i].isActive = (layers[i].id == layer.id)
         }
         currentLayer = layer
+        
+        // 强制触发UI更新
+        objectWillChange.send()
+        
+        // 执行数据一致性检查
+        cleanupDataConsistency()
+        
+        print("✅ 层切换完成，当前层: \(layer.displayName)")
+        print("   - 当前层节点数量: \(nodes.filter { $0.layerId == layer.id }.count)")
+        print("   - 当前层标签数量: \(currentLayerTags.count)")
     }
     
     // MARK: - 层管理
@@ -480,12 +533,13 @@ public final class NodeStore: ObservableObject {
         print("🗑️ 将删除 \(nodesToDelete.count) 个节点")
         nodes.removeAll { $0.layerId == layer.id }
         
-        // 检查孤儿节点（layerId为nil的节点）
-        let orphanNodes = nodes.filter { $0.layerId == nil }
+        // 检查孤儿节点（layerId不对应任何现有层的节点）
+        let validLayerIds = Set(layers.map { $0.id })
+        let orphanNodes = nodes.filter { !validLayerIds.contains($0.layerId) }
         if !orphanNodes.isEmpty {
-            print("⚠️ 发现 \(orphanNodes.count) 个孤儿节点（无层关联）")
+            print("⚠️ 发现 \(orphanNodes.count) 个孤儿节点（层ID无效）")
             for orphan in orphanNodes {
-                print("   - \(orphan.text)")
+                print("   - \(orphan.text) (layerId: \(orphan.layerId))")
             }
         }
         
@@ -511,8 +565,59 @@ public final class NodeStore: ObservableObject {
     // MARK: - 数据清理功能
     
     @MainActor
+    public func cleanupDataConsistency() {
+        print("🧹 开始数据一致性检查和清理...")
+        
+        var cleanupCount = 0
+        
+        // 1. 清理孤儿节点（layerId不存在的层）
+        let validLayerIds = Set(layers.map { $0.id })
+        for i in nodes.indices.reversed() {
+            let node = nodes[i]
+            if !validLayerIds.contains(node.layerId) {
+                if let currentLayer = currentLayer {
+                    nodes[i].layerId = currentLayer.id
+                    cleanupCount += 1
+                    print("🔗 修复孤儿节点: '\(node.text)' -> 层: \(currentLayer.displayName)")
+                } else {
+                    nodes.remove(at: i)
+                    cleanupCount += 1
+                    print("🗑️ 删除无效节点: '\(node.text)'")
+                }
+            }
+        }
+        
+        // 2. 清理不属于当前层的selectedNode
+        if let selectedNode = selectedNode,
+           let currentLayer = currentLayer,
+           selectedNode.layerId != currentLayer.id {
+            self.selectedNode = nil
+            cleanupCount += 1
+            print("🧹 清理跨层选中节点: '\(selectedNode.text)'")
+        }
+        
+        // 3. 清理不属于当前层的selectedTag
+        if let selectedTag = selectedTag {
+            let tagExistsInCurrentLayer = currentLayerTags.contains { $0.id == selectedTag.id }
+            if !tagExistsInCurrentLayer {
+                self.selectedTag = nil
+                cleanupCount += 1
+                print("🧹 清理跨层选中标签: '\(selectedTag.value)'")
+            }
+        }
+        
+        if cleanupCount > 0 {
+            objectWillChange.send()
+            print("✅ 数据一致性清理完成，修复了 \(cleanupCount) 个问题")
+        } else {
+            print("✅ 数据一致性检查完成，没有发现问题")
+        }
+    }
+    
+    @MainActor
     public func fixOrphanNodes() {
-        let orphanNodes = nodes.filter { $0.layerId == nil }
+        let validLayerIds = Set(layers.map { $0.id })
+        let orphanNodes = nodes.filter { !validLayerIds.contains($0.layerId) }
         guard !orphanNodes.isEmpty else {
             print("✅ 没有发现孤儿节点")
             return
@@ -528,7 +633,7 @@ public final class NodeStore: ObservableObject {
         
         var fixedCount = 0
         for i in 0..<nodes.count {
-            if nodes[i].layerId == nil {
+            if !validLayerIds.contains(nodes[i].layerId) {
                 nodes[i].layerId = targetLayer.id
                 print("🔗 修复节点: '\(nodes[i].text)' -> 层: \(targetLayer.displayName)")
                 fixedCount += 1
@@ -543,6 +648,22 @@ public final class NodeStore: ObservableObject {
     
     public var allTags: [Tag] {
         let nodeTags = nodes.flatMap { $0.tags }
+        let uniqueTags = nodeTags.unique()
+        print("🏷️ allTags计算: 节点数=\(nodes.count), 总标签数=\(nodeTags.count), 唯一标签数=\(uniqueTags.count)")
+        if !uniqueTags.isEmpty {
+            print("🏷️ 标签详情:")
+            for (i, tag) in uniqueTags.enumerated() {
+                print("   [\(i)] \(tag.type.displayName): '\(tag.value)' (id: \(tag.id))")
+            }
+        }
+        return uniqueTags
+    }
+    
+    // 获取当前层的标签
+    public var currentLayerTags: [Tag] {
+        guard let currentLayer = currentLayer else { return [] }
+        let currentLayerNodes = nodes.filter { $0.layerId == currentLayer.id }
+        let nodeTags = currentLayerNodes.flatMap { $0.tags }
         return nodeTags.unique()
     }
     
@@ -696,7 +817,39 @@ public final class NodeStore: ObservableObject {
     
     public func addTag(to nodeId: UUID, tag: Tag) {
         if let index = nodes.firstIndex(where: { $0.id == nodeId }) {
-            nodes[index].tags.append(tag)
+            // 创建新的节点副本并更新tags
+            var updatedNode = nodes[index]
+            updatedNode.tags.append(tag)
+            updatedNode.updatedAt = Date()
+            
+            // 替换整个节点以确保触发@Published更新
+            nodes[index] = updatedNode
+            
+            print("✅ 添加标签完成，节点已更新: \(tag.type.displayName) - \(tag.value)")
+            print("📊 当前节点标签数: \(updatedNode.tags.count)")
+            
+            // 手动触发objectWillChange以确保UI更新
+            objectWillChange.send()
+            
+            // 发送节点更新通知以清除图谱缓存
+            NotificationCenter.default.post(
+                name: Notification.Name("nodeUpdated"),
+                object: nil,
+                userInfo: ["nodeId": nodeId]
+            )
+            
+            // 如果当前选中的节点是这个节点，更新选中节点引用
+            if selectedNode?.id == nodeId {
+                selectedNode = updatedNode
+                print("🔄 更新选中节点引用以确保UI刷新")
+            }
+            
+            // 如果当前选中的标签与新添加的标签匹配，更新选中标签引用
+            if let currentSelectedTag = selectedTag,
+               currentSelectedTag.type == tag.type && currentSelectedTag.value == tag.value {
+                print("🔄 更新选中标签引用以确保UI刷新")
+                selectedTag = tag
+            }
         }
     }
     
@@ -705,6 +858,11 @@ public final class NodeStore: ObservableObject {
     @MainActor
     public func clearAllData() {
         print("🧹 开始彻底清理所有数据...")
+        print("🧹 清理前状态:")
+        print("   - 节点数量: \(nodes.count)")
+        print("   - 层数量: \(layers.count)")
+        print("   - 当前层: \(currentLayer?.displayName ?? "nil")")
+        print("   - 所有标签数量: \(allTags.count)")
         
         nodes.removeAll()
         layers.removeAll()  // 清空所有层
@@ -714,13 +872,31 @@ public final class NodeStore: ObservableObject {
         searchQuery = ""
         searchResults.removeAll()
         
+        print("🧹 清理后状态:")
+        print("   - 节点数量: \(nodes.count)")
+        print("   - 层数量: \(layers.count)")
+        print("   - 当前层: \(currentLayer?.displayName ?? "nil")")
+        print("   - 所有标签数量: \(allTags.count)")
+        
         // 完全清空标签映射
         TagMappingManager.shared.clearAll()
         print("🏷️ 标签映射已完全清空")
         print("📂 所有层已清空")
         
-        // 强制触发UI更新
+        // 强制多次触发UI更新，确保所有视图都刷新
         objectWillChange.send()
+        
+        // 延迟再次触发，确保界面完全刷新
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.objectWillChange.send()
+            print("🔄 延迟UI刷新完成")
+        }
+        
+        // 再次延迟触发，确保所有视图组件都收到更新
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            self.objectWillChange.send()
+            print("🔄 第三次UI刷新完成")
+        }
         
         // 如果需要，清理外部数据缓存
         if externalDataManager.isDataPathSelected {
@@ -848,7 +1024,36 @@ public final class NodeStore: ObservableObject {
     
     public func removeTag(from nodeId: UUID, tagId: UUID) {
         if let index = nodes.firstIndex(where: { $0.id == nodeId }) {
-            nodes[index].tags.removeAll { $0.id == tagId }
+            let removedTags = nodes[index].tags.filter { $0.id == tagId }
+            
+            // 创建新的节点副本并更新tags
+            var updatedNode = nodes[index]
+            updatedNode.tags.removeAll { $0.id == tagId }
+            updatedNode.updatedAt = Date()
+            
+            // 替换整个节点以确保触发@Published更新
+            nodes[index] = updatedNode
+            
+            // 手动触发objectWillChange以确保UI更新
+            objectWillChange.send()
+            
+            // 发送节点更新通知以清除图谱缓存
+            NotificationCenter.default.post(
+                name: Notification.Name("nodeUpdated"),
+                object: nil,
+                userInfo: ["nodeId": nodeId]
+            )
+            
+            // 如果当前选中的节点是这个节点，更新选中节点引用
+            if selectedNode?.id == nodeId {
+                selectedNode = updatedNode
+                print("🔄 更新选中节点引用以确保UI刷新")
+            }
+            
+            if let removedTag = removedTags.first {
+                print("✅ 删除标签完成，节点已更新: \(removedTag.type.displayName) - \(removedTag.value)")
+                print("📊 当前节点标签数: \(updatedNode.tags.count)")
+            }
         }
     }
     
@@ -920,7 +1125,7 @@ public final class NodeStore: ObservableObject {
             var updatedNode = node
             var nodeHasChanges = false
             
-            for (index, tag) in node.tags.enumerated() {
+            for (_, tag) in node.tags.enumerated() {
                 // 通过key匹配，而不是typeName
                 if case .custom(let customKey) = tag.type, customKey == key {
                     print("   ✅ 找到匹配的标签！更新节点 '\(node.text)' 的标签: key='\(key)', \(oldName) -> \(newName)")

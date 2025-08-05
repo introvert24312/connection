@@ -33,6 +33,19 @@ struct ContentView: View {
             }
         }
         .animation(.easeInOut(duration: 0.3), value: showSidebar)
+        .onKeyPress(.escape) {
+            // 如果标签管理打开，按ESC键关闭它
+            print("🔑 ContentView: ESC键事件接收，showSidebar=\(showSidebar)")
+            if showSidebar {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showSidebar = false
+                }
+                print("🔑 ContentView: ESC键按下，关闭标签管理")
+                return .handled
+            }
+            print("🔑 ContentView: ESC键忽略，标签管理未打开")
+            return .ignored
+        }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button(action: {
@@ -98,9 +111,11 @@ struct ContentView: View {
                 object: nil,
                 queue: .main
             ) { _ in
+                print("🔔 ContentView: 收到toggleSidebar通知，当前showSidebar=\(showSidebar)")
                 withAnimation(.easeInOut(duration: 0.3)) {
                     showSidebar.toggle()
                 }
+                print("🔔 ContentView: 切换后showSidebar=\(showSidebar)")
             }
             
             // 检查数据路径设置

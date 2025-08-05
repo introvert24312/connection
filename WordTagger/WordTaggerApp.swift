@@ -727,7 +727,20 @@ struct QuickAddSheetView: View {
             }
         }
         
-        let newNode = Node(text: nodeText, layerId: store.currentLayer?.id ?? store.layers.first?.id ?? UUID(), tags: tags)
+        // 检查层级可用性，不再使用UUID()作为fallback
+        guard let layerId = store.currentLayer?.id ?? store.layers.first?.id else {
+            print("❌ QuickAdd: 无可用层，无法创建节点")
+            // 触发警告
+            store.duplicateNodeAlert = NodeStore.DuplicateNodeAlert(
+                message: "无法添加节点：请先创建至少一个层",
+                isDuplicate: false,
+                existingNode: nil,
+                newNode: Node(text: nodeText, layerId: UUID(), tags: [])
+            )
+            return
+        }
+        
+        let newNode = Node(text: nodeText, layerId: layerId, tags: tags)
         let success = store.addNode(newNode)
         inputText = ""
         if success {
@@ -1033,7 +1046,20 @@ struct QuickAddView: View {
             }
         }
         
-        let newNode = Node(text: nodeText, layerId: store.currentLayer?.id ?? store.layers.first?.id ?? UUID(), tags: tags)
+        // 检查层级可用性，不再使用UUID()作为fallback
+        guard let layerId = store.currentLayer?.id ?? store.layers.first?.id else {
+            print("❌ QuickAddView: 无可用层，无法创建节点")
+            // 触发警告
+            store.duplicateNodeAlert = NodeStore.DuplicateNodeAlert(
+                message: "无法添加节点：请先创建至少一个层",
+                isDuplicate: false,
+                existingNode: nil,
+                newNode: Node(text: nodeText, layerId: UUID(), tags: [])
+            )
+            return
+        }
+        
+        let newNode = Node(text: nodeText, layerId: layerId, tags: tags)
         let success = store.addNode(newNode)
         inputText = ""
         if success {

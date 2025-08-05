@@ -745,9 +745,12 @@ struct TagEditCommandView: View {
     private func executeCommand() {
         let trimmedText = commandText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else { 
+            print("⚠️ 命令为空，直接关闭窗口")
             dismiss()
             return 
         }
+        
+        print("🔧 执行节点编辑命令: \(trimmedText)")
         
         Task {
             // 使用新的批量标签解析器
@@ -760,17 +763,25 @@ struct TagEditCommandView: View {
                 } else {
                     print("❌ 标签批量更新失败")
                 }
+                print("🚪 关闭节点编辑窗口")
                 dismiss()
             }
         }
     }
     
     private func parseBatchTagCommand(_ input: String) async -> Bool {
+        print("🔧 parseBatchTagCommand 开始解析: '\(input)'")
+        
         // 分词：按空格分割
         let tokens = input.components(separatedBy: .whitespacesAndNewlines)
             .filter { !$0.isEmpty }
         
-        guard tokens.count >= 2 else { return false }
+        print("🔧 分词结果: \(tokens)")
+        
+        guard tokens.count >= 2 else { 
+            print("❌ Token数量不足: \(tokens.count) < 2")
+            return false 
+        }
         
         // 第一个token应该是节点名，跳过
         let nodeText = tokens[0]
@@ -779,35 +790,49 @@ struct TagEditCommandView: View {
             return false 
         }
         
+        print("✅ 节点名匹配: \(nodeText)")
+        
         // 解析剩余的标签token
         var newTags: [Tag] = []
         var i = 1
         
+        print("🔧 开始解析标签tokens，从索引 \(i) 开始")
+        
         while i < tokens.count {
             let token = tokens[i]
+            print("🔧 处理token [\(i)]: '\(token)'")
             
             // 检查是否是标签类型关键词
             if let tagType = mapTokenToTagType(token) {
+                print("✅ 识别标签类型: '\(token)' -> \(tagType)")
                 let tagKey = token  // 保存原始token作为key
                 i += 1
                 
                 // 收集这个标签类型的值
                 var values: [String] = []
+                print("🔧 收集标签值，从索引 \(i) 开始")
+                
                 while i < tokens.count {
                     let nextToken = tokens[i]
+                    print("🔧 检查下一个token [\(i)]: '\(nextToken)'")
                     
                     // 如果遇到下一个标签类型，停止
                     if mapTokenToTagType(nextToken) != nil {
+                        print("🔧 遇到下一个标签类型: '\(nextToken)'，停止收集值")
                         break
                     }
                     
                     values.append(nextToken)
+                    print("🔧 添加值: '\(nextToken)'，当前值列表: \(values)")
                     i += 1
                 }
+                
+                print("🔧 收集的值: \(values)")
                 
                 // 创建标签
                 if !values.isEmpty {
                     let value = values.joined(separator: " ")
+                    print("🔧 创建标签，类型: \(tagType)，值: '\(value)'")
                     
                     // 检查是否是地图标签（通过key识别）
                     if TagMappingManager.shared.isLocationTagKey(tagKey) {
@@ -920,34 +945,52 @@ struct TagEditCommandView: View {
                         newTags.append(tag)
                         print("✅ 创建标签: \(tagType.displayName) - \(value)")
                     }
+                } else {
+                    print("❌ 标签值为空，跳过")
                 }
             } else {
+                print("❌ token '\(token)' 不是标签类型，跳过")
                 i += 1
             }
         }
         
-        // 替换节点的所有标签
-        await MainActor.run {
-            // 先删除所有现有标签
-            let currentNode = store.nodes.first { $0.id == node.id }
-            if let existingNode = currentNode {
-                for tag in existingNode.tags {
-                    store.removeTag(from: node.id, tagId: tag.id)
-                }
-            }
-            
-            // 添加新标签
-            for tag in newTags {
-                store.addTag(to: node.id, tag: tag)
-            }
+        print("🔧 解析完成，创建了 \(newTags.count) 个标签:")
+        for (index, tag) in newTags.enumerated() {
+            print("  [\(index)] \(tag.type.displayName): \(tag.value)")
         }
         
-        return !newTags.isEmpty
+        // 只有当成功解析出标签时才替换节点的所有标签
+        if !newTags.isEmpty {
+            print("✅ 开始替换节点标签")
+            await MainActor.run {
+                // 先删除所有现有标签
+                let currentNode = store.nodes.first { $0.id == node.id }
+                if let existingNode = currentNode {
+                    print("🗑️ 删除现有的 \(existingNode.tags.count) 个标签")
+                    for tag in existingNode.tags {
+                        store.removeTag(from: node.id, tagId: tag.id)
+                    }
+                }
+                
+                // 添加新标签
+                print("➕ 添加 \(newTags.count) 个新标签")
+                for tag in newTags {
+                    store.addTag(to: node.id, tag: tag)
+                }
+            }
+            print("✅ 标签替换完成")
+            return true
+        } else {
+            print("❌ 没有解析出任何标签，保持原有标签不变")
+            return false
+        }
     }
     
     private func mapTokenToTagType(_ token: String) -> Tag.TagType? {
         let tagManager = TagMappingManager.shared
-        return tagManager.parseTokenToTagTypeWithStore(token, store: store)
+        let result = tagManager.parseTokenToTagTypeWithStore(token, store: store)
+        print("🔍 mapTokenToTagType: '\(token)' -> \(result?.displayName ?? "nil")")
+        return result
     }
     
     // 检查是否是地图/位置标签的key

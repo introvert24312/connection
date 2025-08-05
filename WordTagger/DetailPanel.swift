@@ -5,8 +5,14 @@ import MapKit
 
 struct DetailPanel: View {
     let node: Node
+    @EnvironmentObject private var store: NodeStore
     @State private var tab: Tab = .related
     @State private var showingEditSheet = false
+    
+    // 从store中获取最新的节点数据
+    private var currentNode: Node {
+        return store.nodes.first { $0.id == node.id } ?? node
+    }
     
     enum Tab: String, CaseIterable {
         case related = "图谱"
@@ -43,16 +49,16 @@ struct DetailPanel: View {
             Group {
                 switch tab {
                 case .detail:
-                    NodeDetailView(node: node)
+                    NodeDetailView(node: currentNode)
                 case .map:
-                    NodeMapView(node: node)
+                    NodeMapView(node: currentNode)
                 case .related:
-                    NodeGraphView(node: node)
+                    NodeGraphView(node: currentNode)
                 }
             }
         }
         .sheet(isPresented: $showingEditSheet) {
-            EditNodeSheet(node: node)
+            EditNodeSheet(node: currentNode)
         }
     }
 }
@@ -63,19 +69,24 @@ struct NodeDetailView: View {
     let node: Node
     @EnvironmentObject private var store: NodeStore
     
+    // 从store中获取最新的节点数据
+    private var currentNode: Node {
+        return store.nodes.first { $0.id == node.id } ?? node
+    }
+    
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 // 单词信息
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {
-                        Text(node.text)
+                        Text(currentNode.text)
                             .font(.largeTitle)
                             .fontWeight(.bold)
                         
                         Spacer()
                         
-                        if let phonetic = node.phonetic {
+                        if let phonetic = currentNode.phonetic {
                             Text(phonetic)
                                 .font(.title3)
                                 .foregroundColor(.secondary)
@@ -88,7 +99,7 @@ struct NodeDetailView: View {
                         }
                     }
                     
-                    if let meaning = node.meaning {
+                    if let meaning = currentNode.meaning {
                         Text(meaning)
                             .font(.title2)
                             .foregroundColor(.primary)
@@ -105,15 +116,15 @@ struct NodeDetailView: View {
                         
                         Spacer()
                         
-                        Text("\(node.tags.count) 个标签")
+                        Text("\(currentNode.tags.count) 个标签")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
                     
-                    if node.tags.isEmpty {
+                    if currentNode.tags.isEmpty {
                         EmptyTagsView()
                     } else {
-                        TagsByTypeView(tags: node.tags)
+                        TagsByTypeView(tags: currentNode.tags)
                     }
                 }
                 
@@ -334,6 +345,13 @@ struct MetadataRow: View {
 
 struct NodeMapView: View {
     let node: Node
+    @EnvironmentObject private var store: NodeStore
+    
+    // 从store中获取最新的节点数据
+    private var currentNode: Node {
+        return store.nodes.first { $0.id == node.id } ?? node
+    }
+    
     @State private var region = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 39.9042, longitude: 116.4074),
         span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
@@ -355,12 +373,12 @@ struct NodeMapView: View {
     }
     
     private var locationTags: [Tag] {
-        let allTags = node.tags
+        let allTags = currentNode.tags
         let locationTypeTags = allTags.filter { isLocationTag($0) }
-        let locationWithCoords = node.locationTags
+        let locationWithCoords = currentNode.locationTags
         
         print("🔍 DetailPanel调试:")
-        print("🔍 节点: \(node.text)")
+        print("🔍 节点: \(currentNode.text)")
         print("🔍 所有标签数量: \(allTags.count)")
         print("🔍 location类型标签数量: \(locationTypeTags.count)")
         print("🔍 有坐标的location标签数量: \(locationWithCoords.count)")
@@ -377,7 +395,7 @@ struct NodeMapView: View {
         Group {
             if locationTags.isEmpty {
                 // 检查是否有location类型但没有坐标的标签
-                let locationTagsWithoutCoords = node.tags.filter { isLocationTag($0) && !$0.hasCoordinates }
+                let locationTagsWithoutCoords = currentNode.tags.filter { isLocationTag($0) && !$0.hasCoordinates }
                 
                 VStack(spacing: 16) {
                     Spacer()
@@ -598,7 +616,32 @@ class NodeGraphDataCache: ObservableObject {
     
     private var cache: [UUID: (nodes: [NodeGraphNode], edges: [NodeGraphEdge])] = [:]
     
-    private init() {}
+    private init() {
+        // 监听节点变化以清除相关缓存
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name("nodeUpdated"), 
+            object: nil, 
+            queue: .main
+        ) { [weak self] notification in
+            if let nodeId = notification.userInfo?["nodeId"] as? UUID {
+                self?.invalidateCache(for: nodeId)
+                print("🗑️ 清除节点图谱缓存: \(nodeId)")
+            }
+        }
+    }
+    
+    // 清除特定节点的缓存
+    func invalidateCache(for nodeId: UUID) {
+        cache.removeValue(forKey: nodeId)
+        objectWillChange.send()
+    }
+    
+    // 清除所有缓存
+    func clearAllCache() {
+        cache.removeAll()
+        objectWillChange.send()
+        print("🗑️ 清除所有图谱缓存")
+    }
     
     func getCachedGraphData(for node: Node) -> (nodes: [NodeGraphNode], edges: [NodeGraphEdge]) {
         // 检查缓存
@@ -676,10 +719,6 @@ class NodeGraphDataCache: ObservableObject {
     func clearCache() {
         cache.removeAll()
     }
-    
-    func invalidateCache(for nodeId: UUID) {
-        cache.removeValue(forKey: nodeId)
-    }
 }
 
 // MARK: - 节点关系图谱视图
@@ -690,9 +729,14 @@ struct NodeGraphView: View {
     @AppStorage("detailGraphInitialScale") private var detailGraphInitialScale: Double = 1.0
     @StateObject private var graphCache = NodeGraphDataCache.shared
     
+    // 从store中获取最新的节点数据
+    private var currentNode: Node {
+        return store.nodes.first { $0.id == node.id } ?? node
+    }
+    
     var body: some View {
         // 使用全局缓存获取图谱数据，避免重复计算
-        let graphData = graphCache.getCachedGraphData(for: node)
+        let graphData = graphCache.getCachedGraphData(for: currentNode)
         
         VStack(spacing: 0) {
             // 标题栏

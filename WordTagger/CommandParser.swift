@@ -142,10 +142,8 @@ public final class CommandParser: ObservableObject {
             ShowSettingsCommand(),
             SelectWordCommand(),
             
-            // Layer commands
-            SwitchLayerCommand(layerName: "英语单词"),
-            SwitchLayerCommand(layerName: "统计学"),
-            SwitchLayerCommand(layerName: "教育心理学"),
+            // Layer commands - 动态生成，不使用硬编码
+            // 注意：实际的层切换命令现在在 getDefaultCommands 和 findMatchingCommands 中动态生成
             
             // System commands
             ClearCacheCommand(),
@@ -316,14 +314,8 @@ private class NLPProcessor {
             }
         }
         
-        // Direct layer name detection - for commands like "英语单词", "统计学", etc.
-        let possibleLayerNames = ["英语", "英语单词", "统计学", "教育心理学", "数学", "物理", "化学", "生物"]
-        for layerName in possibleLayerNames {
-            let layerTokens = layerName.components(separatedBy: .whitespaces)
-            if layerTokens.allSatisfy({ tokens.contains($0) }) {
-                return .switchLayer(layerName: layerName)
-            }
-        }
+        // Direct layer name detection - 移除硬编码，依赖 findMatchingCommands 中的动态层检测
+        // 这样确保只有实际存在的层才能被切换
         
         return .unknown
     }

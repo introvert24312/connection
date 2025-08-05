@@ -7,7 +7,7 @@ struct TagSidebarView: View {
     @State private var filter: String = ""
     @State private var selectedTagType: Tag.TagType?
     @Binding var selectedNode: Node?
-    @State private var selectedIndex: Int = 0
+    @State private var selectedIndex: Int = -1
     @FocusState private var isListFocused: Bool
     
     var body: some View {
@@ -87,6 +87,9 @@ struct TagSidebarView: View {
                         selectTagAtIndex(index)
                     }
                     .id(index)
+                    .onAppear {
+                        print("🎨 TagRow出现: index=\(index), tag='\(tag.value)', highlighted=\(index == selectedIndex)")
+                    }
                 }
                 .listStyle(.sidebar)
                 .focused($isListFocused)
@@ -114,28 +117,74 @@ struct TagSidebarView: View {
                     selectTagAtIndex(selectedIndex)
                     return .handled
                 }
-                .onChange(of: filteredTags) { _, _ in
+                .onChange(of: filteredTags) { _, newTags in
+                    print("🔄 filteredTags changed: 旧selectedIndex=\(selectedIndex), 新标签数=\(newTags.count)")
                     DispatchQueue.main.async {
-                        selectedIndex = min(selectedIndex, max(0, filteredTags.count - 1))
+                        let oldIndex = self.selectedIndex
+                        self.selectedIndex = min(self.selectedIndex, max(0, newTags.count - 1))
+                        print("🔄 selectedIndex 更新: \(oldIndex) -> \(self.selectedIndex)")
+                        
+                        // 如果没有标签了，确保清除选中状态
+                        if newTags.isEmpty {
+                            self.selectedIndex = -1
+                            print("🧹 清空选中索引，因为没有标签")
+                        }
                     }
                 }
                 .onAppear {
                     DispatchQueue.main.async {
                         isListFocused = true
+                        // 重置选中索引，避免显示异常高亮
+                        selectedIndex = -1
+                        print("🧹 onAppear: 重置selectedIndex=-1，避免意外高亮")
                     }
                 }
             }
             .navigationTitle("标签")
+            .focusable()
+            .onKeyPress(.escape) {
+                // 按ESC键隐藏标签管理侧边栏
+                print("🔑 TagSidebarView: ESC键按下，隐藏标签管理")
+                NotificationCenter.default.post(name: Notification.Name("toggleSidebar"), object: nil)
+                return .handled
+            }
+            .onAppear {
+                // 确保获得键盘焦点，这对ESC键处理很重要
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    print("🔑 TagSidebarView 获得键盘焦点")
+                    // 强制设置焦点到整个视图
+                    if let window = NSApp.keyWindow {
+                        window.makeFirstResponder(window.contentView)
+                        print("🔑 设置键盘焦点到窗口内容视图")
+                    }
+                }
+            }
+            // 添加额外的ESC键处理层
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+                print("🔑 窗口获得键盘焦点")
+            }
         }
     }
     
     private var filteredTags: [Tag] {
+        print("🔍 TagSidebarView.filteredTags 开始计算")
+        print("   - searchQuery: '\(store.searchQuery)'")
+        print("   - currentLayer: \(store.currentLayer?.displayName ?? "nil")")
+        
         // 如果有全局搜索查询，优先显示相关标签
         var tags: [Tag]
         if !store.searchQuery.isEmpty {
             tags = store.getRelevantTags(for: store.searchQuery)
+            print("   - 使用搜索标签: \(tags.count)个")
         } else {
-            tags = store.allTags
+            // 如果有当前层，显示当前层标签；否则显示所有标签
+            if store.currentLayer != nil {
+                tags = store.currentLayerTags
+                print("   - 使用当前层标签: \(tags.count)个")
+            } else {
+                tags = store.allTags
+                print("   - 使用全局标签: \(tags.count)个")
+            }
         }
         
         // 按类型过滤
@@ -231,7 +280,8 @@ struct TagRowView: View {
     }
     
     var body: some View {
-        let _ = print("🏷️ TagRowView: 渲染标签 value='\(tag.value)', type=\(tag.type), displayName='\(tag.type.displayName)'")
+        let isCurrentlySelected = store.selectedTag?.id == tag.id
+        let _ = print("🏷️ TagRowView: 渲染标签 value='\(tag.value)', type=\(tag.type), displayName='\(tag.type.displayName)', selected=\(isCurrentlySelected), highlighted=\(isHighlighted)")
         return Button(action: onTap) {
             HStack(spacing: 16) {
                 // 标签类型指示器
@@ -280,8 +330,9 @@ struct TagRowView: View {
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .fill(
-                    isHighlighted ? Color.blue.opacity(0.2) : 
-                    (store.selectedTag?.id == tag.id ? Color.blue.opacity(0.1) : Color.clear)
+                    // 只有在有标签且实际选中时才高亮
+                    (isHighlighted && !store.allTags.isEmpty) ? Color.blue.opacity(0.2) : 
+                    (isCurrentlySelected ? Color.blue.opacity(0.1) : Color.clear)
                 )
         )
     }

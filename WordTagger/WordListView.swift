@@ -216,6 +216,19 @@ struct NodeListView: View {
         .onChange(of: store.selectedTag?.id, perform: handleSelectedTagChange)
         .onChange(of: store.currentLayer?.id, perform: handleCurrentLayerChange)
         .onChange(of: sortOption, perform: handleSortOptionChange)
+        .onChange(of: store.nodes) { _, newNodes in
+            print("📊 NodeListView: store.nodes changed, 节点数量: \(newNodes.count)")
+            // 详细输出每个节点的标签信息
+            for (index, node) in newNodes.enumerated() {
+                print("  节点[\(index)]: '\(node.text)' - 标签数: \(node.tags.count)")
+                for (tagIndex, tag) in node.tags.enumerated() {
+                    print("    标签[\(tagIndex)]: \(tag.type.displayName) - '\(tag.value)'")
+                }
+            }
+            // 强制立即更新缓存，不使用防抖
+            print("🔄 强制立即更新缓存显示")
+            updateCachedDisplayNodes()
+        }
     }
     
     private var displayNodes: [Node] {
@@ -269,6 +282,16 @@ struct NodeListView: View {
             // 只有在没有搜索时才应用标签过滤，只在当前层中搜索
             filteredNodes = store.nodesInCurrentLayer(withTag: selectedTag)
             print("🏷️ Using tag filter in current layer: \(filteredNodes.count) nodes")
+            print("🏷️ Selected tag: \(selectedTag.type.displayName) - '\(selectedTag.value)'")
+            // 详细调试：检查每个节点是否包含该标签
+            for (index, node) in filteredNodes.enumerated() {
+                let hasTag = node.hasTag(selectedTag)
+                print("  过滤结果[\(index)]: '\(node.text)' - hasTag: \(hasTag), 标签数: \(node.tags.count)")
+                if hasTag {
+                    let matchingTags = node.tags.filter { $0.type == selectedTag.type && $0.value == selectedTag.value }
+                    print("    匹配标签: \(matchingTags.count)个")
+                }
+            }
         } else {
             // 没有搜索也没有选中标签时，显示当前层的节点
             filteredNodes = store.getNodesInCurrentLayer()
@@ -286,6 +309,15 @@ struct NodeListView: View {
         
         let newCount = cachedDisplayNodes.count
         print("✅ Cache updated: \(oldCount) → \(newCount) nodes")
+        
+        // 详细输出缓存中每个节点的标签信息
+        for (index, node) in cachedDisplayNodes.enumerated() {
+            print("  缓存节点[\(index)]: '\(node.text)' - 标签数: \(node.tags.count)")
+            if !node.tags.isEmpty {
+                let tagSummary = node.tags.map { "\($0.type.displayName):\($0.value)" }.joined(separator: ", ")
+                print("    标签: \(tagSummary)")
+            }
+        }
         
         // 更新缓存状态
         lastSearchQuery = store.searchQuery
