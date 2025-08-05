@@ -563,7 +563,7 @@ struct TagChipsView: View {
                     }
                     .padding(.horizontal, 4)
                 }
-                .frame(maxHeight: 32) // 限制高度避免占用过多空间
+                .frame(maxHeight: 44) // 增加高度以容纳更大的标签
             }
         }
     }
@@ -584,36 +584,38 @@ struct TagChip: View {
         return Button(action: {
             // 标签点击行为 - 可以添加选择/过滤逻辑
         }) {
-            HStack(spacing: 4) {
-                // 类型指示器
-                RoundedRectangle(cornerRadius: 2)
+            HStack(spacing: 6) {
+                // 类型指示器 - 更大
+                RoundedRectangle(cornerRadius: 3)
                     .fill(Color.from(tagType: tag.type))
-                    .frame(width: 3, height: 14)
+                    .frame(width: 4, height: 18)
                 
-                if searchQuery.isEmpty {
-                    Text(tag.displayName)
-                        .font(.caption)
-                        .fontWeight(.medium)
+                VStack(alignment: .leading, spacing: 2) {
+                    if searchQuery.isEmpty {
+                        Text(tag.displayName)
+                            .font(.body)
+                            .fontWeight(.medium)
+                            .lineLimit(1)
+                            .foregroundColor(.primary)
+                    } else {
+                        HighlightedText(
+                            text: tag.displayName,
+                            searchQuery: searchQuery,
+                            font: .body,
+                            fontWeight: .medium
+                        )
                         .lineLimit(1)
                         .foregroundColor(.primary)
-                } else {
-                    HighlightedText(
-                        text: tag.displayName,
-                        searchQuery: searchQuery,
-                        font: .caption,
-                        fontWeight: .medium
-                    )
-                    .lineLimit(1)
-                    .foregroundColor(.primary)
+                    }
+                    
+                    // 类型标识
+                    Text(tag.type.displayName)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
-                
-                // 类型标识
-                Text(tag.type.displayName)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
             .fixedSize() // 确保标签不会被压缩
             .background(
                 RoundedRectangle(cornerRadius: 8)

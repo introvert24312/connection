@@ -229,8 +229,8 @@ struct TagTypeSection: View {
             
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHGrid(rows: [
-                    GridItem(.adaptive(minimum: 40), spacing: 8)
-                ], spacing: 8) {
+                    GridItem(.adaptive(minimum: 60), spacing: 12)
+                ], spacing: 12) {
                     ForEach(Array(tags.enumerated()), id: \.offset) { localIndex, tag in
                         let globalIndex = flattenedTags.firstIndex(where: { $0.id == tag.id }) ?? 0
                         DetailTagCard(
@@ -239,9 +239,9 @@ struct TagTypeSection: View {
                         )
                     }
                 }
-                .padding(.horizontal, 4)
+                .padding(.horizontal, 8)
             }
-            .frame(maxHeight: 120) // 限制最大高度
+            .frame(maxHeight: 150) // 增加最大高度以容纳更大的标签
         }
     }
 }
@@ -256,23 +256,23 @@ struct DetailTagCard: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Circle()
                     .fill(Color.from(tagType: tag.type))
-                    .frame(width: 8, height: 8)
+                    .frame(width: 12, height: 12)
                 
                 Spacer()
                 
                 if tag.hasCoordinates {
                     Image(systemName: "location.fill")
-                        .font(.caption)
+                        .font(.body)
                         .foregroundColor(.red)
                 }
             }
             
             Text(tag.displayName)
-                .font(.body)
+                .font(.title3)
                 .fontWeight(.medium)
                 .multilineTextAlignment(.leading)
                 .lineLimit(2)
@@ -283,7 +283,7 @@ struct DetailTagCard: View {
                     .foregroundColor(.secondary)
             }
         }
-        .padding(12)
+        .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color.from(tagType: tag.type).opacity(isHighlighted ? 0.3 : 0.1))
