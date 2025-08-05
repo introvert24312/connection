@@ -227,17 +227,21 @@ struct TagTypeSection: View {
                     .foregroundColor(.secondary)
             }
             
-            LazyVGrid(columns: [
-                GridItem(.adaptive(minimum: 120), spacing: 8)
-            ], spacing: 8) {
-                ForEach(Array(tags.enumerated()), id: \.offset) { localIndex, tag in
-                    let globalIndex = flattenedTags.firstIndex(where: { $0.id == tag.id }) ?? 0
-                    DetailTagCard(
-                        tag: tag,
-                        isHighlighted: globalIndex == selectedIndex
-                    )
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHGrid(rows: [
+                    GridItem(.adaptive(minimum: 40), spacing: 8)
+                ], spacing: 8) {
+                    ForEach(Array(tags.enumerated()), id: \.offset) { localIndex, tag in
+                        let globalIndex = flattenedTags.firstIndex(where: { $0.id == tag.id }) ?? 0
+                        DetailTagCard(
+                            tag: tag,
+                            isHighlighted: globalIndex == selectedIndex
+                        )
+                    }
                 }
+                .padding(.horizontal, 4)
             }
+            .frame(maxHeight: 120) // 限制最大高度
         }
     }
 }

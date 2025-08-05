@@ -537,23 +537,33 @@ struct TagChipsView: View {
     let searchQuery: String
     
     var body: some View {
-        LazyVGrid(columns: [
-            GridItem(.adaptive(minimum: 120), spacing: 6)
-        ], spacing: 6) {
-            ForEach(tags.prefix(6), id: \.id) { tag in
-                TagChip(tag: tag, searchQuery: searchQuery)
-            }
-            
-            if tags.count > 6 {
-                Text("+\(tags.count - 6)")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.gray.opacity(0.1))
-                    )
+        if tags.isEmpty {
+            EmptyView()
+        } else {
+            VStack(alignment: .leading, spacing: 4) {
+                if tags.count > 1 {
+                    HStack {
+                        Text("标签 (\(tags.count))")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        if tags.count > 3 {
+                            Text("← 滑动查看更多")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                        }
+                    }
+                }
+                
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: 6) {
+                        ForEach(tags, id: \.id) { tag in
+                            TagChip(tag: tag, searchQuery: searchQuery)
+                        }
+                    }
+                    .padding(.horizontal, 4)
+                }
+                .frame(maxHeight: 32) // 限制高度避免占用过多空间
             }
         }
     }
@@ -574,42 +584,37 @@ struct TagChip: View {
         return Button(action: {
             // 标签点击行为 - 可以添加选择/过滤逻辑
         }) {
-            HStack(spacing: 6) {
-                // 更大的类型指示器
+            HStack(spacing: 4) {
+                // 类型指示器
                 RoundedRectangle(cornerRadius: 2)
                     .fill(Color.from(tagType: tag.type))
-                    .frame(width: 3, height: 16)
+                    .frame(width: 3, height: 14)
                 
                 if searchQuery.isEmpty {
                     Text(tag.displayName)
-                        .font(.body)
+                        .font(.caption)
                         .fontWeight(.medium)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
+                        .lineLimit(1)
                         .foregroundColor(.primary)
                 } else {
                     HighlightedText(
                         text: tag.displayName,
                         searchQuery: searchQuery,
-                        font: .body,
+                        font: .caption,
                         fontWeight: .medium
                     )
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
+                    .lineLimit(1)
                     .foregroundColor(.primary)
                 }
                 
-                // 添加标签类型指示
-                Text("•")
-                    .font(.caption2)
-                    .foregroundColor(Color.from(tagType: tag.type))
-                
+                // 类型标识
                 Text(tag.type.displayName)
-                    .font(.caption)
+                    .font(.caption2)
                     .foregroundColor(.secondary)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .fixedSize() // 确保标签不会被压缩
             .background(
                 RoundedRectangle(cornerRadius: 8)
                     .fill(
