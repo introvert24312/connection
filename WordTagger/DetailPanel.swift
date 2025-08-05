@@ -81,17 +81,17 @@ struct NodeDetailView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {
                         Text(currentNode.text)
-                            .font(.largeTitle)
+                            .font(.system(size: 36, weight: .bold))
                             .fontWeight(.bold)
                         
                         Spacer()
                         
                         if let phonetic = currentNode.phonetic {
                             Text(phonetic)
-                                .font(.title3)
+                                .font(.system(size: 18))
                                 .foregroundColor(.secondary)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
                                 .background(
                                     RoundedRectangle(cornerRadius: 8)
                                         .fill(Color.gray.opacity(0.1))
@@ -101,7 +101,7 @@ struct NodeDetailView: View {
                     
                     if let meaning = currentNode.meaning {
                         Text(meaning)
-                            .font(.title2)
+                            .font(.system(size: 24))
                             .foregroundColor(.primary)
                     }
                 }
@@ -112,12 +112,12 @@ struct NodeDetailView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {
                         Text("标签")
-                            .font(.headline)
+                            .font(.system(size: 20, weight: .semibold))
                         
                         Spacer()
                         
                         Text("\(currentNode.tags.count) 个标签")
-                            .font(.caption)
+                            .font(.system(size: 14))
                             .foregroundColor(.secondary)
                     }
                     
@@ -237,13 +237,13 @@ struct TagTypeSection: View {
             HStack {
                 Circle()
                     .fill(Color.from(tagType: type))
-                    .frame(width: 12, height: 12)
+                    .frame(width: 14, height: 14)
                 Text(type.displayName)
-                    .font(.subheadline)
+                    .font(.system(size: 16, weight: .medium))
                     .fontWeight(.medium)
                 Spacer()
                 Text("\(tags.count)")
-                    .font(.caption)
+                    .font(.system(size: 12))
                     .foregroundColor(.secondary)
             }
             
@@ -280,38 +280,38 @@ struct DetailTagCard: View {
             HStack {
                 Circle()
                     .fill(Color.from(tagType: tag.type))
-                    .frame(width: 12, height: 12)
+                    .frame(width: 14, height: 14)
                 
                 Spacer()
                 
                 if tag.hasCoordinates {
                     Image(systemName: "location.fill")
-                        .font(.body)
+                        .font(.system(size: 16))
                         .foregroundColor(.red)
                 }
             }
             
             Text(tag.displayName)
-                .font(.title2)
+                .font(.system(size: 22, weight: .semibold))
                 .fontWeight(.semibold)
                 .multilineTextAlignment(.leading)
                 .lineLimit(2)
             
             if tag.hasCoordinates, let lat = tag.latitude, let lon = tag.longitude {
                 Text("\(String(format: "%.4f", lat)), \(String(format: "%.4f", lon))")
-                    .font(.caption2)
+                    .font(.system(size: 11))
                     .foregroundColor(.secondary)
             }
         }
-        .padding(16)
+        .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: 16)
                 .fill(Color.from(tagType: tag.type).opacity(isHighlighted ? 0.3 : 0.1))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: 16)
                         .stroke(
                             Color.from(tagType: tag.type).opacity(isHighlighted ? 0.8 : 0.3), 
-                            lineWidth: isHighlighted ? 2 : 1
+                            lineWidth: isHighlighted ? 3 : 2
                         )
                 )
         )
@@ -328,11 +328,11 @@ struct EmptyTagsView: View {
                 .foregroundColor(.gray)
             
             Text("暂无标签")
-                .font(.body)
+                .font(.system(size: 18))
                 .foregroundColor(.secondary)
             
             Text("为这个节点添加标签来更好地组织和记忆")
-                .font(.caption)
+                .font(.system(size: 14))
                 .foregroundColor(Color.secondary)
                 .multilineTextAlignment(.center)
         }
