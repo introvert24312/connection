@@ -32,11 +32,8 @@ extension CLLocationCoordinate2D {
 extension Color {
     public static func from(tagType: Tag.TagType) -> Color {
         switch tagType {
-        case .memory: return Color(.systemPink)
         case .location: return Color(.systemGreen)
         case .root: return Color(.systemBlue)
-        case .shape: return Color(.systemPurple)
-        case .sound: return Color(.systemOrange)
         case .custom: return Color(.systemGray)
         }
     }

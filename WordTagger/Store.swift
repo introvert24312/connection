@@ -748,9 +748,6 @@ public final class NodeStore: ObservableObject {
     
     private func createSampleData() {
         // 创建一些简单的示例标签，避免使用可能引起混淆的名称
-        let memoryTag1 = createTag(type: .memory, value: "视觉化")
-        let memoryTag2 = createTag(type: .memory, value: "故事法")
-        let memoryTag3 = createTag(type: .memory, value: "逻辑关联")
         let rootTag1 = createTag(type: .root, value: "vis")
         let rootTag2 = createTag(type: .root, value: "log")
         let rootTag3 = createTag(type: .root, value: "cogn")
@@ -765,29 +762,29 @@ public final class NodeStore: ObservableObject {
         
         // === 英语节点层 ===
         let englishNodes = [
-            Node(text: "visible", phonetic: "/ˈvɪzəbəl/", meaning: "可见的", layerId: englishLayer.id, tags: [rootTag1, memoryTag1]),
-            Node(text: "logic", phonetic: "/ˈlɑːdʒɪk/", meaning: "逻辑", layerId: englishLayer.id, tags: [rootTag2, memoryTag3]),
-            Node(text: "vision", phonetic: "/ˈvɪʒən/", meaning: "视觉，远见", layerId: englishLayer.id, tags: [rootTag1, memoryTag1, locationTag1]),
-            Node(text: "logical", phonetic: "/ˈlɑːdʒɪkəl/", meaning: "合乎逻辑的", layerId: englishLayer.id, tags: [rootTag2, memoryTag3]),
-            Node(text: "recognize", phonetic: "/ˈrekəɡnaɪz/", meaning: "识别，认出", layerId: englishLayer.id, tags: [rootTag3, memoryTag2])
+            Node(text: "visible", phonetic: "/ˈvɪzəbəl/", meaning: "可见的", layerId: englishLayer.id, tags: [rootTag1, rootTag1]),
+            Node(text: "logic", phonetic: "/ˈlɑːdʒɪk/", meaning: "逻辑", layerId: englishLayer.id, tags: [rootTag2, rootTag3]),
+            Node(text: "vision", phonetic: "/ˈvɪʒən/", meaning: "视觉，远见", layerId: englishLayer.id, tags: [rootTag1, rootTag1, locationTag1]),
+            Node(text: "logical", phonetic: "/ˈlɑːdʒɪkəl/", meaning: "合乎逻辑的", layerId: englishLayer.id, tags: [rootTag2, rootTag3]),
+            Node(text: "recognize", phonetic: "/ˈrekəɡnaɪz/", meaning: "识别，认出", layerId: englishLayer.id, tags: [rootTag3, rootTag2])
         ]
         
         // === 统计学层 ===
         let statisticsNodes = [
-            Node(text: "regression", phonetic: "/rɪˈɡrɛʃən/", meaning: "回归分析", layerId: statsLayer.id, tags: [memoryTag3, locationTag2]),
-            Node(text: "correlation", phonetic: "/ˌkɔːrəˈleɪʃən/", meaning: "相关性", layerId: statsLayer.id, tags: [memoryTag1]),
-            Node(text: "hypothesis", phonetic: "/haɪˈpɑːθəsɪs/", meaning: "假设", layerId: statsLayer.id, tags: [memoryTag2]),
-            Node(text: "variance", phonetic: "/ˈvɛriəns/", meaning: "方差", layerId: statsLayer.id, tags: [memoryTag3]),
-            Node(text: "distribution", phonetic: "/ˌdɪstrəˈbjuːʃən/", meaning: "分布", layerId: statsLayer.id, tags: [memoryTag1, locationTag3])
+            Node(text: "regression", phonetic: "/rɪˈɡrɛʃən/", meaning: "回归分析", layerId: statsLayer.id, tags: [rootTag3, locationTag2]),
+            Node(text: "correlation", phonetic: "/ˌkɔːrəˈleɪʃən/", meaning: "相关性", layerId: statsLayer.id, tags: [rootTag1]),
+            Node(text: "hypothesis", phonetic: "/haɪˈpɑːθəsɪs/", meaning: "假设", layerId: statsLayer.id, tags: [rootTag2]),
+            Node(text: "variance", phonetic: "/ˈvɛriəns/", meaning: "方差", layerId: statsLayer.id, tags: [rootTag3]),
+            Node(text: "distribution", phonetic: "/ˌdɪstrəˈbjuːʃən/", meaning: "分布", layerId: statsLayer.id, tags: [rootTag1, locationTag3])
         ]
         
         // === 教育心理学层 ===  
         let psychologyNodes = [
-            Node(text: "cognitive", phonetic: "/ˈkɑːɡnətɪv/", meaning: "认知的", layerId: psychologyLayer.id, tags: [rootTag3, memoryTag2]),
-            Node(text: "motivation", phonetic: "/ˌmoʊtəˈveɪʃən/", meaning: "动机", layerId: psychologyLayer.id, tags: [memoryTag1]),
-            Node(text: "reinforcement", phonetic: "/ˌriːɪnˈfɔːrsmənt/", meaning: "强化", layerId: psychologyLayer.id, tags: [memoryTag3]),
-            Node(text: "cognition", phonetic: "/kɑːɡˈnɪʃəɳ/", meaning: "认知", layerId: psychologyLayer.id, tags: [rootTag3, memoryTag2, locationTag3]),
-            Node(text: "learning", phonetic: "/ˈlɜːrnɪŋ/", meaning: "学习", layerId: psychologyLayer.id, tags: [memoryTag1])
+            Node(text: "cognitive", phonetic: "/ˈkɑːɡnətɪv/", meaning: "认知的", layerId: psychologyLayer.id, tags: [rootTag3, rootTag2]),
+            Node(text: "motivation", phonetic: "/ˌmoʊtəˈveɪʃən/", meaning: "动机", layerId: psychologyLayer.id, tags: [rootTag1]),
+            Node(text: "reinforcement", phonetic: "/ˌriːɪnˈfɔːrsmənt/", meaning: "强化", layerId: psychologyLayer.id, tags: [rootTag3]),
+            Node(text: "cognition", phonetic: "/kɑːɡˈnɪʃəɳ/", meaning: "认知", layerId: psychologyLayer.id, tags: [rootTag3, rootTag2, locationTag3]),
+            Node(text: "learning", phonetic: "/ˈlɜːrnɪŋ/", meaning: "学习", layerId: psychologyLayer.id, tags: [rootTag1])
         ]
         
         // 添加所有节点到store

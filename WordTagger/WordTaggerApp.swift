@@ -209,11 +209,8 @@ class TagMappingManager: ObservableObject {
         
         tagMappings = [
             TagMapping(key: "root", typeName: "词根"),
-            TagMapping(key: "memory", typeName: "记忆"),
             TagMapping(key: "loc", typeName: "地点"),
             TagMapping(key: "time", typeName: "时间"),
-            TagMapping(key: "shape", typeName: "形近"),
-            TagMapping(key: "sound", typeName: "音近"),
             TagMapping(key: "sub", typeName: "子类")
         ]
         

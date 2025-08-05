@@ -784,16 +784,10 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                 // 使用自动颜色管理器为标签分配颜色
                 let tagKey: String
                 switch tagType {
-                case .memory:
-                    tagKey = "memory"
                 case .location:
                     tagKey = "location"
                 case .root:
                     tagKey = "root"
-                case .shape:
-                    tagKey = "shape"
-                case .sound:
-                    tagKey = "sound"
                 case .custom(let customName):
                     // 自定义标签使用自定义名称作为key
                     tagKey = "custom_\(customName)"
