@@ -620,7 +620,9 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                                 iterations: 200,
                                 updateInterval: 25
                             },
-                            solver: 'forceAtlas2Based'
+                            solver: 'forceAtlas2Based',
+                            timestep: 0.5,
+                            adaptiveTimestep: true
                         },
                         nodes: {
                             font: { size: 14, color: '#333' },
@@ -651,6 +653,21 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                             },
                             dashes: false,
                             selectionWidth: 2
+                        },
+                        interaction: {
+                            zoomView: true,
+                            dragView: true,
+                            zoomSpeed: 0.2,
+                            zoomSensitivity: 0.15,
+                            keyboard: {
+                                enabled: false
+                            },
+                            multiselect: false,
+                            selectable: true,
+                            selectConnectedEdges: false,
+                            hover: true,
+                            hoverConnectedEdges: true,
+                            tooltipDelay: 200
                         }
                     };
                     
