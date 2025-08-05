@@ -6,28 +6,28 @@ import AppKit
 struct WordTaggerData: Codable {
     let version: String
     let exportDate: Date
-    let words: [Word]
+    let nodes: [Node]
     let metadata: ExportMetadata
     
     struct ExportMetadata: Codable {
-        let totalWords: Int
+        let totalNodes: Int
         let totalTags: Int
         let uniqueTags: Int
         let appVersion: String
         
-        init(words: [Word]) {
-            self.totalWords = words.count
-            self.totalTags = words.flatMap { $0.tags }.count
-            self.uniqueTags = Set(words.flatMap { $0.tags }).count
+        init(nodes: [Node]) {
+            self.totalNodes = nodes.count
+            self.totalTags = nodes.flatMap { $0.tags }.count
+            self.uniqueTags = Set(nodes.flatMap { $0.tags }).count
             self.appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
         }
     }
     
-    init(words: [Word]) {
+    init(nodes: [Node]) {
         self.version = "1.0"
         self.exportDate = Date()
-        self.words = words
-        self.metadata = ExportMetadata(words: words)
+        self.nodes = nodes
+        self.metadata = ExportMetadata(nodes: nodes)
     }
 }
 
@@ -40,10 +40,10 @@ class DataManager: ObservableObject {
     
     // MARK: - 导出功能
     
-    func exportData(words: [Word], completion: @escaping (Result<URL, Error>) -> Void) {
+    func exportData(nodes: [Node], completion: @escaping (Result<URL, Error>) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                let data = WordTaggerData(words: words)
+                let data = WordTaggerData(nodes: nodes)
                 let jsonData = try JSONEncoder().encode(data)
                 
                 // 创建临时文件
@@ -68,7 +68,7 @@ class DataManager: ObservableObject {
     
     func showSavePanel(for tempURL: URL, completion: @escaping (Bool) -> Void) {
         let savePanel = NSSavePanel()
-        savePanel.title = "导出单词数据"
+        savePanel.title = "导出节点数据"
         savePanel.message = "选择保存位置"
         savePanel.nameFieldStringValue = tempURL.lastPathComponent
         savePanel.allowedContentTypes = [.json]
@@ -99,9 +99,9 @@ class DataManager: ObservableObject {
     
     // MARK: - 导入功能
     
-    func showOpenPanel(completion: @escaping (Result<[Word], Error>) -> Void) {
+    func showOpenPanel(completion: @escaping (Result<[Node], Error>) -> Void) {
         let openPanel = NSOpenPanel()
-        openPanel.title = "导入单词数据"
+        openPanel.title = "导入节点数据"
         openPanel.message = "选择要导入的JSON文件"
         openPanel.allowedContentTypes = [.json]
         openPanel.allowsMultipleSelection = false
@@ -117,7 +117,7 @@ class DataManager: ObservableObject {
         }
     }
     
-    private func importData(from url: URL, completion: @escaping (Result<[Word], Error>) -> Void) {
+    private func importData(from url: URL, completion: @escaping (Result<[Node], Error>) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let jsonData = try Data(contentsOf: url)
@@ -126,15 +126,15 @@ class DataManager: ObservableObject {
                 // 尝试解析为完整的WordTaggerData格式
                 if let wordTaggerData = try? decoder.decode(WordTaggerData.self, from: jsonData) {
                     DispatchQueue.main.async {
-                        completion(.success(wordTaggerData.words))
+                        completion(.success(wordTaggerData.nodes))
                     }
                     return
                 }
                 
-                // 尝试直接解析为Word数组（向后兼容）
-                if let words = try? decoder.decode([Word].self, from: jsonData) {
+                // 尝试直接解析为Node数组（向后兼容）
+                if let nodes = try? decoder.decode([Node].self, from: jsonData) {
                     DispatchQueue.main.async {
-                        completion(.success(words))
+                        completion(.success(nodes))
                     }
                     return
                 }
@@ -152,45 +152,45 @@ class DataManager: ObservableObject {
     
     // MARK: - 数据验证和处理
     
-    func validateImportedData(_ words: [Word]) -> ImportValidationResult {
+    func validateImportedData(_ nodes: [Node]) -> ImportValidationResult {
         var warnings: [String] = []
-        var validWords: [Word] = []
+        var validNodes: [Node] = []
         var duplicateCount = 0
         
-        for word in words {
+        for node in nodes {
             // 检查必要字段
-            if word.text.isEmpty {
-                warnings.append("发现空单词文本，已跳过")
+            if node.text.isEmpty {
+                warnings.append("发现空节点文本，已跳过")
                 continue
             }
             
             // 检查重复
-            if validWords.contains(where: { $0.text.lowercased() == word.text.lowercased() }) {
+            if validNodes.contains(where: { $0.text.lowercased() == node.text.lowercased() }) {
                 duplicateCount += 1
                 continue
             }
             
-            validWords.append(word)
+            validNodes.append(node)
         }
         
         if duplicateCount > 0 {
-            warnings.append("跳过了 \(duplicateCount) 个重复单词")
+            warnings.append("跳过了 \(duplicateCount) 个重复节点")
         }
         
         return ImportValidationResult(
-            validWords: validWords,
+            validNodes: validNodes,
             warnings: warnings,
-            originalCount: words.count,
-            validCount: validWords.count
+            originalCount: nodes.count,
+            validCount: validNodes.count
         )
     }
     
     // MARK: - 统计信息
     
-    func generateExportSummary(words: [Word]) -> ExportSummary {
-        let totalTags = words.flatMap { $0.tags }.count
-        let uniqueTags = Set(words.flatMap { $0.tags }).count
-        let tagTypes = Dictionary(grouping: words.flatMap { $0.tags }) { $0.type }
+    func generateExportSummary(nodes: [Node]) -> ExportSummary {
+        let totalTags = nodes.flatMap { $0.tags }.count
+        let uniqueTags = Set(nodes.flatMap { $0.tags }).count
+        let tagTypes = Dictionary(grouping: nodes.flatMap { $0.tags }) { $0.type }
         
         var tagTypeCounts: [Tag.TagType: Int] = [:]
         for type in Tag.TagType.allCases {
@@ -198,11 +198,11 @@ class DataManager: ObservableObject {
         }
         
         return ExportSummary(
-            totalWords: words.count,
+            totalNodes: nodes.count,
             totalTags: totalTags,
             uniqueTags: uniqueTags,
             tagTypeCounts: tagTypeCounts,
-            wordsWithLocation: words.filter { !$0.locationTags.isEmpty }.count
+            nodesWithLocation: nodes.filter { !$0.locationTags.isEmpty }.count
         )
     }
 }
@@ -210,7 +210,7 @@ class DataManager: ObservableObject {
 // MARK: - 辅助模型
 
 struct ImportValidationResult {
-    let validWords: [Word]
+    let validNodes: [Node]
     let warnings: [String]
     let originalCount: Int
     let validCount: Int
@@ -225,11 +225,11 @@ struct ImportValidationResult {
 }
 
 struct ExportSummary {
-    let totalWords: Int
+    let totalNodes: Int
     let totalTags: Int
     let uniqueTags: Int
     let tagTypeCounts: [Tag.TagType: Int]
-    let wordsWithLocation: Int
+    let nodesWithLocation: Int
 }
 
 enum DataError: LocalizedError {

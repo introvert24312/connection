@@ -35,7 +35,6 @@ public final class NodeStore: ObservableObject {
     
     private func setupInitialData() {
         setupDefaultLayers()
-        loadSampleData()
         
         // 尝试加载外部数据
         Task {
@@ -56,6 +55,10 @@ public final class NodeStore: ObservableObject {
                         }
                         
                         print("📚 从外部存储加载了 \(loadedNodes.count) 个节点，分布在 \(loadedLayers.count) 个层中")
+                    } else {
+                        // 只有在没有外部数据时才加载示例数据
+                        self.loadSampleData()
+                        print("📚 Created sample data with \(self.nodes.count) nodes across \(self.layers.count) layers")
                     }
                     self.isLoadingFromExternal = false
                 }
@@ -63,9 +66,7 @@ public final class NodeStore: ObservableObject {
                 print("⚠️ 加载外部数据失败: \(error)")
                 await MainActor.run {
                     self.isLoadingFromExternal = false
-                }
-                // 使用默认示例数据
-                await MainActor.run {
+                    // 只有在没有外部数据时才加载示例数据
                     if self.nodes.isEmpty {
                         self.loadSampleData()
                         print("📚 Created sample data with \(self.nodes.count) nodes across \(self.layers.count) layers")
@@ -625,16 +626,16 @@ public final class NodeStore: ObservableObject {
     }
     
     private func createSampleData() {
-        // 创建一些示例标签
-        let memoryTag1 = createTag(type: .memory, value: "联想记忆")
-        let memoryTag2 = createTag(type: .memory, value: "图像记忆")
-        let memoryTag3 = createTag(type: .memory, value: "概念记忆")
-        let rootTag1 = createTag(type: .root, value: "spect")
-        let rootTag2 = createTag(type: .root, value: "dict")
-        let rootTag3 = createTag(type: .root, value: "psych")
-        let locationTag1 = createTag(type: .location, value: "图书馆", latitude: 39.9042, longitude: 116.4074)
-        let locationTag2 = createTag(type: .location, value: "咖啡厅", latitude: 40.7589, longitude: -73.9851)
-        let locationTag3 = createTag(type: .location, value: "实验室", latitude: 39.9055, longitude: 116.4078)
+        // 创建一些简单的示例标签，避免使用可能引起混淆的名称
+        let memoryTag1 = createTag(type: .memory, value: "视觉化")
+        let memoryTag2 = createTag(type: .memory, value: "故事法")
+        let memoryTag3 = createTag(type: .memory, value: "逻辑关联")
+        let rootTag1 = createTag(type: .root, value: "vis")
+        let rootTag2 = createTag(type: .root, value: "log")
+        let rootTag3 = createTag(type: .root, value: "cogn")
+        let locationTag1 = createTag(type: .location, value: "教室A", latitude: 39.9042, longitude: 116.4074)
+        let locationTag2 = createTag(type: .location, value: "办公室", latitude: 40.7589, longitude: -73.9851)
+        let locationTag3 = createTag(type: .location, value: "会议室", latitude: 39.9055, longitude: 116.4078)
         
         // 获取各个层级
         guard let englishLayer = layers.first(where: { $0.name == "english" }),
@@ -643,29 +644,29 @@ public final class NodeStore: ObservableObject {
         
         // === 英语节点层 ===
         let englishNodes = [
-            Node(text: "spectacular", phonetic: "/spekˈtækjələr/", meaning: "壮观的，惊人的", layerId: englishLayer.id, tags: [rootTag1, memoryTag1, locationTag1]),
-            Node(text: "dictionary", phonetic: "/ˈdɪkʃəneri/", meaning: "字典", layerId: englishLayer.id, tags: [rootTag2, memoryTag2, locationTag2]),
-            Node(text: "perspective", phonetic: "/pərˈspektɪv/", meaning: "观点，视角", layerId: englishLayer.id, tags: [rootTag1, memoryTag1]),
-            Node(text: "predict", phonetic: "/prɪˈdɪkt/", meaning: "预测", layerId: englishLayer.id, tags: [rootTag2, memoryTag2]),
-            Node(text: "analyze", phonetic: "/ˈænəˌlaɪz/", meaning: "分析", layerId: englishLayer.id, tags: [memoryTag3])
+            Node(text: "visible", phonetic: "/ˈvɪzəbəl/", meaning: "可见的", layerId: englishLayer.id, tags: [rootTag1, memoryTag1]),
+            Node(text: "logic", phonetic: "/ˈlɑːdʒɪk/", meaning: "逻辑", layerId: englishLayer.id, tags: [rootTag2, memoryTag3]),
+            Node(text: "vision", phonetic: "/ˈvɪʒən/", meaning: "视觉，远见", layerId: englishLayer.id, tags: [rootTag1, memoryTag1, locationTag1]),
+            Node(text: "logical", phonetic: "/ˈlɑːdʒɪkəl/", meaning: "合乎逻辑的", layerId: englishLayer.id, tags: [rootTag2, memoryTag3]),
+            Node(text: "recognize", phonetic: "/ˈrekəɡnaɪz/", meaning: "识别，认出", layerId: englishLayer.id, tags: [rootTag3, memoryTag2])
         ]
         
         // === 统计学层 ===
         let statisticsNodes = [
-            Node(text: "regression", phonetic: "/rɪˈɡrɛʃən/", meaning: "回归分析", layerId: statsLayer.id, tags: [memoryTag1, locationTag3]),
-            Node(text: "correlation", phonetic: "/ˌkɔːrəˈleɪʃən/", meaning: "相关性", layerId: statsLayer.id, tags: [memoryTag2]),
-            Node(text: "hypothesis", phonetic: "/haɪˈpɑːθəsɪs/", meaning: "假设", layerId: statsLayer.id, tags: [memoryTag3]),
-            Node(text: "variance", phonetic: "/ˈvɛriəns/", meaning: "方差", layerId: statsLayer.id, tags: [memoryTag1]),
-            Node(text: "distribution", phonetic: "/ˌdɪstrəˈbjuːʃən/", meaning: "分布", layerId: statsLayer.id, tags: [memoryTag2, locationTag3])
+            Node(text: "regression", phonetic: "/rɪˈɡrɛʃən/", meaning: "回归分析", layerId: statsLayer.id, tags: [memoryTag3, locationTag2]),
+            Node(text: "correlation", phonetic: "/ˌkɔːrəˈleɪʃən/", meaning: "相关性", layerId: statsLayer.id, tags: [memoryTag1]),
+            Node(text: "hypothesis", phonetic: "/haɪˈpɑːθəsɪs/", meaning: "假设", layerId: statsLayer.id, tags: [memoryTag2]),
+            Node(text: "variance", phonetic: "/ˈvɛriəns/", meaning: "方差", layerId: statsLayer.id, tags: [memoryTag3]),
+            Node(text: "distribution", phonetic: "/ˌdɪstrəˈbjuːʃən/", meaning: "分布", layerId: statsLayer.id, tags: [memoryTag1, locationTag3])
         ]
         
         // === 教育心理学层 ===  
         let psychologyNodes = [
-            Node(text: "cognitive", phonetic: "/ˈkɑːɡnətɪv/", meaning: "认知的", layerId: psychologyLayer.id, tags: [rootTag3, memoryTag3]),
+            Node(text: "cognitive", phonetic: "/ˈkɑːɡnətɪv/", meaning: "认知的", layerId: psychologyLayer.id, tags: [rootTag3, memoryTag2]),
             Node(text: "motivation", phonetic: "/ˌmoʊtəˈveɪʃən/", meaning: "动机", layerId: psychologyLayer.id, tags: [memoryTag1]),
-            Node(text: "reinforcement", phonetic: "/ˌriːɪnˈfɔːrsmənt/", meaning: "强化", layerId: psychologyLayer.id, tags: [memoryTag2]),
-            Node(text: "metacognition", phonetic: "/ˌmetəkɑːɡˈnɪʃən/", meaning: "元认知", layerId: psychologyLayer.id, tags: [rootTag3, memoryTag3, locationTag3]),
-            Node(text: "scaffolding", phonetic: "/ˈskæfəldɪŋ/", meaning: "脚手架式教学", layerId: psychologyLayer.id, tags: [memoryTag1])
+            Node(text: "reinforcement", phonetic: "/ˌriːɪnˈfɔːrsmənt/", meaning: "强化", layerId: psychologyLayer.id, tags: [memoryTag3]),
+            Node(text: "cognition", phonetic: "/kɑːɡˈnɪʃəɳ/", meaning: "认知", layerId: psychologyLayer.id, tags: [rootTag3, memoryTag2, locationTag3]),
+            Node(text: "learning", phonetic: "/ˈlɜːrnɪŋ/", meaning: "学习", layerId: psychologyLayer.id, tags: [memoryTag1])
         ]
         
         // 添加所有节点到store
@@ -734,6 +735,16 @@ public final class NodeStore: ObservableObject {
         }
         
         print("✅ 数据清理完成")
+    }
+    
+    // 只清理数据但不加载示例数据
+    @MainActor
+    public func clearAllDataWithoutSample() {
+        print("🧹 清理数据但不加载示例数据...")
+        clearAllData()
+        // 重新设置空的默认层
+        setupDefaultLayers()
+        print("✅ 数据清理完成，无示例数据")
     }
     
     // 强制刷新所有数据和界面

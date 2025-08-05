@@ -47,11 +47,11 @@ struct GraphView: View {
         #endif
         
         // 为每个节点与其标签创建连接
-        for word in nodesToShow {
-            guard let wordNode = nodes.first(where: { $0.node?.id == word.id }) else { 
+        for node in nodesToShow {
+            guard let nodeGraphNode = nodes.first(where: { $0.node?.id == node.id }) else { 
                 #if DEBUG
                 if enableGraphDebug {
-                    print("❌ 找不到节点节点: \(word.text)")
+                    print("❌ 找不到节点节点: \(node.text)")
                 }
                 #endif
                 continue 
@@ -59,22 +59,22 @@ struct GraphView: View {
             
             #if DEBUG
             if enableGraphDebug {
-                print("🔹 处理节点: \(word.text), 标签数: \(word.tags.count)")
+                print("🔹 处理节点: \(node.text), 标签数: \(node.tags.count)")
             }
             #endif
             
-            for tag in word.tags {
+            for tag in node.tags {
                 if let tagNode = nodes.first(where: { 
                     $0.tag?.type.rawValue == tag.type.rawValue && $0.tag?.value == tag.value 
                 }) {
                     edges.append(NodeGraphEdge(
-                        from: wordNode,
+                        from: nodeGraphNode,
                         to: tagNode,
                         relationshipType: tag.type.displayName
                     ))
                     #if DEBUG
                     if enableGraphDebug {
-                        print("✅ 创建连接: \(word.text) -> \(tag.value)")
+                        print("✅ 创建连接: \(node.text) -> \(tag.value)")
                     }
                     #endif
                 } else {
