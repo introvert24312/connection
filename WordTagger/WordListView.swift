@@ -608,14 +608,14 @@ struct TagChip: View {
                 
                 VStack(alignment: .leading, spacing: 2) {
                     if searchQuery.isEmpty {
-                        Text(tag.displayName)
+                        Text(tag.value)
                             .font(.title3)
                             .fontWeight(.semibold)
                             .lineLimit(1)
                             .foregroundColor(.primary)
                     } else {
                         HighlightedText(
-                            text: tag.displayName,
+                            text: tag.value,
                             searchQuery: searchQuery,
                             font: .title3,
                             fontWeight: .semibold
