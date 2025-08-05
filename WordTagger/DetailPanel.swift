@@ -291,7 +291,7 @@ struct DetailTagCard: View {
                 }
             }
             
-            Text(tag.displayName)
+            Text(tag.value)
                 .font(.system(size: 22, weight: .semibold))
                 .fontWeight(.semibold)
                 .multilineTextAlignment(.leading)
@@ -439,7 +439,7 @@ struct NodeMapView: View {
                         Text("该节点有地点标签但缺少坐标信息")
                             .font(.body)
                             .foregroundColor(.secondary)
-                        Text("现有地点标签: \(locationTagsWithoutCoords.map { $0.displayName }.joined(separator: ", "))")
+                        Text("现有地点标签: \(locationTagsWithoutCoords.map { $0.value }.joined(separator: ", "))")
                             .font(.caption)
                             .foregroundColor(Color.blue)
                             .multilineTextAlignment(.center)
@@ -451,7 +451,7 @@ struct NodeMapView: View {
                             
                             // 生成示例命令
                             let exampleCommands = locationTagsWithoutCoords.map { tag in
-                                "loc @39.9042,116.4074[\(tag.displayName)]"
+                                "loc @39.9042,116.4074[\(tag.value)]"
                             }
                             
                             ForEach(exampleCommands, id: \.self) { command in
@@ -493,7 +493,7 @@ struct NodeMapView: View {
                 Map(position: $cameraPosition) {
                     ForEach(locationTags, id: \.id) { tag in
                         Annotation(
-                            tag.displayName,
+                            tag.value,
                             coordinate: CLLocationCoordinate2D(
                                 latitude: tag.latitude!,
                                 longitude: tag.longitude!
@@ -538,7 +538,7 @@ struct MapPinView: View {
                     .foregroundColor(.white)
             }
             
-            Text(tag.displayName)
+            Text(tag.value)
                 .font(.caption2)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
@@ -613,7 +613,7 @@ struct NodeGraphNode: UniversalGraphNode {
     init(tag: Tag) {
         // 使用确定性ID确保相同标签总是有相同ID
         self.id = GraphNodeIDGenerator.shared.idForTag(tag)
-        self.label = tag.displayName
+        self.label = tag.value
         self.subtitle = tag.type.displayName
         self.node = nil
         self.tag = tag
