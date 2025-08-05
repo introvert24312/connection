@@ -272,8 +272,8 @@ struct DetailTagCard: View {
             }
             
             Text(tag.displayName)
-                .font(.title3)
-                .fontWeight(.medium)
+                .font(.title2)
+                .fontWeight(.semibold)
                 .multilineTextAlignment(.leading)
                 .lineLimit(2)
             

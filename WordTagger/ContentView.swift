@@ -21,15 +21,15 @@ struct ContentView: View {
             
             // 中间：单词列表
             NodeListView(selectedNode: $selectedNode)
-                .frame(minWidth: showSidebar ? 400 : 500)
+                .frame(minWidth: showSidebar ? 350 : 400, maxWidth: showSidebar ? 400 : 450)
             
-            // 右侧：详情面板
+            // 右侧：详情面板 (图谱区域)
             if let node = selectedNode {
                 DetailPanel(node: node)
-                    .frame(minWidth: 500)
+                    .frame(minWidth: showSidebar ? 500 : 650)
             } else {
                 WelcomeView()
-                    .frame(minWidth: 500)
+                    .frame(minWidth: showSidebar ? 500 : 650)
             }
         }
         .animation(.easeInOut(duration: 0.3), value: showSidebar)

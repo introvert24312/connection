@@ -563,7 +563,7 @@ struct TagChipsView: View {
                     }
                     .padding(.horizontal, 4)
                 }
-                .frame(maxHeight: 44) // 增加高度以容纳更大的标签
+                .frame(maxHeight: 50) // 进一步增加高度以容纳更大的字体
             }
         }
     }
@@ -593,16 +593,16 @@ struct TagChip: View {
                 VStack(alignment: .leading, spacing: 2) {
                     if searchQuery.isEmpty {
                         Text(tag.displayName)
-                            .font(.body)
-                            .fontWeight(.medium)
+                            .font(.title3)
+                            .fontWeight(.semibold)
                             .lineLimit(1)
                             .foregroundColor(.primary)
                     } else {
                         HighlightedText(
                             text: tag.displayName,
                             searchQuery: searchQuery,
-                            font: .body,
-                            fontWeight: .medium
+                            font: .title3,
+                            fontWeight: .semibold
                         )
                         .lineLimit(1)
                         .foregroundColor(.primary)
@@ -610,7 +610,7 @@ struct TagChip: View {
                     
                     // 类型标识
                     Text(tag.type.displayName)
-                        .font(.caption)
+                        .font(.body)
                         .foregroundColor(.secondary)
                 }
             }
