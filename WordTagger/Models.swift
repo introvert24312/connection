@@ -35,16 +35,18 @@ public struct Node: Identifiable, Hashable, Codable {
     public var meaning: String?
     public var layerId: UUID
     public var tags: [Tag]
+    public var isCompound: Bool
     public var createdAt: Date
     public var updatedAt: Date
     
-    public init(text: String, phonetic: String? = nil, meaning: String? = nil, layerId: UUID, tags: [Tag] = []) {
+    public init(text: String, phonetic: String? = nil, meaning: String? = nil, layerId: UUID, tags: [Tag] = [], isCompound: Bool = false) {
         self.id = UUID()
         self.text = text
         self.phonetic = phonetic
         self.meaning = meaning
         self.layerId = layerId
         self.tags = tags
+        self.isCompound = isCompound
         self.createdAt = Date()
         self.updatedAt = Date()
     }

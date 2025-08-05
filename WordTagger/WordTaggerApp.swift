@@ -1671,13 +1671,22 @@ struct CompoundNodeAddSheetView: View {
             return
         }
         
+        // 为复合节点创建特殊标签
+        let compoundTag = Tag(
+            type: .custom("compound"),
+            value: "复合节点",
+            latitude: nil,
+            longitude: nil
+        )
+        
         // 创建复合节点
         let compoundNode = Node(
             text: compoundNodeName,
             phonetic: nil,
             meaning: "复合节点：包含 \(childNodeNames.joined(separator: ", "))",
             layerId: currentLayer.id,
-            tags: []
+            tags: [compoundTag],
+            isCompound: true
         )
         
         // 创建子节点

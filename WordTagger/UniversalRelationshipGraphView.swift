@@ -777,6 +777,8 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
             case .node:
                 if wordNode.isCenter {
                     return "#FFD700" // 金色表示中心节点
+                } else if wordNode.node?.isCompound == true {
+                    return "#8B4A9C" // 深紫色表示复合节点
                 } else {
                     return "#4A90E2" // 蓝色表示普通节点
                 }

@@ -484,14 +484,30 @@ struct NodeRowView: View {
         .buttonStyle(.plain)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(isSelected ? Color.blue.opacity(0.15) : Color.clear)
+                .fill(backgroundColorForNode(isSelected: isSelected))
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(isSelected ? Color.blue.opacity(0.3) : Color.clear, lineWidth: 1)
+                        .stroke(borderColorForNode(isSelected: isSelected), lineWidth: node.isCompound ? 2 : 1)
                 )
         )
         .scaleEffect(isSelected ? 1.02 : 1.0)
         .animation(.easeInOut(duration: 0.2), value: isSelected)
+    }
+    
+    private func backgroundColorForNode(isSelected: Bool) -> Color {
+        if node.isCompound {
+            return isSelected ? Color.purple.opacity(0.25) : Color.purple.opacity(0.08)
+        } else {
+            return isSelected ? Color.blue.opacity(0.15) : Color.clear
+        }
+    }
+    
+    private func borderColorForNode(isSelected: Bool) -> Color {
+        if node.isCompound {
+            return isSelected ? Color.purple.opacity(0.6) : Color.purple.opacity(0.3)
+        } else {
+            return isSelected ? Color.blue.opacity(0.3) : Color.clear
+        }
     }
 }
 

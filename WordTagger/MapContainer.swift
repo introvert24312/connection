@@ -741,7 +741,9 @@ struct LocationMarkerView: View {
     let onTap: () -> Void
     
     private var markerColor: Color {
-        if let firstTag = annotation.word.tags.first {
+        if annotation.word.isCompound {
+            return Color.purple.opacity(0.8)
+        } else if let firstTag = annotation.word.tags.first {
             return Color.from(tagType: firstTag.type)
         }
         return .blue
