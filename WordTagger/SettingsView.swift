@@ -57,7 +57,6 @@ struct GeneralSettingsView: View {
     @AppStorage("enableGraphDebug") private var enableGraphDebug: Bool = false
     @AppStorage("autoSaveInterval") private var autoSaveInterval: Double = 30.0
     @AppStorage("showPhoneticByDefault") private var showPhoneticByDefault: Bool = true
-    @AppStorage("defaultTagType") private var defaultTagType: String = "memory"
     @AppStorage("globalGraphInitialScale") private var globalGraphInitialScale: Double = 1.0
     @AppStorage("detailGraphInitialScale") private var detailGraphInitialScale: Double = 1.0
     
@@ -73,27 +72,6 @@ struct GeneralSettingsView: View {
                         ) {
                             Toggle("", isOn: $showPhoneticByDefault)
                                 .toggleStyle(SwitchToggleStyle())
-                        }
-                        
-                        Divider()
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text("默认标签类型")
-                                    .fontWeight(.medium)
-                                Spacer()
-                            }
-                            
-                            Picker("", selection: $defaultTagType) {
-                                ForEach(Tag.TagType.predefinedCases, id: \.self) { type in
-                                    Text(type.displayName).tag(type.rawValue)
-                                }
-                            }
-                            .pickerStyle(SegmentedPickerStyle())
-                            
-                            Text("新建节点时默认使用的标签类型")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
                         }
                         
                         Divider()

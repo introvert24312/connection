@@ -1195,6 +1195,7 @@ struct WordTaggerApp: App {
     @State private var showQuickAdd = false
     @State private var showQuickSearch = false
     @State private var showTagManager = false
+    @State private var showCompoundNodeAdd = false
     
     init() {
         // 设置环境变量以抑制SQLite系统数据库访问警告
@@ -1253,6 +1254,10 @@ struct WordTaggerApp: App {
                 QuickAddSheetView()
                     .environmentObject(store)
             }
+            .sheet(isPresented: $showCompoundNodeAdd) {
+                CompoundNodeAddSheetView()
+                    .environmentObject(store)
+            }
             .onReceive(NotificationCenter.default.publisher(for: .addNewNode)) { _ in
                 showQuickAdd = true
             }
@@ -1272,6 +1277,11 @@ struct WordTaggerApp: App {
                     showQuickAdd = true
                 }
                 .keyboardShortcut("i", modifiers: [.command])
+                
+                Button("添加复合节点") {
+                    showCompoundNodeAdd = true
+                }
+                .keyboardShortcut("u", modifiers: [.command])
                 
                 Button("快速搜索") {
                     showQuickSearch = true
@@ -1573,6 +1583,125 @@ struct TagMappingRow: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 8)
         .background(Color.clear)
+    }
+}
+
+// MARK: - 复合节点添加界面
+
+struct CompoundNodeAddSheetView: View {
+    @EnvironmentObject private var store: NodeStore
+    @Environment(\.dismiss) var dismiss
+    @State private var inputText: String = ""
+    @State private var showingErrorAlert = false
+    @State private var errorMessage = ""
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("添加复合节点")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    
+                    Text("输入格式：复合节点名 节点1 节点2 节点3...")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                    
+                    Text("示例：动物 狗 猫 鸟")
+                        .font(.caption)
+                        .foregroundColor(.secondary.opacity(0.7))
+                }
+                
+                TextField("例如：颜色 红色 蓝色 绿色", text: $inputText, axis: .vertical)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .lineLimit(3...6)
+                    .onKeyPress(.return) {
+                        processInput()
+                        return .handled
+                    }
+                    .onKeyPress(.escape) {
+                        dismiss()
+                        return .handled
+                    }
+                
+                Spacer()
+            }
+            .padding(20)
+            .frame(width: 500, height: 300)
+            .navigationTitle("添加复合节点")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("添加") {
+                        processInput()
+                    }
+                    .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .keyboardShortcut(.return)
+                }
+            }
+        }
+        .alert("错误", isPresented: $showingErrorAlert) {
+            Button("确定") { }
+        } message: {
+            Text(errorMessage)
+        }
+    }
+    
+    private func processInput() {
+        let trimmed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        
+        let components = trimmed.split(separator: " ").map { String($0) }
+        guard components.count >= 2 else {
+            errorMessage = "请至少输入复合节点名和一个子节点"
+            showingErrorAlert = true
+            return
+        }
+        
+        let compoundNodeName = components[0]
+        let childNodeNames = Array(components[1...])
+        
+        guard let currentLayer = store.currentLayer else {
+            errorMessage = "请先选择一个活跃层"
+            showingErrorAlert = true
+            return
+        }
+        
+        // 创建复合节点
+        let compoundNode = Node(
+            text: compoundNodeName,
+            phonetic: nil,
+            meaning: "复合节点：包含 \(childNodeNames.joined(separator: ", "))",
+            layerId: currentLayer.id,
+            tags: []
+        )
+        
+        // 创建子节点
+        var childNodes: [Node] = []
+        for childName in childNodeNames {
+            let childNode = Node(
+                text: childName,
+                phonetic: nil,
+                meaning: nil,
+                layerId: currentLayer.id,
+                tags: []
+            )
+            childNodes.append(childNode)
+        }
+        
+        // 添加到store
+        store.addNode(compoundNode)
+        for childNode in childNodes {
+            store.addNode(childNode)
+        }
+        
+        // 清空输入并关闭
+        inputText = ""
+        dismiss()
     }
 }
 
