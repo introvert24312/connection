@@ -742,38 +742,24 @@ struct NodeGraphView: View {
         // 使用全局缓存获取图谱数据，避免重复计算
         let graphData = graphCache.getCachedGraphData(for: currentNode)
         
-        VStack(spacing: 0) {
-            // 简化的标题栏
-            HStack {
-                Text("节点详情图谱")
-                    .font(.headline)
-                Spacer()
-            }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
-            .background(Color(NSColor.controlBackgroundColor))
-            
-            Divider()
-            
-            // 图谱内容
-            if graphData.nodes.count <= 1 {
-                EmptyGraphView()
-            } else {
-                UniversalRelationshipGraphView(
-                    nodes: graphData.nodes,
-                    edges: graphData.edges,
-                    title: "节点详情图谱",
-                    initialScale: detailGraphInitialScale,
-                    onNodeSelected: { nodeId in
-                        // 当点击节点时，选择对应的节点（只有节点才会触发选择）
-                        if let selectedNode = graphData.nodes.first(where: { $0.id == nodeId }),
-                           let selectedTargetNode = selectedNode.node {
-                            store.selectNode(selectedTargetNode)
-                        }
+        // 直接显示图谱内容，无标题栏
+        if graphData.nodes.count <= 1 {
+            EmptyGraphView()
+        } else {
+            UniversalRelationshipGraphView(
+                nodes: graphData.nodes,
+                edges: graphData.edges,
+                title: "节点详情图谱",
+                initialScale: detailGraphInitialScale,
+                onNodeSelected: { nodeId in
+                    // 当点击节点时，选择对应的节点（只有节点才会触发选择）
+                    if let selectedNode = graphData.nodes.first(where: { $0.id == nodeId }),
+                       let selectedTargetNode = selectedNode.node {
+                        store.selectNode(selectedTargetNode)
                     }
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
+                }
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 }
