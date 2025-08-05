@@ -3,10 +3,10 @@ import CoreLocation
 import MapKit
 
 struct TagSidebarView: View {
-    @EnvironmentObject private var store: WordStore
+    @EnvironmentObject private var store: NodeStore
     @State private var filter: String = ""
     @State private var selectedTagType: Tag.TagType?
-    @Binding var selectedWord: Word?
+    @Binding var selectedNode: Node?
     @State private var selectedIndex: Int = 0
     @FocusState private var isListFocused: Bool
     
@@ -165,10 +165,10 @@ struct TagSidebarView: View {
         // 使用异步调度避免在视图更新期间修改状态
         DispatchQueue.main.async {
             store.selectTag(tag)
-            let relatedWords = store.words(withTag: tag)
-            if let firstWord = relatedWords.first {
-                self.selectedWord = firstWord
-                store.selectWord(firstWord)
+            let relatedNodes = store.nodes(withTag: tag)
+            if let firstNode = relatedNodes.first {
+                self.selectedNode = firstNode
+                store.selectNode(firstNode)
             }
         }
     }
@@ -218,7 +218,7 @@ struct TagRowView: View {
     let tag: Tag
     let isHighlighted: Bool
     let onTap: () -> Void
-    @EnvironmentObject private var store: WordStore
+    @EnvironmentObject private var store: NodeStore
     
     init(tag: Tag, isHighlighted: Bool = false, onTap: @escaping () -> Void) {
         self.tag = tag
@@ -227,7 +227,7 @@ struct TagRowView: View {
     }
     
     private var wordsCount: Int {
-        store.words(withTag: tag).count
+        store.nodes(withTag: tag).count
     }
     
     var body: some View {
@@ -289,8 +289,8 @@ struct TagRowView: View {
 
 #Preview {
     NavigationSplitView {
-        TagSidebarView(selectedWord: .constant(nil))
-            .environmentObject(WordStore.shared)
+        TagSidebarView(selectedNode: .constant(nil))
+            .environmentObject(NodeStore.shared)
     } content: {
         Text("Content")
     } detail: {

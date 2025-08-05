@@ -4,7 +4,7 @@ import MapKit
 import UniformTypeIdentifiers
 
 struct SettingsView: View {
-    @EnvironmentObject private var store: WordStore
+    @EnvironmentObject private var store: NodeStore
     @AppStorage("searchThreshold") private var searchThreshold: Double = 0.3
     @AppStorage("enableDebugMode") private var enableDebugMode: Bool = false
     @AppStorage("maxSearchResults") private var maxSearchResults: Int = 50
@@ -69,7 +69,7 @@ struct GeneralSettingsView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         SettingRow(
                             title: "默认显示音标",
-                            description: "在单词列表中自动显示音标信息"
+                            description: "在节点列表中自动显示音标信息"
                         ) {
                             Toggle("", isOn: $showPhoneticByDefault)
                                 .toggleStyle(SwitchToggleStyle())
@@ -91,7 +91,7 @@ struct GeneralSettingsView: View {
                             }
                             .pickerStyle(SegmentedPickerStyle())
                             
-                            Text("新建单词时默认使用的标签类型")
+                            Text("新建节点时默认使用的标签类型")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -116,7 +116,7 @@ struct GeneralSettingsView: View {
                         
                         SettingRow(
                             title: "详情图谱初始缩放",
-                            description: "单词详情图谱的默认缩放级别"
+                            description: "节点详情图谱的默认缩放级别"
                         ) {
                             HStack(spacing: 8) {
                                 Text("\(String(format: "%.1f", detailGraphInitialScale))x")
@@ -219,7 +219,7 @@ struct SearchSettingsView: View {
                         
                         SettingRow(
                             title: "搜索含义",
-                            description: "在单词含义中搜索匹配内容"
+                            description: "在节点含义中搜索匹配内容"
                         ) {
                             Toggle("", isOn: $searchInMeaning)
                                 .toggleStyle(SwitchToggleStyle())
@@ -304,91 +304,158 @@ struct SearchSettingsView: View {
 // MARK: - 层管理
 
 struct LayerManagementView: View {
-    @EnvironmentObject private var store: WordStore
+    @EnvironmentObject private var store: NodeStore
     @State private var showingCreateLayerSheet = false
     @State private var showingDeleteAlert = false
     @State private var layerToDelete: Layer?
     
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                // 当前活跃层
-                GroupBox("当前活跃层") {
+        VStack(spacing: 0) {
+            // 顶部：当前活跃层状态条
+            HStack(spacing: 12) {
+                HStack(spacing: 8) {
+                    Image(systemName: "target")
+                        .foregroundColor(.blue)
+                        .font(.body)
+                    
+                    Text("当前活跃层:")
+                        .font(.body)
+                        .fontWeight(.medium)
+                    
                     if let currentLayer = store.currentLayer {
-                        HStack {
+                        HStack(spacing: 6) {
                             Circle()
                                 .fill(Color.from(currentLayer.color))
-                                .frame(width: 16, height: 16)
+                                .frame(width: 12, height: 12)
                             
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(currentLayer.displayName)
-                                    .font(.headline)
-                                Text(currentLayer.name)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
+                            Text(currentLayer.displayName)
+                                .font(.body)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
                             
-                            Spacer()
-                            
-                            VStack(alignment: .trailing, spacing: 2) {
-                                Text("\(store.getNodesInCurrentLayer().count)")
-                                    .font(.title2)
-                                    .fontWeight(.bold)
-                                Text("节点")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
+                            Text("(\(currentLayer.name))")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                         }
+                        .padding(.horizontal, 8)
                         .padding(.vertical, 4)
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(6)
                     } else {
-                        HStack {
-                            Image(systemName: "exclamationmark.triangle")
-                                .foregroundColor(.orange)
-                            Text("未选择活跃层")
+                        Text("未选择")
+                            .font(.body)
+                            .foregroundColor(.orange)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.orange.opacity(0.1))
+                            .cornerRadius(6)
+                    }
+                }
+                
+                Spacer()
+                
+                // 快速统计
+                if let currentLayer = store.currentLayer {
+                    HStack(spacing: 12) {
+                        VStack(spacing: 2) {
+                            Text("\(store.getNodesInCurrentLayer().count)")
+                                .font(.headline)
+                                .fontWeight(.bold)
+                                .foregroundColor(.blue)
+                            Text("节点")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        VStack(spacing: 2) {
+                            Text("\(store.getNodesInCurrentLayer().count)")
+                                .font(.headline)
+                                .fontWeight(.bold)
+                                .foregroundColor(.green)
+                            Text("节点")
+                                .font(.caption2)
                                 .foregroundColor(.secondary)
                         }
                     }
                 }
-                
-                // 所有层列表
-                GroupBox("所有层") {
-                    VStack(alignment: .leading, spacing: 0) {
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .background(Color(NSColor.controlBackgroundColor))
+            
+            Divider()
+            
+            // 主内容区域
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    // 层管理区域
+                    VStack(alignment: .leading, spacing: 16) {
                         HStack {
-                            Text("层列表")
-                                .font(.headline)
+                            Text("层管理")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                            
                             Spacer()
+                            
                             Button(action: {
                                 showingCreateLayerSheet = true
                             }) {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "plus")
+                                HStack(spacing: 6) {
+                                    Image(systemName: "plus.circle.fill")
                                     Text("创建新层")
                                 }
+                                .font(.body)
+                                .fontWeight(.medium)
                             }
                             .buttonStyle(.borderedProminent)
-                            .controlSize(.small)
+                            .controlSize(.regular)
                         }
-                        .padding(.bottom, 12)
                         
+                        // 层列表
                         if store.layers.isEmpty {
-                            VStack(spacing: 12) {
+                            VStack(spacing: 16) {
                                 Image(systemName: "square.stack.3d.up")
-                                    .font(.largeTitle)
-                                    .foregroundColor(.gray)
-                                Text("暂无层")
+                                    .font(.system(size: 48))
+                                    .foregroundColor(.gray.opacity(0.6))
+                                
+                                VStack(spacing: 8) {
+                                    Text("暂无层级")
+                                        .font(.title3)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.primary)
+                                    
+                                    Text("创建第一个层来开始组织您的节点和数据")
+                                        .font(.body)
+                                        .foregroundColor(.secondary)
+                                        .multilineTextAlignment(.center)
+                                }
+                                
+                                Button(action: {
+                                    showingCreateLayerSheet = true
+                                }) {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "plus.circle.fill")
+                                        Text("创建第一个层")
+                                    }
                                     .font(.body)
-                                    .foregroundColor(.secondary)
-                                Text("创建第一个层来开始组织您的数据")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                    .multilineTextAlignment(.center)
+                                    .fontWeight(.medium)
+                                    .padding(.horizontal, 20)
+                                    .padding(.vertical, 10)
+                                }
+                                .buttonStyle(.borderedProminent)
                             }
-                            .frame(maxWidth: .infinity, minHeight: 100)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 40)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                            )
                         } else {
-                            LazyVStack(spacing: 8) {
+                            LazyVStack(spacing: 12) {
                                 ForEach(store.layers, id: \.id) { layer in
                                     LayerRowView(
                                         layer: layer,
+                                        wordCount: store.nodes.filter { $0.layerId == layer.id }.count,
                                         nodeCount: store.nodes.filter { $0.layerId == layer.id }.count,
                                         isActive: store.currentLayer?.id == layer.id,
                                         onActivate: {
@@ -405,12 +472,12 @@ struct LayerManagementView: View {
                             }
                         }
                     }
-                    .padding(12)
+                    
+                    Spacer(minLength: 20)
                 }
-                
-                Spacer()
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
             }
-            .padding()
         }
         .sheet(isPresented: $showingCreateLayerSheet) {
             CreateLayerSheet()
@@ -428,8 +495,9 @@ struct LayerManagementView: View {
             }
         } message: {
             if let layer = layerToDelete {
+                let wordCount = store.nodes.filter { $0.layerId == layer.id }.count
                 let nodeCount = store.nodes.filter { $0.layerId == layer.id }.count
-                Text("确定要删除层 \"\(layer.displayName)\" 吗？\n这将同时删除该层中的 \(nodeCount) 个节点，此操作无法撤销。")
+                Text("确定要删除层 \"\(layer.displayName)\" 吗？\n这将同时删除该层中的 \(wordCount) 个节点，此操作无法撤销。")
             }
         }
     }
@@ -437,86 +505,122 @@ struct LayerManagementView: View {
 
 struct LayerRowView: View {
     let layer: Layer
+    let wordCount: Int
     let nodeCount: Int
     let isActive: Bool
     let onActivate: () -> Void
     let onDelete: () -> Void
     
     var body: some View {
-        HStack(spacing: 12) {
-            // 颜色指示器
-            Circle()
-                .fill(Color.from(layer.color))
-                .frame(width: 20, height: 20)
-                .overlay(
-                    Circle()
-                        .stroke(isActive ? Color.blue : Color.clear, lineWidth: 2)
-                )
-            
-            // 层信息
-            VStack(alignment: .leading, spacing: 2) {
-                HStack {
-                    Text(layer.displayName)
-                        .font(.body)
-                        .fontWeight(isActive ? .semibold : .medium)
-                    
-                    if isActive {
-                        Text("活跃")
-                            .font(.caption2)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.blue.opacity(0.2))
-                            .foregroundColor(.blue)
-                            .cornerRadius(4)
-                    }
-                }
+        HStack(spacing: 16) {
+            // 左侧：颜色指示器和状态
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(Color.from(layer.color))
+                    .frame(width: 16, height: 16)
+                    .overlay(
+                        Circle()
+                            .stroke(isActive ? Color.blue : Color.clear, lineWidth: 2)
+                    )
                 
-                HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(layer.displayName)
+                            .font(.headline)
+                            .fontWeight(isActive ? .bold : .semibold)
+                            .foregroundColor(.primary)
+                        
+                        if isActive {
+                            HStack(spacing: 4) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.caption)
+                                Text("活跃")
+                                    .font(.caption2)
+                                    .fontWeight(.medium)
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Color.blue)
+                            .cornerRadius(12)
+                        }
+                    }
+                    
                     Text(layer.name)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Text("•")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Text("\(nodeCount) 个节点")
-                        .font(.caption)
+                        .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
             }
             
             Spacer()
             
-            // 操作按钮
+            // 中间：数据统计
+            HStack(spacing: 20) {
+                VStack(spacing: 2) {
+                    Text("\(wordCount)")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundColor(.blue)
+                    Text("节点")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                
+                VStack(spacing: 2) {
+                    Text("\(nodeCount)")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundColor(.green)
+                    Text("节点")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            // 右侧：操作按钮
             HStack(spacing: 8) {
                 if !isActive {
-                    Button("激活") {
-                        onActivate()
+                    Button(action: onActivate) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "target")
+                                .font(.caption)
+                            Text("激活")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.borderedProminent)
                     .controlSize(.small)
                 }
                 
                 Button(action: onDelete) {
                     Image(systemName: "trash")
+                        .font(.body)
                         .foregroundColor(.red)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
+                .help("删除层")
             }
         }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
         .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(isActive ? Color.blue.opacity(0.1) : Color.clear)
+            RoundedRectangle(cornerRadius: 12)
+                .fill(isActive ? Color.blue.opacity(0.08) : Color(NSColor.controlBackgroundColor))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(isActive ? Color.blue.opacity(0.3) : Color.clear, lineWidth: 1.5)
+                )
         )
+        .shadow(color: isActive ? Color.blue.opacity(0.1) : Color.clear, radius: 4, x: 0, y: 2)
     }
 }
 
 struct CreateLayerSheet: View {
-    @EnvironmentObject private var store: WordStore
+    @EnvironmentObject private var store: NodeStore
     @Environment(\.dismiss) private var dismiss
     @State private var name: String = ""
     @State private var displayName: String = ""
@@ -535,35 +639,74 @@ struct CreateLayerSheet: View {
         ("brown", Color.brown)
     ]
     
+    var isFormValid: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || 
+        !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+    
     var body: some View {
         NavigationView {
-            Form {
-                Section("层信息") {
-                    TextField("层名称（英文）", text: $name)
-                        .textFieldStyle(.roundedBorder)
-                    TextField("显示名称（中文）", text: $displayName)
-                        .textFieldStyle(.roundedBorder)
-                }
-                
-                Section("层颜色") {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 12) {
-                        ForEach(availableColors, id: \.0) { colorName, color in
-                            Button(action: {
-                                selectedColor = colorName
-                            }) {
-                                Circle()
-                                    .fill(color)
-                                    .frame(width: 30, height: 30)
-                                    .overlay(
-                                        Circle()
-                                            .stroke(selectedColor == colorName ? Color.primary : Color.clear, lineWidth: 2)
-                                    )
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    // 层信息区域
+                    GroupBox("层信息") {
+                        VStack(alignment: .leading, spacing: 16) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("层名称（英文）")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                TextField("例如: work, study, hobby", text: $name)
+                                    .textFieldStyle(.roundedBorder)
                             }
-                            .buttonStyle(.plain)
+                            
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("显示名称（中文）")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                TextField("例如: 工作, 学习, 爱好", text: $displayName)
+                                    .textFieldStyle(.roundedBorder)
+                            }
                         }
+                        .padding()
                     }
-                    .padding(.vertical, 8)
+                    
+                    // 层颜色区域
+                    GroupBox("层颜色") {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("选择用于标识此层的颜色")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 12) {
+                                ForEach(availableColors, id: \.0) { colorName, color in
+                                    ColorButton(
+                                        colorName: colorName,
+                                        color: color,
+                                        isSelected: selectedColor == colorName,
+                                        onTap: { selectedColor = colorName }
+                                    )
+                                }
+                            }
+                        }
+                        .padding()
+                    }
+                    
+                    // 预览区域
+                    if isFormValid {
+                        GroupBox("预览") {
+                            LayerPreviewRow(
+                                selectedColor: selectedColor,
+                                displayName: !displayName.isEmpty ? displayName : (!name.isEmpty ? name : "新层"),
+                                name: !name.isEmpty ? name : (!displayName.isEmpty ? displayName.lowercased() : "new_layer")
+                            )
+                            .padding()
+                        }
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+                    
+                    Spacer(minLength: 20)
                 }
+                .padding(20)
             }
             .navigationTitle("创建新层")
             .toolbar {
@@ -576,7 +719,7 @@ struct CreateLayerSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("创建") {
                         let newLayer = store.createLayer(
-                            name: name.isEmpty ? displayName.lowercased() : name,
+                            name: name.isEmpty ? displayName.lowercased().replacingOccurrences(of: " ", with: "_") : name,
                             displayName: displayName.isEmpty ? name : displayName,
                             color: selectedColor
                         )
@@ -590,19 +733,69 @@ struct CreateLayerSheet: View {
                         
                         dismiss()
                     }
-                    .disabled(name.isEmpty && displayName.isEmpty)
+                    .disabled(!isFormValid)
                 }
             }
         }
-        .frame(width: 400, height: 300)
+        .frame(width: 480, height: 500)
     }
 }
 
+// MARK: - Helper Views for CreateLayerSheet
+
+struct ColorButton: View {
+    let colorName: String
+    let color: Color
+    let isSelected: Bool
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            Circle()
+                .fill(color)
+                .frame(width: 30, height: 30)
+                .overlay(
+                    Circle()
+                        .stroke(isSelected ? Color.primary : Color.clear, lineWidth: 2)
+                )
+                .scaleEffect(isSelected ? 1.1 : 1.0)
+                .animation(.easeInOut(duration: 0.2), value: isSelected)
+        }
+        .buttonStyle(.plain)
+        .help(colorName.capitalized)
+    }
+}
+
+struct LayerPreviewRow: View {
+    let selectedColor: String
+    let displayName: String
+    let name: String
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Circle()
+                .fill(Color.from(selectedColor))
+                .frame(width: 14, height: 14)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(displayName)
+                    .font(.body)
+                    .fontWeight(.semibold)
+                Text(name)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+        }
+        .padding(.vertical, 4)
+    }
+}
 
 // MARK: - 数据管理
 
 struct DataManagementView: View {
-    @EnvironmentObject private var store: WordStore
+    @EnvironmentObject private var store: NodeStore
     @StateObject private var dataManager = ExternalDataManager.shared
     @StateObject private var dataService = ExternalDataService.shared
     @State private var showingClearDataAlert = false
@@ -644,9 +837,9 @@ struct DataManagementView: View {
                         }
                         
                         GridRow {
-                            Text("单词总数")
+                            Text("节点总数")
                                 .foregroundColor(.secondary)
-                            Text("\(store.words.count)")
+                            Text("\(store.nodes.count)")
                                 .fontWeight(.medium)
                         }
                         
@@ -671,7 +864,7 @@ struct DataManagementView: View {
                             GridRow {
                                 Text("\(type.displayName)标签")
                                     .foregroundColor(.secondary)
-                                Text("\(store.wordsCount(forTagType: type)) 个单词")
+                                Text("\(store.nodesCount(forTagType: type)) 个节点")
                                     .fontWeight(.medium)
                             }
                         }
@@ -691,7 +884,7 @@ struct DataManagementView: View {
                             Spacer()
                         }
                         
-                        Text("此操作将删除所有单词和标签数据，且无法撤销")
+                        Text("此操作将删除所有节点和标签数据，且无法撤销")
                             .font(.caption)
                             .foregroundColor(.secondary)
                         
@@ -709,7 +902,7 @@ struct DataManagementView: View {
                             .buttonStyle(.borderedProminent)
                             .controlSize(.small)
                             .tint(.red)
-                            .disabled(store.words.isEmpty && store.nodes.isEmpty)
+                            .disabled(store.nodes.isEmpty && store.nodes.isEmpty)
                             
                             Button("强制刷新界面") {
                                 store.forceRefreshUI()
@@ -734,7 +927,7 @@ struct DataManagementView: View {
                 clearAllData()
             }
         } message: {
-            Text("此操作将删除所有单词和标签数据，且无法撤销。")
+            Text("此操作将删除所有节点和标签数据，且无法撤销。")
         }
         .alert(isSuccess ? "成功" : "错误", isPresented: $showingResultAlert) {
             Button("确定") { }
@@ -827,7 +1020,7 @@ struct AboutView: View {
                     .font(.system(size: 60))
                     .foregroundColor(.blue)
                 
-                Text("单词标签管理器")
+                Text("节点标签管理器")
                     .font(.title)
                     .fontWeight(.bold)
                 
@@ -885,7 +1078,7 @@ struct FeatureRow: View {
 struct ExternalDataStoragePanel: View {
     @StateObject private var dataManager = ExternalDataManager.shared
     @StateObject private var dataService = ExternalDataService.shared
-    @EnvironmentObject private var store: WordStore
+    @EnvironmentObject private var store: NodeStore
     
     var body: some View {
         GroupBox(label: Text("外部数据存储").font(.headline)) {
@@ -1167,5 +1360,5 @@ struct DataFolderSetupView: View {
 
 #Preview {
     SettingsView()
-        .environmentObject(WordStore.shared)
+        .environmentObject(NodeStore.shared)
 }

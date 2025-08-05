@@ -3,9 +3,9 @@ import CoreLocation
 import MapKit
 
 struct ContentView: View {
-    @EnvironmentObject private var store: WordStore
+    @EnvironmentObject private var store: NodeStore
     @StateObject private var dataManager = ExternalDataManager.shared
-    @State private var selectedWord: Word?
+    @State private var selectedNode: Node?
     @State private var showSidebar: Bool = true
     @State private var showingDataSetup = false
     @Environment(\.openWindow) private var openWindow
@@ -14,18 +14,18 @@ struct ContentView: View {
         HStack(spacing: 0) {
             // 左侧：标签和搜索
             if showSidebar {
-                TagSidebarView(selectedWord: $selectedWord)
+                TagSidebarView(selectedNode: $selectedNode)
                     .frame(width: 300)
                     .transition(.move(edge: .leading).combined(with: .opacity))
             }
             
             // 中间：单词列表
-            WordListView(selectedWord: $selectedWord)
+            NodeListView(selectedNode: $selectedNode)
                 .frame(minWidth: showSidebar ? 400 : 500)
             
             // 右侧：详情面板
-            if let word = selectedWord {
-                DetailPanel(word: word)
+            if let node = selectedNode {
+                DetailPanel(node: node)
                     .frame(minWidth: 500)
             } else {
                 WelcomeView()
@@ -52,8 +52,8 @@ struct ContentView: View {
                 .help("打开全局图谱 (⌘G)")
                 
                 Button(action: {
-                    store.selectWord(nil)
-                    selectedWord = nil
+                    store.selectNode(nil)
+                    selectedNode = nil
                 }) {
                     Image(systemName: "clear")
                         .foregroundColor(.gray)
@@ -62,9 +62,9 @@ struct ContentView: View {
             }
         }
         .onAppear {
-            // 同步selectedWord状态
+            // 同步selectedNode状态
             DispatchQueue.main.async {
-                selectedWord = store.selectedWord
+                selectedNode = store.selectedNode
             }
             
             // 注册通知监听器
@@ -85,11 +85,11 @@ struct ContentView: View {
             }
             
             NotificationCenter.default.addObserver(
-                forName: Notification.Name("openWordManager"),
+                forName: Notification.Name("openNodeManager"),
                 object: nil,
                 queue: .main
             ) { _ in
-                openWindow(id: "wordManager")
+                openWindow(id: "nodeManager")
             }
             
             // 监听切换侧边栏的通知
@@ -110,16 +110,16 @@ struct ContentView: View {
                 }
             }
         }
-        .onChange(of: store.selectedWord) { _, newValue in
+        .onChange(of: store.selectedNode) { _, newValue in
             DispatchQueue.main.async {
-                selectedWord = newValue
+                selectedNode = newValue
             }
         }
-        .onChange(of: store.words) { _, _ in
-            // 当words变化时，检查selectedWord是否还有效
+        .onChange(of: store.nodes) { _, _ in
+            // 当nodes变化时，检查selectedNode是否还有效
             DispatchQueue.main.async {
-                if let current = selectedWord, !store.words.contains(where: { $0.id == current.id }) {
-                    selectedWord = nil
+                if let current = selectedNode, !store.nodes.contains(where: { $0.id == current.id }) {
+                    selectedNode = nil
                 }
             }
         }
@@ -132,7 +132,7 @@ struct ContentView: View {
 // MARK: - 欢迎视图
 
 struct WelcomeView: View {
-    @EnvironmentObject private var store: WordStore
+    @EnvironmentObject private var store: NodeStore
     
     var body: some View {
         VStack(spacing: 30) {
@@ -143,11 +143,11 @@ struct WelcomeView: View {
                     .font(.system(size: 60))
                     .foregroundColor(.blue)
                 
-                Text("欢迎使用单词标签管理器")
+                Text("欢迎使用节点标签管理器")
                     .font(.largeTitle)
                     .fontWeight(.bold)
                 
-                Text("使用智能标签系统来组织和记忆单词")
+                Text("使用智能标签系统来组织和记忆节点")
                     .font(.title3)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -157,13 +157,13 @@ struct WelcomeView: View {
                 HStack {
                     Image(systemName: "plus.circle.fill")
                         .foregroundColor(.green)
-                    Text("按 ⌘N 添加新单词")
+                    Text("按 ⌘N 添加新节点")
                 }
                 
                 HStack {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.blue)
-                    Text("按 ⌘F 搜索单词")
+                    Text("按 ⌘F 搜索节点")
                 }
                 
                 HStack {
@@ -182,7 +182,7 @@ struct WelcomeView: View {
                     .font(.headline)
                 
                 HStack(spacing: 30) {
-                    StatCard(title: "单词总数", value: "\(store.words.count)", color: .blue)
+                    StatCard(title: "节点总数", value: "\(store.nodes.count)", color: .blue)
                     StatCard(title: "标签总数", value: "\(store.allTags.count)", color: .green)
                     StatCard(title: "地点标签", value: "\(store.allTags.filter { $0.hasCoordinates }.count)", color: .red)
                 }
@@ -220,5 +220,5 @@ struct StatCard: View {
 
 #Preview {
     ContentView()
-        .environmentObject(WordStore.shared)
+        .environmentObject(NodeStore.shared)
 }

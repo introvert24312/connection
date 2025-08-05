@@ -15,7 +15,7 @@ public final class SearchService: ObservableObject {
     
     // MARK: - Core Search Methods
     
-    public func search(_ query: String, in words: [Word], filter: SearchFilter = SearchFilter()) async -> [SearchResult] {
+    public func search(_ query: String, in nodes: [Node], filter: SearchFilter = SearchFilter()) async -> [SearchResult] {
         guard !query.isEmpty else { return [] }
         
         let startTime = CFAbsoluteTimeGetCurrent()
@@ -30,34 +30,34 @@ public final class SearchService: ObservableObject {
             }
         }
         
-        var filteredWords = words
+        var filteredNodes = nodes
         
         // Apply filters first
         if let tagType = filter.tagType {
-            filteredWords = filteredWords.filter { word in
-                word.tags.contains { $0.type == tagType }
+            filteredNodes = filteredNodes.filter { node in
+                node.tags.contains { $0.type == tagType }
             }
         }
         
         if let hasLocation = filter.hasLocation {
-            filteredWords = filteredWords.filter { word in
-                let hasLocationTags = !word.locationTags.isEmpty
+            filteredNodes = filteredNodes.filter { node in
+                let hasLocationTags = !node.locationTags.isEmpty
                 return hasLocationTags == hasLocation
             }
         }
         
         // Perform search
-        return await performAdvancedSearch(query, in: filteredWords)
+        return await performAdvancedSearch(query, in: filteredNodes)
     }
     
     // MARK: - Advanced Search Implementation
     
-    private func performAdvancedSearch(_ query: String, in words: [Word]) async -> [SearchResult] {
+    private func performAdvancedSearch(_ query: String, in nodes: [Node]) async -> [SearchResult] {
         let searchTerms = preprocessQuery(query)
         var results: [SearchResult] = []
         
-        for word in words {
-            if let result = await evaluateWord(word, against: searchTerms) {
+        for node in nodes {
+            if let result = await evaluateNode(node, against: searchTerms) {
                 results.append(result)
             }
         }
@@ -68,20 +68,20 @@ public final class SearchService: ObservableObject {
         return limitedResults
     }
     
-    private func evaluateWord(_ word: Word, against searchTerms: [String]) async -> SearchResult? {
+    private func evaluateNode(_ node: Node, against searchTerms: [String]) async -> SearchResult? {
         var totalScore: Double = 0
         var matchedFields: Set<SearchResult.MatchField> = []
         var fieldMatches: [SearchResult.MatchField: Double] = [:]
         
-        // Search in word text (highest weight)
-        if let score = calculateFieldScore(word.text, against: searchTerms, weight: 3.0) {
+        // Search in node text (highest weight)
+        if let score = calculateFieldScore(node.text, against: searchTerms, weight: 3.0) {
             fieldMatches[.text] = score
             matchedFields.insert(.text)
             totalScore += score
         }
         
         // Search in meaning (high weight)
-        if let meaning = word.meaning,
+        if let meaning = node.meaning,
            let score = calculateFieldScore(meaning, against: searchTerms, weight: 2.5) {
             fieldMatches[.meaning] = score
             matchedFields.insert(.meaning)
@@ -89,7 +89,7 @@ public final class SearchService: ObservableObject {
         }
         
         // Search in phonetic (medium weight)
-        if let phonetic = word.phonetic,
+        if let phonetic = node.phonetic,
            let score = calculateFieldScore(phonetic, against: searchTerms, weight: 1.5) {
             fieldMatches[.phonetic] = score
             matchedFields.insert(.phonetic)
@@ -98,7 +98,7 @@ public final class SearchService: ObservableObject {
         
         // Search in tag values (medium weight)
         var tagScore: Double = 0
-        for tag in word.tags {
+        for tag in node.tags {
             if let score = calculateFieldScore(tag.value, against: searchTerms, weight: 1.8) {
                 tagScore = max(tagScore, score)
             }
@@ -115,8 +115,8 @@ public final class SearchService: ObservableObject {
         // Calculate final weighted score
         let finalScore = calculateFinalScore(fieldMatches)
         
-        // Convert Word to Node for compatibility with new SearchResult structure
-        let node = Node(text: word.text, phonetic: word.phonetic, meaning: word.meaning, layerId: UUID(), tags: word.tags)
+        // Convert Node to Node for compatibility with new SearchResult structure
+        let node = Node(text: node.text, phonetic: node.phonetic, meaning: node.meaning, layerId: UUID(), tags: node.tags)
         return SearchResult(node: node, score: finalScore, matchedFields: matchedFields)
     }
     
@@ -184,17 +184,17 @@ public final class SearchService: ObservableObject {
     
     // MARK: - Specialized Search Methods
     
-    public func searchByTag(_ tagType: Tag.TagType, in words: [Word]) -> [Word] {
-        return words.filter { word in
-            word.tags.contains { $0.type == tagType }
+    public func searchByTag(_ tagType: Tag.TagType, in nodes: [Node]) -> [Node] {
+        return nodes.filter { node in
+            node.tags.contains { $0.type == tagType }
         }
     }
     
     public func searchByLocation(near coordinate: CLLocationCoordinate2D, 
                                radius: Double, 
-                               in words: [Word]) -> [Word] {
-        return words.filter { word in
-            word.locationTags.contains { tag in
+                               in nodes: [Node]) -> [Node] {
+        return nodes.filter { node in
+            node.locationTags.contains { tag in
                 guard let lat = tag.latitude, let lng = tag.longitude else { return false }
                 let tagCoordinate = CLLocationCoordinate2D(latitude: lat, longitude: lng)
                 return coordinate.distance(to: tagCoordinate) <= radius
@@ -202,12 +202,12 @@ public final class SearchService: ObservableObject {
         }
     }
     
-    public func findSimilarWords(_ word: Word, in words: [Word], threshold: Double = 0.7) -> [Word] {
-        return words.compactMap { candidate in
-            guard candidate.id != word.id else { return nil }
+    public func findSimilarNodes(_ node: Node, in nodes: [Node], threshold: Double = 0.7) -> [Node] {
+        return nodes.compactMap { candidate in
+            guard candidate.id != node.id else { return nil }
             
-            let textSimilarity = word.text.similarity(to: candidate.text)
-            let meaningSimilarity = word.meaning?.similarity(to: candidate.meaning ?? "") ?? 0
+            let textSimilarity = node.text.similarity(to: candidate.text)
+            let meaningSimilarity = node.meaning?.similarity(to: candidate.meaning ?? "") ?? 0
             
             let overallSimilarity = (textSimilarity + meaningSimilarity) / 2.0
             

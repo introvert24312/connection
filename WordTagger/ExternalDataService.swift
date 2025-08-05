@@ -27,7 +27,7 @@ public class ExternalDataService: ObservableObject {
     
     // MARK: - 数据保存
     
-    public func saveAllData(store: WordStore) async throws {
+    public func saveAllData(store: NodeStore) async throws {
         print("💾 ExternalDataService: 开始保存数据...")
         
         guard dataManager.isDataPathSelected else {
@@ -53,7 +53,6 @@ public class ExternalDataService: ObservableObject {
                 print("📊 当前数据状态:")
                 print("   - Layers: \(store.layers.count) 个")
                 print("   - Nodes: \(store.nodes.count) 个")
-                print("   - Words: \(store.words.count) 个")
                 
                 for (index, layer) in store.layers.enumerated() {
                     print("   - Layer[\(index)]: \(layer.displayName) (\(layer.name))")
@@ -87,7 +86,7 @@ public class ExternalDataService: ObservableObject {
                         print("✅ Nodes保存成功")
                         
                         print("💾 保存Words...")
-                        try await self.saveWords(store.words)
+                        try await self.saveNodes(store.nodes)
                         print("✅ Words保存成功")
                         
                         print("💾 保存Metadata...")
@@ -139,23 +138,7 @@ public class ExternalDataService: ObservableObject {
         try data.write(to: url)
     }
     
-    private func saveWords(_ words: [Word]) async throws {
-        guard let url = dataManager.getWordsURL() else {
-            throw DataError.invalidPath
-        }
-        
-        // 确保 words 文件夹存在
-        let wordsDir = url.deletingLastPathComponent()
-        if !FileManager.default.fileExists(atPath: wordsDir.path) {
-            print("📁 创建 words 文件夹: \(wordsDir.path)")
-            try FileManager.default.createDirectory(at: wordsDir, withIntermediateDirectories: true, attributes: nil)
-        }
-        
-        let data = try encoder.encode(words)
-        try data.write(to: url)
-    }
-    
-    private func saveMetadata(store: WordStore) async throws {
+    private func saveMetadata(store: NodeStore) async throws {
         guard let url = dataManager.getMetadataURL() else {
             throw DataError.invalidPath
         }
@@ -231,7 +214,7 @@ public class ExternalDataService: ObservableObject {
         let filesToDelete = [
             dataManager.getLayersURL(),
             dataManager.getNodesURL(), 
-            dataManager.getWordsURL(),
+            dataManager.getNodesURL(),
             dataManager.getMetadataURL(),
             dataManager.getTagMappingsURL()
         ].compactMap { $0 }
@@ -266,7 +249,7 @@ public class ExternalDataService: ObservableObject {
     
     // MARK: - 数据加载
     
-    public func loadAllData() async throws -> (layers: [Layer], nodes: [Node], words: [Word]) {
+    public func loadAllData() async throws -> (layers: [Layer], nodes: [Node]) {
         guard dataManager.isDataPathSelected else {
             throw DataError.noDataPathSelected
         }
@@ -280,17 +263,16 @@ public class ExternalDataService: ObservableObject {
         
         do {
             // 在后台线程执行文件I/O操作
-            let (layers, nodes, words) = try await withCheckedThrowingContinuation { continuation in
+            let (layers, nodes) = try await withCheckedThrowingContinuation { continuation in
                 Task.detached {
                     do {
                         let layers = try await self.loadLayers()
                         let nodes = try await self.loadNodes()
-                        let words = try await self.loadWords()
                         
                         // 加载标签映射
                         try await self.loadTagMappings()
                         
-                        continuation.resume(returning: (layers, nodes, words))
+                        continuation.resume(returning: (layers, nodes))
                     } catch {
                         continuation.resume(throwing: error)
                     }
@@ -302,7 +284,7 @@ public class ExternalDataService: ObservableObject {
                 isLoading = false
             }
             
-            return (layers, nodes, words)
+            return (layers, nodes)
             
         } catch {
             await MainActor.run {
@@ -339,18 +321,6 @@ public class ExternalDataService: ObservableObject {
         return try decoder.decode([Node].self, from: data)
     }
     
-    private func loadWords() async throws -> [Word] {
-        guard let url = dataManager.getWordsURL() else {
-            throw DataError.invalidPath
-        }
-        
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            return [] // 返回空数组
-        }
-        
-        let data = try Data(contentsOf: url)
-        return try decoder.decode([Word].self, from: data)
-    }
     
     private func loadTagMappings() async throws {
         guard let url = dataManager.getTagMappingsURL() else {
@@ -379,7 +349,7 @@ public class ExternalDataService: ObservableObject {
     
     // MARK: - 备份管理
     
-    private func createBackup(store: WordStore) async throws {
+    private func createBackup(store: NodeStore) async throws {
         guard let backupURL = dataManager.getBackupURL(for: Date()) else {
             throw DataError.invalidPath
         }
@@ -455,7 +425,7 @@ public class ExternalDataService: ObservableObject {
     // MARK: - 自动同步
     
     @MainActor
-    public func startAutoSync(store: WordStore) {
+    public func startAutoSync(store: NodeStore) {
         // 每5分钟自动保存一次
         Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { _ in
             Task { @MainActor in
@@ -477,7 +447,7 @@ public class ExternalDataService: ObservableObject {
         }
         
         // 检查是否有现有数据
-        let (layers, nodes, words) = try await loadAllData()
+        let (layers, nodes) = try await loadAllData()
         
         // 如果没有数据，创建默认结构
         if layers.isEmpty {
@@ -495,7 +465,7 @@ public class ExternalDataService: ObservableObject {
         do {
             try await saveLayers(defaultLayers)
             try await saveNodes([]) // 空节点数组
-            try await saveWords([]) // 空单词数组
+            try await saveNodes([]) // 空单词数组
             
             let metadata = DataMetadata(
                 totalLayers: defaultLayers.count,

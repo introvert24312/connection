@@ -1,20 +1,20 @@
 import SwiftUI
 
 struct QuickSearchView: View {
-    @EnvironmentObject private var store: WordStore
+    @EnvironmentObject private var store: NodeStore
     @State private var searchText: String = ""
     @State private var selectedIndex: Int = 0
     let onDismiss: () -> Void
-    let onWordSelected: (Word) -> Void
+    let onNodeSelected: (Node) -> Void
     
-    private var filteredWords: [Word] {
+    private var filteredNodes: [Node] {
         if searchText.isEmpty {
-            return Array(store.words.prefix(10)) // 显示前10个
+            return Array(store.nodes.prefix(10)) // 显示前10个
         } else {
-            return store.words.filter { word in
-                word.text.localizedCaseInsensitiveContains(searchText) ||
-                word.meaning?.localizedCaseInsensitiveContains(searchText) == true ||
-                word.tags.contains { tag in
+            return store.nodes.filter { node in
+                node.text.localizedCaseInsensitiveContains(searchText) ||
+                node.meaning?.localizedCaseInsensitiveContains(searchText) == true ||
+                node.tags.contains { tag in
                     tag.value.localizedCaseInsensitiveContains(searchText)
                 }
             }
@@ -41,7 +41,7 @@ struct QuickSearchView: View {
                         .textFieldStyle(.plain)
                         .font(.system(size: 16, weight: .medium))
                         .onSubmit {
-                            selectCurrentWord()
+                            selectCurrentNode()
                         }
                 }
                 .padding(.horizontal, 16)
@@ -53,17 +53,17 @@ struct QuickSearchView: View {
                 )
                 
                 // 搜索结果
-                if !filteredWords.isEmpty {
+                if !filteredNodes.isEmpty {
                     ScrollView {
                         LazyVStack(spacing: 0) {
-                            ForEach(Array(filteredWords.enumerated()), id: \.element.id) { index, word in
-                                WordSearchResultRow(
+                            ForEach(Array(filteredNodes.enumerated()), id: \.element.id) { index, word in
+                                NodeSearchResultRow(
                                     word: word,
                                     searchText: searchText,
                                     isSelected: index == selectedIndex
                                 )
                                 .onTapGesture {
-                                    onWordSelected(word)
+                                    onNodeSelected(word)
                                     onDismiss()
                                 }
                                 .background(
@@ -117,26 +117,26 @@ struct QuickSearchView: View {
             return .handled
         }
         .onKeyPress(.downArrow) {
-            if selectedIndex < filteredWords.count - 1 {
+            if selectedIndex < filteredNodes.count - 1 {
                 selectedIndex += 1
             }
             return .handled
         }
-        .onChange(of: filteredWords) { _, newWords in
+        .onChange(of: filteredNodes) { _, newNodes in
             selectedIndex = 0
         }
     }
     
-    private func selectCurrentWord() {
-        guard selectedIndex < filteredWords.count else { return }
-        let selectedWord = filteredWords[selectedIndex]
-        onWordSelected(selectedWord)
+    private func selectCurrentNode() {
+        guard selectedIndex < filteredNodes.count else { return }
+        let selectedNode = filteredNodes[selectedIndex]
+        onNodeSelected(selectedNode)
         onDismiss()
     }
 }
 
-struct WordSearchResultRow: View {
-    let word: Word
+struct NodeSearchResultRow: View {
+    let word: Node
     let searchText: String
     let isSelected: Bool
     
@@ -201,6 +201,6 @@ struct WordSearchResultRow: View {
 }
 
 #Preview {
-    QuickSearchView(onDismiss: {}, onWordSelected: { _ in })
-        .environmentObject(WordStore.shared)
+    QuickSearchView(onDismiss: {}, onNodeSelected: { _ in })
+        .environmentObject(NodeStore.shared)
 }

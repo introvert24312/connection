@@ -3,7 +3,7 @@ import CoreLocation
 import MapKit
 
 struct MapContainer: View {
-    @EnvironmentObject private var store: WordStore
+    @EnvironmentObject private var store: NodeStore
     @Binding var isLocationSelectionMode: Bool
     @State private var region = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 39.9042, longitude: 116.4074), // 北京
@@ -16,7 +16,7 @@ struct MapContainer: View {
             span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
         )
     )
-    @State private var selectedWord: Word?
+    @State private var selectedNode: Node?
     @State private var searchQuery: String = ""
     @State private var showingSearchResults = false
     @State private var geoSearchResults: [MKMapItem] = []
@@ -100,10 +100,10 @@ struct MapContainer: View {
                 cameraPosition = MapCameraPosition.region(newRegion)
             }
         }
-        .onChange(of: store.selectedWord) { _, newWord in
-            if let word = newWord, !word.locationTags.isEmpty {
-                selectedWord = word
-                focusOnWord(word)
+        .onChange(of: store.selectedNode) { _, newNode in
+            if let node = newNode, !node.locationTags.isEmpty {
+                selectedNode = node
+                focusOnNode(node)
             }
         }
         .onChange(of: isLocationSelectionMode) { _, newValue in
@@ -124,7 +124,7 @@ struct MapContainer: View {
                             anchor: .center
                         ) {
                             LocationMarkerView(annotation: annotation) {
-                                selectedWord = annotation.word
+                                selectedNode = annotation.word
                             }
                         }
                     }
@@ -268,7 +268,7 @@ struct MapContainer: View {
             }
             
             Spacer()
-            selectedWordCard
+            selectedNodeCard
         }
     }
     
@@ -367,7 +367,7 @@ struct MapContainer: View {
             MapControlsView(
                 region: $region,
                 cameraPosition: $cameraPosition,
-                wordsWithLocation: filteredWordsWithLocation
+                wordsWithLocation: filteredNodesWithLocation
             )
             
             Spacer()
@@ -376,8 +376,8 @@ struct MapContainer: View {
             
             Spacer()
             
-            if !filteredWordsWithLocation.isEmpty {
-                MapStatsView(wordsCount: filteredWordsWithLocation.count)
+            if !filteredNodesWithLocation.isEmpty {
+                MapStatsView(wordsCount: filteredNodesWithLocation.count)
             }
         }
         .padding()
@@ -428,14 +428,14 @@ struct MapContainer: View {
                 VStack(spacing: 8) {
                     MapSearchResults(
                         query: searchQuery,
-                        words: store.words,
+                        nodes: store.nodes,
                         geoResults: geoSearchResults,
                         isSearchingLocation: isSearchingLocation,
                         isLocationSelectionMode: isLocationSelectionMode,
-                        onWordSelected: { word in
-                            selectedWord = word
+                        onNodeSelected: { node in
+                            selectedNode = node
                             showingSearchResults = false
-                            focusOnWord(word)
+                            focusOnNode(node)
                         },
                         onLocationSelected: { mapItem in
                             handleLocationSelection(mapItem)
@@ -447,11 +447,11 @@ struct MapContainer: View {
         }
     }
     
-    private var selectedWordCard: some View {
+    private var selectedNodeCard: some View {
         Group {
-            if let selectedWord = selectedWord {
-                WordLocationCard(word: selectedWord) {
-                    self.selectedWord = nil
+            if let selectedNode = selectedNode {
+                NodeLocationCard(word: selectedNode) {
+                    self.selectedNode = nil
                 }
                 .padding()
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -497,33 +497,33 @@ struct MapContainer: View {
         }
     }
     
-    private var wordsWithLocationTags: [Word] {
-        return store.words.filter { !$0.locationTags.isEmpty }
+    private var wordsWithLocationTags: [Node] {
+        return store.nodes.filter { !$0.locationTags.isEmpty }
     }
     
-    private var filteredWordsWithLocation: [Word] {
-        let words = wordsWithLocationTags
+    private var filteredNodesWithLocation: [Node] {
+        let nodes = wordsWithLocationTags
         
         if searchQuery.isEmpty {
-            return words
+            return nodes
         }
         
-        return words.filter { word in
-            word.text.localizedCaseInsensitiveContains(searchQuery) ||
-            word.meaning?.localizedCaseInsensitiveContains(searchQuery) == true ||
-            word.locationTags.contains { tag in
+        return nodes.filter { node in
+            node.text.localizedCaseInsensitiveContains(searchQuery) ||
+            node.meaning?.localizedCaseInsensitiveContains(searchQuery) == true ||
+            node.locationTags.contains { tag in
                 tag.value.localizedCaseInsensitiveContains(searchQuery)
             }
         }
     }
     
-    private var locationAnnotations: [WordLocationAnnotation] {
-        return filteredWordsWithLocation.compactMap { word in
+    private var locationAnnotations: [NodeLocationAnnotation] {
+        return filteredNodesWithLocation.compactMap { word in
             guard let locationTag = word.locationTags.first,
                   let lat = locationTag.latitude,
                   let lng = locationTag.longitude else { return nil }
             
-            return WordLocationAnnotation(
+            return NodeLocationAnnotation(
                 id: word.id,
                 word: word,
                 coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng),
@@ -532,7 +532,7 @@ struct MapContainer: View {
         }
     }
     
-    private func focusOnWord(_ word: Word) {
+    private func focusOnNode(_ word: Node) {
         guard let locationTag = word.locationTags.first,
               let lat = locationTag.latitude,
               let lng = locationTag.longitude else { return }
@@ -717,11 +717,11 @@ struct MapContainer: View {
     }
 }
 
-// MARK: - WordLocationAnnotation
+// MARK: - NodeLocationAnnotation
 
-struct WordLocationAnnotation: Identifiable {
+struct NodeLocationAnnotation: Identifiable {
     let id: UUID
-    let word: Word
+    let word: Node
     let coordinate: CLLocationCoordinate2D
     let locationTag: Tag
     
@@ -737,7 +737,7 @@ struct WordLocationAnnotation: Identifiable {
 // MARK: - LocationMarkerView
 
 struct LocationMarkerView: View {
-    let annotation: WordLocationAnnotation
+    let annotation: NodeLocationAnnotation
     let onTap: () -> Void
     
     private var markerColor: Color {
@@ -783,7 +783,7 @@ struct LocationMarkerView: View {
 struct MapControlsView: View {
     @Binding var region: MKCoordinateRegion
     @Binding var cameraPosition: MapCameraPosition
-    let wordsWithLocation: [Word]
+    let wordsWithLocation: [Node]
     
     var body: some View {
         HStack(spacing: 12) {
@@ -908,10 +908,10 @@ struct MapStatsView: View {
     }
 }
 
-// MARK: - Word Location Card
+// MARK: - Node Location Card
 
-struct WordLocationCard: View {
-    let word: Word
+struct NodeLocationCard: View {
+    let word: Node
     let onClose: () -> Void
     
     var body: some View {
@@ -1032,22 +1032,22 @@ extension MKCoordinateSpan {
 
 struct MapSearchResults: View {
     let query: String
-    let words: [Word]
+    let nodes: [Node]
     let geoResults: [MKMapItem]
     let isSearchingLocation: Bool
     let isLocationSelectionMode: Bool
-    let onWordSelected: (Word) -> Void
+    let onNodeSelected: (Node) -> Void
     let onLocationSelected: (MKMapItem) -> Void
     
-    private var wordResults: [Word] {
+    private var nodeResults: [Node] {
         if query.isEmpty {
             return []
         }
         
-        return words.filter { word in
-            word.text.localizedCaseInsensitiveContains(query) ||
-            word.meaning?.localizedCaseInsensitiveContains(query) == true ||
-            word.tags.contains { tag in
+        return nodes.filter { node in
+            node.text.localizedCaseInsensitiveContains(query) ||
+            node.meaning?.localizedCaseInsensitiveContains(query) == true ||
+            node.tags.contains { tag in
                 tag.value.localizedCaseInsensitiveContains(query)
             }
         }.prefix(3).map { $0 }
@@ -1056,7 +1056,7 @@ struct MapSearchResults: View {
     var body: some View {
         VStack(spacing: 0) {
             // 单词搜索结果
-            if !wordResults.isEmpty {
+            if !nodeResults.isEmpty {
                 VStack(spacing: 0) {
                     HStack {
                         Text("单词结果")
@@ -1066,7 +1066,7 @@ struct MapSearchResults: View {
                         
                         Spacer()
                         
-                        Text("\(wordResults.count) 个")
+                        Text("\(nodeResults.count) 个")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }
@@ -1074,12 +1074,12 @@ struct MapSearchResults: View {
                     .padding(.vertical, 8)
                     
                     LazyVStack(spacing: 0) {
-                        ForEach(wordResults, id: \.id) { word in
+                        ForEach(nodeResults, id: \.id) { word in
                             MapSearchResultRow(word: word) {
-                                onWordSelected(word)
+                                onNodeSelected(word)
                             }
                             
-                            if word.id != wordResults.last?.id {
+                            if word.id != nodeResults.last?.id {
                                 Divider()
                                     .padding(.leading, 16)
                             }
@@ -1140,7 +1140,7 @@ struct MapSearchResults: View {
 }
 
 struct MapSearchResultRow: View {
-    let word: Word
+    let word: Node
     let onTap: () -> Void
     
     var body: some View {
@@ -1498,5 +1498,5 @@ struct ManualCoordinateInputView: View {
 
 #Preview {
     MapContainer(isLocationSelectionMode: .constant(false))
-        .environmentObject(WordStore.shared)
+        .environmentObject(NodeStore.shared)
 }

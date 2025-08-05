@@ -217,42 +217,6 @@ public struct Tag: Identifiable, Hashable, Codable {
     }
 }
 
-public struct Word: Identifiable, Hashable, Codable {
-    public let id: UUID
-    public var text: String
-    public var phonetic: String?
-    public var meaning: String?
-    public var layerId: UUID?  // 添加层ID字段，可选以保持向后兼容
-    public var tags: [Tag]
-    public var createdAt: Date
-    public var updatedAt: Date
-    
-    public init(text: String, phonetic: String? = nil, meaning: String? = nil, layerId: UUID? = nil, tags: [Tag] = []) {
-        self.id = UUID()
-        self.text = text
-        self.phonetic = phonetic
-        self.meaning = meaning
-        self.layerId = layerId
-        self.tags = tags
-        self.createdAt = Date()
-        self.updatedAt = Date()
-    }
-    
-    // 获取特定类型的标签
-    public func tags(of type: Tag.TagType) -> [Tag] {
-        return tags.filter { $0.type == type }
-    }
-    
-    // 是否包含特定标签
-    public func hasTag(_ tag: Tag) -> Bool {
-        return tags.contains(tag)
-    }
-    
-    // 地点标签（有坐标的）
-    public var locationTags: [Tag] {
-        return tags.filter { $0.hasCoordinates }
-    }
-}
 
 // MARK: - 搜索相关模型
 
@@ -281,9 +245,4 @@ public struct SearchResult: Equatable {
         self.matchedFields = matchedFields
     }
     
-    // 向后兼容
-    @available(*, deprecated, message: "Use node instead")
-    public var word: Word {
-        return Word(text: node.text, phonetic: node.phonetic, meaning: node.meaning, tags: node.tags)
-    }
 }

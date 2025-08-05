@@ -255,10 +255,6 @@ public class ExternalDataManager: ObservableObject {
         return basePath.appendingPathComponent("data/nodes/nodes.json")
     }
     
-    public func getWordsURL() -> URL? {
-        guard let basePath = currentDataPath else { return nil }
-        return basePath.appendingPathComponent("data/words/words.json")
-    }
     
     public func getMetadataURL() -> URL? {
         guard let basePath = currentDataPath else { return nil }

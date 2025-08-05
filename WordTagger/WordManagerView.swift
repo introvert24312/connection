@@ -2,16 +2,16 @@ import SwiftUI
 import MapKit
 import CoreLocation
 
-struct WordManagerView: View {
-    @EnvironmentObject private var store: WordStore
-    @State private var selectedWords: Set<UUID> = []
+struct NodeManagerView: View {
+    @EnvironmentObject private var store: NodeStore
+    @State private var selectedNodes: Set<UUID> = []
     @State private var localSearchQuery: String = ""
     @State private var searchTask: Task<Void, Never>?
     @State private var showingDeleteAlert = false
     @State private var sortOption: SortOption = .alphabetical
     @State private var filterOption: FilterOption = .all
     @State private var showingCommandPalette = false
-    @State private var commandPaletteWord: Word?
+    @State private var commandPaletteNode: Node?
     @State private var isSelectionMode = false
     @FocusState private var isSearchFieldFocused: Bool
     
@@ -23,27 +23,27 @@ struct WordManagerView: View {
     }
     
     enum FilterOption: String, CaseIterable {
-        case all = "全部单词"
+        case all = "全部节点"
         case withTags = "有标签的"
         case withoutTags = "无标签的"
         case withMeaning = "有释义的"
         case withoutMeaning = "无释义的"
     }
     
-    var filteredAndSortedWords: [Word] {
-        var words = store.words
+    var filteredAndSortedNodes: [Node] {
+        var nodes = store.nodes
         
         // 如果有搜索查询，优先显示搜索结果，忽略selectedTag过滤
         if !localSearchQuery.isEmpty {
-            words = words.filter { word in
-                word.text.localizedCaseInsensitiveContains(localSearchQuery) ||
-                (word.meaning?.localizedCaseInsensitiveContains(localSearchQuery) ?? false) ||
-                (word.phonetic?.localizedCaseInsensitiveContains(localSearchQuery) ?? false) ||
-                word.tags.contains { $0.value.localizedCaseInsensitiveContains(localSearchQuery) }
+            nodes = nodes.filter { node in
+                node.text.localizedCaseInsensitiveContains(localSearchQuery) ||
+                (node.meaning?.localizedCaseInsensitiveContains(localSearchQuery) ?? false) ||
+                (node.phonetic?.localizedCaseInsensitiveContains(localSearchQuery) ?? false) ||
+                node.tags.contains { $0.value.localizedCaseInsensitiveContains(localSearchQuery) }
             }
         } else if let selectedTag = store.selectedTag {
             // 只在没有搜索查询时应用selectedTag过滤
-            words = words.filter { $0.hasTag(selectedTag) }
+            nodes = nodes.filter { $0.hasTag(selectedTag) }
         }
         
         // 应用过滤器
@@ -51,28 +51,28 @@ struct WordManagerView: View {
         case .all:
             break
         case .withTags:
-            words = words.filter { !$0.tags.isEmpty }
+            nodes = nodes.filter { !$0.tags.isEmpty }
         case .withoutTags:
-            words = words.filter { $0.tags.isEmpty }
+            nodes = nodes.filter { $0.tags.isEmpty }
         case .withMeaning:
-            words = words.filter { $0.meaning != nil && !$0.meaning!.isEmpty }
+            nodes = nodes.filter { $0.meaning != nil && !$0.meaning!.isEmpty }
         case .withoutMeaning:
-            words = words.filter { $0.meaning == nil || $0.meaning!.isEmpty }
+            nodes = nodes.filter { $0.meaning == nil || $0.meaning!.isEmpty }
         }
         
         // 应用排序
         switch sortOption {
         case .alphabetical:
-            words.sort { $0.text.localizedCompare($1.text) == .orderedAscending }
+            nodes.sort { $0.text.localizedCompare($1.text) == .orderedAscending }
         case .createdDate:
-            words.sort { $0.createdAt > $1.createdAt }
+            nodes.sort { $0.createdAt > $1.createdAt }
         case .updatedDate:
-            words.sort { $0.updatedAt > $1.updatedAt }
+            nodes.sort { $0.updatedAt > $1.updatedAt }
         case .tagCount:
-            words.sort { $0.tags.count > $1.tags.count }
+            nodes.sort { $0.tags.count > $1.tags.count }
         }
         
-        return words
+        return nodes
     }
     
     var body: some View {
@@ -80,7 +80,7 @@ struct WordManagerView: View {
             // 工具栏
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("单词管理")
+                    Text("节点管理")
                         .font(.title2)
                         .fontWeight(.semibold)
                     
@@ -123,18 +123,18 @@ struct WordManagerView: View {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.secondary)
                     
-                    TextField("搜索单词、释义、音标或标签...", text: $localSearchQuery)
+                    TextField("搜索节点、释义、音标或标签...", text: $localSearchQuery)
                         .textFieldStyle(.plain)
                         .frame(width: 200)
                         .focused($isSearchFieldFocused)
                         .onChange(of: localSearchQuery) { oldValue, newValue in
-                            print("🔤 WordManagerView: localSearchQuery changed from '\(oldValue)' to '\(newValue)'")
+                            print("🔤 NodeManagerView: localSearchQuery changed from '\(oldValue)' to '\(newValue)'")
                             
                             // 取消之前的搜索任务
                             searchTask?.cancel()
                             
                             // 立即更新store的搜索查询，让Store的防抖机制处理重复请求
-                            print("🔄 WordManagerView: Immediately updating store.searchQuery to '\(newValue)'")
+                            print("🔄 NodeManagerView: Immediately updating store.searchQuery to '\(newValue)'")
                             store.searchQuery = newValue
                             
                             // 保持焦点在输入框
@@ -200,7 +200,7 @@ struct WordManagerView: View {
                 Button(action: {
                     isSelectionMode.toggle()
                     if !isSelectionMode {
-                        selectedWords.removeAll()
+                        selectedNodes.removeAll()
                     }
                 }) {
                     HStack {
@@ -219,7 +219,7 @@ struct WordManagerView: View {
             // 操作栏（只在选择模式下显示）
             if isSelectionMode {
                 HStack {
-                Text("选中 \(selectedWords.count) / \(filteredAndSortedWords.count) 个单词")
+                Text("选中 \(selectedNodes.count) / \(filteredAndSortedNodes.count) 个节点")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 
@@ -227,16 +227,16 @@ struct WordManagerView: View {
                 
                 // 全选/取消全选
                 Button(action: {
-                    if selectedWords.count == filteredAndSortedWords.count {
-                        selectedWords.removeAll()
+                    if selectedNodes.count == filteredAndSortedNodes.count {
+                        selectedNodes.removeAll()
                     } else {
-                        selectedWords = Set(filteredAndSortedWords.map { $0.id })
+                        selectedNodes = Set(filteredAndSortedNodes.map { $0.id })
                     }
                 }) {
-                    Text(selectedWords.count == filteredAndSortedWords.count ? "取消全选" : "全选")
+                    Text(selectedNodes.count == filteredAndSortedNodes.count ? "取消全选" : "全选")
                         .font(.caption)
                 }
-                .disabled(filteredAndSortedWords.isEmpty)
+                .disabled(filteredAndSortedNodes.isEmpty)
                 
                 // 批量删除按钮
                 Button(action: {
@@ -244,19 +244,19 @@ struct WordManagerView: View {
                 }) {
                     HStack(spacing: 4) {
                         Image(systemName: "trash")
-                        Text("删除选中")
+                        Text("删除选中节点")
                     }
                     .font(.caption)
                     .foregroundColor(.red)
                 }
-                .disabled(selectedWords.isEmpty)
+                .disabled(selectedNodes.isEmpty)
                 .alert("确认删除", isPresented: $showingDeleteAlert) {
                     Button("取消", role: .cancel) { }
                     Button("删除", role: .destructive) {
-                        batchDeleteWords()
+                        batchDeleteNodes()
                     }
                 } message: {
-                    Text("确定要删除选中的 \(selectedWords.count) 个单词吗？此操作不可撤销。")
+                    Text("确定要删除选中的 \(selectedNodes.count) 个节点吗？此操作不可撤销。")
                 }
             }
             .padding(.horizontal)
@@ -266,8 +266,8 @@ struct WordManagerView: View {
             Divider()
             }
             
-            // 单词列表
-            if filteredAndSortedWords.isEmpty {
+            // 节点列表
+            if filteredAndSortedNodes.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "doc.text.magnifyingglass")
                         .font(.system(size: 48))
@@ -276,12 +276,12 @@ struct WordManagerView: View {
                     Group {
                         if localSearchQuery.isEmpty {
                             if store.selectedTag != nil {
-                                Text("当前标签下暂无单词")
+                                Text("当前标签下暂无节点")
                             } else {
-                                Text("暂无单词")
+                                Text("暂无节点")
                             }
                         } else {
-                            Text("未找到匹配 \"\(localSearchQuery)\" 的单词")
+                            Text("未找到匹配 \"\(localSearchQuery)\" 的节点")
                         }
                     }
                     .font(.title3)
@@ -307,20 +307,20 @@ struct WordManagerView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 1) {
-                        ForEach(filteredAndSortedWords, id: \.id) { word in
-                            WordManagerRowView(
-                                word: word,
-                                isSelected: selectedWords.contains(word.id),
+                        ForEach(filteredAndSortedNodes, id: \.id) { node in
+                            NodeManagerRowView(
+                                node: node,
+                                isSelected: selectedNodes.contains(node.id),
                                 isSelectionMode: isSelectionMode,
                                 onToggleSelection: {
-                                    if selectedWords.contains(word.id) {
-                                        selectedWords.remove(word.id)
+                                    if selectedNodes.contains(node.id) {
+                                        selectedNodes.remove(node.id)
                                     } else {
-                                        selectedWords.insert(word.id)
+                                        selectedNodes.insert(node.id)
                                     }
                                 },
-                                onWordEdit: { word in
-                                    commandPaletteWord = word
+                                onNodeEdit: { node in
+                                    commandPaletteNode = node
                                     showingCommandPalette = true
                                 }
                             )
@@ -331,17 +331,17 @@ struct WordManagerView: View {
                 }
             }
         }
-        .navigationTitle("单词管理")
-        .sheet(item: Binding<Word?>(
-            get: { showingCommandPalette ? commandPaletteWord : nil },
+        .navigationTitle("节点管理")
+        .sheet(item: Binding<Node?>(
+            get: { showingCommandPalette ? commandPaletteNode : nil },
             set: { newValue in
                 if newValue == nil {
                     showingCommandPalette = false
-                    commandPaletteWord = nil
+                    commandPaletteNode = nil
                 }
             }
-        )) { word in
-            TagEditCommandView(word: word)
+        )) { node in
+            TagEditCommandView(node: node)
                 .environmentObject(store)
         }
         .onDisappear {
@@ -349,22 +349,22 @@ struct WordManagerView: View {
         }
     }
     
-    private func batchDeleteWords() {
-        for wordId in selectedWords {
-            store.deleteWord(wordId)
+    private func batchDeleteNodes() {
+        for nodeId in selectedNodes {
+            store.deleteNode(nodeId)
         }
-        selectedWords.removeAll()
+        selectedNodes.removeAll()
     }
 }
 
-// MARK: - Word Manager Row View
+// MARK: - Node Manager Row View
 
-struct WordManagerRowView: View {
-    let word: Word
+struct NodeManagerRowView: View {
+    let node: Node
     let isSelected: Bool
     let isSelectionMode: Bool
     let onToggleSelection: () -> Void
-    let onWordEdit: (Word) -> Void
+    let onNodeEdit: (Node) -> Void
     
     var body: some View {
         HStack(spacing: 12) {
@@ -378,17 +378,17 @@ struct WordManagerRowView: View {
                 .buttonStyle(.plain)
             }
             
-            // 单词信息
+            // 节点信息
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    // 单词文本
-                    Text(word.text)
+                    // 节点文本
+                    Text(node.text)
                         .font(.title3)
                         .fontWeight(.semibold)
                         .foregroundColor(.primary)
                     
                     // 音标
-                    if let phonetic = word.phonetic {
+                    if let phonetic = node.phonetic {
                         Text(phonetic)
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -403,11 +403,11 @@ struct WordManagerRowView: View {
                     Spacer()
                     
                     // 标签数量
-                    if !word.tags.isEmpty {
+                    if !node.tags.isEmpty {
                         HStack(spacing: 4) {
                             Image(systemName: "tag.fill")
                                 .font(.caption2)
-                            Text("\(word.tags.count)")
+                            Text("\(node.tags.count)")
                                 .font(.caption)
                         }
                         .foregroundColor(.blue)
@@ -415,7 +415,7 @@ struct WordManagerRowView: View {
                 }
                 
                 // 释义
-                if let meaning = word.meaning, !meaning.isEmpty {
+                if let meaning = node.meaning, !meaning.isEmpty {
                     Text(meaning)
                         .font(.body)
                         .foregroundColor(.secondary)
@@ -423,10 +423,10 @@ struct WordManagerRowView: View {
                 }
                 
                 // 标签
-                if !word.tags.isEmpty {
+                if !node.tags.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 6) {
-                            ForEach(word.tags.prefix(5), id: \.id) { tag in
+                            ForEach(node.tags.prefix(5), id: \.id) { tag in
                                 Group {
                                     if case .custom(let key) = tag.type, TagMappingManager.shared.isLocationTagKey(key), tag.hasCoordinates {
                                         // 位置标签添加点击预览功能
@@ -463,8 +463,8 @@ struct WordManagerRowView: View {
                                 }
                             }
                             
-                            if word.tags.count > 5 {
-                                Text("+\(word.tags.count - 5)")
+                            if node.tags.count > 5 {
+                                Text("+\(node.tags.count - 5)")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
@@ -474,12 +474,12 @@ struct WordManagerRowView: View {
                 
                 // 时间信息
                 HStack(spacing: 12) {
-                    Text("创建: \(word.createdAt.timeAgoDisplay())")
+                    Text("创建: \(node.createdAt.timeAgoDisplay())")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                     
-                    if word.updatedAt > word.createdAt {
-                        Text("修改: \(word.updatedAt.timeAgoDisplay())")
+                    if node.updatedAt > node.createdAt {
+                        Text("修改: \(node.updatedAt.timeAgoDisplay())")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }
@@ -503,7 +503,7 @@ struct WordManagerRowView: View {
             if isSelectionMode {
                 onToggleSelection()
             } else {
-                onWordEdit(word)
+                onNodeEdit(node)
             }
         }
         .allowsHitTesting(true)
@@ -538,8 +538,8 @@ struct WordManagerRowView: View {
 // MARK: - Tag Edit Command View
 
 struct TagEditCommandView: View {
-    let word: Word
-    @EnvironmentObject private var store: WordStore
+    let node: Node
+    @EnvironmentObject private var store: NodeStore
     @Environment(\.dismiss) private var dismiss
     @State private var commandText: String = ""
     @State private var selectedIndex: Int = 0
@@ -548,8 +548,8 @@ struct TagEditCommandView: View {
     @State private var showingDuplicateAlert = false
     
     private var initialCommand: String {
-        // 生成当前单词的完整命令
-        let tagCommands = word.tags.map { tag in
+        // 生成当前节点的完整命令
+        let tagCommands = node.tags.map { tag in
             // 对于location标签且有坐标信息，生成完整的loc命令
             if case .custom(let key) = tag.type, TagMappingManager.shared.isLocationTagKey(key), tag.hasCoordinates,
                let lat = tag.latitude, let lng = tag.longitude {
@@ -563,9 +563,9 @@ struct TagEditCommandView: View {
         }.joined(separator: " ")
         
         if tagCommands.isEmpty {
-            return "\(word.text) "
+            return "\(node.text) "
         } else {
-            return "\(word.text) \(tagCommands)"
+            return "\(node.text) \(tagCommands)"
         }
     }
     
@@ -573,7 +573,7 @@ struct TagEditCommandView: View {
     
     @MainActor
     private func updateAvailableCommands() {
-        let context = CommandContext(store: store, currentWord: word)
+        let context = CommandContext(store: store, currentNode: node)
         Task {
             availableCommands = await commandParser.parse(commandText, context: context)
         }
@@ -583,7 +583,7 @@ struct TagEditCommandView: View {
         VStack(spacing: 16) {
             // 标题栏
             HStack {
-                Text("编辑单词: \(word.text)")
+                Text("编辑节点: \(node.text)")
                     .font(.title2)
                     .fontWeight(.semibold)
                 
@@ -624,17 +624,17 @@ struct TagEditCommandView: View {
             
             // 当前标签显示
             VStack(alignment: .leading, spacing: 8) {
-                Text("当前标签 (\(word.tags.count)个):")
+                Text("当前标签 (\(node.tags.count)个):")
                     .font(.headline)
                 
-                if word.tags.isEmpty {
+                if node.tags.isEmpty {
                     Text("暂无标签")
                         .foregroundColor(.secondary)
                         .italic()
                 } else {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
-                            ForEach(word.tags, id: \.id) { tag in
+                            ForEach(node.tags, id: \.id) { tag in
                                 HStack(spacing: 4) {
                                     Text(tag.type.displayName)
                                         .font(.caption)
@@ -711,14 +711,14 @@ struct TagEditCommandView: View {
                 let locationCommand: String
                 if let locationName = locationData["name"] as? String {
                     locationCommand = "loc @\(latitude),\(longitude)[\(locationName)]"
-                    print("🎯 WordManager: Using location with name: \(locationName)")
+                    print("🎯 NodeManager: Using location with name: \(locationName)")
                 } else {
                     locationCommand = "loc @\(latitude),\(longitude)[]"
-                    print("🎯 WordManager: Using coordinates only, user needs to fill name")
+                    print("🎯 NodeManager: Using coordinates only, user needs to fill name")
                 }
                 
                 if commandText.isEmpty || commandText == initialCommand {
-                    commandText = "\(word.text) \(locationCommand)"
+                    commandText = "\(node.text) \(locationCommand)"
                 } else {
                     commandText += " \(locationCommand)"
                 }
@@ -727,16 +727,16 @@ struct TagEditCommandView: View {
         .alert("重复检测", isPresented: $showingDuplicateAlert) {
             Button("确定") { }
         } message: {
-            if let alert = store.duplicateWordAlert {
+            if let alert = store.duplicateNodeAlert {
                 Text(alert.message)
             }
         }
-        .onReceive(store.$duplicateWordAlert) { alert in
+        .onReceive(store.$duplicateNodeAlert) { alert in
             if alert != nil {
                 showingDuplicateAlert = true
                 // 延迟清除alert以避免立即触发下一次
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    store.duplicateWordAlert = nil
+                    store.duplicateNodeAlert = nil
                 }
             }
         }
@@ -772,10 +772,10 @@ struct TagEditCommandView: View {
         
         guard tokens.count >= 2 else { return false }
         
-        // 第一个token应该是单词名，跳过
-        let wordText = tokens[0]
-        guard wordText == word.text else { 
-            print("❌ 单词名不匹配: \(wordText) vs \(word.text)")
+        // 第一个token应该是节点名，跳过
+        let nodeText = tokens[0]
+        guard nodeText == node.text else { 
+            print("❌ 节点名不匹配: \(nodeText) vs \(node.text)")
             return false 
         }
         
@@ -926,19 +926,19 @@ struct TagEditCommandView: View {
             }
         }
         
-        // 替换单词的所有标签
+        // 替换节点的所有标签
         await MainActor.run {
             // 先删除所有现有标签
-            let currentWord = store.words.first { $0.id == word.id }
-            if let existingWord = currentWord {
-                for tag in existingWord.tags {
-                    store.removeTag(from: word.id, tagId: tag.id)
+            let currentNode = store.nodes.first { $0.id == node.id }
+            if let existingNode = currentNode {
+                for tag in existingNode.tags {
+                    store.removeTag(from: node.id, tagId: tag.id)
                 }
             }
             
             // 添加新标签
             for tag in newTags {
-                store.addTag(to: word.id, tag: tag)
+                store.addTag(to: node.id, tag: tag)
             }
         }
         
@@ -973,7 +973,7 @@ struct TagEditCommandView: View {
         if !commandText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             if availableCommands.indices.contains(selectedIndex) {
                 let command = availableCommands[selectedIndex]
-                let context = CommandContext(store: store, currentWord: word)
+                let context = CommandContext(store: store, currentNode: node)
                 Task {
                     do {
                         _ = try await command.execute(with: context)
@@ -993,6 +993,6 @@ struct TagEditCommandView: View {
 
 
 #Preview {
-    WordManagerView()
-        .environmentObject(WordStore.shared)
+    NodeManagerView()
+        .environmentObject(NodeStore.shared)
 }

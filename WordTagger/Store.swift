@@ -4,16 +4,14 @@ import AppKit
 import SwiftUI
 
 @MainActor
-public final class WordStore: ObservableObject {
-    @Published public private(set) var words: [Word] = []
+public final class NodeStore: ObservableObject {
     @Published public private(set) var nodes: [Node] = []
     @Published public private(set) var layers: [Layer] = []
     @Published public private(set) var currentLayer: Layer?
-    @Published public private(set) var selectedWord: Word?
     @Published public private(set) var selectedNode: Node?
     @Published public private(set) var selectedTag: Tag?
     @Published public var searchQuery: String = ""
-    @Published public private(set) var searchResults: [Word] = []
+    @Published public private(set) var searchResults: [Node] = []
     @Published public private(set) var isLoading: Bool = false
     @Published public private(set) var isExporting: Bool = false
     @Published public private(set) var isImporting: Bool = false
@@ -23,7 +21,7 @@ public final class WordStore: ObservableObject {
     private let externalDataManager = ExternalDataManager.shared
     private var isLoadingFromExternal = false
     
-    public static let shared = WordStore()
+    public static let shared = NodeStore()
     
     private init() {
         setupInitialData()
@@ -43,13 +41,12 @@ public final class WordStore: ObservableObject {
         Task {
             do {
                 isLoadingFromExternal = true
-                let (loadedLayers, loadedNodes, loadedWords) = try await externalDataService.loadAllData()
+                let (loadedLayers, loadedNodes) = try await externalDataService.loadAllData()
                 
                 await MainActor.run {
                     if !loadedLayers.isEmpty {
                         self.layers = loadedLayers
                         self.nodes = loadedNodes
-                        self.words = loadedWords
                         
                         // 设置活跃层
                         if let activeLayer = loadedLayers.first(where: { $0.isActive }) {
@@ -58,7 +55,7 @@ public final class WordStore: ObservableObject {
                             self.currentLayer = firstLayer
                         }
                         
-                        print("📚 从外部存储加载了 \(loadedNodes.count) 个节点和 \(loadedWords.count) 个单词，分布在 \(loadedLayers.count) 个层中")
+                        print("📚 从外部存储加载了 \(loadedNodes.count) 个节点，分布在 \(loadedLayers.count) 个层中")
                     }
                     self.isLoadingFromExternal = false
                 }
@@ -79,7 +76,7 @@ public final class WordStore: ObservableObject {
     }
     
     private func setupDefaultLayers() {
-        var englishLayer = Layer(name: "english", displayName: "英语单词", color: "blue")
+        var englishLayer = Layer(name: "english", displayName: "英语节点", color: "blue")
         englishLayer.isActive = true
         
         layers = [
@@ -104,10 +101,10 @@ public final class WordStore: ObservableObject {
     
     private func setupExternalDataSync() {
         // 监听数据变化，自动保存到外部存储（缩短延迟时间）
-        Publishers.CombineLatest3($words, $nodes, $layers)
+        Publishers.CombineLatest($nodes, $layers)
             .debounce(for: .milliseconds(800), scheduler: RunLoop.main)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] (words, nodes, layers) in
+            .sink { [weak self] (nodes, layers) in
                 guard let self = self else { return }
                 
                 // 如果正在从外部存储加载数据，跳过自动同步
@@ -116,7 +113,6 @@ public final class WordStore: ObservableObject {
                 }
                 
                 print("🔄 数据变化触发自动同步:")
-                print("   - Words: \(words.count) 个")
                 print("   - Nodes: \(nodes.count) 个")
                 print("   - Layers: \(layers.count) 个")
                 print("   - 外部数据路径已选择: \(self.externalDataManager.isDataPathSelected)")
@@ -181,13 +177,12 @@ public final class WordStore: ObservableObject {
         do {
             isLoadingFromExternal = true
             isLoading = true
-            let (loadedLayers, loadedNodes, loadedWords) = try await externalDataService.loadAllData()
+            let (loadedLayers, loadedNodes) = try await externalDataService.loadAllData()
             
             if !loadedLayers.isEmpty {
                 // 如果新路径有数据，替换当前数据
                 layers = loadedLayers
                 nodes = loadedNodes
-                words = loadedWords
                 
                 // 设置活跃层
                 if let activeLayer = loadedLayers.first(where: { $0.isActive }) {
@@ -196,7 +191,7 @@ public final class WordStore: ObservableObject {
                     currentLayer = firstLayer
                 }
                 
-                print("📚 从新路径加载了 \(loadedNodes.count) 个节点和 \(loadedWords.count) 个单词，分布在 \(loadedLayers.count) 个层中")
+                print("📚 从新路径加载了 \(loadedNodes.count) 个节点，分布在 \(loadedLayers.count) 个层中")
                 
                 // 重新加载标签映射
                 await TagMappingManager.shared.reloadFromExternalStorage()
@@ -239,86 +234,70 @@ public final class WordStore: ObservableObject {
             return
         }
         
-        // 搜索当前层的words和nodes
+        // 搜索当前层的节点
         guard let currentLayer = currentLayer else {
             print("⚠️ Store: 没有当前层，搜索结果为空")
             searchResults = []
             return
         }
         
-        let wordResults = words.filter { word in
-            // 只搜索当前层的单词
-            word.layerId == currentLayer.id && (
-                word.text.localizedCaseInsensitiveContains(trimmedQuery) ||
-                (word.meaning?.localizedCaseInsensitiveContains(trimmedQuery) ?? false) ||
-                (word.phonetic?.localizedCaseInsensitiveContains(trimmedQuery) ?? false) ||
-                word.tags.contains { $0.value.localizedCaseInsensitiveContains(trimmedQuery) }
+        let nodeResults = nodes.filter { node in
+            // 只搜索当前层的节点
+            node.layerId == currentLayer.id && (
+                node.text.localizedCaseInsensitiveContains(trimmedQuery) ||
+                (node.meaning?.localizedCaseInsensitiveContains(trimmedQuery) ?? false) ||
+                (node.phonetic?.localizedCaseInsensitiveContains(trimmedQuery) ?? false) ||
+                node.tags.contains { $0.value.localizedCaseInsensitiveContains(trimmedQuery) }
             )
         }
         
-        let nodeResults = nodes.compactMap { node -> Word? in
-            // 只搜索当前层的节点
-            if node.layerId == currentLayer.id && (
-               node.text.localizedCaseInsensitiveContains(trimmedQuery) ||
-               (node.meaning?.localizedCaseInsensitiveContains(trimmedQuery) ?? false) ||
-               (node.phonetic?.localizedCaseInsensitiveContains(trimmedQuery) ?? false) ||
-               node.tags.contains { $0.value.localizedCaseInsensitiveContains(trimmedQuery) }) {
-                return Word(text: node.text, phonetic: node.phonetic, meaning: node.meaning, layerId: node.layerId, tags: node.tags)
-            }
-            return nil
-        }
-        
-        // 合并结果并去重
-        var allResults = wordResults + nodeResults
-        allResults = allResults.unique()
-        
-        searchResults = Array(allResults.prefix(50)) // 限制结果数量
+        searchResults = Array(nodeResults.prefix(50)) // 限制结果数量
         print("🔍 Store: Search completed in layer '\(currentLayer.displayName)', found \(searchResults.count) results")
     }
     
-    // MARK: - 数据管理
+    // MARK: - 节点管理
     
-    @Published public var duplicateWordAlert: DuplicateWordAlert?
+    @Published public var duplicateNodeAlert: DuplicateNodeAlert?
     
-    // 重复单词检测结果
-    public struct DuplicateWordAlert {
+    // 重复节点检测结果
+    public struct DuplicateNodeAlert {
         let message: String
         let isDuplicate: Bool
-        let existingWord: Word?
-        let newWord: Word
+        let existingNode: Node?
+        let newNode: Node
     }
     
     @MainActor
-    public func addWord(_ word: Word) -> Bool {
-        print("📝 Store: 添加单词 - \(word.text)")
-        print("   - 音标: \(word.phonetic ?? "nil")")
-        print("   - 含义: \(word.meaning ?? "nil")")
-        print("   - 标签: \(word.tags.count) 个")
+    public func addNode(_ node: Node) -> Bool {
+        print("📝 Store: 添加节点 - \(node.text)")
+        print("   - 音标: \(node.phonetic ?? "nil")")
+        print("   - 含义: \(node.meaning ?? "nil")")
+        print("   - 标签: \(node.tags.count) 个")
         
-        // 检查是否存在相同的单词
-        print("🔍 检查重复 - 新单词: '\(word.text)', 现有单词数量: \(words.count)")
-        for (index, existingWord) in words.enumerated() {
-            print("🔍 现有单词[\(index)]: '\(existingWord.text)' (小写: '\(existingWord.text.lowercased())')")
+        // 检查是否存在相同的节点
+        print("🔍 检查重复 - 新节点: '\(node.text)', 现有节点数量: \(nodes.count)")
+        for (index, existingNode) in nodes.enumerated() {
+            print("🔍 现有节点[\(index)]: '\(existingNode.text)' (小写: '\(existingNode.text.lowercased())')")
         }
         
-        if let existingWord = words.first(where: { $0.text.lowercased() == word.text.lowercased() }) {
-            print("⚠️ 发现重复单词: \(word.text)")
-            print("⚠️ 现有单词: '\(existingWord.text)' 标签数: \(existingWord.tags.count)")
-            print("⚠️ 新单词: '\(word.text)' 标签数: \(word.tags.count)")
+        if let existingNode = nodes.first(where: { $0.text.lowercased() == node.text.lowercased() }) {
+            print("⚠️ 发现重复节点: \(node.text)")
+            print("⚠️ 现有节点: '\(existingNode.text)' 标签数: \(existingNode.tags.count)")
+            print("⚠️ 新节点: '\(node.text)' 标签数: \(node.tags.count)")
             
             // 检查是否有相同的标签
             print("🏷️ 检查标签重复:")
-            print("🏷️ 现有单词标签:")
-            for (i, tag) in existingWord.tags.enumerated() {
+            print("🏷️ 现有节点标签:")
+            for (i, tag) in existingNode.tags.enumerated() {
                 print("   [\(i)] \(tag.type.displayName): '\(tag.value)'")
             }
-            print("🏷️ 新单词标签:")
-            for (i, tag) in word.tags.enumerated() {
+            print("🏷️ 新节点标签:")
+            for (i, tag) in node.tags.enumerated() {
                 print("   [\(i)] \(tag.type.displayName): '\(tag.value)'")
             }
             
-            let duplicateTags = word.tags.filter { newTag in
-                let isDuplicate = existingWord.tags.contains { existingTag in
+            let duplicateTags = node.tags.filter { newTag in
+                let isDuplicate = existingNode.tags.contains { existingTag in
                     let typeMatch = existingTag.type == newTag.type
                     let valueMatch = existingTag.value.lowercased() == newTag.value.lowercased()
                     print("🏷️ 比较: \(existingTag.type.displayName):'\(existingTag.value)' vs \(newTag.type.displayName):'\(newTag.value)' -> type:\(typeMatch), value:\(valueMatch)")
@@ -332,101 +311,71 @@ public final class WordStore: ObservableObject {
             if !duplicateTags.isEmpty {
                 // 有相同标签，提示用户
                 let tagNames = duplicateTags.map { "\($0.type.displayName)-\($0.value)" }.joined(separator: ", ")
-                duplicateWordAlert = DuplicateWordAlert(
-                    message: "单词 \"\(word.text)\" 已存在相同的标签: \(tagNames)",
+                duplicateNodeAlert = DuplicateNodeAlert(
+                    message: "节点 \"\(node.text)\" 已存在相同的标签: \(tagNames)",
                     isDuplicate: true,
-                    existingWord: existingWord,
-                    newWord: word
+                    existingNode: existingNode,
+                    newNode: node
                 )
-                print("❌ 相同单词相同标签，不添加")
+                print("❌ 相同节点相同标签，不添加")
                 return false
             } else {
                 // 有不同标签，自动合并
-                let newTags = word.tags.filter { newTag in
-                    !existingWord.tags.contains { existingTag in
+                let newTags = node.tags.filter { newTag in
+                    !existingNode.tags.contains { existingTag in
                         existingTag.type == newTag.type && existingTag.value.lowercased() == newTag.value.lowercased()
                     }
                 }
                 
                 if !newTags.isEmpty {
-                    // 添加新标签到现有单词
+                    // 添加新标签到现有节点
                     for tag in newTags {
-                        addTag(to: existingWord.id, tag: tag)
+                        addTag(to: existingNode.id, tag: tag)
                     }
                     
                     let tagNames = newTags.map { "\($0.type.displayName)-\($0.value)" }.joined(separator: ", ")
-                    duplicateWordAlert = DuplicateWordAlert(
-                        message: "已将新标签 \(tagNames) 合并到现有单词 \"\(word.text)\"",
+                    duplicateNodeAlert = DuplicateNodeAlert(
+                        message: "已将新标签 \(tagNames) 合并到现有节点 \"\(node.text)\"",
                         isDuplicate: false,
-                        existingWord: existingWord,
-                        newWord: word
+                        existingNode: existingNode,
+                        newNode: node
                     )
-                    print("✅ 单词合并成功，添加了 \(newTags.count) 个新标签")
-                    print("🚨 设置警告弹窗: \(duplicateWordAlert?.message ?? "nil")")
+                    print("✅ 节点合并成功，添加了 \(newTags.count) 个新标签")
+                    print("🚨 设置警告弹窗: \(duplicateNodeAlert?.message ?? "nil")")
                     return true
                 } else {
-                    duplicateWordAlert = DuplicateWordAlert(
-                        message: "单词 \"\(word.text)\" 已存在，且所有标签都相同",
+                    duplicateNodeAlert = DuplicateNodeAlert(
+                        message: "节点 \"\(node.text)\" 已存在，且所有标签都相同",
                         isDuplicate: true,
-                        existingWord: existingWord,
-                        newWord: word
+                        existingNode: existingNode,
+                        newNode: node
                     )
                     print("❌ 完全重复，不添加")
                     return false
                 }
             }
         } else {
-            // 新单词，直接添加
-            print("✅ 未发现重复，直接添加新单词")
+            // 新节点，直接添加
+            print("✅ 未发现重复，直接添加新节点")
             
-            // 确保单词与当前层关联
-            var wordWithLayer = word
-            if wordWithLayer.layerId == nil, let currentLayerId = currentLayer?.id {
-                wordWithLayer.layerId = currentLayerId
-                print("🔗 设置单词层ID: \(currentLayerId)")
+            // 确保节点与当前层关联
+            var nodeWithLayer = node
+            if nodeWithLayer.layerId == nil, let currentLayerId = currentLayer?.id {
+                nodeWithLayer.layerId = currentLayerId
+                print("🔗 设置节点层ID: \(currentLayerId)")
             }
             
-            words.append(wordWithLayer)
-            print("✅ 单词添加成功，当前总数: \(words.count)")
+            nodes.append(nodeWithLayer)
+            print("✅ 节点添加成功，当前总数: \(nodes.count)")
             return true
         }
     }
     
     @MainActor
-    public func addWord(_ text: String, phonetic: String?, meaning: String?) -> Bool {
-        print("📝 Store: 添加单词(简化) - \(text)")
-        let word = Word(text: text, phonetic: phonetic, meaning: meaning, tags: [])
-        return addWord(word)
-    }
-    
-    @MainActor
-    public func addNode(_ node: Node) {
-        print("🔗 Store: 添加节点 - \(node.text)")
-        print("   - 层ID: \(node.layerId)")
-        print("   - 音标: \(node.phonetic ?? "nil")")
-        print("   - 含义: \(node.meaning ?? "nil")")
-        print("   - 标签: \(node.tags.count) 个")
-        nodes.append(node)
-        print("✅ 节点添加成功，当前总数: \(nodes.count)")
-    }
-    
-    @MainActor
-    public func updateWord(_ word: Word) {
-        if let index = words.firstIndex(where: { $0.id == word.id }) {
-            words[index] = word
-        }
-    }
-    
-    @MainActor
-    public func updateWord(_ wordId: UUID, text: String?, phonetic: String?, meaning: String?) {
-        if let index = words.firstIndex(where: { $0.id == wordId }) {
-            var updatedWord = words[index]
-            if let text = text { updatedWord.text = text }
-            if let phonetic = phonetic { updatedWord.phonetic = phonetic }
-            if let meaning = meaning { updatedWord.meaning = meaning }
-            updatedWord.updatedAt = Date()
-            words[index] = updatedWord
-        }
+    public func addNode(_ text: String, phonetic: String?, meaning: String?) -> Bool {
+        print("📝 Store: 添加节点(简化) - \(text)")
+        let node = Node(text: text, phonetic: phonetic, meaning: meaning, layerId: currentLayer?.id ?? UUID(), tags: [])
+        return addNode(node)
     }
     
     @MainActor
@@ -437,18 +386,14 @@ public final class WordStore: ObservableObject {
     }
     
     @MainActor
-    public func deleteWord(_ word: Word) {
-        words.removeAll { $0.id == word.id }
-        if selectedWord?.id == word.id {
-            selectedWord = nil
-        }
-    }
-    
-    @MainActor
-    public func deleteWord(_ wordId: UUID) {
-        words.removeAll { $0.id == wordId }
-        if selectedWord?.id == wordId {
-            selectedWord = nil
+    public func updateNode(_ nodeId: UUID, text: String?, phonetic: String?, meaning: String?) {
+        if let index = nodes.firstIndex(where: { $0.id == nodeId }) {
+            var updatedNode = nodes[index]
+            if let text = text { updatedNode.text = text }
+            if let phonetic = phonetic { updatedNode.phonetic = phonetic }
+            if let meaning = meaning { updatedNode.meaning = meaning }
+            updatedNode.updatedAt = Date()
+            nodes[index] = updatedNode
         }
     }
     
@@ -461,8 +406,11 @@ public final class WordStore: ObservableObject {
     }
     
     @MainActor
-    public func setSelectedWord(_ word: Word?) {
-        selectedWord = word
+    public func deleteNode(_ nodeId: UUID) {
+        nodes.removeAll { $0.id == nodeId }
+        if selectedNode?.id == nodeId {
+            selectedNode = nil
+        }
     }
     
     @MainActor
@@ -477,8 +425,8 @@ public final class WordStore: ObservableObject {
     
     // MARK: - 兼容性方法
     
-    public func selectWord(_ word: Word?) {
-        setSelectedWord(word)
+    public func selectNode(_ node: Node?) {
+        setSelectedNode(node)
     }
     
     public func createLayer(name: String, displayName: String, color: String = "blue") -> Layer {
@@ -531,16 +479,11 @@ public final class WordStore: ObservableObject {
         print("🗑️ 将删除 \(nodesToDelete.count) 个节点")
         nodes.removeAll { $0.layerId == layer.id }
         
-        // 删除该层中的所有单词
-        let wordsToDelete = words.filter { $0.layerId == layer.id }
-        print("🗑️ 将删除 \(wordsToDelete.count) 个单词")
-        words.removeAll { $0.layerId == layer.id }
-        
-        // 检查孤儿单词（layerId为nil的单词）
-        let orphanWords = words.filter { $0.layerId == nil }
-        if !orphanWords.isEmpty {
-            print("⚠️ 发现 \(orphanWords.count) 个孤儿单词（无层关联）")
-            for orphan in orphanWords {
+        // 检查孤儿节点（layerId为nil的节点）
+        let orphanNodes = nodes.filter { $0.layerId == nil }
+        if !orphanNodes.isEmpty {
+            print("⚠️ 发现 \(orphanNodes.count) 个孤儿节点（无层关联）")
+            for orphan in orphanNodes {
                 print("   - \(orphan.text)")
             }
         }
@@ -561,46 +504,45 @@ public final class WordStore: ObservableObject {
         // 强制触发UI更新
         objectWillChange.send()
         
-        print("✅ 层删除完成，剩余 \(layers.count) 个层，\(nodes.count) 个节点，\(words.count) 个单词")
+        print("✅ 层删除完成，剩余 \(layers.count) 个层，\(nodes.count) 个节点")
     }
     
     // MARK: - 数据清理功能
     
     @MainActor
-    public func fixOrphanWords() {
-        let orphanWords = words.filter { $0.layerId == nil }
-        guard !orphanWords.isEmpty else {
-            print("✅ 没有发现孤儿单词")
+    public func fixOrphanNodes() {
+        let orphanNodes = nodes.filter { $0.layerId == nil }
+        guard !orphanNodes.isEmpty else {
+            print("✅ 没有发现孤儿节点")
             return
         }
         
-        print("🔧 开始修复 \(orphanWords.count) 个孤儿单词...")
+        print("🔧 开始修复 \(orphanNodes.count) 个孤儿节点...")
         
         // 如果有当前层，使用当前层；否则使用第一个可用层
         guard let targetLayer = currentLayer ?? layers.first else {
-            print("❌ 无法修复孤儿单词：没有可用的层")
+            print("❌ 无法修复孤儿节点：没有可用的层")
             return
         }
         
         var fixedCount = 0
-        for i in 0..<words.count {
-            if words[i].layerId == nil {
-                words[i].layerId = targetLayer.id
-                print("🔗 修复单词: '\(words[i].text)' -> 层: \(targetLayer.displayName)")
+        for i in 0..<nodes.count {
+            if nodes[i].layerId == nil {
+                nodes[i].layerId = targetLayer.id
+                print("🔗 修复节点: '\(nodes[i].text)' -> 层: \(targetLayer.displayName)")
                 fixedCount += 1
             }
         }
         
-        print("✅ 已修复 \(fixedCount) 个孤儿单词，关联到层: \(targetLayer.displayName)")
+        print("✅ 已修复 \(fixedCount) 个孤儿节点，关联到层: \(targetLayer.displayName)")
         objectWillChange.send()
     }
     
     // MARK: - 标签功能
     
     public var allTags: [Tag] {
-        let wordTags = words.flatMap { $0.tags }
         let nodeTags = nodes.flatMap { $0.tags }
-        return (wordTags + nodeTags).unique()
+        return nodeTags.unique()
     }
     
     public func searchTags(query: String) -> [Tag] {
@@ -610,25 +552,25 @@ public final class WordStore: ObservableObject {
         
         let lowercaseQuery = query.lowercased()
         
-        // 直接匹配文本的单词
-        let directMatches = words.compactMap { word -> (Word, Double, [Tag])? in
-            let textMatch = word.text.lowercased().contains(lowercaseQuery) ? 1.0 : 0.0
-            let meaningMatch = (word.meaning?.lowercased().contains(lowercaseQuery) ?? false) ? 0.8 : 0.0
-            let phoneticMatch = (word.phonetic?.lowercased().contains(lowercaseQuery) ?? false) ? 0.6 : 0.0
+        // 直接匹配文本的节点
+        let directMatches = nodes.compactMap { node -> (Node, Double, [Tag])? in
+            let textMatch = node.text.lowercased().contains(lowercaseQuery) ? 1.0 : 0.0
+            let meaningMatch = (node.meaning?.lowercased().contains(lowercaseQuery) ?? false) ? 0.8 : 0.0
+            let phoneticMatch = (node.phonetic?.lowercased().contains(lowercaseQuery) ?? false) ? 0.6 : 0.0
             
             let maxMatch = max(textMatch, meaningMatch, phoneticMatch)
             if maxMatch > 0 {
-                return (word, maxMatch, word.tags)
+                return (node, maxMatch, node.tags)
             }
             return nil
         }
         
-        // 语义匹配的单词
-        let semanticMatches = words.compactMap { word -> (Word, Double, [Tag])? in
+        // 语义匹配的节点
+        let semanticMatches = nodes.compactMap { node -> (Node, Double, [Tag])? in
             // 简单的语义匹配逻辑
-            let semanticScore = calculateSemanticScore(query: lowercaseQuery, word: word)
+            let semanticScore = calculateSemanticScore(query: lowercaseQuery, node: node)
             if semanticScore > 0.3 {
-                return (word, semanticScore, word.tags)
+                return (node, semanticScore, node.tags)
             }
             return nil
         }
@@ -651,11 +593,11 @@ public final class WordStore: ObservableObject {
         return result
     }
     
-    private func calculateSemanticScore(query: String, word: Word) -> Double {
+    private func calculateSemanticScore(query: String, node: Node) -> Double {
         // 简化的语义匹配
         let components = query.components(separatedBy: .whitespaces)
-        let textComponents = word.text.lowercased().components(separatedBy: .whitespaces)
-        let meaningComponents = (word.meaning?.lowercased() ?? "").components(separatedBy: .whitespaces)
+        let textComponents = node.text.lowercased().components(separatedBy: .whitespaces)
+        let meaningComponents = (node.meaning?.lowercased() ?? "").components(separatedBy: .whitespaces)
         
         let matches = components.compactMap { queryComponent in
             textComponents.first { $0.contains(queryComponent) } ??
@@ -665,40 +607,19 @@ public final class WordStore: ObservableObject {
         return Double(matches.count) / Double(components.count)
     }
     
-    public func words(withTag tag: Tag) -> [Word] {
-        // 从 words 中获取
-        let wordsWithTag = words.filter { $0.hasTag(tag) }
-        
-        // 从 nodes 中获取并转换为 Word
-        let nodesWithTag = nodes.filter { $0.hasTag(tag) }
-        let convertedWords = nodesWithTag.map { node in
-            Word(text: node.text, phonetic: node.phonetic, meaning: node.meaning, tags: node.tags)
-        }
-        
-        return wordsWithTag + convertedWords
+    public func nodes(withTag tag: Tag) -> [Node] {
+        return nodes.filter { $0.hasTag(tag) }
     }
     
-    public func wordsCount(forTagType type: Tag.TagType) -> Int {
-        let wordCount = words.filter { word in
-            word.tags.contains { $0.type == type }
-        }.count
-        
-        let nodeCount = nodes.filter { node in
+    public func nodesCount(forTagType type: Tag.TagType) -> Int {
+        return nodes.filter { node in
             node.tags.contains { $0.type == type }
         }.count
-        
-        return wordCount + nodeCount
     }
     
     // MARK: - 示例数据
     
     private func loadSampleData() {
-        // 如果已有数据，先迁移现有单词数据到新的Layer-Node结构
-        if !words.isEmpty {
-            migrateWordsToNodes()
-            return // 如果有现有数据，就不创建示例数据了
-        }
-        
         // 只有在没有数据时才创建示例数据
         createSampleData()
     }
@@ -720,7 +641,7 @@ public final class WordStore: ObservableObject {
               let statsLayer = layers.first(where: { $0.name == "statistics" }),
               let psychologyLayer = layers.first(where: { $0.name == "psychology" }) else { return }
         
-        // === 英语单词层 ===
+        // === 英语节点层 ===
         let englishNodes = [
             Node(text: "spectacular", phonetic: "/spekˈtækjələr/", meaning: "壮观的，惊人的", layerId: englishLayer.id, tags: [rootTag1, memoryTag1, locationTag1]),
             Node(text: "dictionary", phonetic: "/ˈdɪkʃəneri/", meaning: "字典", layerId: englishLayer.id, tags: [rootTag2, memoryTag2, locationTag2]),
@@ -751,6 +672,11 @@ public final class WordStore: ObservableObject {
         nodes.append(contentsOf: englishNodes)
         nodes.append(contentsOf: statisticsNodes)
         nodes.append(contentsOf: psychologyNodes)
+        
+        print("✅ 示例数据创建完成:")
+        print("   - 层数量: \(layers.count)")
+        print("   - 节点数量: \(nodes.count)")
+        print("   - 当前活跃层: \(currentLayer?.displayName ?? "无")")
     }
     
     public func createTag(type: Tag.TagType, value: String, latitude: Double? = nil, longitude: Double? = nil) -> Tag {
@@ -763,31 +689,14 @@ public final class WordStore: ObservableObject {
     }
     
     public func addTag(_ tag: Tag) {
-        // 标签会自动添加到单词/节点中，这里可以做一些全局标签管理
+        // 标签会自动添加到节点中，这里可以做一些全局标签管理
         // 暂时不需要特殊处理
     }
     
-    public func addTag(to wordId: UUID, tag: Tag) {
-        if let index = words.firstIndex(where: { $0.id == wordId }) {
-            words[index].tags.append(tag)
+    public func addTag(to nodeId: UUID, tag: Tag) {
+        if let index = nodes.firstIndex(where: { $0.id == nodeId }) {
+            nodes[index].tags.append(tag)
         }
-    }
-    
-    private func migrateWordsToNodes() {
-        guard let defaultLayer = layers.first else { return }
-        
-        let newNodes = words.map { word in
-            Node(
-                text: word.text,
-                phonetic: word.phonetic,
-                meaning: word.meaning,
-                layerId: defaultLayer.id,
-                tags: word.tags
-            )
-        }
-        
-        nodes.append(contentsOf: newNodes)
-        words.removeAll() // 清空旧的words数组
     }
     
     // MARK: - 数据清理
@@ -796,11 +705,9 @@ public final class WordStore: ObservableObject {
     public func clearAllData() {
         print("🧹 开始彻底清理所有数据...")
         
-        words.removeAll()
         nodes.removeAll()
         layers.removeAll()  // 清空所有层
         currentLayer = nil  // 清空当前层
-        selectedWord = nil
         selectedNode = nil
         selectedTag = nil
         searchQuery = ""
@@ -845,11 +752,9 @@ public final class WordStore: ObservableObject {
     @MainActor
     public func resetToSampleData() {
         // 清理数据但保留默认标签映射
-        words.removeAll()
         nodes.removeAll()
         layers.removeAll()  // 清空所有层
         currentLayer = nil  // 清空当前层
-        selectedWord = nil
         selectedNode = nil
         selectedTag = nil
         searchQuery = ""
@@ -900,39 +805,11 @@ public final class WordStore: ObservableObject {
         return nodes.filter { $0.layerId == currentLayer.id }
     }
     
-    public func getWordsInCurrentLayer() -> [Word] {
-        guard let currentLayer = currentLayer else { 
-            print("⚠️ getWordsInCurrentLayer: 没有当前层")
-            return [] 
-        }
-        
-        let layerWords = words.filter { $0.layerId == currentLayer.id }
-        let orphanWords = words.filter { $0.layerId == nil }
-        
-        print("📊 getWordsInCurrentLayer: 当前层 '\(currentLayer.displayName)' 有 \(layerWords.count) 个单词")
-        if !orphanWords.isEmpty {
-            print("⚠️ getWordsInCurrentLayer: 发现 \(orphanWords.count) 个孤儿单词（layerId为nil）")
-            for orphan in orphanWords {
-                print("   - 孤儿单词: '\(orphan.text)'")
-            }
-        }
-        
-        return layerWords
-    }
-    
-    public func wordsInCurrentLayer(withTag tag: Tag) -> [Word] {
+    public func nodesInCurrentLayer(withTag tag: Tag) -> [Node] {
         guard let currentLayer = currentLayer else { return [] }
         
-        // 从当前层的 words 中获取有该标签的单词
-        let wordsWithTag = words.filter { $0.layerId == currentLayer.id && $0.hasTag(tag) }
-        
-        // 从当前层的 nodes 中获取有该标签的节点并转换为 Word
-        let nodesWithTag = nodes.filter { $0.layerId == currentLayer.id && $0.hasTag(tag) }
-        let convertedWords = nodesWithTag.map { node in
-            Word(text: node.text, phonetic: node.phonetic, meaning: node.meaning, layerId: node.layerId, tags: node.tags)
-        }
-        
-        return wordsWithTag + convertedWords
+        // 从当前层的 nodes 中获取有该标签的节点
+        return nodes.filter { $0.layerId == currentLayer.id && $0.hasTag(tag) }
     }
     
     public func getRelevantTags(for query: String) -> [Tag] {
@@ -958,9 +835,9 @@ public final class WordStore: ObservableObject {
         return false
     }
     
-    public func removeTag(from wordId: UUID, tagId: UUID) {
-        if let index = words.firstIndex(where: { $0.id == wordId }) {
-            words[index].tags.removeAll { $0.id == tagId }
+    public func removeTag(from nodeId: UUID, tagId: UUID) {
+        if let index = nodes.firstIndex(where: { $0.id == nodeId }) {
+            nodes[index].tags.removeAll { $0.id == tagId }
         }
     }
     
@@ -1010,13 +887,13 @@ public final class WordStore: ObservableObject {
     private func updateTagTypeNames(from oldName: String, to newName: String, key: String) {
         print("🔄 开始更新标签类型名称: \(oldName) -> \(newName), key: \(key)")
         print("📊 当前Store状态:")
-        print("   - 单词总数: \(words.count)")
+        print("   - 节点总数: \(nodes.count)")
         print("   🔍 使用提供的key: '\(key)'")
         
-        // 打印所有单词和标签的详细信息
-        for (wordIndex, word) in words.enumerated() {
-            print("   - 单词[\(wordIndex)]: '\(word.text)' 有 \(word.tags.count) 个标签")
-            for (tagIndex, tag) in word.tags.enumerated() {
+        // 打印所有节点和标签的详细信息
+        for (nodeIndex, node) in nodes.enumerated() {
+            print("   - 节点[\(nodeIndex)]: '\(node.text)' 有 \(node.tags.count) 个标签")
+            for (tagIndex, tag) in node.tags.enumerated() {
                 print("     - 标签[\(tagIndex)]: type=\(tag.type), value='\(tag.value)'")
                 if case .custom(let customKey) = tag.type {
                     print("       - 自定义标签key: '\(customKey)'")
@@ -1025,36 +902,36 @@ public final class WordStore: ObservableObject {
             }
         }
         
-        var updatedWords: [Word] = []
+        var updatedNodes: [Node] = []
         var hasChanges = false
         
-        for word in words {
-            var updatedWord = word
-            var wordHasChanges = false
+        for node in nodes {
+            var updatedNode = node
+            var nodeHasChanges = false
             
-            for (index, tag) in word.tags.enumerated() {
+            for (index, tag) in node.tags.enumerated() {
                 // 通过key匹配，而不是typeName
                 if case .custom(let customKey) = tag.type, customKey == key {
-                    print("   ✅ 找到匹配的标签！更新单词 '\(word.text)' 的标签: key='\(key)', \(oldName) -> \(newName)")
+                    print("   ✅ 找到匹配的标签！更新节点 '\(node.text)' 的标签: key='\(key)', \(oldName) -> \(newName)")
                     // 保持key不变，只是TagType的displayName会通过TagMappingManager更新
                     // 这里实际上不需要更新Tag.type，因为displayName是通过TagMappingManager计算的
-                    wordHasChanges = true
+                    nodeHasChanges = true
                     hasChanges = true
                 }
             }
             
-            if wordHasChanges {
-                updatedWord.updatedAt = Date()
-                updatedWords.append(updatedWord)
-                print("   📝 单词 '\(word.text)' 已更新")
+            if nodeHasChanges {
+                updatedNode.updatedAt = Date()
+                updatedNodes.append(updatedNode)
+                print("   📝 节点 '\(node.text)' 已更新")
             } else {
-                updatedWords.append(word)
+                updatedNodes.append(node)
             }
         }
         
         if hasChanges {
-            print("✅ 标签类型名称更新完成，更新了 \(updatedWords.filter { $0.updatedAt > Date().addingTimeInterval(-1) }.count) 个单词")
-            words = updatedWords
+            print("✅ 标签类型名称更新完成，更新了 \(updatedNodes.filter { $0.updatedAt > Date().addingTimeInterval(-1) }.count) 个节点")
+            nodes = updatedNodes
             print("🔄 触发UI更新和自动同步")
             
             // 触发自动同步
@@ -1066,7 +943,7 @@ public final class WordStore: ObservableObject {
         } else {
             print("❌ 没有找到需要更新的标签")
             print("🔍 可能的原因:")
-            print("   1. 没有使用key '\(key)' 的自定义标签类型的单词")
+            print("   1. 没有使用key '\(key)' 的自定义标签类型的节点")
             print("   2. 标签类型不是 .custom 类型")
             print("   3. 自定义标签key不匹配")
         }

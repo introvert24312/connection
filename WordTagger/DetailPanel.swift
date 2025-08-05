@@ -4,7 +4,7 @@ import MapKit
 import MapKit
 
 struct DetailPanel: View {
-    let word: Word
+    let node: Node
     @State private var tab: Tab = .related
     @State private var showingEditSheet = false
     
@@ -32,7 +32,7 @@ struct DetailPanel: View {
                         .foregroundColor(.blue)
                 }
                 .buttonStyle(.borderless)
-                .help("编辑单词")
+                .help("编辑节点")
             }
             .padding()
             .background(Color(NSColor.controlBackgroundColor))
@@ -43,25 +43,25 @@ struct DetailPanel: View {
             Group {
                 switch tab {
                 case .detail:
-                    WordDetailView(word: word)
+                    NodeDetailView(node: node)
                 case .map:
-                    WordMapView(word: word)
+                    NodeMapView(node: node)
                 case .related:
-                    WordGraphView(word: word)
+                    NodeGraphView(node: node)
                 }
             }
         }
         .sheet(isPresented: $showingEditSheet) {
-            EditWordSheet(word: word)
+            EditNodeSheet(node: node)
         }
     }
 }
 
-// MARK: - 单词详情视图
+// MARK: - 节点详情视图
 
-struct WordDetailView: View {
-    let word: Word
-    @EnvironmentObject private var store: WordStore
+struct NodeDetailView: View {
+    let node: Node
+    @EnvironmentObject private var store: NodeStore
     
     var body: some View {
         ScrollView {
@@ -69,13 +69,13 @@ struct WordDetailView: View {
                 // 单词信息
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {
-                        Text(word.text)
+                        Text(node.text)
                             .font(.largeTitle)
                             .fontWeight(.bold)
                         
                         Spacer()
                         
-                        if let phonetic = word.phonetic {
+                        if let phonetic = node.phonetic {
                             Text(phonetic)
                                 .font(.title3)
                                 .foregroundColor(.secondary)
@@ -88,7 +88,7 @@ struct WordDetailView: View {
                         }
                     }
                     
-                    if let meaning = word.meaning {
+                    if let meaning = node.meaning {
                         Text(meaning)
                             .font(.title2)
                             .foregroundColor(.primary)
@@ -105,15 +105,15 @@ struct WordDetailView: View {
                         
                         Spacer()
                         
-                        Text("\(word.tags.count) 个标签")
+                        Text("\(node.tags.count) 个标签")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
                     
-                    if word.tags.isEmpty {
+                    if node.tags.isEmpty {
                         EmptyTagsView()
                     } else {
-                        TagsByTypeView(tags: word.tags)
+                        TagsByTypeView(tags: node.tags)
                     }
                 }
                 
@@ -296,7 +296,7 @@ struct EmptyTagsView: View {
                 .font(.body)
                 .foregroundColor(.secondary)
             
-            Text("为这个单词添加标签来更好地组织和记忆")
+            Text("为这个节点添加标签来更好地组织和记忆")
                 .font(.caption)
                 .foregroundColor(Color.secondary)
                 .multilineTextAlignment(.center)
@@ -332,8 +332,8 @@ struct MetadataRow: View {
 
 // MARK: - 地图视图
 
-struct WordMapView: View {
-    let word: Word
+struct NodeMapView: View {
+    let node: Node
     @State private var region = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 39.9042, longitude: 116.4074),
         span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
@@ -355,12 +355,12 @@ struct WordMapView: View {
     }
     
     private var locationTags: [Tag] {
-        let allTags = word.tags
+        let allTags = node.tags
         let locationTypeTags = allTags.filter { isLocationTag($0) }
-        let locationWithCoords = word.locationTags
+        let locationWithCoords = node.locationTags
         
         print("🔍 DetailPanel调试:")
-        print("🔍 单词: \(word.text)")
+        print("🔍 节点: \(node.text)")
         print("🔍 所有标签数量: \(allTags.count)")
         print("🔍 location类型标签数量: \(locationTypeTags.count)")
         print("🔍 有坐标的location标签数量: \(locationWithCoords.count)")
@@ -377,7 +377,7 @@ struct WordMapView: View {
         Group {
             if locationTags.isEmpty {
                 // 检查是否有location类型但没有坐标的标签
-                let locationTagsWithoutCoords = word.tags.filter { isLocationTag($0) && !$0.hasCoordinates }
+                let locationTagsWithoutCoords = node.tags.filter { isLocationTag($0) && !$0.hasCoordinates }
                 
                 VStack(spacing: 16) {
                     Spacer()
@@ -386,7 +386,7 @@ struct WordMapView: View {
                         .foregroundColor(.gray)
                     
                     if locationTagsWithoutCoords.isEmpty {
-                        Text("该单词暂无地点标签") 
+                        Text("该节点暂无地点标签") 
                             .font(.body)
                             .foregroundColor(.secondary)
                         Text("添加地点标签来在地图上显示相关位置")
@@ -394,7 +394,7 @@ struct WordMapView: View {
                             .foregroundColor(Color.secondary)
                             .multilineTextAlignment(.center)
                     } else {
-                        Text("该单词有地点标签但缺少坐标信息")
+                        Text("该节点有地点标签但缺少坐标信息")
                             .font(.body)
                             .foregroundColor(.secondary)
                         Text("现有地点标签: \(locationTagsWithoutCoords.map { $0.displayName }.joined(separator: ", "))")
@@ -434,11 +434,11 @@ struct WordMapView: View {
                                 .foregroundColor(.secondary)
                         }
                         
-                        Button("打开单词编辑") {
+                        Button("打开节点编辑") {
                             // 触发编辑界面
                             NotificationCenter.default.post(
-                                name: NSNotification.Name("editWord"), 
-                                object: word
+                                name: NSNotification.Name("editNode"), 
+                                object: node
                             )
                         }
                         .buttonStyle(.bordered)
@@ -541,30 +541,30 @@ class GraphNodeIDGenerator {
     }
 }
 
-// MARK: - 单词图谱节点数据模型
+// MARK: - 节点图谱节点数据模型
 
-struct WordGraphNode: UniversalGraphNode {
+struct NodeGraphNode: UniversalGraphNode {
     let id: Int
     let label: String
     let subtitle: String?
-    let word: Word?
+    let node: Node?
     let tag: Tag?
     let nodeType: NodeType
     let isCenter: Bool
     
     enum NodeType {
-        case word
+        case node
         case tag(Tag.TagType)
     }
     
-    init(word: Word, isCenter: Bool = false) {
+    init(node: Node, isCenter: Bool = false) {
         // 使用全局ID生成器确保绝对唯一
         self.id = GraphNodeIDGenerator.shared.nextID()
-        self.label = word.text
-        self.subtitle = word.meaning
-        self.word = word
+        self.label = node.text
+        self.subtitle = node.meaning
+        self.node = node
         self.tag = nil
-        self.nodeType = .word
+        self.nodeType = .node
         self.isCenter = isCenter
     }
     
@@ -573,19 +573,19 @@ struct WordGraphNode: UniversalGraphNode {
         self.id = GraphNodeIDGenerator.shared.idForTag(tag)
         self.label = tag.displayName
         self.subtitle = tag.type.displayName
-        self.word = nil
+        self.node = nil
         self.tag = tag
         self.nodeType = .tag(tag.type)
         self.isCenter = false
     }
 }
 
-struct WordGraphEdge: UniversalGraphEdge {
+struct NodeGraphEdge: UniversalGraphEdge {
     let fromId: Int
     let toId: Int
     let label: String?
     
-    init(from: WordGraphNode, to: WordGraphNode, relationshipType: String) {
+    init(from: NodeGraphNode, to: NodeGraphNode, relationshipType: String) {
         self.fromId = from.id
         self.toId = to.id
         self.label = relationshipType
@@ -593,48 +593,48 @@ struct WordGraphEdge: UniversalGraphEdge {
 }
 
 // MARK: - 全局图谱数据缓存管理器
-class WordGraphDataCache: ObservableObject {
-    static let shared = WordGraphDataCache()
+class NodeGraphDataCache: ObservableObject {
+    static let shared = NodeGraphDataCache()
     
-    private var cache: [UUID: (nodes: [WordGraphNode], edges: [WordGraphEdge])] = [:]
+    private var cache: [UUID: (nodes: [NodeGraphNode], edges: [NodeGraphEdge])] = [:]
     
     private init() {}
     
-    func getCachedGraphData(for word: Word) -> (nodes: [WordGraphNode], edges: [WordGraphEdge]) {
+    func getCachedGraphData(for node: Node) -> (nodes: [NodeGraphNode], edges: [NodeGraphEdge]) {
         // 检查缓存
-        if let cached = cache[word.id] {
+        if let cached = cache[node.id] {
             #if DEBUG
             @AppStorage("enableGraphDebug") var enableGraphDebug: Bool = false
             if enableGraphDebug {
-                print("📋 使用缓存的图谱数据: \(word.text)")
+                print("📋 使用缓存的图谱数据: \(node.text)")
             }
             #endif
             return cached
         }
         
         // 计算新的图谱数据
-        let graphData = calculateGraphData(for: word)
-        cache[word.id] = graphData
+        let graphData = calculateGraphData(for: node)
+        cache[node.id] = graphData
         
         #if DEBUG
         @AppStorage("enableGraphDebug") var enableGraphDebug: Bool = false
         if enableGraphDebug {
-            print("📊 计算新的图谱数据: \(word.text)")
+            print("📊 计算新的图谱数据: \(node.text)")
         }
         #endif
         
         return graphData
     }
     
-    private func calculateGraphData(for word: Word) -> (nodes: [WordGraphNode], edges: [WordGraphEdge]) {
-        let nodes = calculateGraphNodes(for: word)
-        var edges: [WordGraphEdge] = []
+    private func calculateGraphData(for node: Node) -> (nodes: [NodeGraphNode], edges: [NodeGraphEdge]) {
+        let nodes = calculateGraphNodes(for: node)
+        var edges: [NodeGraphEdge] = []
         let centerNode = nodes.first { $0.isCenter }!
         
-        // 为每个标签节点创建与中心单词的连接
+        // 为每个标签节点创建与中心节点的连接
         for node in nodes where !node.isCenter {
             if let tag = node.tag {
-                edges.append(WordGraphEdge(
+                edges.append(NodeGraphEdge(
                     from: centerNode,
                     to: node,
                     relationshipType: tag.type.displayName
@@ -645,27 +645,27 @@ class WordGraphDataCache: ObservableObject {
         return (nodes: nodes, edges: edges)
     }
     
-    private func calculateGraphNodes(for word: Word) -> [WordGraphNode] {
-        var nodes: [WordGraphNode] = []
+    private func calculateGraphNodes(for node: Node) -> [NodeGraphNode] {
+        var nodes: [NodeGraphNode] = []
         var addedTagKeys: Set<String> = []
         
-        // 添加中心节点（当前单词）
-        nodes.append(WordGraphNode(word: word, isCenter: true))
+        // 添加中心节点（当前节点）
+        nodes.append(NodeGraphNode(node: node, isCenter: true))
         
-        // 添加当前单词的所有标签作为节点（去重）
-        for tag in word.tags {
+        // 添加当前节点的所有标签作为节点（去重）
+        for tag in node.tags {
             let tagKey = "\(tag.type.rawValue):\(tag.value)"
             if !addedTagKeys.contains(tagKey) {
-                nodes.append(WordGraphNode(tag: tag))
+                nodes.append(NodeGraphNode(tag: tag))
                 addedTagKeys.insert(tagKey)
             }
         }
         
         // 添加位置标签作为节点（去重）
-        for locationTag in word.locationTags {
+        for locationTag in node.locationTags {
             let tagKey = "\(locationTag.type.rawValue):\(locationTag.value)"
             if !addedTagKeys.contains(tagKey) {
-                nodes.append(WordGraphNode(tag: locationTag))
+                nodes.append(NodeGraphNode(tag: locationTag))
                 addedTagKeys.insert(tagKey)
             }
         }
@@ -677,27 +677,27 @@ class WordGraphDataCache: ObservableObject {
         cache.removeAll()
     }
     
-    func invalidateCache(for wordId: UUID) {
-        cache.removeValue(forKey: wordId)
+    func invalidateCache(for nodeId: UUID) {
+        cache.removeValue(forKey: nodeId)
     }
 }
 
-// MARK: - 单词关系图谱视图
+// MARK: - 节点关系图谱视图
 
-struct WordGraphView: View {
-    let word: Word
-    @EnvironmentObject private var store: WordStore
+struct NodeGraphView: View {
+    let node: Node
+    @EnvironmentObject private var store: NodeStore
     @AppStorage("detailGraphInitialScale") private var detailGraphInitialScale: Double = 1.0
-    @StateObject private var graphCache = WordGraphDataCache.shared
+    @StateObject private var graphCache = NodeGraphDataCache.shared
     
     var body: some View {
         // 使用全局缓存获取图谱数据，避免重复计算
-        let graphData = graphCache.getCachedGraphData(for: word)
+        let graphData = graphCache.getCachedGraphData(for: node)
         
         VStack(spacing: 0) {
             // 标题栏
             HStack {
-                Text("单词详情图谱")
+                Text("节点详情图谱")
                     .font(.headline)
                 
                 Spacer()
@@ -718,13 +718,13 @@ struct WordGraphView: View {
                 UniversalRelationshipGraphView(
                     nodes: graphData.nodes,
                     edges: graphData.edges,
-                    title: "单词详情图谱",
+                    title: "节点详情图谱",
                     initialScale: detailGraphInitialScale,
                     onNodeSelected: { nodeId in
-                        // 当点击节点时，选择对应的单词（只有单词节点才会触发选择）
+                        // 当点击节点时，选择对应的节点（只有节点才会触发选择）
                         if let selectedNode = graphData.nodes.first(where: { $0.id == nodeId }),
-                           let selectedWord = selectedNode.word {
-                            store.selectWord(selectedWord)
+                           let selectedTargetNode = selectedNode.node {
+                            store.selectNode(selectedTargetNode)
                         }
                     }
                 )
@@ -734,35 +734,35 @@ struct WordGraphView: View {
     }
 }
 
-// MARK: - 编辑单词表单
+// MARK: - 编辑节点表单
 
-struct EditWordSheet: View {
+struct EditNodeSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var store: WordStore
+    @EnvironmentObject private var store: NodeStore
     
-    let word: Word
+    let node: Node
     @State private var text: String
     @State private var phonetic: String
     @State private var meaning: String
     
-    init(word: Word) {
-        self.word = word
-        self._text = State(initialValue: word.text)
-        self._phonetic = State(initialValue: word.phonetic ?? "")
-        self._meaning = State(initialValue: word.meaning ?? "")
+    init(node: Node) {
+        self.node = node
+        self._text = State(initialValue: node.text)
+        self._phonetic = State(initialValue: node.phonetic ?? "")
+        self._meaning = State(initialValue: node.meaning ?? "")
     }
     
     var body: some View {
         NavigationView {
             Form {
-                Section("单词信息") {
-                    TextField("单词", text: $text)
+                Section("节点信息") {
+                    TextField("节点", text: $text)
                     TextField("音标（可选）", text: $phonetic)
                     TextField("含义（可选）", text: $meaning, axis: .vertical)
                         .lineLimit(3)
                 }
             }
-            .navigationTitle("编辑单词")
+            .navigationTitle("编辑节点")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }
@@ -770,8 +770,8 @@ struct EditWordSheet: View {
                 
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
-                        store.updateWord(
-                            word.id,
+                        store.updateNode(
+                            node.id,
                             text: text.isEmpty ? nil : text,
                             phonetic: phonetic.isEmpty ? nil : phonetic,
                             meaning: meaning.isEmpty ? nil : meaning
@@ -787,12 +787,13 @@ struct EditWordSheet: View {
 }
 
 #Preview {
-    let sampleWord = Word(
+    let sampleNode = Node(
         text: "example",
         phonetic: "/ɪɡˈzæmpəl/",
-        meaning: "例子，示例"
+        meaning: "例子，示例",
+        layerId: UUID()
     )
     
-    return DetailPanel(word: sampleWord)
-        .environmentObject(WordStore.shared)
+    DetailPanel(node: sampleNode)
+        .environmentObject(NodeStore.shared)
 }

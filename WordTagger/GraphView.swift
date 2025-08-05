@@ -1,34 +1,34 @@
 import SwiftUI
 
 struct GraphView: View {
-    @EnvironmentObject private var store: WordStore
+    @EnvironmentObject private var store: NodeStore
     @AppStorage("globalGraphInitialScale") private var globalGraphInitialScale: Double = 1.0
     @State private var searchQuery: String = ""
-    @State private var displayedWords: [Word] = []
-    @State private var cachedNodes: [WordGraphNode] = []
-    @State private var cachedEdges: [WordGraphEdge] = []
+    @State private var displayedNodes: [Node] = []
+    @State private var cachedNodes: [NodeGraphNode] = []
+    @State private var cachedEdges: [NodeGraphEdge] = []
     
-    // 生成所有单词的图谱数据 - 统一计算节点和边
-    private func calculateGraphData() -> (nodes: [WordGraphNode], edges: [WordGraphEdge]) {
+    // 生成所有节点的图谱数据 - 统一计算节点和边
+    private func calculateGraphData() -> (nodes: [NodeGraphNode], edges: [NodeGraphEdge]) {
         @AppStorage("enableGraphDebug") var enableGraphDebug: Bool = false
         
-        var nodes: [WordGraphNode] = []
-        var edges: [WordGraphEdge] = []
+        var nodes: [NodeGraphNode] = []
+        var edges: [NodeGraphEdge] = []
         var addedTagKeys: Set<String> = []
         
-        let wordsToShow = displayedWords.isEmpty ? store.words : displayedWords
+        let nodesToShow = displayedNodes.isEmpty ? store.nodes : displayedNodes
         
-        // 首先添加所有单词节点
-        for word in wordsToShow {
-            nodes.append(WordGraphNode(word: word))
+        // 首先添加所有节点
+        for node in nodesToShow {
+            nodes.append(NodeGraphNode(node: node))
         }
         
         // 然后添加所有标签节点（去重）
-        for word in wordsToShow {
-            for tag in word.tags {
+        for node in nodesToShow {
+            for tag in node.tags {
                 let tagKey = "\(tag.type.rawValue):\(tag.value)"
                 if !addedTagKeys.contains(tagKey) {
-                    nodes.append(WordGraphNode(tag: tag))
+                    nodes.append(NodeGraphNode(tag: tag))
                     addedTagKeys.insert(tagKey)
                 }
             }
@@ -40,18 +40,18 @@ struct GraphView: View {
         if enableGraphDebug {
             print("🔍 调试信息:")
             print("🔹 总节点数: \(nodes.count)")
-            print("🔹 单词数: \(wordsToShow.count)")
-            print("🔹 单词节点数: \(nodes.filter { $0.word != nil }.count)")
+            print("🔹 节点数: \(nodesToShow.count)")
+            print("🔹 节点节点数: \(nodes.filter { $0.node != nil }.count)")
             print("🔹 标签节点数: \(nodes.filter { $0.tag != nil }.count)")
         }
         #endif
         
-        // 为每个单词与其标签创建连接
-        for word in wordsToShow {
-            guard let wordNode = nodes.first(where: { $0.word?.id == word.id }) else { 
+        // 为每个节点与其标签创建连接
+        for word in nodesToShow {
+            guard let wordNode = nodes.first(where: { $0.node?.id == word.id }) else { 
                 #if DEBUG
                 if enableGraphDebug {
-                    print("❌ 找不到单词节点: \(word.text)")
+                    print("❌ 找不到节点节点: \(word.text)")
                 }
                 #endif
                 continue 
@@ -59,7 +59,7 @@ struct GraphView: View {
             
             #if DEBUG
             if enableGraphDebug {
-                print("🔹 处理单词: \(word.text), 标签数: \(word.tags.count)")
+                print("🔹 处理节点: \(word.text), 标签数: \(word.tags.count)")
             }
             #endif
             
@@ -67,7 +67,7 @@ struct GraphView: View {
                 if let tagNode = nodes.first(where: { 
                     $0.tag?.type.rawValue == tag.type.rawValue && $0.tag?.value == tag.value 
                 }) {
-                    edges.append(WordGraphEdge(
+                    edges.append(NodeGraphEdge(
                         from: wordNode,
                         to: tagNode,
                         relationshipType: tag.type.displayName
@@ -89,12 +89,12 @@ struct GraphView: View {
         
         #if DEBUG
         if enableGraphDebug {
-            print("🔹 单词-标签连接数: \(edges.count)")
+            print("🔹 节点-标签连接数: \(edges.count)")
             print("🔹 总连接数: \(edges.count)")
         }
         #endif
         
-        // 移除单词间连接逻辑 - 只保留单词与标签之间的连接
+        // 移除节点间连接逻辑 - 只保留节点与标签之间的连接
         
         return (nodes: nodes, edges: edges)
     }
@@ -117,7 +117,7 @@ struct GraphView: View {
                 Spacer()
                 
                 // 搜索框
-                TextField("搜索单词或标签...", text: $searchQuery)
+                TextField("搜索节点或标签...", text: $searchQuery)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 200)
                     .onSubmit {
@@ -131,9 +131,9 @@ struct GraphView: View {
                 .disabled(searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 
                 // 重置按钮
-                if !displayedWords.isEmpty {
+                if !displayedNodes.isEmpty {
                     Button("显示全部") {
-                        displayedWords = []
+                        displayedNodes = []
                         searchQuery = ""
                     }
                 }
@@ -153,10 +153,10 @@ struct GraphView: View {
                     title: "全局图谱",
                     initialScale: globalGraphInitialScale,
                     onNodeSelected: { nodeId in
-                        // 当点击节点时，选择对应的单词（只有单词节点才会触发选择）
-                        if let selectedNode = cachedNodes.first(where: { $0.id == nodeId }),
-                           let selectedWord = selectedNode.word {
-                            store.selectWord(selectedWord)
+                        // 当点击节点时，选择对应的节点（只有节点才会触发选择）
+                        if let selectedGraphNode = cachedNodes.first(where: { $0.id == nodeId }),
+                           let selectedNode = selectedGraphNode.node {
+                            store.selectNode(selectedNode)
                         }
                     }
                 )
@@ -168,16 +168,16 @@ struct GraphView: View {
             return .handled
         }
         .onAppear {
-            // 初始显示所有单词
-            if displayedWords.isEmpty && !store.words.isEmpty {
-                displayedWords = Array(store.words.prefix(20)) // 限制初始显示数量
+            // 初始显示所有节点
+            if displayedNodes.isEmpty && !store.nodes.isEmpty {
+                displayedNodes = Array(store.nodes.prefix(20)) // 限制初始显示数量
             }
             updateGraphData()
         }
-        .onChange(of: store.words) {
+        .onChange(of: store.nodes) {
             updateGraphData()
         }
-        .onChange(of: displayedWords) {
+        .onChange(of: displayedNodes) {
             updateGraphData()
         }
     }
@@ -185,34 +185,34 @@ struct GraphView: View {
     private func performSearch() {
         let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else {
-            displayedWords = []
+            displayedNodes = []
             return
         }
         
-        // 搜索匹配的单词
-        let matchedWords = store.words.filter { word in
-            word.text.localizedCaseInsensitiveContains(query) ||
-            word.meaning?.localizedCaseInsensitiveContains(query) == true ||
-            word.tags.contains { tag in
+        // 搜索匹配的节点
+        let matchedNodes = store.nodes.filter { node in
+            node.text.localizedCaseInsensitiveContains(query) ||
+            node.meaning?.localizedCaseInsensitiveContains(query) == true ||
+            node.tags.contains { tag in
                 tag.value.localizedCaseInsensitiveContains(query)
             }
         }
         
-        // 获取相关单词（有共同标签的）
-        var relatedWords = Set<Word>()
-        for matchedWord in matchedWords {
-            let wordTags = Set(matchedWord.tags)
-            let related = store.words.filter { otherWord in
-                otherWord.id != matchedWord.id && !Set(otherWord.tags).isDisjoint(with: wordTags)
+        // 获取相关节点（有共同标签的）
+        var relatedNodes = Set<Node>()
+        for matchedNode in matchedNodes {
+            let nodeTags = Set(matchedNode.tags)
+            let related = store.nodes.filter { otherNode in
+                otherNode.id != matchedNode.id && !Set(otherNode.tags).isDisjoint(with: nodeTags)
             }
-            relatedWords.formUnion(related)
+            relatedNodes.formUnion(related)
         }
         
         // 组合结果
-        var finalWords = Set(matchedWords)
-        finalWords.formUnion(relatedWords)
+        var finalNodes = Set(matchedNodes)
+        finalNodes.formUnion(relatedNodes)
         
-        displayedWords = Array(finalWords).sorted { $0.text < $1.text }
+        displayedNodes = Array(finalNodes).sorted { $0.text < $1.text }
     }
 }
 
@@ -229,7 +229,7 @@ struct EmptyGraphView: View {
                 .font(.title2)
                 .foregroundColor(.secondary)
             
-            Text("添加一些单词来生成全局图谱")
+            Text("添加一些节点来生成全局图谱")
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -240,5 +240,5 @@ struct EmptyGraphView: View {
 
 #Preview {
     GraphView()
-        .environmentObject(WordStore.shared)
+        .environmentObject(NodeStore.shared)
 }

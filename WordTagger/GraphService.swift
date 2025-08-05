@@ -3,7 +3,7 @@ import Combine
 import CoreLocation
 
 public final class GraphService: ObservableObject {
-    @Published public private(set) var graph: WordGraph = WordGraph()
+    @Published public private(set) var graph: NodeGraph = NodeGraph()
     @Published public private(set) var isBuilding = false
     @Published public private(set) var lastBuildTime: TimeInterval = 0
     
@@ -16,7 +16,7 @@ public final class GraphService: ObservableObject {
     
     // MARK: - Graph Building
     
-    public func buildGraph(from words: [Word]) async {
+    public func buildGraph(from words: [Node]) async {
         await MainActor.run {
             isBuilding = true
         }
@@ -37,8 +37,8 @@ public final class GraphService: ObservableObject {
         }
     }
     
-    private func performGraphBuilding(words: [Word]) async -> WordGraph {
-        var newGraph = WordGraph()
+    private func performGraphBuilding(words: [Node]) async -> NodeGraph {
+        var newGraph = NodeGraph()
         
         // Add all words as nodes
         for word in words {
@@ -48,7 +48,7 @@ public final class GraphService: ObservableObject {
         // Build edges based on different relationship types
         await buildSimilarityEdges(in: &newGraph, words: words)
         await buildTagRelationshipEdges(in: &newGraph, words: words)
-        await buildRootWordEdges(in: &newGraph, words: words)
+        await buildRootNodeEdges(in: &newGraph, words: words)
         await buildLocationProximityEdges(in: &newGraph, words: words)
         
         return newGraph
@@ -56,7 +56,7 @@ public final class GraphService: ObservableObject {
     
     // MARK: - Edge Building Methods
     
-    private func buildSimilarityEdges(in graph: inout WordGraph, words: [Word]) async {
+    private func buildSimilarityEdges(in graph: inout NodeGraph, words: [Node]) async {
         for i in 0..<words.count {
             for j in (i+1)..<words.count {
                 let word1 = words[i]
@@ -65,7 +65,7 @@ public final class GraphService: ObservableObject {
                 let similarity = calculateSimilarity(between: word1, and: word2)
                 
                 if similarity >= similarityThreshold {
-                    let edge = WordEdge(
+                    let edge = NodeEdge(
                         from: word1.id,
                         to: word2.id,
                         type: .similarity,
@@ -78,7 +78,7 @@ public final class GraphService: ObservableObject {
         }
     }
     
-    private func buildTagRelationshipEdges(in graph: inout WordGraph, words: [Word]) async {
+    private func buildTagRelationshipEdges(in graph: inout NodeGraph, words: [Node]) async {
         let tagGroups = Dictionary(grouping: words) { word in
             word.tags.map { $0.type }
         }
@@ -96,7 +96,7 @@ public final class GraphService: ObservableObject {
                     if !sharedTags.isEmpty {
                         let weight = Double(sharedTags.count) / Double(max(word1.tags.count, word2.tags.count))
                         
-                        let edge = WordEdge(
+                        let edge = NodeEdge(
                             from: word1.id,
                             to: word2.id,
                             type: .tagRelationship,
@@ -113,12 +113,12 @@ public final class GraphService: ObservableObject {
         }
     }
     
-    private func buildRootWordEdges(in graph: inout WordGraph, words: [Word]) async {
-        let rootWords = words.filter { word in
+    private func buildRootNodeEdges(in graph: inout NodeGraph, words: [Node]) async {
+        let rootNodes = words.filter { word in
             word.tags.contains { $0.type == .root }
         }
         
-        let rootGroups = Dictionary(grouping: rootWords) { word in
+        let rootGroups = Dictionary(grouping: rootNodes) { word in
             word.tags.filter { $0.type == .root }.map { $0.value }
         }
         
@@ -130,10 +130,10 @@ public final class GraphService: ObservableObject {
                     let word1 = wordsWithRoot[i]
                     let word2 = wordsWithRoot[j]
                     
-                    let edge = WordEdge(
+                    let edge = NodeEdge(
                         from: word1.id,
                         to: word2.id,
-                        type: .rootWord,
+                        type: .rootNode,
                         weight: 0.9,
                         metadata: [
                             "shared_roots": rootValues,
@@ -146,16 +146,16 @@ public final class GraphService: ObservableObject {
         }
     }
     
-    private func buildLocationProximityEdges(in graph: inout WordGraph, words: [Word]) async {
-        let locationWords = words.filter { !$0.locationTags.isEmpty }
+    private func buildLocationProximityEdges(in graph: inout NodeGraph, words: [Node]) async {
+        let locationNodes = words.filter { !$0.locationTags.isEmpty }
         
-        for i in 0..<locationWords.count {
-            for j in (i+1)..<locationWords.count {
-                let word1 = locationWords[i]
-                let word2 = locationWords[j]
+        for i in 0..<locationNodes.count {
+            for j in (i+1)..<locationNodes.count {
+                let word1 = locationNodes[i]
+                let word2 = locationNodes[j]
                 
                 if let proximity = calculateLocationProximity(between: word1, and: word2) {
-                    let edge = WordEdge(
+                    let edge = NodeEdge(
                         from: word1.id,
                         to: word2.id,
                         type: .locationProximity,
@@ -173,7 +173,7 @@ public final class GraphService: ObservableObject {
     
     // MARK: - Similarity Calculation
     
-    private func calculateSimilarity(between word1: Word, and word2: Word) -> Double {
+    private func calculateSimilarity(between word1: Node, and word2: Node) -> Double {
         var totalSimilarity: Double = 0
         var factors: Int = 0
         
@@ -205,7 +205,7 @@ public final class GraphService: ObservableObject {
         return factors > 0 ? totalSimilarity / Double(factors) : 0
     }
     
-    private func calculateLocationProximity(between word1: Word, and word2: Word) -> Double? {
+    private func calculateLocationProximity(between word1: Node, and word2: Node) -> Double? {
         guard let coord1 = word1.locationTags.first?.coordinate,
               let coord2 = word2.locationTags.first?.coordinate else {
             return nil
@@ -223,23 +223,23 @@ public final class GraphService: ObservableObject {
     
     // MARK: - Graph Query Methods
     
-    public func neighbors(of wordId: UUID) -> [Word] {
+    public func neighbors(of wordId: UUID) -> [Node] {
         return graph.neighbors(of: wordId)
     }
     
-    public func connectedWords(to wordId: UUID, maxDepth: Int = 2) -> [Word] {
-        return graph.connectedWords(to: wordId, maxDepth: maxDepth)
+    public func connectedNodes(to wordId: UUID, maxDepth: Int = 2) -> [Node] {
+        return graph.connectedNodes(to: wordId, maxDepth: maxDepth)
     }
     
-    public func findPath(from: UUID, to: UUID) -> [Word]? {
+    public func findPath(from: UUID, to: UUID) -> [Node]? {
         return graph.findPath(from: from, to: to)
     }
     
-    public func strongestConnections(for wordId: UUID, limit: Int = 5) -> [(Word, Double)] {
+    public func strongestConnections(for wordId: UUID, limit: Int = 5) -> [(Node, Double)] {
         return graph.strongestConnections(for: wordId, limit: limit)
     }
     
-    public func clusterWords(minClusterSize: Int = 3) -> [[Word]] {
+    public func clusterNodes(minClusterSize: Int = 3) -> [[Node]] {
         return graph.findClusters(minSize: minClusterSize)
     }
     
@@ -258,12 +258,12 @@ public final class GraphService: ObservableObject {
 
 // MARK: - Graph Data Structures
 
-public struct WordGraph {
-    private var nodes: [UUID: Word] = [:]
-    private var edges: [UUID: [WordEdge]] = [:]
-    private var reverseEdges: [UUID: [WordEdge]] = [:]
+public struct NodeGraph {
+    private var nodes: [UUID: Node] = [:]
+    private var edges: [UUID: [NodeEdge]] = [:]
+    private var reverseEdges: [UUID: [NodeEdge]] = [:]
     
-    public mutating func addNode(_ word: Word) {
+    public mutating func addNode(_ word: Node) {
         nodes[word.id] = word
         if edges[word.id] == nil {
             edges[word.id] = []
@@ -273,12 +273,12 @@ public struct WordGraph {
         }
     }
     
-    public mutating func addEdge(_ edge: WordEdge) {
+    public mutating func addEdge(_ edge: NodeEdge) {
         edges[edge.from, default: []].append(edge)
         reverseEdges[edge.to, default: []].append(edge)
     }
     
-    public func neighbors(of wordId: UUID) -> [Word] {
+    public func neighbors(of wordId: UUID) -> [Node] {
         let outgoingEdges = edges[wordId, default: []]
         let incomingEdges = reverseEdges[wordId, default: []]
         
@@ -289,9 +289,9 @@ public struct WordGraph {
         return neighborIds.compactMap { nodes[$0] }
     }
     
-    public func connectedWords(to wordId: UUID, maxDepth: Int) -> [Word] {
+    public func connectedNodes(to wordId: UUID, maxDepth: Int) -> [Node] {
         var visited = Set<UUID>()
-        var result = [Word]()
+        var result = [Node]()
         
         func dfs(_ currentId: UUID, depth: Int) {
             guard depth <= maxDepth, !visited.contains(currentId) else { return }
@@ -311,7 +311,7 @@ public struct WordGraph {
         return result
     }
     
-    public func findPath(from: UUID, to: UUID) -> [Word]? {
+    public func findPath(from: UUID, to: UUID) -> [Node]? {
         var visited = Set<UUID>()
         var path = [UUID]()
         
@@ -339,7 +339,7 @@ public struct WordGraph {
         return path.compactMap { nodes[$0] }
     }
     
-    public func strongestConnections(for wordId: UUID, limit: Int) -> [(Word, Double)] {
+    public func strongestConnections(for wordId: UUID, limit: Int) -> [(Node, Double)] {
         let outgoingEdges = edges[wordId, default: []]
         let incomingEdges = reverseEdges[wordId, default: []]
         
@@ -362,14 +362,14 @@ public struct WordGraph {
             }
     }
     
-    public func findClusters(minSize: Int) -> [[Word]] {
+    public func findClusters(minSize: Int) -> [[Node]] {
         var visited = Set<UUID>()
-        var clusters: [[Word]] = []
+        var clusters: [[Node]] = []
         
         for wordId in nodes.keys {
             guard !visited.contains(wordId) else { continue }
             
-            var cluster = [Word]()
+            var cluster = [Node]()
             var queue = [wordId]
             
             while !queue.isEmpty {
@@ -447,7 +447,7 @@ public struct WordGraph {
     }
 }
 
-public struct WordEdge {
+public struct NodeEdge {
     public let from: UUID
     public let to: UUID
     public let type: EdgeType
@@ -466,7 +466,7 @@ public struct WordEdge {
 public enum EdgeType: String, CaseIterable {
     case similarity = "similarity"
     case tagRelationship = "tag_relationship"
-    case rootWord = "root_word"
+    case rootNode = "root_word"
     case locationProximity = "location_proximity"
     case custom = "custom"
 }

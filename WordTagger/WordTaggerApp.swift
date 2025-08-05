@@ -109,7 +109,7 @@ class TagMappingManager: ObservableObject {
     }
     
     // 智能解析token为TagType，支持动态创建
-    func parseTokenToTagType(_ token: String, store: WordStore? = nil) -> Tag.TagType? {
+    func parseTokenToTagType(_ token: String, store: NodeStore? = nil) -> Tag.TagType? {
         let lowerToken = token.lowercased()
         
         // 1. 首先检查TagMappingManager中的映射
@@ -137,7 +137,7 @@ class TagMappingManager: ObservableObject {
     
     // MainActor隔离的版本，用于需要访问store的情况
     @MainActor
-    func parseTokenToTagTypeWithStore(_ token: String, store: WordStore) -> Tag.TagType? {
+    func parseTokenToTagTypeWithStore(_ token: String, store: NodeStore) -> Tag.TagType? {
         let lowerToken = token.lowercased()
         
         // 1. 首先检查TagMappingManager中的映射
@@ -368,7 +368,7 @@ public struct TagMapping: Identifiable, Codable {
 // MARK: - Quick Add Sheet View
 
 struct QuickAddSheetView: View {
-    @EnvironmentObject private var store: WordStore
+    @EnvironmentObject private var store: NodeStore
     @ObservedObject private var tagManager = TagMappingManager.shared
     @Environment(\.presentationMode) var presentationMode
     @State private var inputText: String = ""
@@ -385,7 +385,7 @@ struct QuickAddSheetView: View {
                 Image(systemName: "plus.circle.fill")
                     .foregroundColor(.blue)
                 
-                TextField("输入: 单词 root 词根内容 memory 记忆内容...", text: $inputText)
+                TextField("输入: 节点 root 词根内容 memory 记忆内容...", text: $inputText)
                     .textFieldStyle(.plain)
                     .font(.title3)
                     .focused($isInputFocused)
@@ -463,7 +463,7 @@ struct QuickAddSheetView: View {
                 Text("💡 使用方法:")
                     .font(.caption)
                     .fontWeight(.medium)
-                Text("输入格式: 单词 快捷键 内容")
+                Text("输入格式: 节点 快捷键 内容")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 Text("例如: apple root 苹果 memory 红苹果")
@@ -481,7 +481,7 @@ struct QuickAddSheetView: View {
             .background(Color(NSColor.controlBackgroundColor))
         }
         .frame(width: 600)
-        .navigationTitle("快速添加单词")
+        .navigationTitle("快速添加节点")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("取消") {
@@ -499,16 +499,16 @@ struct QuickAddSheetView: View {
         .alert("重复检测", isPresented: $showingDuplicateAlert) {
             Button("确定") { }
         } message: {
-            if let alert = store.duplicateWordAlert {
+            if let alert = store.duplicateNodeAlert {
                 Text(alert.message)
             }
         }
-        .onReceive(store.$duplicateWordAlert) { alert in
+        .onReceive(store.$duplicateNodeAlert) { alert in
             if alert != nil {
                 showingDuplicateAlert = true
                 // 延迟清除alert以避免立即触发下一次
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    store.duplicateWordAlert = nil
+                    store.duplicateNodeAlert = nil
                 }
             }
         }
@@ -590,7 +590,7 @@ struct QuickAddSheetView: View {
         
         guard !components.isEmpty else { return }
         
-        let wordText = components[0]
+        let nodeText = components[0]
         var tags: [Tag] = []
         var i = 1
         
@@ -727,8 +727,8 @@ struct QuickAddSheetView: View {
             }
         }
         
-        let newWord = Word(text: wordText, tags: tags)
-        let success = store.addWord(newWord)
+        let newNode = Node(text: nodeText, layerId: store.currentLayer?.id ?? store.layers.first?.id ?? UUID(), tags: tags)
+        let success = store.addNode(newNode)
         inputText = ""
         if success {
             presentationMode.wrappedValue.dismiss()
@@ -832,7 +832,7 @@ private struct QuickAddSuggestionRow: View {
 // MARK: - Quick Add View
 
 struct QuickAddView: View {
-    @EnvironmentObject private var store: WordStore
+    @EnvironmentObject private var store: NodeStore
     @ObservedObject private var tagManager = TagMappingManager.shared
     @State private var inputText: String = ""
     @State private var suggestions: [String] = []
@@ -847,7 +847,7 @@ struct QuickAddView: View {
                 VStack(spacing: 12) {
                     HStack {
                         Image(systemName: "plus.circle.fill").foregroundColor(.blue).font(.title2)
-                        TextField("输入: 单词 root 词根内容 memory 记忆内容...", text: $inputText)
+                        TextField("输入: 节点 root 词根内容 memory 记忆内容...", text: $inputText)
                             .textFieldStyle(.plain).font(.system(size: 16, weight: .medium))
                             .onSubmit { processInput() }
                             .onChange(of: inputText) { _, newValue in updateSuggestions(for: newValue) }
@@ -877,7 +877,7 @@ struct QuickAddView: View {
                 }
                 
                 HStack {
-                    Text("💡 格式: 单词 标签1 内容1 标签2 内容2...").font(.caption).foregroundColor(.secondary)
+                    Text("💡 格式: 节点 标签1 内容1 标签2 内容2...").font(.caption).foregroundColor(.secondary)
                     Spacer()
                     Text("⌘+I").font(.caption).foregroundColor(.secondary)
                 }.padding(.top, 12)
@@ -887,16 +887,16 @@ struct QuickAddView: View {
         .alert("重复检测", isPresented: $showingDuplicateAlert) {
             Button("确定") { }
         } message: {
-            if let alert = store.duplicateWordAlert {
+            if let alert = store.duplicateNodeAlert {
                 Text(alert.message)
             }
         }
-        .onReceive(store.$duplicateWordAlert) { alert in
+        .onReceive(store.$duplicateNodeAlert) { alert in
             if alert != nil {
                 showingDuplicateAlert = true
                 // 延迟清除alert以避免立即触发下一次
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    store.duplicateWordAlert = nil
+                    store.duplicateNodeAlert = nil
                 }
             }
         }
@@ -952,7 +952,7 @@ struct QuickAddView: View {
     private func processInput() {
         let components = inputText.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: " ", omittingEmptySubsequences: true).map(String.init)
         guard !components.isEmpty else { return }
-        let wordText = components[0]
+        let nodeText = components[0]
         var tags: [Tag] = []
         var i = 1
         
@@ -1033,8 +1033,8 @@ struct QuickAddView: View {
             }
         }
         
-        let newWord = Word(text: wordText, tags: tags)
-        let success = store.addWord(newWord)
+        let newNode = Node(text: nodeText, layerId: store.currentLayer?.id ?? store.layers.first?.id ?? UUID(), tags: tags)
+        let success = store.addNode(newNode)
         inputText = ""
         if success {
             onDismiss()
@@ -1046,18 +1046,18 @@ struct QuickAddView: View {
 // MARK: - Quick Search View
 
 struct QuickSearchView: View {
-    @EnvironmentObject private var store: WordStore
+    @EnvironmentObject private var store: NodeStore
     @State private var searchText: String = ""
     @State private var selectedIndex: Int = 0
     let onDismiss: () -> Void
-    let onWordSelected: (Word) -> Void
+    let onNodeSelected: (Node) -> Void
     
-    private var filteredWords: [Word] {
-        if searchText.isEmpty { return Array(store.words.prefix(10)) }
-        else { return store.words.filter { word in
-            word.text.localizedCaseInsensitiveContains(searchText) ||
-            word.meaning?.localizedCaseInsensitiveContains(searchText) == true ||
-            word.tags.contains { tag in tag.value.localizedCaseInsensitiveContains(searchText) }
+    private var filteredNodes: [Node] {
+        if searchText.isEmpty { return Array(store.nodes.prefix(10)) }
+        else { return store.nodes.filter { node in
+            node.text.localizedCaseInsensitiveContains(searchText) ||
+            node.meaning?.localizedCaseInsensitiveContains(searchText) == true ||
+            node.tags.contains { tag in tag.value.localizedCaseInsensitiveContains(searchText) }
         }}
     }
     
@@ -1067,35 +1067,35 @@ struct QuickSearchView: View {
             VStack(spacing: 0) {
                 HStack {
                     Image(systemName: "magnifyingglass").foregroundColor(.blue).font(.title2)
-                    TextField("搜索单词、含义或标签...", text: $searchText)
+                    TextField("搜索节点、含义或标签...", text: $searchText)
                         .textFieldStyle(.plain).font(.system(size: 16, weight: .medium))
-                        .onSubmit { selectCurrentWord() }
+                        .onSubmit { selectCurrentNode() }
                 }.padding(.horizontal, 16).padding(.vertical, 12)
                 .background(RoundedRectangle(cornerRadius: 12).fill(.ultraThinMaterial).shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 8))
                 
-                if !filteredWords.isEmpty {
+                if !filteredNodes.isEmpty {
                     ScrollView {
                         LazyVStack(spacing: 0) {
-                            ForEach(Array(filteredWords.enumerated()), id: \.element.id) { index, word in
+                            ForEach(Array(filteredNodes.enumerated()), id: \.element.id) { index, node in
                                 VStack(alignment: .leading, spacing: 6) {
                                     HStack {
-                                        Text(word.text).font(.system(size: 16, weight: .semibold)).foregroundColor(.primary)
+                                        Text(node.text).font(.system(size: 16, weight: .semibold)).foregroundColor(.primary)
                                         Spacer()
                                         HStack(spacing: 4) {
-                                            ForEach(word.tags.prefix(3), id: \.id) { tag in
+                                            ForEach(node.tags.prefix(3), id: \.id) { tag in
                                                 Text(tag.displayName).font(.caption)
                                                     .padding(.horizontal, 6).padding(.vertical, 2)
                                                     .background(RoundedRectangle(cornerRadius: 4).fill(Color.from(tagType: tag.type).opacity(0.2)))
                                                     .foregroundColor(Color.from(tagType: tag.type))
                                             }
-                                            if word.tags.count > 3 { Text("+\(word.tags.count - 3)").font(.caption).foregroundColor(.secondary) }
+                                            if node.tags.count > 3 { Text("+\(node.tags.count - 3)").font(.caption).foregroundColor(.secondary) }
                                         }
                                     }
-                                    if let meaning = word.meaning, !meaning.isEmpty {
+                                    if let meaning = node.meaning, !meaning.isEmpty {
                                         Text(meaning).font(.caption).foregroundColor(.secondary).lineLimit(2)
                                     }
                                 }.padding(.horizontal, 16).padding(.vertical, 10)
-                                .onTapGesture { onWordSelected(word); onDismiss() }
+                                .onTapGesture { onNodeSelected(node); onDismiss() }
                                 .background(index == selectedIndex ? Color.blue.opacity(0.1) : Color.clear)
                             }
                         }
@@ -1104,19 +1104,19 @@ struct QuickSearchView: View {
                 }
                 
                 HStack {
-                    Text("💡 输入关键词搜索单词").font(.caption).foregroundColor(.secondary)
+                    Text("💡 输入关键词搜索节点").font(.caption).foregroundColor(.secondary)
                     Spacer()
                     Text("⌘+F").font(.caption).foregroundColor(.secondary)
                 }.padding(.top, 12)
             }.padding(20).frame(maxWidth: 600)
         }
         .onKeyPress(.escape) { onDismiss(); return .handled }
-        .onChange(of: filteredWords) { _, _ in selectedIndex = 0 }
+        .onChange(of: filteredNodes) { _, _ in selectedIndex = 0 }
     }
     
-    private func selectCurrentWord() {
-        guard selectedIndex < filteredWords.count else { return }
-        let selectedWord = filteredWords[selectedIndex]; onWordSelected(selectedWord); onDismiss()
+    private func selectCurrentNode() {
+        guard selectedIndex < filteredNodes.count else { return }
+        let selectedNode = filteredNodes[selectedIndex]; onNodeSelected(selectedNode); onDismiss()
     }
 }
 
@@ -1167,7 +1167,7 @@ struct CommonLocation: Identifiable, Hashable {
 
 @main
 struct WordTaggerApp: App {
-    @StateObject private var store = WordStore.shared
+    @StateObject private var store = NodeStore.shared
     @State private var showPalette = false
     @State private var showQuickAdd = false
     @State private var showQuickSearch = false
@@ -1186,7 +1186,7 @@ struct WordTaggerApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("单词标签管理器") {
+        WindowGroup("节点标签管理器") {
             ZStack {
                 ContentView()
                     .environmentObject(store)
@@ -1208,8 +1208,8 @@ struct WordTaggerApp: App {
                 if showQuickSearch {
                     QuickSearchView(
                         onDismiss: { showQuickSearch = false },
-                        onWordSelected: { word in
-                            store.selectWord(word)
+                        onNodeSelected: { node in
+                            store.selectNode(node)
                         }
                     )
                     .environmentObject(store)
@@ -1230,14 +1230,14 @@ struct WordTaggerApp: App {
                 QuickAddSheetView()
                     .environmentObject(store)
             }
-            .onReceive(NotificationCenter.default.publisher(for: .addNewWord)) { _ in
+            .onReceive(NotificationCenter.default.publisher(for: .addNewNode)) { _ in
                 showQuickAdd = true
             }
         }
         .defaultSize(width: 1200, height: 800)
         .commands {
             CommandGroup(replacing: .appInfo) {}
-            CommandMenu("单词标签") {
+            CommandMenu("节点标签") {
                 Button("命令面板") { 
                     showPalette = true 
                 }
@@ -1245,7 +1245,7 @@ struct WordTaggerApp: App {
                 
                 Divider()
                 
-                Button("快速添加单词") {
+                Button("快速添加节点") {
                     showQuickAdd = true
                 }
                 .keyboardShortcut("i", modifiers: [.command])
@@ -1265,16 +1265,16 @@ struct WordTaggerApp: App {
                 }
                 .keyboardShortcut("i", modifiers: [.command, .shift])
                 
-                Button("单词管理") {
-                    NotificationCenter.default.post(name: Notification.Name("openWordManager"), object: nil)
+                Button("节点管理") {
+                    NotificationCenter.default.post(name: Notification.Name("openNodeManager"), object: nil)
                 }
                 .keyboardShortcut("w", modifiers: [.command, .shift])
                 
                 Divider()
                 
-                Button("添加单词") {
-                    // 触发添加单词对话框
-                    NotificationCenter.default.post(name: Notification.Name("addNewWord"), object: nil)
+                Button("添加节点") {
+                    // 触发添加节点对话框
+                    NotificationCenter.default.post(name: Notification.Name("addNewNode"), object: nil)
                 }
                 .keyboardShortcut("n", modifiers: [.command])
                 
@@ -1308,9 +1308,9 @@ struct WordTaggerApp: App {
         }
         .defaultSize(width: 1200, height: 800)
         
-        // 单词管理窗口
-        WindowGroup("单词管理", id: "wordManager") {
-            WordManagerView()
+        // 节点管理窗口
+        WindowGroup("节点管理", id: "nodeManager") {
+            NodeManagerView()
                 .environmentObject(store)
                 .frame(minWidth: 800, minHeight: 600)
         }
@@ -1443,7 +1443,7 @@ struct TagManagerView: View {
                     Text("💡 使用方法:")
                         .font(.caption)
                         .fontWeight(.medium)
-                    Text("输入格式: 单词 快捷键 内容")
+                    Text("输入格式: 节点 快捷键 内容")
                         .font(.caption)
                         .foregroundColor(.secondary)
                     Text("例如: apple root 苹果 memory 红苹果")

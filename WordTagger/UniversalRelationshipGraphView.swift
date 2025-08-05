@@ -403,17 +403,17 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
             print("🌐 Processing \(nodes.count) nodes, \(edges.count) edges")
             
             // 检查中心单词
-            if let centerNode = nodes.first(where: { ($0 as? WordGraphNode)?.isCenter == true }),
-               let wordNode = centerNode as? WordGraphNode,
-               let word = wordNode.word {
-                print("🎯 CENTER WORD: \(word.text)")
+            if let centerNode = nodes.first(where: { ($0 as? NodeGraphNode)?.isCenter == true }),
+               let wordNode = centerNode as? NodeGraphNode,
+               let node = wordNode.node {
+                print("🎯 CENTER NODE: \(node.text)")
             }
             
             for node in nodes {
-                if let wordNode = node as? WordGraphNode {
-                    if let nodeWord = wordNode.word {
+                if let wordNode = node as? NodeGraphNode {
+                    if let nodeItem = wordNode.node {
                         let centerMark = wordNode.isCenter ? "⭐" : "  "
-                        print("🌐 \(centerMark) Node: \(nodeWord.text) (word) - ID: \(node.id)")
+                        print("🌐 \(centerMark) Node: \(nodeItem.text) (node) - ID: \(node.id)")
                     } else if let nodeTag = wordNode.tag {
                         print("🌐    Node: \(nodeTag.value) (tag: \(nodeTag.type.displayName)) - ID: \(node.id)")
                     }
@@ -754,14 +754,14 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
     }
     
     private func getNodeColor<T: UniversalGraphNode>(for node: T) -> String {
-        // 检查是否是WordGraphNode，如果是的话根据节点类型分配颜色
-        if let wordNode = node as? WordGraphNode {
+        // 检查是否是NodeGraphNode，如果是的话根据节点类型分配颜色
+        if let wordNode = node as? NodeGraphNode {
             switch wordNode.nodeType {
-            case .word:
+            case .node:
                 if wordNode.isCenter {
-                    return "#FFD700" // 金色表示中心单词
+                    return "#FFD700" // 金色表示中心节点
                 } else {
-                    return "#4A90E2" // 蓝色表示普通单词
+                    return "#4A90E2" // 蓝色表示普通节点
                 }
             case .tag(let tagType):
                 // 使用自动颜色管理器为标签分配颜色

@@ -4,7 +4,7 @@ import MapKit
 import MapKit
 
 struct MapWindow: View {
-    @EnvironmentObject private var store: WordStore
+    @EnvironmentObject private var store: NodeStore
     @State private var isLocationSelectionMode = false
     
     var body: some View {
@@ -50,5 +50,5 @@ struct MapWindow: View {
 
 #Preview {
     MapWindow()
-        .environmentObject(WordStore.shared)
+        .environmentObject(NodeStore.shared)
 }

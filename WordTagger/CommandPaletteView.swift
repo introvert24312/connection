@@ -3,7 +3,7 @@ import CoreLocation
 import MapKit
 
 struct CommandPaletteView: View {
-    @EnvironmentObject private var store: WordStore
+    @EnvironmentObject private var store: NodeStore
     @Binding var isPresented: Bool
     @State private var query: String = ""
     @State private var selectedIndex: Int = 0
@@ -100,7 +100,7 @@ struct CommandPaletteView: View {
     private func updateAvailableCommands() {
         let context = CommandContext(
             store: store,
-            currentWord: store.selectedWord,
+            currentNode: store.selectedNode,
             selectedTag: store.selectedTag
         )
         
@@ -118,7 +118,7 @@ struct CommandPaletteView: View {
     private func executeCommand(_ command: Command) {
         let context = CommandContext(
             store: store,
-            currentWord: store.selectedWord,
+            currentNode: store.selectedNode,
             selectedTag: store.selectedTag
         )
         
@@ -143,12 +143,12 @@ struct CommandPaletteView: View {
         switch result {
         case .success(let message):
             print("Success: \(message)")
-        case .wordCreated(let word):
-            store.selectWord(word)
-        case .wordSelected(let word):
-            store.selectWord(word)
-        case .tagAdded(_, let word):
-            store.selectWord(word)
+        case .nodeCreated(let node):
+            store.selectNode(node)
+        case .nodeSelected(let node):
+            store.selectNode(node)
+        case .tagAdded(_, let node):
+            store.selectNode(node)
         case .searchPerformed(_):
             // Search results are already handled by the store
             break
@@ -170,9 +170,9 @@ struct CommandPaletteView: View {
         case .settings:
             // Handle settings navigation - could open settings window
             break
-        case .word(let id):
-            if let word = store.words.first(where: { $0.id == id }) {
-                store.selectWord(word)
+        case .node(let id):
+            if let node = store.nodes.first(where: { $0.id == id }) {
+                store.selectNode(node)
             }
         }
     }
@@ -263,7 +263,7 @@ private struct NewCommandRowView: View {
     
     private var iconColor: Color {
         switch command.category {
-        case .word: return .green
+        case .node: return .green
         case .tag: return .orange
         case .search: return .blue
         case .navigation: return .red
@@ -278,12 +278,12 @@ private struct NewCommandRowView: View {
 extension Notification.Name {
     static let openMapWindow = Notification.Name("openMapWindow")
     static let openGraphWindow = Notification.Name("openGraphWindow")
-    static let addNewWord = Notification.Name("addNewWord")
+    static let addNewNode = Notification.Name("addNewNode")
     static let focusSearch = Notification.Name("focusSearch")
 }
 
 
 #Preview {
     CommandPaletteView(isPresented: .constant(true))
-        .environmentObject(WordStore.shared)
+        .environmentObject(NodeStore.shared)
 }

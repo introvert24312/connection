@@ -2,9 +2,9 @@ import SwiftUI
 import CoreLocation
 import MapKit
 
-struct WordListView: View {
-    @EnvironmentObject private var store: WordStore
-    @Binding var selectedWord: Word?
+struct NodeListView: View {
+    @EnvironmentObject private var store: NodeStore
+    @Binding var selectedNode: Node?
     @State private var searchFilter = SearchFilter()
     @State private var sortOption: SortOption = .alphabetical
     @State private var selectedIndex: Int = 0
@@ -13,7 +13,7 @@ struct WordListView: View {
     @State private var localSearchQuery: String = ""
     
     // 缓存机制，避免列表频繁重新渲染
-    @State private var cachedDisplayWords: [Word] = []
+    @State private var cachedDisplayNodes: [Node] = []
     @State private var lastSearchQuery: String = ""
     @State private var lastSelectedTag: Tag? = nil
     @State private var lastCurrentLayer: UUID? = nil
@@ -34,7 +34,7 @@ struct WordListView: View {
                 HStack {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.gray)
-                    TextField("搜索单词、音标、含义...", text: $localSearchQuery)
+                    TextField("搜索节点、音标、含义...", text: $localSearchQuery)
                         .textFieldStyle(.plain)
                         .focused($isSearchFieldFocused)
                         .onChange(of: isSearchFieldFocused) { _, newValue in
@@ -42,9 +42,9 @@ struct WordListView: View {
                         }
                         .onSubmit {
                             // 回车键选中第一个搜索结果并转移焦点到列表
-                            if !displayWords.isEmpty {
+                            if !displayNodes.isEmpty {
                                 selectedIndex = 0
-                                selectWordAtIndex()
+                                selectNodeAtIndex()
                                 print("🎯 Enter pressed: transferring focus to list")
                                 isSearchFieldFocused = false
                                 isListFocused = true
@@ -125,8 +125,8 @@ struct WordListView: View {
                     
                     Spacer()
                     
-                    // 单词数量显示
-                    Text("\(displayWords.count) 个单词")
+                    // 节点数量显示
+                    Text("\(displayNodes.count) 个节点")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -136,7 +136,7 @@ struct WordListView: View {
             
             Divider()
             
-            // 单词列表
+            // 节点列表
             if store.isLoading {
                 VStack {
                     Spacer()
@@ -144,21 +144,21 @@ struct WordListView: View {
                         .scaleEffect(1.2)
                     Spacer()
                 }
-            } else if displayWords.isEmpty {
+            } else if displayNodes.isEmpty {
                 EmptyStateView()
             } else {
                 ScrollViewReader { proxy in
-                    List(Array(displayWords.enumerated()), id: \.element.id) { index, word in
-                        WordRowView(
-                            word: word,
-                            isSelected: selectedWord?.id == word.id || (index == selectedIndex && selectedIndex >= 0),
+                    List(Array(displayNodes.enumerated()), id: \.element.id) { index, node in
+                        NodeRowView(
+                            node: node,
+                            isSelected: selectedNode?.id == node.id || (index == selectedIndex && selectedIndex >= 0),
                             searchQuery: store.searchQuery
                         ) {
-                            selectedWord = word
-                            store.selectWord(word)
+                            selectedNode = node
+                            store.selectNode(node)
                             selectedIndex = index
                         }
-                        .id(word.id)
+                        .id(node.id)
                         .transition(.opacity.combined(with: .move(edge: .leading)))
                     }
                     .listStyle(.plain)
@@ -169,7 +169,7 @@ struct WordListView: View {
                     .onKeyPress(.upArrow) {
                         if selectedIndex > 0 {
                             selectedIndex -= 1
-                            selectWordAtIndex()
+                            selectNodeAtIndex()
                             withAnimation(.easeInOut(duration: 0.3)) {
                                 proxy.scrollTo(selectedIndex, anchor: .center)
                             }
@@ -177,9 +177,9 @@ struct WordListView: View {
                         return .handled
                     }
                     .onKeyPress(.downArrow) {
-                        if selectedIndex < displayWords.count - 1 {
+                        if selectedIndex < displayNodes.count - 1 {
                             selectedIndex += 1
-                            selectWordAtIndex()
+                            selectNodeAtIndex()
                             withAnimation(.easeInOut(duration: 0.3)) {
                                 proxy.scrollTo(selectedIndex, anchor: .center)
                             }
@@ -187,15 +187,15 @@ struct WordListView: View {
                         return .handled
                     }
                     .onKeyPress(.return) {
-                        selectWordAtIndex()
+                        selectNodeAtIndex()
                         return .handled
                     }
-                    .onChange(of: displayWords) { _, _ in
+                    .onChange(of: displayNodes) { _, _ in
                         // 不自动选中第一个结果，只确保索引不越界
-                        if selectedIndex >= displayWords.count {
-                            selectedIndex = displayWords.count - 1
+                        if selectedIndex >= displayNodes.count {
+                            selectedIndex = displayNodes.count - 1
                         }
-                        if displayWords.isEmpty {
+                        if displayNodes.isEmpty {
                             selectedIndex = -1  // 没有结果时设为-1
                         }
                     }
@@ -207,7 +207,7 @@ struct WordListView: View {
                 }
             }
         }
-        .navigationTitle("单词")
+        .navigationTitle("节点")
         .onAppear {
             setupView()
         }
@@ -218,12 +218,12 @@ struct WordListView: View {
         .onChange(of: sortOption, perform: handleSortOptionChange)
     }
     
-    private var displayWords: [Word] {
-        return cachedDisplayWords
+    private var displayNodes: [Node] {
+        return cachedDisplayNodes
     }
     
     private func scheduleUpdate() {
-        print("⏰ WordListView.scheduleUpdate called")
+        print("⏰ NodeListView.scheduleUpdate called")
         
         // 取消之前的更新任务
         updateTask?.cancel()
@@ -244,11 +244,11 @@ struct WordListView: View {
         }
         
         // 立即更新，因为Store已经处理了防抖
-        print("🔧 Executing immediate updateCachedDisplayWords")
-        updateCachedDisplayWords()
+        print("🔧 Executing immediate updateCachedDisplayNodes")
+        updateCachedDisplayNodes()
     }
     
-    private func updateCachedDisplayWords() {
+    private func updateCachedDisplayNodes() {
         // 防止重复更新
         guard !isUpdating else {
             print("⏭️ Update already in progress, skipping")
@@ -256,36 +256,36 @@ struct WordListView: View {
         }
         
         isUpdating = true
-        print("🔄 updateCachedDisplayWords started")
+        print("🔄 updateCachedDisplayNodes started")
         print("📊 Current store state - searchQuery: '\(store.searchQuery)', searchResults count: \(store.searchResults.count)")
         
-        let filteredWords: [Word]
+        let filteredNodes: [Node]
         
         if !store.searchQuery.isEmpty {
             // 搜索时优先显示搜索结果，忽略标签过滤
-            filteredWords = store.searchResults
-            print("🔍 Using search results: \(filteredWords.count) words (tag filter ignored during search)")
+            filteredNodes = store.searchResults
+            print("🔍 Using search results: \(filteredNodes.count) nodes (tag filter ignored during search)")
         } else if let selectedTag = store.selectedTag {
             // 只有在没有搜索时才应用标签过滤，只在当前层中搜索
-            filteredWords = store.wordsInCurrentLayer(withTag: selectedTag)
-            print("🏷️ Using tag filter in current layer: \(filteredWords.count) words")
+            filteredNodes = store.nodesInCurrentLayer(withTag: selectedTag)
+            print("🏷️ Using tag filter in current layer: \(filteredNodes.count) nodes")
         } else {
-            // 没有搜索也没有选中标签时，显示当前层的单词
-            filteredWords = store.getWordsInCurrentLayer()
-            print("📋 Using current layer words: \(filteredWords.count) words")
+            // 没有搜索也没有选中标签时，显示当前层的节点
+            filteredNodes = store.getNodesInCurrentLayer()
+            print("📋 Using current layer nodes: \(filteredNodes.count) nodes")
         }
         
         // 应用排序并更新缓存
-        let oldCount = cachedDisplayWords.count
-        let newWords = sortWords(filteredWords)
+        let oldCount = cachedDisplayNodes.count
+        let newNodes = sortNodes(filteredNodes)
         
         // 使用动画更新缓存，减少视觉闪烁
         withAnimation(.easeInOut(duration: 0.2)) {
-            cachedDisplayWords = newWords
+            cachedDisplayNodes = newNodes
         }
         
-        let newCount = cachedDisplayWords.count
-        print("✅ Cache updated: \(oldCount) → \(newCount) words")
+        let newCount = cachedDisplayNodes.count
+        print("✅ Cache updated: \(oldCount) → \(newCount) nodes")
         
         // 更新缓存状态
         lastSearchQuery = store.searchQuery
@@ -315,7 +315,7 @@ struct WordListView: View {
         localSearchQuery = store.searchQuery
         
         // 初始化时更新显示
-        updateCachedDisplayWords()
+        updateCachedDisplayNodes()
         
         // 延迟设置焦点，确保TextField已经渲染完成
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -325,11 +325,11 @@ struct WordListView: View {
     }
     
     private func handleStoreSearchQueryChange(_ newValue: String) {
-        print("🔍 WordListView: searchQuery changed to '\(newValue)'")
+        print("🔍 NodeListView: searchQuery changed to '\(newValue)'")
         
         // 如果是清空搜索，立即更新显示；否则等搜索结果完成后再更新
         if newValue.isEmpty {
-            print("🧹 WordListView: Search cleared, updating display immediately")
+            print("🧹 NodeListView: Search cleared, updating display immediately")
             scheduleUpdate()
         }
         
@@ -337,51 +337,51 @@ struct WordListView: View {
         // localSearchQuery由用户直接输入控制
     }
     
-    private func handleSearchResultsChange(_ newValue: [Word]) {
-        print("📊 WordListView: searchResults changed to \(newValue.count) items")
+    private func handleSearchResultsChange(_ newValue: [Node]) {
+        print("📊 NodeListView: searchResults changed to \(newValue.count) items")
         // 搜索结果变化时总是更新显示
         scheduleUpdate()
     }
     
     private func handleSelectedTagChange(_ newValue: UUID?) {
         let newStr = newValue?.uuidString ?? "nil"
-        print("🏷️ WordListView: selectedTag changed to '\(newStr)'")
+        print("🏷️ NodeListView: selectedTag changed to '\(newStr)'")
         scheduleUpdate()
     }
     
     private func handleCurrentLayerChange(_ newValue: UUID?) {
         let newStr = newValue?.uuidString ?? "nil"
-        print("🔄 WordListView: currentLayer changed to '\(newStr)'")
+        print("🔄 NodeListView: currentLayer changed to '\(newStr)'")
         scheduleUpdate()
     }
     
     private func handleSortOptionChange(_ newValue: SortOption) {
-        print("📊 WordListView: sortOption changed to '\(newValue)'")
+        print("📊 NodeListView: sortOption changed to '\(newValue)'")
         scheduleUpdate()
     }
     
-    private func sortWords(_ words: [Word]) -> [Word] {
+    private func sortNodes(_ nodes: [Node]) -> [Node] {
         switch sortOption {
         case .alphabetical:
-            return words.sorted { $0.text.lowercased() < $1.text.lowercased() }
+            return nodes.sorted { $0.text.lowercased() < $1.text.lowercased() }
         case .tagCount:
-            return words.sorted { $0.tags.count > $1.tags.count }
+            return nodes.sorted { $0.tags.count > $1.tags.count }
         }
     }
     
-    private func selectWordAtIndex() {
-        guard selectedIndex >= 0 && selectedIndex < displayWords.count else { return }
-        let word = displayWords[selectedIndex]
-        selectedWord = word
-        store.selectWord(word)
+    private func selectNodeAtIndex() {
+        guard selectedIndex >= 0 && selectedIndex < displayNodes.count else { return }
+        let node = displayNodes[selectedIndex]
+        selectedNode = node
+        store.selectNode(node)
     }
     
 }
 
-// MARK: - 单词行视图
+// MARK: - 节点行视图
 
-struct WordRowView: View {
-    let word: Word
+struct NodeRowView: View {
+    let node: Node
     let isSelected: Bool
     let searchQuery: String
     let onTap: () -> Void
@@ -390,9 +390,9 @@ struct WordRowView: View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    // 单词文本
+                    // 节点文本
                     HighlightedText(
-                        text: word.text,
+                        text: node.text,
                         searchQuery: searchQuery,
                         font: .title2,
                         fontWeight: .semibold
@@ -401,7 +401,7 @@ struct WordRowView: View {
                     Spacer()
                     
                     // 音标
-                    if let phonetic = word.phonetic {
+                    if let phonetic = node.phonetic {
                         Text(phonetic)
                             .font(.body)
                             .foregroundColor(.secondary)
@@ -415,7 +415,7 @@ struct WordRowView: View {
                 }
                 
                 // 含义
-                if let meaning = word.meaning {
+                if let meaning = node.meaning {
                     HighlightedText(
                         text: meaning,
                         searchQuery: searchQuery,
@@ -426,19 +426,19 @@ struct WordRowView: View {
                 }
                 
                 // 标签
-                if !word.tags.isEmpty {
-                    TagChipsView(tags: word.tags, searchQuery: searchQuery)
+                if !node.tags.isEmpty {
+                    TagChipsView(tags: node.tags, searchQuery: searchQuery)
                 }
                 
                 // 元数据
                 HStack {
-                    Text(word.createdAt.timeAgoDisplay())
+                    Text(node.createdAt.timeAgoDisplay())
                         .font(.caption2)
                         .foregroundColor(Color.secondary)
                     
                     Spacer()
                     
-                    if word.updatedAt > word.createdAt {
+                    if node.updatedAt > node.createdAt {
                         Text("已编辑")
                             .font(.caption2)
                             .foregroundColor(.orange)
@@ -608,7 +608,7 @@ struct TagChip: View {
 // MARK: - 空状态视图
 
 struct EmptyStateView: View {
-    @EnvironmentObject private var store: WordStore
+    @EnvironmentObject private var store: NodeStore
     
     var body: some View {
         VStack(spacing: 16) {
@@ -618,12 +618,12 @@ struct EmptyStateView: View {
                 .font(.system(size: 48))
                 .foregroundColor(.gray)
             
-            Text(store.searchQuery.isEmpty ? "暂无单词" : "未找到匹配的单词")
+            Text(store.searchQuery.isEmpty ? "暂无节点" : "未找到匹配的节点")
                 .font(.title3)
                 .foregroundColor(.secondary)
             
             if store.searchQuery.isEmpty {
-                Text("开始添加你的第一个单词吧！")
+                Text("添加你的第一个节点")
                     .font(.body)
                     .foregroundColor(Color.secondary)
             } else {
@@ -639,6 +639,6 @@ struct EmptyStateView: View {
 }
 
 #Preview {
-    WordListView(selectedWord: .constant(nil))
-        .environmentObject(WordStore.shared)
+    NodeListView(selectedNode: .constant(nil))
+        .environmentObject(NodeStore.shared)
 }

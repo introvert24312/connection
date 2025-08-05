@@ -50,6 +50,9 @@ extension Color {
         case "purple": return Color(.systemPurple)
         case "pink": return Color(.systemPink)
         case "yellow": return Color(.systemYellow)
+        case "teal": return Color(.systemTeal)
+        case "indigo": return Color(.systemIndigo)
+        case "brown": return Color(.systemBrown)
         case "gray", "grey": return Color(.systemGray)
         default: return Color(.systemBlue)
         }
@@ -143,17 +146,17 @@ extension String {
 // MARK: - Debugging Helpers
 
 #if DEBUG
-extension WordStore {
+extension NodeStore {
     func printDebugInfo() {
-        print("=== WordStore Debug Info ===")
-        print("Total words: \(words.count)")
+        print("=== NodeStore Debug Info ===")
+        print("Total nodes: \(nodes.count)")
         print("Total unique tags: \(allTags.count)")
-        print("Selected word: \(selectedWord?.text ?? "None")")
+        print("Selected node: \(selectedNode?.text ?? "None")")
         print("Search query: '\(searchQuery)'")
         print("Search results: \(searchResults.count)")
         
         for tagType in Tag.TagType.allCases {
-            let count = wordsCount(forTagType: tagType)
+            let count = nodesCount(forTagType: tagType)
             print("\(tagType.displayName) tags: \(count) words")
         }
         print("============================")

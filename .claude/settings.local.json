@@ -29,7 +29,8 @@
       "Bash(timeout 30 xcodebuild:*)",
       "Bash(gtimeout:*)",
       "WebFetch(domain:docs.anthropic.com)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(git reset:*)"
     ],
     "deny": []
   }

@@ -13,7 +13,7 @@ public protocol Command {
 }
 
 public enum CommandCategory: String, CaseIterable {
-    case word = "单词"
+    case node = "节点"
     case tag = "标签"
     case search = "搜索"
     case navigation = "导航"
@@ -22,7 +22,7 @@ public enum CommandCategory: String, CaseIterable {
     
     public var icon: String {
         switch self {
-        case .word: return "textbook"
+        case .node: return "textbook"
         case .tag: return "tag"
         case .search: return "magnifyingglass"
         case .navigation: return "map"
@@ -33,22 +33,22 @@ public enum CommandCategory: String, CaseIterable {
 }
 
 public struct CommandContext {
-    public let store: WordStore
-    public let currentWord: Word?
+    public let store: NodeStore
+    public let currentNode: Node?
     public let selectedTag: Tag?
     
-    public init(store: WordStore, currentWord: Word? = nil, selectedTag: Tag? = nil) {
+    public init(store: NodeStore, currentNode: Node? = nil, selectedTag: Tag? = nil) {
         self.store = store
-        self.currentWord = currentWord
+        self.currentNode = currentNode
         self.selectedTag = selectedTag
     }
 }
 
 public enum CommandResult {
     case success(message: String)
-    case wordCreated(Word)
-    case wordSelected(Word)
-    case tagAdded(Tag, to: Word)
+    case nodeCreated(Node)
+    case nodeSelected(Node)
+    case tagAdded(Tag, to: Node)
     case searchPerformed(results: [SearchResult])
     case navigationRequested(destination: NavigationDestination)
     case layerSwitched(Layer)
@@ -59,7 +59,7 @@ public enum NavigationDestination {
     case map
     case graph
     case settings
-    case word(UUID)
+    case node(UUID)
 }
 
 public final class CommandParser: ObservableObject {
@@ -118,23 +118,23 @@ public final class CommandParser: ObservableObject {
     
     private func setupCommands() {
         allCommands = [
-            // Word commands
-            AddWordCommand(),
-            DeleteWordCommand(),
-            EditWordCommand(),
-            DuplicateWordCommand(),
+            // Node commands
+            AddNodeCommand(),
+            DeleteNodeCommand(),
+            EditNodeCommand(),
+            DuplicateNodeCommand(),
             
             // Tag commands
-            AddTagCommand(wordId: UUID()),
+            AddTagCommand(nodeId: UUID()),
             RemoveTagCommand(),
             EditTagCommand(),
             AddLocationTagCommand(),
             
             // Search commands
-            SearchWordsCommand(),
+            SearchNodesCommand(),
             SearchByTagCommand(),
             SearchByLocationCommand(),
-            FindSimilarWordsCommand(),
+            // FindSimilarNodesCommand(), // 临时注释
             
             // Navigation commands
             OpenMapCommand(),
@@ -168,15 +168,15 @@ public final class CommandParser: ObservableObject {
         }
         
         switch intent {
-        case .addWord(let text, let meaning, let phonetic):
-            return AddWordCommand(text: text, meaning: meaning, phonetic: phonetic)
+        case .addNode(let text, let meaning, let phonetic):
+            return AddNodeCommand(text: text, meaning: meaning, phonetic: phonetic)
             
-        case .searchWord(let query):
-            return SearchWordsCommand(query: query)
+        case .searchNode(let query):
+            return SearchNodesCommand(query: query)
             
         case .addTag(let tagType, let value):
-            guard let currentWord = context.currentWord else { return nil }
-            return AddTagCommand(wordId: currentWord.id, tagType: tagType, value: value)
+            guard let currentNode = context.currentNode else { return nil }
+            return AddTagCommand(nodeId: currentNode.id, tagType: tagType, value: value)
             
         case .navigateTo(let destination):
             return NavigationCommand(destination: destination)
@@ -251,8 +251,8 @@ public final class CommandParser: ObservableObject {
     private func calculateContextRelevance(command: Command, context: CommandContext) -> Double {
         var boost: Double = 0
         
-        // Boost word-related commands if a word is selected
-        if context.currentWord != nil && command.category == .word {
+        // Boost node-related commands if a node is selected
+        if context.currentNode != nil && command.category == .node {
             boost += 0.2
         }
         
@@ -278,10 +278,10 @@ private class NLPProcessor {
         // Simple intent detection based on keywords
         _ = tokens.joined(separator: " ")
         
-        // Add word patterns
+        // Add node patterns
         if tokens.contains("添加") || tokens.contains("新增") || tokens.contains("创建") {
-            if tokens.contains("单词") || tokens.contains("词") {
-                return extractAddWordIntent(from: tokens)
+            if tokens.contains("节点") || tokens.contains("词") {
+                return extractAddNodeIntent(from: tokens)
             }
             if tokens.contains("标签") {
                 return extractAddTagIntent(from: tokens)
@@ -290,8 +290,8 @@ private class NLPProcessor {
         
         // Search patterns
         if tokens.contains("搜索") || tokens.contains("查找") || tokens.contains("找") {
-            let query = tokens.filter { !["搜索", "查找", "找", "单词"].contains($0) }.joined(separator: " ")
-            return .searchWord(query: query.isEmpty ? nil : query)
+            let query = tokens.filter { !["搜索", "查找", "找", "节点"].contains($0) }.joined(separator: " ")
+            return .searchNode(query: query.isEmpty ? nil : query)
         }
         
         // Navigation patterns
@@ -328,15 +328,15 @@ private class NLPProcessor {
         return .unknown
     }
     
-    private func extractAddWordIntent(from tokens: [String]) -> CommandIntent {
+    private func extractAddNodeIntent(from tokens: [String]) -> CommandIntent {
         // Simple extraction - in real app, use more sophisticated NLP
-        let relevantTokens = tokens.filter { !["添加", "新增", "创建", "单词", "词"].contains($0) }
+        let relevantTokens = tokens.filter { !["添加", "新增", "创建", "节点", "词"].contains($0) }
         
         if let firstToken = relevantTokens.first {
-            return .addWord(text: firstToken, meaning: nil, phonetic: nil)
+            return .addNode(text: firstToken, meaning: nil, phonetic: nil)
         }
         
-        return .addWord(text: nil, meaning: nil, phonetic: nil)
+        return .addNode(text: nil, meaning: nil, phonetic: nil)
     }
     
     private func extractAddTagIntent(from tokens: [String]) -> CommandIntent {
@@ -367,8 +367,8 @@ private class NLPProcessor {
 // MARK: - Command Intent
 
 private enum CommandIntent {
-    case addWord(text: String?, meaning: String?, phonetic: String?)
-    case searchWord(query: String?)
+    case addNode(text: String?, meaning: String?, phonetic: String?)
+    case searchNode(query: String?)
     case addTag(tagType: Tag.TagType?, value: String?)
     case navigateTo(NavigationDestination)
     case switchLayer(layerName: String)
@@ -377,13 +377,13 @@ private enum CommandIntent {
 
 // MARK: - Concrete Commands
 
-public struct AddWordCommand: Command {
+public struct AddNodeCommand: Command {
     public let id = UUID()
     public let title: String
     public let description: String
     public let icon = "plus.circle"
-    public let category = CommandCategory.word
-    public let keywords = ["添加", "新增", "创建", "单词", "词汇"]
+    public let category = CommandCategory.node
+    public let keywords = ["添加", "新增", "创建", "节点", "词汇"]
     
     private let text: String?
     private let meaning: String?
@@ -395,34 +395,34 @@ public struct AddWordCommand: Command {
         self.phonetic = phonetic
         
         if let text = text {
-            self.title = "添加单词: \(text)"
-            self.description = "创建新单词 '\(text)'"
+            self.title = "添加节点: \(text)"
+            self.description = "创建新节点 '\(text)'"
         } else {
-            self.title = "添加单词"
-            self.description = "创建一个新的单词条目"
+            self.title = "添加节点"
+            self.description = "创建一个新的节点条目"
         }
     }
     
     public func execute(with context: CommandContext) async throws -> CommandResult {
-        guard let wordText = text, !wordText.isEmpty else {
-            return .error("请提供单词文本")
+        guard let nodeText = text, !nodeText.isEmpty else {
+            return .error("请提供节点文本")
         }
         
-        let success = await context.store.addWord(wordText, phonetic: phonetic, meaning: meaning)
+        let success = await context.store.addNode(nodeText, phonetic: phonetic, meaning: meaning)
         
         if !success {
-            return .error("单词添加被拒绝（可能是重复）")
+            return .error("节点添加被拒绝（可能是重复）")
         }
         
-        if let newWord = await context.store.words.first(where: { $0.text == wordText }) {
-            return .wordCreated(newWord)
+        if let newNode = await context.store.nodes.first(where: { $0.text == nodeText }) {
+            return .nodeCreated(newNode)
         } else {
-            return .error("创建单词失败")
+            return .error("创建节点失败")
         }
     }
 }
 
-public struct SearchWordsCommand: Command {
+public struct SearchNodesCommand: Command {
     public let id = UUID()
     public let title: String
     public let description: String
@@ -437,10 +437,10 @@ public struct SearchWordsCommand: Command {
         
         if let query = query {
             self.title = "搜索: \(query)"
-            self.description = "搜索包含 '\(query)' 的单词"
+            self.description = "搜索包含 '\(query)' 的节点"
         } else {
-            self.title = "搜索单词"
-            self.description = "在所有单词中进行搜索"
+            self.title = "搜索节点"
+            self.description = "在所有节点中进行搜索"
         }
     }
     
@@ -456,8 +456,7 @@ public struct SearchWordsCommand: Command {
         // Wait a bit for the search to process
         try await Task.sleep(nanoseconds: 300_000_000)
         
-        return .searchPerformed(results: await context.store.searchResults.map { word in
-            let node = Node(text: word.text, phonetic: word.phonetic, meaning: word.meaning, layerId: UUID(), tags: word.tags)
+        return .searchPerformed(results: await context.store.searchResults.map { node in
             return SearchResult(node: node, score: 1.0, matchedFields: [.text])
         })
     }
@@ -466,7 +465,7 @@ public struct SearchWordsCommand: Command {
 public struct OpenMapCommand: Command {
     public let id = UUID()
     public let title = "打开地图"
-    public let description = "显示单词地点标签的地图视图"
+    public let description = "显示节点地点标签的地图视图"
     public let icon = "map"
     public let category = CommandCategory.navigation
     public let keywords = ["地图", "位置", "地点"]
@@ -479,7 +478,7 @@ public struct OpenMapCommand: Command {
 public struct OpenGraphCommand: Command {
     public let id = UUID()
     public let title = "打开全局图谱"
-    public let description = "显示全局的单词关系图谱"
+    public let description = "显示全局的节点关系图谱"
     public let icon = "circle.hexagonpath"
     public let category = CommandCategory.navigation
     public let keywords = ["图谱", "关系", "网络", "连接"]
@@ -511,21 +510,21 @@ public struct AddTagCommand: Command {
     public let category = CommandCategory.tag
     public let keywords = ["标签", "添加", "分类"]
     
-    private let wordId: UUID
+    private let nodeId: UUID
     private let tagType: Tag.TagType?
     private let value: String?
     
-    public init(wordId: UUID, tagType: Tag.TagType? = nil, value: String? = nil) {
-        self.wordId = wordId
+    public init(nodeId: UUID, tagType: Tag.TagType? = nil, value: String? = nil) {
+        self.nodeId = nodeId
         self.tagType = tagType
         self.value = value
         
         if let value = value {
             self.title = "添加标签: \(value)"
-            self.description = "为当前单词添加标签 '\(value)'"
+            self.description = "为当前节点添加标签 '\(value)'"
         } else {
             self.title = "添加标签"
-            self.description = "为当前单词添加新标签"
+            self.description = "为当前节点添加新标签"
         }
     }
     
@@ -539,21 +538,21 @@ public struct AddTagCommand: Command {
         let tag = await context.store.createTag(type: tagType, value: value)
         await context.store.addTag(tag)
         
-        if let word = await context.store.words.first(where: { $0.id == wordId }) {
-            return .tagAdded(tag, to: word)
+        if let node = await context.store.nodes.first(where: { $0.id == nodeId }) {
+            return .tagAdded(tag, to: node)
         } else {
-            return .error("未找到指定单词")
+            return .error("未找到指定节点")
         }
     }
 }
 
 // Placeholder commands for the remaining functionality
-public struct DeleteWordCommand: Command {
+public struct DeleteNodeCommand: Command {
     public let id = UUID()
-    public let title = "删除单词"
-    public let description = "删除当前选择的单词"
+    public let title = "删除节点"
+    public let description = "删除当前选择的节点"
     public let icon = "trash"
-    public let category = CommandCategory.word
+    public let category = CommandCategory.node
     public let keywords = ["删除", "移除"]
     
     public func execute(with context: CommandContext) async throws -> CommandResult {
@@ -561,12 +560,12 @@ public struct DeleteWordCommand: Command {
     }
 }
 
-public struct EditWordCommand: Command {
+public struct EditNodeCommand: Command {
     public let id = UUID()
-    public let title = "编辑单词"
-    public let description = "编辑当前选择的单词"
+    public let title = "编辑节点"
+    public let description = "编辑当前选择的节点"
     public let icon = "pencil"
-    public let category = CommandCategory.word
+    public let category = CommandCategory.node
     public let keywords = ["编辑", "修改"]
     
     public func execute(with context: CommandContext) async throws -> CommandResult {
@@ -574,12 +573,12 @@ public struct EditWordCommand: Command {
     }
 }
 
-public struct DuplicateWordCommand: Command {
+public struct DuplicateNodeCommand: Command {
     public let id = UUID()
-    public let title = "复制单词"
-    public let description = "复制当前选择的单词"
+    public let title = "复制节点"
+    public let description = "复制当前选择的节点"
     public let icon = "doc.on.doc"
-    public let category = CommandCategory.word
+    public let category = CommandCategory.node
     public let keywords = ["复制", "重复"]
     
     public func execute(with context: CommandContext) async throws -> CommandResult {
@@ -590,7 +589,7 @@ public struct DuplicateWordCommand: Command {
 public struct RemoveTagCommand: Command {
     public let id = UUID()
     public let title = "移除标签"
-    public let description = "从当前单词移除标签"
+    public let description = "从当前节点移除标签"
     public let icon = "tag.slash"
     public let category = CommandCategory.tag
     public let keywords = ["移除", "删除", "标签"]
@@ -616,7 +615,7 @@ public struct EditTagCommand: Command {
 public struct AddLocationTagCommand: Command {
     public let id = UUID()
     public let title = "添加地点标签"
-    public let description = "为单词添加地理位置标签"
+    public let description = "为节点添加地理位置标签"
     public let icon = "location.circle"
     public let category = CommandCategory.tag
     public let keywords = ["地点", "位置", "标签"]
@@ -759,7 +758,7 @@ public struct NavigationCommand: Command {
             self.description = "打开应用设置"
             self.icon = "gear"
             self.keywords = ["设置", "配置"]
-        case .word(_):
+        case .node(_):
             self.title = "选择单词"
             self.description = "选择指定单词"
             self.icon = "textbook"
