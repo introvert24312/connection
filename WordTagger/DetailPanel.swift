@@ -743,18 +743,14 @@ struct NodeGraphView: View {
         let graphData = graphCache.getCachedGraphData(for: currentNode)
         
         VStack(spacing: 0) {
-            // 标题栏
+            // 简化的标题栏
             HStack {
                 Text("节点详情图谱")
                     .font(.headline)
-                
                 Spacer()
-                
-                Text("\(graphData.nodes.count) 个节点")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
             }
-            .padding()
+            .padding(.horizontal)
+            .padding(.vertical, 8)
             .background(Color(NSColor.controlBackgroundColor))
             
             Divider()
