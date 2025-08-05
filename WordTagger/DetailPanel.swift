@@ -148,8 +148,15 @@ struct TagsByTypeView: View {
     
     private var flattenedTags: [Tag] {
         var result: [Tag] = []
+        // 先添加预定义类型的标签
         for type in Tag.TagType.allCases {
             if let tagsOfType = groupedTags[type], !tagsOfType.isEmpty {
+                result.append(contentsOf: tagsOfType)
+            }
+        }
+        // 再添加自定义类型的标签
+        for (type, tagsOfType) in groupedTags {
+            if !Tag.TagType.allCases.contains(where: { $0.rawValue == type.rawValue }) {
                 result.append(contentsOf: tagsOfType)
             }
         }
@@ -158,8 +165,21 @@ struct TagsByTypeView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            // 先显示预定义类型的标签
             ForEach(Tag.TagType.allCases, id: \.self) { type in
                 if let tagsOfType = groupedTags[type], !tagsOfType.isEmpty {
+                    TagTypeSection(
+                        type: type, 
+                        tags: tagsOfType,
+                        selectedIndex: $selectedIndex,
+                        flattenedTags: flattenedTags
+                    )
+                }
+            }
+            // 再显示自定义类型的标签
+            ForEach(Array(groupedTags.keys), id: \.self) { type in
+                if !Tag.TagType.allCases.contains(where: { $0.rawValue == type.rawValue }),
+                   let tagsOfType = groupedTags[type], !tagsOfType.isEmpty {
                     TagTypeSection(
                         type: type, 
                         tags: tagsOfType,

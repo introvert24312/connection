@@ -370,7 +370,7 @@ public struct TagMapping: Identifiable, Codable {
 struct QuickAddSheetView: View {
     @EnvironmentObject private var store: NodeStore
     @ObservedObject private var tagManager = TagMappingManager.shared
-    @Environment(\.presentationMode) var presentationMode
+    @Environment(\.dismiss) var dismiss
     @State private var inputText: String = ""
     @State private var suggestions: [String] = []
     @State private var selectedSuggestionIndex: Int = -1
@@ -409,7 +409,7 @@ struct QuickAddSheetView: View {
                         return .handled
                     }
                     .onKeyPress(.escape) {
-                        presentationMode.wrappedValue.dismiss()
+                        dismiss()
                         return .handled
                     }
                 
@@ -485,7 +485,7 @@ struct QuickAddSheetView: View {
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("取消") {
-                    presentationMode.wrappedValue.dismiss()
+                    dismiss()
                 }
             }
             ToolbarItem(placement: .confirmationAction) {
@@ -744,7 +744,7 @@ struct QuickAddSheetView: View {
         let success = store.addNode(newNode)
         inputText = ""
         if success {
-            presentationMode.wrappedValue.dismiss()
+            dismiss()
         }
         // 如果不成功，保持窗口打开让用户看到警告
     }
