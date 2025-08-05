@@ -877,7 +877,10 @@ public final class NodeStore: ObservableObject {
         
         // 完全清空标签映射
         TagMappingManager.shared.clearAll()
-        print("🏷️ 标签映射已完全清空")
+        
+        // 确保内置核心标签重新存在
+        TagMappingManager.shared.ensureBuiltInCoreTags()
+        print("🏷️ 标签映射已清空并重新添加内置核心标签")
         print("📂 所有层已清空")
         
         // 强制多次触发UI更新，确保所有视图都刷新

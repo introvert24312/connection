@@ -184,6 +184,13 @@ class TagMappingManager: ObservableObject {
         print("   - 删除映射ID: \(id)")
         print("   - 删除前映射数量: \(tagMappings.count)")
         
+        // 检查是否是内置核心标签，如果是则拒绝删除
+        if let mappingToDelete = tagMappings.first(where: { $0.id == id }),
+           isBuiltInCoreTag(mappingToDelete.key) {
+            print("❌ 拒绝删除内置核心标签: \(mappingToDelete.key)")
+            return
+        }
+        
         tagMappings.removeAll { $0.id == id }
         
         print("   - 删除后映射数量: \(tagMappings.count)")
@@ -203,13 +210,37 @@ class TagMappingManager: ObservableObject {
         print("✅ TagMappingManager.deleteMapping() 完成")
     }
     
+    // 系统内置核心标签 - 永远不能被删除
+    static let builtInCoreTags = [
+        TagMapping(key: "loc", typeName: "地点"),
+        TagMapping(key: "root", typeName: "词根"),
+        TagMapping(key: "compound", typeName: "复合节点")
+    ]
+    
+    // 检查是否是内置核心标签
+    func isBuiltInCoreTag(_ key: String) -> Bool {
+        return Self.builtInCoreTags.contains { $0.key == key.lowercased() }
+    }
+    
+    // 确保内置核心标签存在
+    func ensureBuiltInCoreTags() {
+        print("🔧 确保内置核心标签存在...")
+        
+        for coreTag in Self.builtInCoreTags {
+            if !tagMappings.contains(where: { $0.key == coreTag.key }) {
+                print("   + 添加内置核心标签: \(coreTag.key) -> \(coreTag.typeName)")
+                tagMappings.append(coreTag)
+            }
+        }
+        
+        saveToUserDefaults()
+    }
+    
     // 重置为默认映射
     func resetToDefaults() {
         print("🔄 TagMappingManager.resetToDefaults() 开始")
         
-        tagMappings = [
-            TagMapping(key: "root", typeName: "词根"),
-            TagMapping(key: "loc", typeName: "地点"),
+        tagMappings = Self.builtInCoreTags + [
             TagMapping(key: "time", typeName: "时间"),
             TagMapping(key: "sub", typeName: "子类")
         ]
@@ -264,8 +295,8 @@ class TagMappingManager: ObservableObject {
     
     // 获取默认映射
     private func getDefaultMappings() -> [TagMapping] {
-        // 不再提供默认映射，让用户完全控制标签系统
-        return []
+        // 总是包含内置核心标签
+        return Self.builtInCoreTags
     }
     
     // 优先从外部存储加载，失败时从UserDefaults加载
@@ -285,6 +316,9 @@ class TagMappingManager: ObservableObject {
                 await MainActor.run {
                     tagMappings = loadedMappings
                     print("✅ 从外部存储成功加载 \(loadedMappings.count) 个标签映射")
+                    
+                    // 确保包含内置核心标签
+                    ensureBuiltInCoreTags()
                     
                     // 同步到UserDefaults作为备份
                     saveToUserDefaults()
@@ -309,6 +343,9 @@ class TagMappingManager: ObservableObject {
            let savedMappings = try? decoder.decode([TagMapping].self, from: data) {
             tagMappings = savedMappings
             print("✅ 从UserDefaults成功加载 \(savedMappings.count) 个标签映射")
+            
+            // 确保包含内置核心标签
+            ensureBuiltInCoreTags()
             
             // 迁移：确保包含新的默认映射
             migrateToLatestMappings()
@@ -1538,6 +1575,10 @@ struct TagMappingRow: View {
     let onEdit: () -> Void
     let onDelete: () -> Void
     
+    private var isBuiltInCore: Bool {
+        TagMappingManager.shared.isBuiltInCoreTag(mapping.key)
+    }
+    
     var body: some View {
         let _ = print("🎨 TagMappingRow: 渲染 id=\(mapping.id), key=\(mapping.key), typeName=\(mapping.typeName)")
         return HStack {
@@ -1547,8 +1588,23 @@ struct TagMappingRow: View {
                 .frame(width: 12, height: 12)
             
             VStack(alignment: .leading, spacing: 2) {
-                Text(mapping.key)
-                    .font(.system(size: 14, weight: .medium))
+                HStack(spacing: 4) {
+                    Text(mapping.key)
+                        .font(.system(size: 14, weight: .medium))
+                    
+                    if isBuiltInCore {
+                        Text("系统")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(Color.orange)
+                            )
+                    }
+                }
+                
                 Text("→ \(mapping.typeName)")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -1569,16 +1625,18 @@ struct TagMappingRow: View {
             Button(action: onEdit) {
                 Image(systemName: "pencil")
                     .font(.caption)
-                    .foregroundColor(.blue)
+                    .foregroundColor(isBuiltInCore ? .gray : .blue)
             }
             .buttonStyle(.plain)
+            .disabled(isBuiltInCore)
             
             Button(action: onDelete) {
                 Image(systemName: "trash")
                     .font(.caption)
-                    .foregroundColor(.red)
+                    .foregroundColor(isBuiltInCore ? .gray : .red)
             }
             .buttonStyle(.plain)
+            .disabled(isBuiltInCore)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 8)
