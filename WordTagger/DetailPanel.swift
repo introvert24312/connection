@@ -1150,12 +1150,20 @@ struct NodeGraphView: View {
                 }
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .focusable()
+            .onKeyPress(.init("l"), phases: .down) { keyPress in
+                if keyPress.modifiers == .command {
+                    showingFullscreenGraph = true
+                    print("🖥️ Command+L: 打开全屏图谱")
+                    return .handled
+                }
+                return .ignored
+            }
             .contextMenu {
                 Button("全屏显示 (⌘L)") {
                     showingFullscreenGraph = true
-                    print("🖥️ 全屏显示图谱")
+                    print("🖥️ 右键菜单: 全屏显示图谱")
                 }
-                .keyboardShortcut("l", modifiers: .command)
             }
             .sheet(isPresented: $showingFullscreenGraph) {
                 FullscreenGraphSheet(
@@ -1257,6 +1265,14 @@ struct FullscreenGraphSheet: View {
             // ESC键关闭全屏
             dismiss()
             return .handled
+        }
+        .onKeyPress(.init("l"), phases: .down) { keyPress in
+            if keyPress.modifiers == .command {
+                // Command+L也可以关闭全屏
+                dismiss()
+                return .handled
+            }
+            return .ignored
         }
     }
 }
