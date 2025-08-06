@@ -1162,6 +1162,7 @@ struct NodeGraphView: View {
         .focusable()
         .onKeyPress(.init("l"), phases: .down) { keyPress in
             if keyPress.modifiers == .command {
+                Swift.print("🎯 Command+L 检测到，开始处理...")
                 let windowManager = FullscreenGraphWindowManager.shared
                 
                 // 检查是否已经有全屏图谱窗口打开
@@ -1170,6 +1171,9 @@ struct NodeGraphView: View {
                     windowManager.hideFullscreenGraph()
                 } else {
                     Swift.print("📝 NodeGraphView: Command+L - 打开全屏图谱窗口")
+                    Swift.print("🎯 当前节点: \(currentNode.text)")
+                    Swift.print("🎯 图谱数据: \(graphData.nodes.count)个节点, \(graphData.edges.count)条边")
+                    
                     windowManager.showFullscreenGraph(node: currentNode, graphData: graphData)
                     
                     // 通过通知打开窗口
@@ -1177,6 +1181,8 @@ struct NodeGraphView: View {
                         name: NSNotification.Name("requestOpenFullscreenGraph"), 
                         object: nil
                     )
+                    
+                    Swift.print("🎯 通知已发送，等待窗口打开...")
                 }
                 
                 return .handled
@@ -1296,9 +1302,15 @@ struct FullscreenGraphView: View {
     @AppStorage("fullscreenGraphInitialScale") private var fullscreenGraphInitialScale: Double = 1.0
     
     var body: some View {
-        VStack(spacing: 0) {
+        let _ = Swift.print("🔎 FullscreenGraphView.body 开始渲染...")
+        let _ = Swift.print("🔎 windowManager.currentGraphNode: \(windowManager.currentGraphNode?.text ?? "nil")")
+        let _ = Swift.print("🔎 windowManager.currentGraphData: \(windowManager.currentGraphData?.nodes.count ?? -1)个节点")
+        
+        return VStack(spacing: 0) {
             if let node = windowManager.currentGraphNode,
                let graphData = windowManager.currentGraphData {
+                
+                let _ = Swift.print("✅ FullscreenGraphView: 有数据，开始渲染图谱")
                 
                 
                 // 顶部标题栏
@@ -1349,6 +1361,8 @@ struct FullscreenGraphView: View {
                 
             } else {
                 // 加载状态
+                let _ = Swift.print("❌ FullscreenGraphView: 无数据，显示加载界面")
+                let _ = Swift.print("❌ 详细状态: node=\(windowManager.currentGraphNode?.text ?? "nil"), data=\(windowManager.currentGraphData?.nodes.count ?? -1)")
                 
                 VStack(spacing: 20) {
                     ProgressView()
