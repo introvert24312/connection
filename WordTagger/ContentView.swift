@@ -33,6 +33,10 @@ struct ContentView: View {
             }
         }
         .animation(.easeInOut(duration: 0.3), value: showSidebar)
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("requestOpenFullscreenGraph"))) { _ in
+            Swift.print("📝 ContentView: 收到打开全屏图谱请求")
+            openWindow(id: "fullscreenGraph")
+        }
         .onKeyPress(.escape) {
             // 如果标签管理打开，按ESC键关闭它
             print("🔑 ContentView: ESC键事件接收，showSidebar=\(showSidebar)")

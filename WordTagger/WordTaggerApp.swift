@@ -444,7 +444,16 @@ struct QuickAddSheetView: View {
                         return .handled
                     }
                     .onKeyPress(.escape) {
-                        dismiss()
+                        // 清理状态后再关闭
+                        isInputFocused = false
+                        inputText = ""
+                        selectedSuggestionIndex = -1
+                        suggestions = []
+                        
+                        // 延迟关闭，确保状态清理完成
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                            dismiss()
+                        }
                         return .handled
                     }
                 
@@ -520,7 +529,15 @@ struct QuickAddSheetView: View {
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("取消") {
-                    dismiss()
+                    // 清理状态后再关闭
+                    isInputFocused = false
+                    inputText = ""
+                    selectedSuggestionIndex = -1
+                    suggestions = []
+                    
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        dismiss()
+                    }
                 }
             }
             ToolbarItem(placement: .confirmationAction) {
@@ -541,8 +558,8 @@ struct QuickAddSheetView: View {
         .onReceive(store.$duplicateNodeAlert) { alert in
             if alert != nil {
                 showingDuplicateAlert = true
-                // 延迟清除alert以避免立即触发下一次
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                // 稍微延长延迟，避免状态竞态
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                     store.duplicateNodeAlert = nil
                 }
             }
@@ -1386,6 +1403,14 @@ struct WordTaggerApp: App {
                 .frame(minWidth: 800, minHeight: 600)
         }
         .defaultSize(width: 1000, height: 700)
+        
+        // 全屏图谱窗口 - SwiftUI原生方式
+        WindowGroup("全屏图谱", id: "fullscreenGraph") {
+            FullscreenGraphView()
+                .environmentObject(store)
+                .frame(minWidth: 800, minHeight: 600)
+        }
+        .defaultSize(width: 1200, height: 800)
         
         // 设置窗口
         Settings {

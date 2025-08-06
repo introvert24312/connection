@@ -1132,148 +1132,235 @@ struct NodeGraphView: View {
         // 使用全局缓存获取图谱数据，避免重复计算
         let graphData = graphCache.getCachedGraphData(for: currentNode)
         
-        // 直接显示图谱内容，无标题栏
-        if graphData.nodes.count <= 1 {
-            EmptyGraphView()
-        } else {
-            UniversalRelationshipGraphView(
-                nodes: graphData.nodes,
-                edges: graphData.edges,
-                title: "节点详情图谱",
-                initialScale: detailGraphInitialScale,
-                onNodeSelected: { nodeId in
-                    // 当点击节点时，选择对应的节点（只有节点才会触发选择）
-                    if let selectedNode = graphData.nodes.first(where: { $0.id == nodeId }),
-                       let selectedTargetNode = selectedNode.node {
-                        store.selectNode(selectedTargetNode)
-                    }
-                }
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .focusable()
-            .onKeyPress(.init("l"), phases: .down) { keyPress in
-                if keyPress.modifiers == .command {
-                    showingFullscreenGraph = true
-                    print("🖥️ Command+L: 打开全屏图谱")
-                    return .handled
-                }
-                return .ignored
-            }
-            .contextMenu {
-                Button("全屏显示 (⌘L)") {
-                    showingFullscreenGraph = true
-                    print("🖥️ 右键菜单: 全屏显示图谱")
-                }
-            }
-            .sheet(isPresented: $showingFullscreenGraph) {
-                FullscreenGraphSheet(
-                    node: currentNode,
-                    graphData: graphData
-                )
-            }
-        }
-    }
-}
-
-// MARK: - 全屏图谱视图
-
-struct FullscreenGraphSheet: View {
-    let node: Node
-    let graphData: (nodes: [NodeGraphNode], edges: [NodeGraphEdge])
-    @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var store: NodeStore
-    @AppStorage("fullscreenGraphInitialScale") private var fullscreenGraphInitialScale: Double = 0.8
-    
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                // 工具栏
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("节点关系图谱")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                        
-                        Text("\(node.text) - \(graphData.nodes.count) 个节点, \(graphData.edges.count) 条连接")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    Spacer()
-                    
-                    // 缩放控制
-                    HStack {
-                        Button(action: {
-                            fullscreenGraphInitialScale = max(0.3, fullscreenGraphInitialScale - 0.1)
-                        }) {
-                            Image(systemName: "minus.magnifyingglass")
-                        }
-                        .disabled(fullscreenGraphInitialScale <= 0.3)
-                        
-                        Text(String(format: "%.0f%%", fullscreenGraphInitialScale * 100))
-                            .font(.caption)
-                            .frame(width: 40)
-                        
-                        Button(action: {
-                            fullscreenGraphInitialScale = min(2.0, fullscreenGraphInitialScale + 0.1)
-                        }) {
-                            Image(systemName: "plus.magnifyingglass")
-                        }
-                        .disabled(fullscreenGraphInitialScale >= 2.0)
-                    }
-                    .buttonStyle(.borderless)
-                    
-                    Button("适应窗口") {
-                        // 发送fit graph通知
-                        NotificationCenter.default.post(name: Notification.Name("fitGraph"), object: nil)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    
-                    Button("关闭") {
-                        dismiss()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-                }
-                .padding()
-                .background(Color(NSColor.controlBackgroundColor))
-                
-                Divider()
-                
-                // 图谱显示区域
+        VStack {
+            // 直接显示图谱内容，无标题栏
+            if graphData.nodes.count <= 1 {
+                EmptyGraphView()
+            } else {
                 UniversalRelationshipGraphView(
                     nodes: graphData.nodes,
                     edges: graphData.edges,
-                    title: "全屏节点关系图谱",
-                    initialScale: fullscreenGraphInitialScale,
+                    title: "节点详情图谱",
+                    initialScale: detailGraphInitialScale,
                     onNodeSelected: { nodeId in
-                        // 当点击节点时，选择对应的节点并关闭全屏
+                        // 当点击节点时，选择对应的节点（只有节点才会触发选择）
                         if let selectedNode = graphData.nodes.first(where: { $0.id == nodeId }),
                            let selectedTargetNode = selectedNode.node {
                             store.selectNode(selectedTargetNode)
-                            dismiss()
                         }
                     }
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contextMenu {
+                    Button("全屏显示 (⌘L) - 已禁用") {
+                        Swift.print("🖥️ 右键菜单: 全屏功能已禁用用于调试")
+                        // 禁用全屏功能来测试崩溃
+                    }
+                }
             }
-            .navigationBarBackButtonHidden(true)
         }
-        .frame(minWidth: 800, minHeight: 600)
-        .onKeyPress(.escape) {
-            // ESC键关闭全屏
-            dismiss()
-            return .handled
-        }
+        .focusable()
         .onKeyPress(.init("l"), phases: .down) { keyPress in
             if keyPress.modifiers == .command {
-                // Command+L也可以关闭全屏
-                dismiss()
+                Swift.print("📝 NodeGraphView: Command+L 被检测到 - 使用SwiftUI原生窗口")
+                
+                // 使用SwiftUI原生窗口管理
+                let windowManager = FullscreenGraphWindowManager.shared
+                windowManager.showFullscreenGraph(node: currentNode, graphData: graphData)
+                
+                // 通过通知打开窗口
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("requestOpenFullscreenGraph"), 
+                    object: nil
+                )
+                
                 return .handled
             }
             return .ignored
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("FullscreenGraphClosed"))) { _ in
+            print("📝 通知: 收到 FullscreenGraphClosed 通知")
+            showingFullscreenGraph = false
+            print("📝 通知: showingFullscreenGraph 设置为 false")
+        }
+    }
+}
+
+// MARK: - SwiftUI原生全屏图谱管理器
+class FullscreenGraphWindowManager: ObservableObject {
+    static let shared = FullscreenGraphWindowManager()
+    
+    @Published var showingFullscreenGraph = false
+    @Published var currentGraphNode: Node?
+    @Published var currentGraphData: (nodes: [NodeGraphNode], edges: [NodeGraphEdge])?
+    
+    private init() {
+        Swift.print("📝 SwiftUI FullscreenGraphWindowManager 初始化")
+    }
+    
+    func showFullscreenGraph(node: Node, graphData: (nodes: [NodeGraphNode], edges: [NodeGraphEdge])) {
+        Swift.print("🔍 显示SwiftUI全屏图谱")
+        currentGraphNode = node
+        currentGraphData = graphData
+        showingFullscreenGraph = true
+        
+        // 使用SwiftUI原生方式打开窗口
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: NSNotification.Name("openFullscreenGraph"), 
+                object: nil
+            )
+        }
+    }
+    
+    func hideFullscreenGraph() {
+        Swift.print("⚡️ 隐藏SwiftUI全屏图谱")
+        showingFullscreenGraph = false
+        currentGraphNode = nil
+        currentGraphData = nil
+        
+        NotificationCenter.default.post(name: NSNotification.Name("FullscreenGraphClosed"), object: nil)
+    }
+    
+    func isWindowActive() -> Bool {
+        return showingFullscreenGraph
+    }
+}
+
+// MARK: - SwiftUI全屏图谱视图
+struct FullscreenGraphView: View {
+    @EnvironmentObject private var store: NodeStore
+    @StateObject private var windowManager = FullscreenGraphWindowManager.shared
+    @Environment(\.dismissWindow) private var dismissWindow
+    @AppStorage("fullscreenGraphInitialScale") private var fullscreenGraphInitialScale: Double = 1.0
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            if let node = windowManager.currentGraphNode,
+               let graphData = windowManager.currentGraphData {
+                
+                // 顶部标题栏
+                VStack(spacing: 4) {
+                    HStack {
+                        Text("全屏图谱: \(node.text)")
+                            .font(.title)
+                            .fontWeight(.semibold)
+                        
+                        Spacer()
+                        
+                        Button(action: closeWindow) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.title2)
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help("关闭 (ESC 或 Command+L)")
+                    }
+                    
+                    Text("复合节点层级图谱 • 按 ESC 或 Command+L 关闭")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+                .padding(.bottom, 12)
+                .background(Color(.windowBackgroundColor).opacity(0.8))
+                
+                Divider()
+                
+                // 实际的图谱内容 - 完整的复合节点层级结构
+                UniversalRelationshipGraphView(
+                    nodes: graphData.nodes,
+                    edges: graphData.edges,
+                    title: "复合节点全屏图谱",
+                    initialScale: fullscreenGraphInitialScale,
+                    onNodeSelected: { nodeId in
+                        // 在全屏图谱中点击节点时，选择对应的节点
+                        if let selectedNode = graphData.nodes.first(where: { $0.id == nodeId }),
+                           let selectedTargetNode = selectedNode.node {
+                            store.selectNode(selectedTargetNode)
+                            Swift.print("🎯 全屏图谱: 选中节点 \(selectedTargetNode.text)")
+                        }
+                    }
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                
+            } else {
+                // 加载状态
+                VStack(spacing: 20) {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                    
+                    Text("正在加载复合节点图谱...")
+                        .font(.title2)
+                        .foregroundColor(.secondary)
+                    
+                    Text("复合节点将按层级从中心向外辐射显示")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(.windowBackgroundColor))
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.windowBackgroundColor))
+        .onKeyPress(.escape) {
+            closeWindow()
+            return .handled
+        }
+        .onKeyPress(.init("l"), phases: .down) { keyPress in
+            if keyPress.modifiers == .command {
+                closeWindow()
+                return .handled
+            }
+            return .ignored
+        }
+        .focusable()
+        .onAppear {
+            Swift.print("🖥️ 全屏图谱视图已显示")
+            
+            // 显示图谱结构信息
+            if let graphData = windowManager.currentGraphData {
+                Swift.print("📊 全屏图谱数据: \(graphData.nodes.count)个节点, \(graphData.edges.count)条边")
+                
+                // 打印层级结构信息
+                let centerNodes = graphData.nodes.filter { $0.isCenter }
+                let compoundNodes = graphData.nodes.filter { !$0.isCenter && $0.node?.isCompound == true }
+                let regularNodes = graphData.nodes.filter { !$0.isCenter && $0.node?.isCompound == false && $0.node != nil }
+                let tagNodes = graphData.nodes.filter { $0.tag != nil }
+                
+                Swift.print("🏗️ 复合节点结构:")
+                Swift.print("  - 中心节点: \(centerNodes.count)个")
+                Swift.print("  - 复合子节点: \(compoundNodes.count)个") 
+                Swift.print("  - 普通节点: \(regularNodes.count)个")
+                Swift.print("  - 标签节点: \(tagNodes.count)个")
+            }
+        }
+        .onDisappear {
+            Swift.print("🖥️ 全屏图谱视图已关闭")
+        }
+    }
+    
+    private func closeWindow() {
+        Swift.print("🚪 关闭全屏图谱窗口")
+        windowManager.hideFullscreenGraph()
+        dismissWindow(id: "fullscreenGraph")
+    }
+}
+
+// MARK: - 生命周期追踪器
+class ViewLifecycleTracker: ObservableObject {
+    let name: String
+    
+    init(name: String) {
+        self.name = name
+        Swift.print("📝 🟢 \(name) 创建")
+    }
+    
+    deinit {
+        Swift.print("📝 🔴 \(name) 销毁")
     }
 }
 
