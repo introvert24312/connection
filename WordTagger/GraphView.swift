@@ -7,6 +7,8 @@ struct GraphView: View {
     @State private var displayedNodes: [Node] = []
     @State private var cachedNodes: [NodeGraphNode] = []
     @State private var cachedEdges: [NodeGraphEdge] = []
+    @State private var showingNodeSelector = false
+    @State private var selectedNodeIds: Set<UUID> = []
     
     // 生成所有节点的图谱数据 - 统一计算节点和边
     private func calculateGraphData() -> (nodes: [NodeGraphNode], edges: [NodeGraphEdge]) {
@@ -16,7 +18,15 @@ struct GraphView: View {
         var edges: [NodeGraphEdge] = []
         var addedTagKeys: Set<String> = []
         
-        let nodesToShow = displayedNodes.isEmpty ? store.nodes : displayedNodes
+        // 根据选择的节点ID来确定要显示的节点
+        let nodesToShow: [Node]
+        if !selectedNodeIds.isEmpty {
+            nodesToShow = store.nodes.filter { selectedNodeIds.contains($0.id) }
+        } else if !displayedNodes.isEmpty {
+            nodesToShow = displayedNodes
+        } else {
+            nodesToShow = store.nodes
+        }
         
         // 首先添加所有节点
         for node in nodesToShow {
@@ -116,10 +126,26 @@ struct GraphView: View {
                 
                 Spacer()
                 
+                // 节点选择器按钮
+                Button(action: {
+                    showingNodeSelector = true
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle")
+                        Text("选择节点")
+                        if !selectedNodeIds.isEmpty {
+                            Text("(\(selectedNodeIds.count))")
+                                .foregroundColor(.blue)
+                        }
+                    }
+                }
+                .buttonStyle(.bordered)
+                .help("选择要显示的节点")
+                
                 // 搜索框
                 TextField("搜索节点或标签...", text: $searchQuery)
                     .textFieldStyle(.roundedBorder)
-                    .frame(width: 200)
+                    .frame(width: 180)
                     .onSubmit {
                         performSearch()
                     }
@@ -131,9 +157,10 @@ struct GraphView: View {
                 .disabled(searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 
                 // 重置按钮
-                if !displayedNodes.isEmpty {
+                if !displayedNodes.isEmpty || !selectedNodeIds.isEmpty {
                     Button("显示全部") {
                         displayedNodes = []
+                        selectedNodeIds = []
                         searchQuery = ""
                     }
                 }
@@ -163,13 +190,17 @@ struct GraphView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .sheet(isPresented: $showingNodeSelector) {
+            NodeSelectorView(selectedNodeIds: $selectedNodeIds)
+                .environmentObject(store)
+        }
         .onKeyPress(.init("k"), phases: .down) { _ in
             NotificationCenter.default.post(name: Notification.Name("fitGraph"), object: nil)
             return .handled
         }
         .onAppear {
             // 初始显示所有节点
-            if displayedNodes.isEmpty && !store.nodes.isEmpty {
+            if displayedNodes.isEmpty && selectedNodeIds.isEmpty && !store.nodes.isEmpty {
                 displayedNodes = Array(store.nodes.prefix(20)) // 限制初始显示数量
             }
             updateGraphData()
@@ -180,6 +211,9 @@ struct GraphView: View {
         .onChange(of: displayedNodes) {
             updateGraphData()
         }
+        .onChange(of: selectedNodeIds) {
+            updateGraphData()
+        }
     }
     
     private func performSearch() {
@@ -188,6 +222,9 @@ struct GraphView: View {
             displayedNodes = []
             return
         }
+        
+        // 清空节点选择，使用搜索模式
+        selectedNodeIds = []
         
         // 搜索匹配的节点
         let matchedNodes = store.nodes.filter { node in
@@ -235,6 +272,260 @@ struct EmptyGraphView: View {
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - 节点选择器视图
+
+struct NodeSelectorView: View {
+    @EnvironmentObject private var store: NodeStore
+    @Environment(\.dismiss) private var dismiss
+    @Binding var selectedNodeIds: Set<UUID>
+    @State private var tempSelectedIds: Set<UUID> = []
+    @State private var searchQuery: String = ""
+    
+    private var filteredNodes: [Node] {
+        if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return store.nodes.sorted { $0.text < $1.text }
+        }
+        
+        return store.nodes.filter { node in
+            node.text.localizedCaseInsensitiveContains(searchQuery) ||
+            node.meaning?.localizedCaseInsensitiveContains(searchQuery) == true
+        }.sorted { $0.text < $1.text }
+    }
+    
+    private var regularNodes: [Node] {
+        filteredNodes.filter { !$0.isCompound }
+    }
+    
+    private var compoundNodes: [Node] {
+        filteredNodes.filter { $0.isCompound }
+    }
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 0) {
+                // 搜索栏
+                HStack {
+                    TextField("搜索节点...", text: $searchQuery)
+                        .textFieldStyle(.roundedBorder)
+                    
+                    if !searchQuery.isEmpty {
+                        Button("清除") {
+                            searchQuery = ""
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding()
+                .background(Color(NSColor.controlBackgroundColor))
+                
+                Divider()
+                
+                // 快速选择按钮
+                HStack {
+                    Button("全选") {
+                        tempSelectedIds = Set(store.nodes.map { $0.id })
+                    }
+                    .buttonStyle(.bordered)
+                    
+                    Button("全不选") {
+                        tempSelectedIds.removeAll()
+                    }
+                    .buttonStyle(.bordered)
+                    
+                    Button("仅复合节点") {
+                        tempSelectedIds = Set(store.nodes.filter { $0.isCompound }.map { $0.id })
+                    }
+                    .buttonStyle(.bordered)
+                    
+                    Button("仅普通节点") {
+                        tempSelectedIds = Set(store.nodes.filter { !$0.isCompound }.map { $0.id })
+                    }
+                    .buttonStyle(.bordered)
+                    
+                    Spacer()
+                }
+                .padding()
+                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                
+                Divider()
+                
+                // 节点列表
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        // 复合节点部分
+                        if !compoundNodes.isEmpty {
+                            SectionHeaderView(title: "复合节点", count: compoundNodes.count)
+                            
+                            ForEach(compoundNodes, id: \.id) { node in
+                                NodeSelectorRow(
+                                    node: node,
+                                    isSelected: tempSelectedIds.contains(node.id),
+                                    isCompound: true
+                                ) {
+                                    toggleNode(node)
+                                }
+                            }
+                            
+                            Divider()
+                                .padding(.vertical, 8)
+                        }
+                        
+                        // 普通节点部分
+                        if !regularNodes.isEmpty {
+                            SectionHeaderView(title: "普通节点", count: regularNodes.count)
+                            
+                            ForEach(regularNodes, id: \.id) { node in
+                                NodeSelectorRow(
+                                    node: node,
+                                    isSelected: tempSelectedIds.contains(node.id),
+                                    isCompound: false
+                                ) {
+                                    toggleNode(node)
+                                }
+                            }
+                        }
+                        
+                        // 空状态
+                        if filteredNodes.isEmpty {
+                            VStack(spacing: 16) {
+                                Image(systemName: "magnifyingglass")
+                                    .font(.largeTitle)
+                                    .foregroundColor(.gray)
+                                
+                                Text("没有找到匹配的节点")
+                                    .font(.title3)
+                                    .foregroundColor(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 200)
+                        }
+                    }
+                    .padding()
+                }
+            }
+            .navigationTitle("选择要显示的节点")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") {
+                        dismiss()
+                    }
+                }
+                
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") {
+                        selectedNodeIds = tempSelectedIds
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .frame(width: 600, height: 500)
+        .onAppear {
+            tempSelectedIds = selectedNodeIds
+        }
+    }
+    
+    private func toggleNode(_ node: Node) {
+        if tempSelectedIds.contains(node.id) {
+            tempSelectedIds.remove(node.id)
+        } else {
+            tempSelectedIds.insert(node.id)
+        }
+    }
+}
+
+// MARK: - 节点选择器行视图
+
+struct NodeSelectorRow: View {
+    let node: Node
+    let isSelected: Bool
+    let isCompound: Bool
+    let onToggle: () -> Void
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // 复选框
+            Button(action: onToggle) {
+                Image(systemName: isSelected ? "checkmark.square.fill" : "square")
+                    .font(.title3)
+                    .foregroundColor(isSelected ? .blue : .secondary)
+            }
+            .buttonStyle(.plain)
+            
+            // 节点类型指示器
+            Circle()
+                .fill(isCompound ? Color.purple : Color.blue)
+                .frame(width: 8, height: 8)
+            
+            // 节点信息
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(node.text)
+                        .font(.body)
+                        .fontWeight(.medium)
+                    
+                    if isCompound {
+                        Text("复合")
+                            .font(.caption)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.purple.opacity(0.2))
+                            .foregroundColor(.purple)
+                            .cornerRadius(4)
+                    }
+                    
+                    Spacer()
+                    
+                    // 标签数量
+                    Text("\(node.tags.count)个标签")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                if let meaning = node.meaning {
+                    Text(meaning)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            
+            Spacer()
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isSelected ? Color.blue.opacity(0.1) : Color.clear)
+        )
+        .onTapGesture {
+            onToggle()
+        }
+    }
+}
+
+// MARK: - 分组标题视图
+
+struct SectionHeaderView: View {
+    let title: String
+    let count: Int
+    
+    var body: some View {
+        HStack {
+            Text(title)
+                .font(.headline)
+                .fontWeight(.semibold)
+            
+            Text("(\(count))")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            
+            Spacer()
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 4)
     }
 }
 
