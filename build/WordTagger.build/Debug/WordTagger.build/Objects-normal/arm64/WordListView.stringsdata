@@ -1,0 +1,120 @@
+{
+  "source": "/Users/Patronum/Desktop/WordTagger/WordTagger/WordListView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "节点",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 210
+        }
+      },
+      {
+        "comment": "",
+        "key": "搜索节点、音标、含义...",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 37
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld 个节点",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 129
+        }
+      },
+      {
+        "comment": "",
+        "key": "全部标签",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 84
+        }
+      },
+      {
+        "comment": "",
+        "key": "排序: %@",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 116
+        }
+      },
+      {
+        "comment": "",
+        "key": "搜索中...",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 143
+        }
+      },
+      {
+        "comment": "",
+        "key": "已编辑",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 482
+        }
+      },
+      {
+        "comment": "",
+        "key": "标签 (%lld)",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 589
+        }
+      },
+      {
+        "comment": "",
+        "key": "← 滑动查看更多",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 594
+        }
+      },
+      {
+        "comment": "",
+        "key": "标签: %@ (%@)",
+        "location": {
+          "startingColumn": 15,
+          "startingLine": 686
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加你的第一个节点",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 708
+        }
+      },
+      {
+        "comment": "",
+        "key": "尝试使用不同的关键词搜索",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 712
+        }
+      },
+      {
+        "comment": "",
+        "key": "暂无节点",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 703
+        }
+      },
+      {
+        "comment": "",
+        "key": "未找到匹配的节点",
+        "location": {
+          "startingColumn": 63,
+          "startingLine": 703
+        }
+      }
+    ]
+  },
+  "version": 1
+}

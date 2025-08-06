@@ -1,0 +1,920 @@
+{
+  "source": "/Users/Patronum/Desktop/WordTagger/WordTagger/SettingsView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "常规",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 18
+        }
+      },
+      {
+        "comment": "",
+        "key": "搜索",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 27
+        }
+      },
+      {
+        "comment": "",
+        "key": "层管理",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 33
+        }
+      },
+      {
+        "comment": "",
+        "key": "数据",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 40
+        }
+      },
+      {
+        "comment": "",
+        "key": "关于",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 46
+        }
+      },
+      {
+        "comment": "",
+        "key": "界面设置",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 67
+        }
+      },
+      {
+        "comment": "",
+        "key": "性能设置",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 113
+        }
+      },
+      {
+        "comment": "",
+        "key": "开发选项",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 135
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 73
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@x",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 84
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@x",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 100
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld秒",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 120
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 41,
+          "startingLine": 124
+        }
+      },
+      {
+        "comment": "",
+        "key": "⚠️ 启用后会在图谱中显示详细的节点和边数据，用于调试数据传递问题",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 156
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 141
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 151
+        }
+      },
+      {
+        "comment": "",
+        "key": "搜索范围",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 186
+        }
+      },
+      {
+        "comment": "",
+        "key": "搜索算法",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 220
+        }
+      },
+      {
+        "comment": "",
+        "key": "结果设置",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 254
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 192
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 202
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 212
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 226
+        }
+      },
+      {
+        "comment": "",
+        "key": "较低的值需要更精确的匹配",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 244
+        }
+      },
+      {
+        "comment": "",
+        "key": "匹配阈值",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 235
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 261
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 41,
+          "startingLine": 265
+        }
+      },
+      {
+        "comment": "",
+        "key": "删除层",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 464
+        }
+      },
+      {
+        "comment": "",
+        "key": "当前活跃层:",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 299
+        }
+      },
+      {
+        "comment": "",
+        "key": "未选择",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 323
+        }
+      },
+      {
+        "comment": "",
+        "key": "(%@)",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 314
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 339
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 343
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 349
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 353
+        }
+      },
+      {
+        "comment": "",
+        "key": "层管理",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 372
+        }
+      },
+      {
+        "comment": "",
+        "key": "创建新层",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 383
+        }
+      },
+      {
+        "comment": "",
+        "key": "暂无层级",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 400
+        }
+      },
+      {
+        "comment": "",
+        "key": "创建第一个层来开始组织您的节点和数据",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 405
+        }
+      },
+      {
+        "comment": "",
+        "key": "创建第一个层",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 416
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 465
+        }
+      },
+      {
+        "comment": "",
+        "key": "删除",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 468
+        }
+      },
+      {
+        "comment": "",
+        "key": "确定要删除层 \"%@\" 吗？\n这将同时删除该层中的 %lld 个节点，此操作无法撤销。",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 478
+        }
+      },
+      {
+        "comment": "",
+        "key": "活跃",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 515
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 538
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 542
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 548
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 552
+        }
+      },
+      {
+        "comment": "",
+        "key": "删除层",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 583
+        }
+      },
+      {
+        "comment": "",
+        "key": "激活",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 565
+        }
+      },
+      {
+        "comment": "",
+        "key": "创建新层",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 689
+        }
+      },
+      {
+        "comment": "",
+        "key": "层信息",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 630
+        }
+      },
+      {
+        "comment": "",
+        "key": "层颜色",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 652
+        }
+      },
+      {
+        "comment": "",
+        "key": "预览",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 674
+        }
+      },
+      {
+        "comment": "",
+        "key": "层名称（英文）",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 633
+        }
+      },
+      {
+        "comment": "",
+        "key": "例如: work, study, hobby",
+        "location": {
+          "startingColumn": 43,
+          "startingLine": 636
+        }
+      },
+      {
+        "comment": "",
+        "key": "显示名称（中文）",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 641
+        }
+      },
+      {
+        "comment": "",
+        "key": "例如: 工作, 学习, 爱好",
+        "location": {
+          "startingColumn": 43,
+          "startingLine": 644
+        }
+      },
+      {
+        "comment": "",
+        "key": "选择用于标识此层的颜色",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 654
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 692
+        }
+      },
+      {
+        "comment": "",
+        "key": "创建",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 698
+        }
+      },
+      {
+        "comment": "",
+        "key": "确认清除数据",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 902
+        }
+      },
+      {
+        "comment": "",
+        "key": "成功",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 910
+        }
+      },
+      {
+        "comment": "",
+        "key": "错误",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 910
+        }
+      },
+      {
+        "comment": "",
+        "key": "数据统计",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 791
+        }
+      },
+      {
+        "comment": "",
+        "key": "危险操作",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 855
+        }
+      },
+      {
+        "comment": "",
+        "key": "数据概览",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 794
+        }
+      },
+      {
+        "comment": "",
+        "key": "层数量",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 804
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 806
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点总数",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 811
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 813
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点总数",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 818
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 820
+        }
+      },
+      {
+        "comment": "",
+        "key": "标签总数",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 825
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 827
+        }
+      },
+      {
+        "comment": "",
+        "key": "地点标签",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 832
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 834
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@标签",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 843
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld 个节点",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 845
+        }
+      },
+      {
+        "comment": "",
+        "key": "此操作将删除所有节点和标签数据，且无法撤销",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 865
+        }
+      },
+      {
+        "comment": "",
+        "key": "⚠️ 同时会清除外部存储文件中的所有数据",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 870
+        }
+      },
+      {
+        "comment": "",
+        "key": "数据重置",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 860
+        }
+      },
+      {
+        "comment": "",
+        "key": "清除所有数据",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 877
+        }
+      },
+      {
+        "comment": "",
+        "key": "强制刷新界面",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 885
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 903
+        }
+      },
+      {
+        "comment": "",
+        "key": "清除",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 904
+        }
+      },
+      {
+        "comment": "",
+        "key": "此操作将删除所有节点和标签数据，且无法撤销。",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 908
+        }
+      },
+      {
+        "comment": "",
+        "key": "确定",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 911
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点标签管理器",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 1001
+        }
+      },
+      {
+        "comment": "",
+        "key": "版本 1.0.0",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 1005
+        }
+      },
+      {
+        "comment": "",
+        "key": "功能特点:",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 1011
+        }
+      },
+      {
+        "comment": "",
+        "key": "基于 SwiftUI 构建",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 1026
+        }
+      },
+      {
+        "comment": "",
+        "key": "© 2024 WordTagger. All rights reserved.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 1030
+        }
+      },
+      {
+        "comment": "",
+        "key": "外部数据存储",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1062
+        }
+      },
+      {
+        "comment": "",
+        "key": "存储位置:",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1068
+        }
+      },
+      {
+        "comment": "",
+        "key": "加载数据...",
+        "location": {
+          "startingColumn": 48,
+          "startingLine": 1086
+        }
+      },
+      {
+        "comment": "",
+        "key": "同步中...",
+        "location": {
+          "startingColumn": 92,
+          "startingLine": 1086
+        }
+      },
+      {
+        "comment": "",
+        "key": "已同步",
+        "location": {
+          "startingColumn": 109,
+          "startingLine": 1086
+        }
+      },
+      {
+        "comment": "",
+        "key": "未设置外部数据存储位置",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1100
+        }
+      },
+      {
+        "comment": "",
+        "key": "📁 选择文件夹来启用外部数据存储",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1104
+        }
+      },
+      {
+        "comment": "",
+        "key": "更改位置",
+        "location": {
+          "startingColumn": 61,
+          "startingLine": 1129
+        }
+      },
+      {
+        "comment": "",
+        "key": "设置存储",
+        "location": {
+          "startingColumn": 78,
+          "startingLine": 1129
+        }
+      },
+      {
+        "comment": "",
+        "key": "清除",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 1151
+        }
+      },
+      {
+        "comment": "",
+        "key": "重试",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 1159
+        }
+      },
+      {
+        "comment": "",
+        "key": "设置数据存储位置",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 1207
+        }
+      },
+      {
+        "comment": "",
+        "key": "选择一个文件夹来存储WordTagger的数据",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 1211
+        }
+      },
+      {
+        "comment": "",
+        "key": "当前数据路径:",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1220
+        }
+      },
+      {
+        "comment": "",
+        "key": "• 上次同步: %@",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1269
+        }
+      },
+      {
+        "comment": "",
+        "key": "同步中...",
+        "location": {
+          "startingColumn": 49,
+          "startingLine": 1264
+        }
+      },
+      {
+        "comment": "",
+        "key": "已同步",
+        "location": {
+          "startingColumn": 66,
+          "startingLine": 1264
+        }
+      },
+      {
+        "comment": "",
+        "key": "更改数据文件夹",
+        "location": {
+          "startingColumn": 63,
+          "startingLine": 1286
+        }
+      },
+      {
+        "comment": "",
+        "key": "选择数据文件夹",
+        "location": {
+          "startingColumn": 89,
+          "startingLine": 1286
+        }
+      },
+      {
+        "comment": "",
+        "key": "完成设置",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 1302
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1316
+        }
+      }
+    ]
+  },
+  "version": 1
+}

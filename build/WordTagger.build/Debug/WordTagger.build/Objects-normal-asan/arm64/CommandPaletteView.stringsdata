@@ -1,0 +1,32 @@
+{
+  "source": "/Users/Patronum/Desktop/WordTagger/WordTagger/CommandPaletteView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 88
+        }
+      },
+      {
+        "comment": "",
+        "key": "输入层名称 (⌘+R创建新层)...",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 20
+        }
+      },
+      {
+        "comment": "",
+        "key": "未找到匹配的命令",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 60
+        }
+      }
+    ]
+  },
+  "version": 1
+}

@@ -30,7 +30,8 @@
       "Bash(gtimeout:*)",
       "WebFetch(domain:docs.anthropic.com)",
       "Bash(git restore:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(NSZombieEnabled=YES NSHangDetectionEnabled=YES build/Debug/WordTagger.app/Contents/MacOS/WordTagger)"
     ],
     "deny": []
   }

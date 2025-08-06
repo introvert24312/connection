@@ -1,0 +1,528 @@
+{
+  "source": "/Users/Patronum/Desktop/WordTagger/WordTagger/WordTaggerApp.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "快速添加节点",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 528
+        }
+      },
+      {
+        "comment": "",
+        "key": "重复检测",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 551
+        }
+      },
+      {
+        "comment": "",
+        "key": "输入: 节点 root 词根内容 memory 记忆内容...",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 423
+        }
+      },
+      {
+        "comment": "",
+        "key": "选择地点位置 (⌘P)",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 465
+        }
+      },
+      {
+        "comment": "",
+        "key": "输入标签快捷键获得建议",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 498
+        }
+      },
+      {
+        "comment": "",
+        "key": "💡 使用方法:",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 507
+        }
+      },
+      {
+        "comment": "",
+        "key": "输入格式: 节点 快捷键 内容",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 510
+        }
+      },
+      {
+        "comment": "",
+        "key": "例如: apple root 苹果 memory 红苹果",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 513
+        }
+      },
+      {
+        "comment": "",
+        "key": "快捷键: ↑↓选择建议 • Tab选择 • ⌘+R提交 • Esc关闭",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 517
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 531
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 544
+        }
+      },
+      {
+        "comment": "",
+        "key": "确定",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 552
+        }
+      },
+      {
+        "comment": "",
+        "key": "标签快捷键",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 860
+        }
+      },
+      {
+        "comment": "",
+        "key": "重复检测",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 952
+        }
+      },
+      {
+        "comment": "",
+        "key": "输入: 节点 root 词根内容 memory 记忆内容...",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 915
+        }
+      },
+      {
+        "comment": "",
+        "key": "选择地点位置 (⌘P)",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 925
+        }
+      },
+      {
+        "comment": "",
+        "key": "💡 格式: 节点 标签1 内容1 标签2 内容2...",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 945
+        }
+      },
+      {
+        "comment": "",
+        "key": "⌘+I",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 947
+        }
+      },
+      {
+        "comment": "",
+        "key": "确定",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 953
+        }
+      },
+      {
+        "comment": "",
+        "key": "搜索节点、含义或标签...",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 1148
+        }
+      },
+      {
+        "comment": "",
+        "key": "+%lld",
+        "location": {
+          "startingColumn": 75,
+          "startingLine": 1169
+        }
+      },
+      {
+        "comment": "",
+        "key": "💡 输入关键词搜索节点",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1185
+        }
+      },
+      {
+        "comment": "",
+        "key": "⌘+F",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1187
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点标签管理器",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 1268
+        }
+      },
+      {
+        "comment": "",
+        "key": "地图视图",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 1384
+        }
+      },
+      {
+        "comment": "",
+        "key": "全局图谱",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 1392
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点管理",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 1400
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点标签",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 1323
+        }
+      },
+      {
+        "comment": "",
+        "key": "命令面板",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1324
+        }
+      },
+      {
+        "comment": "",
+        "key": "快速添加节点",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1331
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加复合节点",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1336
+        }
+      },
+      {
+        "comment": "",
+        "key": "快速搜索",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1341
+        }
+      },
+      {
+        "comment": "",
+        "key": "切换侧边栏",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1346
+        }
+      },
+      {
+        "comment": "",
+        "key": "标签管理",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1351
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点管理",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1356
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加节点",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1363
+        }
+      },
+      {
+        "comment": "",
+        "key": "打开地图",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1371
+        }
+      },
+      {
+        "comment": "",
+        "key": "打开图谱",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1376
+        }
+      },
+      {
+        "comment": "",
+        "key": "标签管理",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1438
+        }
+      },
+      {
+        "comment": "",
+        "key": "编辑标签",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 1486
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加新标签",
+        "location": {
+          "startingColumn": 67,
+          "startingLine": 1486
+        }
+      },
+      {
+        "comment": "",
+        "key": "快捷键",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 1493
+        }
+      },
+      {
+        "comment": "",
+        "key": "例如: root",
+        "location": {
+          "startingColumn": 43,
+          "startingLine": 1496
+        }
+      },
+      {
+        "comment": "",
+        "key": "类型名称",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 1501
+        }
+      },
+      {
+        "comment": "",
+        "key": "例如: 词根",
+        "location": {
+          "startingColumn": 43,
+          "startingLine": 1504
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 1512
+        }
+      },
+      {
+        "comment": "",
+        "key": "保存",
+        "location": {
+          "startingColumn": 56,
+          "startingLine": 1518
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加",
+        "location": {
+          "startingColumn": 67,
+          "startingLine": 1518
+        }
+      },
+      {
+        "comment": "",
+        "key": "💡 使用方法:",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1531
+        }
+      },
+      {
+        "comment": "",
+        "key": "输入格式: 节点 快捷键 内容",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1534
+        }
+      },
+      {
+        "comment": "",
+        "key": "例如: apple root 苹果 memory 红苹果",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1537
+        }
+      },
+      {
+        "comment": "",
+        "key": "→ %@",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 1626
+        }
+      },
+      {
+        "comment": "",
+        "key": "系统",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1614
+        }
+      },
+      {
+        "comment": "",
+        "key": "错误",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 1735
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加复合节点",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1719
+        }
+      },
+      {
+        "comment": "",
+        "key": "例如：颜色 红色 蓝色 绿色",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 1703
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加复合节点",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1678
+        }
+      },
+      {
+        "comment": "",
+        "key": "输入格式：复合节点名 节点1 节点2 节点3...",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1682
+        }
+      },
+      {
+        "comment": "",
+        "key": "创建1级复合节点：动物 狗 猫 鸟",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1686
+        }
+      },
+      {
+        "comment": "",
+        "key": "创建2级复合节点：生物 动物 植物",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1690
+        }
+      },
+      {
+        "comment": "",
+        "key": "删除子节点：动物 -狗 -猫",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1694
+        }
+      },
+      {
+        "comment": "",
+        "key": "💡 复合节点可以无限嵌套，颜色会自动区分层级",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1698
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 1722
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 1727
+        }
+      },
+      {
+        "comment": "",
+        "key": "确定",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 1736
+        }
+      }
+    ]
+  },
+  "version": 1
+}

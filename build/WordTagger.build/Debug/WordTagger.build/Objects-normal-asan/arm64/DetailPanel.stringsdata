@@ -1,0 +1,192 @@
+{
+  "source": "/Users/Patronum/Desktop/WordTagger/WordTagger/DetailPanel.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "视图",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 27
+        }
+      },
+      {
+        "comment": "",
+        "key": "编辑节点",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 41
+        }
+      },
+      {
+        "comment": "",
+        "key": "标签",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 114
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld 个标签",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 119
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 253
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@, %@",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 309
+        }
+      },
+      {
+        "comment": "",
+        "key": "暂无标签",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 338
+        }
+      },
+      {
+        "comment": "",
+        "key": "为这个节点添加标签来更好地组织和记忆",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 342
+        }
+      },
+      {
+        "comment": "",
+        "key": "该节点暂无地点标签",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 467
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加地点标签来在地图上显示相关位置",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 470
+        }
+      },
+      {
+        "comment": "",
+        "key": "该节点有地点标签但缺少坐标信息",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 475
+        }
+      },
+      {
+        "comment": "",
+        "key": "现有地点标签: %@",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 478
+        }
+      },
+      {
+        "comment": "",
+        "key": "打开节点编辑",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 515
+        }
+      },
+      {
+        "comment": "",
+        "key": "请使用以下格式添加坐标信息：",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 484
+        }
+      },
+      {
+        "comment": "",
+        "key": "点击上方命令可复制到剪贴板",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 510
+        }
+      },
+      {
+        "comment": "",
+        "key": "全屏显示 (⌘L)",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 1155
+        }
+      },
+      {
+        "comment": "",
+        "key": "编辑节点",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1512
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点信息",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 1505
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 1506
+        }
+      },
+      {
+        "comment": "",
+        "key": "音标（可选）",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 1507
+        }
+      },
+      {
+        "comment": "",
+        "key": "含义（可选）",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 1508
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 1515
+        }
+      },
+      {
+        "comment": "",
+        "key": "保存",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 1519
+        }
+      }
+    ]
+  },
+  "version": 1
+}

@@ -1,0 +1,24 @@
+{
+  "source": "/Users/Patronum/Desktop/WordTagger/WordTagger/UniversalRelationshipGraphView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "暂无数据",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 209
+        }
+      },
+      {
+        "comment": "",
+        "key": "调试: %@",
+        "location": {
+          "startingColumn": 14,
+          "startingLine": 216
+        }
+      }
+    ]
+  },
+  "version": 1
+}
