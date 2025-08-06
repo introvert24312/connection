@@ -1272,7 +1272,19 @@ class FullscreenGraphWindowManager: ObservableObject {
     }
     
     func isWindowActive() -> Bool {
-        return showingFullscreenGraph
+        // 检查实际窗口是否存在
+        let hasActiveWindow = NSApp.windows.contains { window in
+            window.title == "全屏图谱" && window.isVisible
+        }
+        
+        // 如果窗口不存在但状态为true，修正状态
+        if showingFullscreenGraph && !hasActiveWindow {
+            Swift.print("🔧 修正状态：窗口已关闭但状态未更新")
+            showingFullscreenGraph = false
+        }
+        
+        Swift.print("🔍 窗口状态检查: showingFullscreenGraph=\(showingFullscreenGraph), hasActiveWindow=\(hasActiveWindow)")
+        return hasActiveWindow
     }
 }
 
@@ -1403,6 +1415,10 @@ struct FullscreenGraphView: View {
         }
         .onDisappear {
             Swift.print("🖥️ 全屏图谱视图已关闭")
+            // 确保状态被正确重置
+            windowManager.showingFullscreenGraph = false
+            windowManager.currentGraphNode = nil
+            windowManager.currentGraphData = nil
         }
     }
     
