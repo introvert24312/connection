@@ -826,13 +826,15 @@ class NodeGraphDataCache: ObservableObject {
             }
         }
         
-        // 添加当前节点的所有标签作为节点（去重），但跳过子节点引用标签
+        // 添加当前节点的所有标签作为节点（去重），但跳过子节点引用标签和复合节点标签
         for tag in node.tags {
             let tagKey = "\(tag.type.rawValue):\(tag.value)"
             
-            // 跳过子节点引用标签，因为我们已经添加了实际的子节点
-            if case .custom(let key) = tag.type, key == "child" {
-                continue
+            // 跳过子节点引用标签和复合节点标签，因为我们已经添加了实际的子节点
+            if case .custom(let key) = tag.type {
+                if key == "child" || key == "compound" {
+                    continue
+                }
             }
             
             if !addedTagKeys.contains(tagKey) {
