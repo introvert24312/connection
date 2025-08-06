@@ -1210,7 +1210,37 @@ class FullscreenGraphWindowManager: ObservableObject {
                 name: NSNotification.Name("openFullscreenGraph"), 
                 object: nil
             )
+            
+            // 延迟确保窗口激活
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                self.activateFullscreenWindow()
+            }
         }
+    }
+    
+    func activateFullscreenWindow() {
+        // 查找全屏图谱窗口并激活
+        for window in NSApp.windows {
+            if window.title == "全屏图谱" {
+                Swift.print("🎯 找到全屏图谱窗口，激活中...")
+                window.makeKeyAndOrderFront(nil)
+                NSApp.activate(ignoringOtherApps: true)
+                return
+            }
+        }
+        
+        // 如果通过标题未找到，尝试通过内容查找
+        for window in NSApp.windows {
+            if let contentView = window.contentView,
+               String(describing: type(of: contentView)).contains("FullscreenGraphView") {
+                Swift.print("🎯 通过内容找到全屏图谱窗口，激活中...")
+                window.makeKeyAndOrderFront(nil)
+                NSApp.activate(ignoringOtherApps: true)
+                return
+            }
+        }
+        
+        Swift.print("⚠️ 未找到全屏图谱窗口")
     }
     
     func hideFullscreenGraph() {
@@ -1336,6 +1366,11 @@ struct FullscreenGraphView: View {
                 Swift.print("  - 复合子节点: \(compoundNodes.count)个") 
                 Swift.print("  - 普通节点: \(regularNodes.count)个")
                 Swift.print("  - 标签节点: \(tagNodes.count)个")
+            }
+            
+            // 确保窗口获得键盘焦点（通过WindowManager统一处理）
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                FullscreenGraphWindowManager.shared.activateFullscreenWindow()
             }
         }
         .onDisappear {

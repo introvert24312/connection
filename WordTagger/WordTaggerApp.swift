@@ -1411,6 +1411,8 @@ struct WordTaggerApp: App {
                 .frame(minWidth: 800, minHeight: 600)
         }
         .defaultSize(width: 1200, height: 800)
+        .windowToolbarStyle(.unified)
+        .keyboardShortcut("l", modifiers: .command)
         
         // 设置窗口
         Settings {

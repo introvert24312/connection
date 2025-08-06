@@ -37,6 +37,18 @@ struct ContentView: View {
             Swift.print("📝 ContentView: 收到打开全屏图谱请求")
             openWindow(id: "fullscreenGraph")
         }
+        .onKeyPress(.init("l"), phases: .down) { keyPress in
+            if keyPress.modifiers == .command {
+                // 检查是否有全屏图谱窗口打开
+                let windowManager = FullscreenGraphWindowManager.shared
+                if windowManager.isWindowActive() {
+                    Swift.print("📝 ContentView: Command+L - 关闭全屏图谱窗口")
+                    windowManager.hideFullscreenGraph()
+                    return .handled
+                }
+            }
+            return .ignored
+        }
         .onKeyPress(.escape) {
             // 如果标签管理打开，按ESC键关闭它
             print("🔑 ContentView: ESC键事件接收，showSidebar=\(showSidebar)")
