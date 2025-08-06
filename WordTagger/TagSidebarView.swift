@@ -192,6 +192,14 @@ struct TagSidebarView: View {
             tags = tags.filter { $0.type == selectedType }
         }
         
+        // 过滤掉内部管理标签
+        tags = tags.filter { tag in
+            if case .custom(let key) = tag.type {
+                return !(key == "compound" || key == "child")
+            }
+            return true
+        }
+        
         // 按本地搜索文本过滤
         if !filter.isEmpty {
             tags = tags.filter { $0.value.localizedCaseInsensitiveContains(filter) }

@@ -777,8 +777,16 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
             case .node:
                 if wordNode.isCenter {
                     return "#FFD700" // 金色表示中心节点
-                } else if wordNode.node?.isCompound == true {
-                    return "#8B4A9C" // 深紫色表示复合节点
+                } else if let actualNode = wordNode.node, actualNode.isCompound {
+                    // 根据复合节点的嵌套深度返回不同颜色
+                    let depth = actualNode.getCompoundDepth(allNodes: NodeStore.shared.nodes)
+                    switch depth {
+                    case 1: return "#8B4A9C" // 1级复合节点 - 深紫色
+                    case 2: return "#FF8C00" // 2级复合节点 - 橙色
+                    case 3: return "#32CD32" // 3级复合节点 - 绿色  
+                    case 4: return "#DC143C" // 4级复合节点 - 深红色
+                    default: return "#4B0082" // 5级及以上 - 靛蓝色
+                    }
                 } else {
                     return "#4A90E2" // 蓝色表示普通节点
                 }

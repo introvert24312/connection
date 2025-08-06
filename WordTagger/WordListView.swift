@@ -418,6 +418,8 @@ struct NodeRowView: View {
     let searchQuery: String
     let onTap: () -> Void
     
+    @EnvironmentObject private var store: NodeStore
+    
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 8) {
@@ -457,9 +459,15 @@ struct NodeRowView: View {
                     .foregroundColor(.secondary)
                 }
                 
-                // 标签
-                if !node.tags.isEmpty {
-                    TagChipsView(tags: node.tags, searchQuery: searchQuery)
+                // 标签 - 过滤掉内部使用的复合节点和子节点引用标签
+                let displayTags = node.tags.filter { tag in
+                    if case .custom(let key) = tag.type {
+                        return !(key == "compound" || key == "child")
+                    }
+                    return true
+                }
+                if !displayTags.isEmpty {
+                    TagChipsView(tags: displayTags, searchQuery: searchQuery)
                 }
                 
                 // 元数据
@@ -496,7 +504,8 @@ struct NodeRowView: View {
     
     private func backgroundColorForNode(isSelected: Bool) -> Color {
         if node.isCompound {
-            return isSelected ? Color.purple.opacity(0.25) : Color.purple.opacity(0.08)
+            let compoundColor = getCompoundColor()
+            return isSelected ? compoundColor.opacity(0.25) : compoundColor.opacity(0.08)
         } else {
             return isSelected ? Color.blue.opacity(0.15) : Color.clear
         }
@@ -504,9 +513,27 @@ struct NodeRowView: View {
     
     private func borderColorForNode(isSelected: Bool) -> Color {
         if node.isCompound {
-            return isSelected ? Color.purple.opacity(0.6) : Color.purple.opacity(0.3)
+            let compoundColor = getCompoundColor()
+            return isSelected ? compoundColor.opacity(0.6) : compoundColor.opacity(0.3)
         } else {
             return isSelected ? Color.blue.opacity(0.3) : Color.clear
+        }
+    }
+    
+    private func getCompoundColor() -> Color {
+        // 根据复合节点的嵌套深度返回不同颜色
+        let depth = node.getCompoundDepth(allNodes: store.nodes)
+        switch depth {
+        case 1:
+            return Color.purple      // 1级复合节点 - 紫色
+        case 2:
+            return Color.orange      // 2级复合节点 - 橙色  
+        case 3:
+            return Color.green       // 3级复合节点 - 绿色
+        case 4:
+            return Color.red         // 4级复合节点 - 红色
+        default:
+            return Color.indigo      // 5级及以上 - 靛蓝色
         }
     }
 }

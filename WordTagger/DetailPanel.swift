@@ -121,10 +121,18 @@ struct NodeDetailView: View {
                             .foregroundColor(.secondary)
                     }
                     
-                    if currentNode.tags.isEmpty {
+                    let displayTags = currentNode.tags.filter { tag in
+                        // 过滤掉复合节点和子节点引用标签，因为它们是内部使用的
+                        if case .custom(let key) = tag.type {
+                            return !(key == "compound" || key == "child")
+                        }
+                        return true
+                    }
+                    
+                    if displayTags.isEmpty {
                         EmptyTagsView()
                     } else {
-                        TagsByTypeView(tags: currentNode.tags)
+                        TagsByTypeView(tags: displayTags)
                     }
                 }
                 
@@ -397,22 +405,50 @@ struct NodeMapView: View {
     }
     
     private var locationTags: [Tag] {
-        let allTags = currentNode.tags
-        let locationTypeTags = allTags.filter { isLocationTag($0) }
-        let locationWithCoords = currentNode.locationTags
+        var allLocationTags: [Tag] = []
+        
+        // 添加当前节点的地图标签
+        let currentNodeLocationTags = currentNode.locationTags
+        allLocationTags.append(contentsOf: currentNodeLocationTags)
         
         print("🔍 DetailPanel调试:")
         print("🔍 节点: \(currentNode.text)")
-        print("🔍 所有标签数量: \(allTags.count)")
-        print("🔍 location类型标签数量: \(locationTypeTags.count)")
-        print("🔍 有坐标的location标签数量: \(locationWithCoords.count)")
+        print("🔍 是否复合节点: \(currentNode.isCompound)")
+        print("🔍 当前节点地图标签数量: \(currentNodeLocationTags.count)")
         
-        for tag in locationTypeTags {
-            print("🔍 location标签: \(tag.value), 类型: \(tag.type.rawValue), 有坐标: \(tag.hasCoordinates)")
-            print("🔍   纬度: \(tag.latitude?.description ?? "nil"), 经度: \(tag.longitude?.description ?? "nil")")
+        // 如果是复合节点，收集所有子节点的地图标签
+        if currentNode.isCompound {
+            // 获取子节点引用标签
+            let childReferenceTags = currentNode.tags.filter { 
+                if case .custom(let key) = $0.type {
+                    return key == "child"
+                }
+                return false
+            }
+            
+            print("🔍 复合节点子节点引用: \(childReferenceTags.count)个")
+            
+            for childRefTag in childReferenceTags {
+                let childNodeName = childRefTag.value
+                print("🔍 查找子节点: \(childNodeName)")
+                
+                // 从store中查找实际的子节点
+                if let childNode = store.nodes.first(where: { $0.text.lowercased() == childNodeName.lowercased() }) {
+                    let childLocationTags = childNode.locationTags
+                    allLocationTags.append(contentsOf: childLocationTags)
+                    
+                    print("🔍 子节点 '\(childNode.text)' 地图标签数量: \(childLocationTags.count)")
+                    for tag in childLocationTags {
+                        print("🔍   地图标签: \(tag.value), 坐标: \(tag.latitude ?? 0),\(tag.longitude ?? 0)")
+                    }
+                } else {
+                    print("⚠️ 子节点 '\(childNodeName)' 未找到")
+                }
+            }
         }
         
-        return locationWithCoords
+        print("🔍 总地图标签数量: \(allLocationTags.count)")
+        return allLocationTags
     }
     
     var body: some View {
@@ -506,16 +542,45 @@ struct NodeMapView: View {
                 }
                 .mapStyle(.standard)
                 .onAppear {
-                    if let firstTag = locationTags.first {
-                        let newRegion = MKCoordinateRegion(
-                            center: CLLocationCoordinate2D(
-                                latitude: firstTag.latitude!,
-                                longitude: firstTag.longitude!
-                            ),
-                            span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
-                        )
-                        region = newRegion
-                        cameraPosition = .region(newRegion)
+                    if !locationTags.isEmpty {
+                        // 如果只有一个地点，居中显示
+                        if locationTags.count == 1 {
+                            let tag = locationTags.first!
+                            let newRegion = MKCoordinateRegion(
+                                center: CLLocationCoordinate2D(
+                                    latitude: tag.latitude!,
+                                    longitude: tag.longitude!
+                                ),
+                                span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+                            )
+                            region = newRegion
+                            cameraPosition = .region(newRegion)
+                        } else {
+                            // 如果有多个地点，计算包含所有地点的区域
+                            let latitudes = locationTags.compactMap { $0.latitude }
+                            let longitudes = locationTags.compactMap { $0.longitude }
+                            
+                            let minLat = latitudes.min()!
+                            let maxLat = latitudes.max()!
+                            let minLon = longitudes.min()!
+                            let maxLon = longitudes.max()!
+                            
+                            let centerLat = (minLat + maxLat) / 2
+                            let centerLon = (minLon + maxLon) / 2
+                            
+                            // 添加一些边距
+                            let latDelta = max(0.01, (maxLat - minLat) * 1.3)
+                            let lonDelta = max(0.01, (maxLon - minLon) * 1.3)
+                            
+                            let newRegion = MKCoordinateRegion(
+                                center: CLLocationCoordinate2D(latitude: centerLat, longitude: centerLon),
+                                span: MKCoordinateSpan(latitudeDelta: latDelta, longitudeDelta: lonDelta)
+                            )
+                            region = newRegion
+                            cameraPosition = .region(newRegion)
+                            
+                            print("🗺️ 显示多个地点，中心: (\(centerLat), \(centerLon)), 范围: (\(latDelta), \(lonDelta))")
+                        }
                     }
                 }
             }
@@ -700,49 +765,65 @@ class NodeGraphDataCache: ObservableObject {
         var edges: [NodeGraphEdge] = []
         let centerNode = nodes.first { $0.isCenter }!
         
-        // 如果是复合节点，需要特殊处理连接关系
+        // 建立层次化连接：高级复合节点 → 低级复合节点 → 节点 → 标签
         if node.isCompound {
-            // 收集所有子节点
-            var childNodes: [NodeGraphNode] = []
-            var tagNodes: [NodeGraphNode] = []
+            // 分组节点和标签
+            let nodeGraphNodes = nodes.filter { !$0.isCenter && $0.node != nil }
+            let tagGraphNodes = nodes.filter { !$0.isCenter && $0.tag != nil }
             
-            for graphNode in nodes where !graphNode.isCenter {
-                if graphNode.node != nil {
-                    childNodes.append(graphNode)
-                } else if graphNode.tag != nil {
-                    tagNodes.append(graphNode)
-                }
-            }
-            
-            // 复合节点连接到子节点
-            for childNode in childNodes {
+            // 第一层：中心节点连接到直接子节点
+            let directChildNodes = getDirectChildNodes(of: node, in: nodeGraphNodes)
+            for childNode in directChildNodes {
                 edges.append(NodeGraphEdge(
                     from: centerNode,
                     to: childNode,
                     relationshipType: "子节点"
                 ))
+                print("🔗 连接: \(centerNode.label) → \(childNode.label) (子节点)")
             }
             
-            // 标签连接到对应的节点
-            for tagNode in tagNodes {
-                if let tag = tagNode.tag {
-                    // 检查这个标签属于哪个子节点
-                    var targetNode = centerNode // 默认连接到中心节点
-                    
-                    // 如果不是子节点引用标签，检查它属于哪个子节点
-                    if let childOwner = findTagOwner(tag: tag, inChildNodes: childNodes) {
-                        targetNode = childOwner
+            // 后续层：处理每个子节点的连接
+            for childNodeGraph in nodeGraphNodes {
+                guard let childNode = childNodeGraph.node else { continue }
+                
+                if childNode.isCompound {
+                    // 如果子节点也是复合节点，连接到它的子节点
+                    let grandChildNodes = getDirectChildNodes(of: childNode, in: nodeGraphNodes)
+                    for grandChildNode in grandChildNodes {
+                        edges.append(NodeGraphEdge(
+                            from: childNodeGraph,
+                            to: grandChildNode,
+                            relationshipType: "子节点"
+                        ))
+                        print("🔗 连接: \(childNodeGraph.label) → \(grandChildNode.label) (子节点)")
                     }
-                    
+                }
+                
+                // 连接到这个节点的直接标签
+                let nodeOwnedTags = getDirectTagsOf(childNode, in: tagGraphNodes)
+                for tagGraph in nodeOwnedTags {
                     edges.append(NodeGraphEdge(
-                        from: targetNode,
-                        to: tagNode,
-                        relationshipType: tag.type.displayName
+                        from: childNodeGraph,
+                        to: tagGraph,
+                        relationshipType: tagGraph.tag?.type.displayName ?? "标签"
                     ))
+                    print("🔗 连接: \(childNodeGraph.label) → \(tagGraph.label) (\(tagGraph.tag?.type.displayName ?? "标签"))")
                 }
             }
+            
+            // 处理中心节点自身的标签
+            let centerOwnedTags = getDirectTagsOf(node, in: tagGraphNodes)
+            for tagGraph in centerOwnedTags {
+                edges.append(NodeGraphEdge(
+                    from: centerNode,
+                    to: tagGraph,
+                    relationshipType: tagGraph.tag?.type.displayName ?? "标签"
+                ))
+                print("🔗 连接: \(centerNode.label) → \(tagGraph.label) (\(tagGraph.tag?.type.displayName ?? "标签"))")
+            }
+            
         } else {
-            // 普通节点的连接逻辑
+            // 普通节点：直接连接到所有标签
             for graphNode in nodes where !graphNode.isCenter {
                 if let tag = graphNode.tag {
                     edges.append(NodeGraphEdge(
@@ -755,6 +836,65 @@ class NodeGraphDataCache: ObservableObject {
         }
         
         return (nodes: nodes, edges: edges)
+    }
+    
+    // 获取节点的直接子节点（不包括间接子节点）
+    @MainActor
+    private func getDirectChildNodes(of parentNode: Node, in allNodeGraphNodes: [NodeGraphNode]) -> [NodeGraphNode] {
+        let childReferenceTags = parentNode.tags.filter {
+            if case .custom(let key) = $0.type, key == "child" {
+                return true
+            }
+            return false
+        }
+        
+        var directChildren: [NodeGraphNode] = []
+        for childRefTag in childReferenceTags {
+            let childNodeName = childRefTag.value
+            if let childNodeGraph = allNodeGraphNodes.first(where: { 
+                $0.node?.text.lowercased() == childNodeName.lowercased() 
+            }) {
+                directChildren.append(childNodeGraph)
+            }
+        }
+        
+        return directChildren
+    }
+    
+    // 获取节点的直接标签（不包括从子节点继承的标签）
+    @MainActor
+    private func getDirectTagsOf(_ node: Node, in allTagGraphNodes: [NodeGraphNode]) -> [NodeGraphNode] {
+        var directTags: [NodeGraphNode] = []
+        
+        // 添加节点的直接标签（跳过管理标签）
+        for tag in node.tags {
+            if case .custom(let key) = tag.type, (key == "compound" || key == "child") {
+                continue
+            }
+            
+            if let tagGraph = allTagGraphNodes.first(where: { tagGraphNode in
+                if let graphTag = tagGraphNode.tag {
+                    return graphTag.type == tag.type && graphTag.value == tag.value
+                }
+                return false
+            }) {
+                directTags.append(tagGraph)
+            }
+        }
+        
+        // 添加位置标签
+        for locationTag in node.locationTags {
+            if let tagGraph = allTagGraphNodes.first(where: { tagGraphNode in
+                if let graphTag = tagGraphNode.tag {
+                    return graphTag.type == locationTag.type && graphTag.value == locationTag.value
+                }
+                return false
+            }) {
+                directTags.append(tagGraph)
+            }
+        }
+        
+        return directTags
     }
     
     // 帮助方法：查找标签属于哪个子节点
@@ -781,7 +921,7 @@ class NodeGraphDataCache: ObservableObject {
         // 添加中心节点（当前节点）
         nodes.append(NodeGraphNode(node: node, isCenter: true))
         
-        // 如果是复合节点，先处理子节点引用
+        // 如果是复合节点，处理子节点引用，但保持层次结构
         if node.isCompound {
             // 查找子节点引用标签
             let childReferenceTags = node.tags.filter { 
@@ -800,33 +940,17 @@ class NodeGraphDataCache: ObservableObject {
                         // 添加子节点本身
                         nodes.append(NodeGraphNode(node: actualChildNode, isCenter: false))
                         addedChildNodes.insert(childNodeName)
-                        print("🔗 图谱中添加子节点: \(actualChildNode.text), 标签数: \(actualChildNode.tags.count)")
+                        print("🔗 图谱中添加子节点: \(actualChildNode.text), 是否为复合节点: \(actualChildNode.isCompound)")
                         
-                        // 添加子节点的所有标签
-                        for childTag in actualChildNode.tags {
-                            let childTagKey = "\(childTag.type.rawValue):\(childTag.value)"
-                            if !addedTagKeys.contains(childTagKey) {
-                                nodes.append(NodeGraphNode(tag: childTag))
-                                addedTagKeys.insert(childTagKey)
-                                print("  ↳ 添加子节点标签: \(childTag.type.displayName) - \(childTag.value)")
-                            }
-                        }
-                        
-                        // 添加子节点的位置标签
-                        for locationTag in actualChildNode.locationTags {
-                            let locationTagKey = "\(locationTag.type.rawValue):\(locationTag.value)"
-                            if !addedTagKeys.contains(locationTagKey) {
-                                nodes.append(NodeGraphNode(tag: locationTag))
-                                addedTagKeys.insert(locationTagKey)
-                                print("  ↳ 添加子节点位置标签: \(locationTag.type.displayName) - \(locationTag.value)")
-                            }
-                        }
+                        // 递归添加子节点的结构，但保持层次关系
+                        var visitedNodes: Set<String> = []
+                        addChildNodeStructure(for: actualChildNode, addedTagKeys: &addedTagKeys, addedChildNodes: &addedChildNodes, nodes: &nodes, depth: 1, visitedNodes: &visitedNodes)
                     }
                 }
             }
         }
         
-        // 添加当前节点的所有标签作为节点（去重），但跳过子节点引用标签和复合节点标签
+        // 添加当前节点的直接标签（非复合节点管理标签）
         for tag in node.tags {
             let tagKey = "\(tag.type.rawValue):\(tag.value)"
             
@@ -843,7 +967,7 @@ class NodeGraphDataCache: ObservableObject {
             }
         }
         
-        // 添加位置标签作为节点（去重）
+        // 添加当前节点的位置标签
         for locationTag in node.locationTags {
             let tagKey = "\(locationTag.type.rawValue):\(locationTag.value)"
             if !addedTagKeys.contains(tagKey) {
@@ -853,6 +977,136 @@ class NodeGraphDataCache: ObservableObject {
         }
         
         return nodes
+    }
+    
+    // 新方法：递归添加子节点结构，保持层次关系
+    @MainActor
+    private func addChildNodeStructure(for node: Node, addedTagKeys: inout Set<String>, addedChildNodes: inout Set<String>, nodes: inout [NodeGraphNode], depth: Int, visitedNodes: inout Set<String>) {
+        // 防止无限递归和循环引用
+        guard depth <= 10 else { return }
+        if visitedNodes.contains(node.text.lowercased()) { return }
+        visitedNodes.insert(node.text.lowercased())
+        
+        let indentPrefix = String(repeating: "  ", count: depth)
+        print("\(indentPrefix)🏗️ 添加子节点结构: \(node.text) (深度: \(depth))")
+        
+        // 如果这个节点是复合节点，添加它的直接子节点
+        if node.isCompound {
+            let childReferenceTags = node.tags.filter {
+                if case .custom(let key) = $0.type, key == "child" {
+                    return true
+                }
+                return false
+            }
+            
+            for childRefTag in childReferenceTags {
+                let childNodeName = childRefTag.value
+                if !addedChildNodes.contains(childNodeName) {
+                    if let childNode = NodeStore.shared.nodes.first(where: { $0.text.lowercased() == childNodeName.lowercased() }) {
+                        // 添加子节点
+                        nodes.append(NodeGraphNode(node: childNode, isCenter: false))
+                        addedChildNodes.insert(childNodeName)
+                        print("\(indentPrefix)  ↳ 添加子节点: \(childNode.text)")
+                        
+                        // 递归添加更深层的子节点结构
+                        addChildNodeStructure(for: childNode, addedTagKeys: &addedTagKeys, addedChildNodes: &addedChildNodes, nodes: &nodes, depth: depth + 1, visitedNodes: &visitedNodes)
+                    }
+                }
+            }
+        }
+        
+        // 添加当前节点的直接标签（不是子节点引用或复合节点标签）
+        for tag in node.tags {
+            if case .custom(let key) = tag.type, (key == "compound" || key == "child") {
+                continue // 跳过管理标签
+            }
+            
+            let tagKey = "\(tag.type.rawValue):\(tag.value)"
+            if !addedTagKeys.contains(tagKey) {
+                nodes.append(NodeGraphNode(tag: tag))
+                addedTagKeys.insert(tagKey)
+                print("\(indentPrefix)  ↳ 添加标签: \(tag.type.displayName) - \(tag.value)")
+            }
+        }
+        
+        // 添加位置标签
+        for locationTag in node.locationTags {
+            let locationTagKey = "\(locationTag.type.rawValue):\(locationTag.value)"
+            if !addedTagKeys.contains(locationTagKey) {
+                nodes.append(NodeGraphNode(tag: locationTag))
+                addedTagKeys.insert(locationTagKey)
+                print("\(indentPrefix)  ↳ 添加位置标签: \(locationTag.type.displayName) - \(locationTag.value)")
+            }
+        }
+        
+        visitedNodes.remove(node.text.lowercased())
+    }
+    
+    // 递归添加节点的所有标签，包括多级复合节点的标签
+    @MainActor
+    private func addTagsRecursively(for node: Node, addedTagKeys: inout Set<String>, nodes: inout [NodeGraphNode], depth: Int, visitedNodes: inout Set<String>) {
+        // 防止无限递归，设置最大深度限制和循环检测
+        guard depth <= 10 else {
+            print("⚠️ 递归深度超过限制，停止处理节点: \(node.text)")
+            return
+        }
+        
+        // 防止循环引用
+        if visitedNodes.contains(node.text.lowercased()) {
+            print("⚠️ 检测到循环引用，跳过节点: \(node.text)")
+            return
+        }
+        visitedNodes.insert(node.text.lowercased())
+        
+        let indentPrefix = String(repeating: "  ", count: depth)
+        print("\(indentPrefix)🔄 递归处理节点: \(node.text) (深度: \(depth))")
+        
+        // 添加当前节点的直接标签（过滤掉内部管理标签）
+        for tag in node.tags {
+            // 过滤掉复合节点内部标签
+            if case .custom(let key) = tag.type, (key == "compound" || key == "child") {
+                continue
+            }
+            
+            let tagKey = "\(tag.type.rawValue):\(tag.value)"
+            if !addedTagKeys.contains(tagKey) {
+                nodes.append(NodeGraphNode(tag: tag))
+                addedTagKeys.insert(tagKey)
+                print("\(indentPrefix)  ↳ 添加标签: \(tag.type.displayName) - \(tag.value)")
+            }
+        }
+        
+        // 添加当前节点的位置标签
+        for locationTag in node.locationTags {
+            let locationTagKey = "\(locationTag.type.rawValue):\(locationTag.value)"
+            if !addedTagKeys.contains(locationTagKey) {
+                nodes.append(NodeGraphNode(tag: locationTag))
+                addedTagKeys.insert(locationTagKey)
+                print("\(indentPrefix)  ↳ 添加位置标签: \(locationTag.type.displayName) - \(locationTag.value)")
+            }
+        }
+        
+        // 如果当前节点是复合节点，递归处理它的子节点
+        if node.isCompound {
+            let childReferenceTags = node.tags.filter {
+                if case .custom(let key) = $0.type, key == "child" {
+                    return true
+                }
+                return false
+            }
+            
+            for childRefTag in childReferenceTags {
+                let childNodeName = childRefTag.value
+                if let childNode = NodeStore.shared.nodes.first(where: { $0.text.lowercased() == childNodeName.lowercased() }) {
+                    print("\(indentPrefix)🔗 发现子节点: \(childNode.text)")
+                    // 递归处理子节点
+                    addTagsRecursively(for: childNode, addedTagKeys: &addedTagKeys, nodes: &nodes, depth: depth + 1, visitedNodes: &visitedNodes)
+                }
+            }
+        }
+        
+        // 递归完成后，从访问列表中移除当前节点，允许在其他分支中再次访问
+        visitedNodes.remove(node.text.lowercased())
     }
     
     func clearCache() {

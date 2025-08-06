@@ -1666,17 +1666,21 @@ struct CompoundNodeAddSheetView: View {
                         .font(.body)
                         .foregroundColor(.secondary)
                     
-                    Text("创建新复合节点：动物 狗 猫 鸟")
+                    Text("创建1级复合节点：动物 狗 猫 鸟")
                         .font(.caption)
-                        .foregroundColor(.secondary.opacity(0.7))
+                        .foregroundColor(.purple.opacity(0.8))
                     
-                    Text("添加到现有复合节点：动物 老鼠")
+                    Text("创建2级复合节点：生物 动物 植物")
                         .font(.caption)
-                        .foregroundColor(.green.opacity(0.8))
+                        .foregroundColor(.orange.opacity(0.8))
                     
-                    Text("删除复合节点中的子节点：动物 -狗 -猫")
+                    Text("删除子节点：动物 -狗 -猫")
                         .font(.caption)
                         .foregroundColor(.red.opacity(0.8))
+                        
+                    Text("💡 复合节点可以无限嵌套，颜色会自动区分层级")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                 }
                 
                 TextField("例如：颜色 红色 蓝色 绿色", text: $inputText, axis: .vertical)
@@ -1837,9 +1841,16 @@ struct CompoundNodeAddSheetView: View {
         // 清除图谱缓存以刷新显示
         NodeGraphDataCache.shared.invalidateCache(for: compoundNode.id)
         
-        // 强制触发UI更新
+        // 强制触发UI更新 - 确保WordListView刷新
         DispatchQueue.main.async {
+            print("🔄 强制触发UI更新（删除操作）")
             store.objectWillChange.send()
+            
+            NotificationCenter.default.post(
+                name: Notification.Name("nodesUpdated"),
+                object: nil,
+                userInfo: ["deletedChildNodes": childNamesToRemove.count]
+            )
         }
         
         print("✅ 复合节点删除操作完成:")
@@ -1919,10 +1930,20 @@ struct CompoundNodeAddSheetView: View {
         // 清除图谱缓存以刷新显示
         NodeGraphDataCache.shared.invalidateCache(for: compoundNode.id)
         
-        // 强制触发UI更新
+        // 强制触发UI更新 - 确保WordListView刷新
         DispatchQueue.main.async {
+            print("🔄 强制触发UI更新")
             // 触发@Published属性更新
             store.objectWillChange.send()
+            
+            // 额外触发节点数组的更新通知
+            NotificationCenter.default.post(
+                name: Notification.Name("nodesUpdated"),
+                object: nil,
+                userInfo: ["newNodeCount": store.nodes.count]
+            )
+            
+            print("📢 发送节点更新通知，当前节点总数: \(store.nodes.count)")
         }
         
         print("✅ 复合节点更新完成:")
@@ -1931,14 +1952,35 @@ struct CompoundNodeAddSheetView: View {
         print("  新增子节点: [\(newChildNames.joined(separator: ", "))]")
     }
     
+    // 计算子节点中的最大复合节点深度
+    private func calculateMaxChildDepth(childNames: [String]) -> Int {
+        var maxDepth = 0
+        
+        for childName in childNames {
+            if let childNode = store.nodes.first(where: { $0.text.lowercased() == childName.lowercased() }) {
+                if childNode.isCompound {
+                    let childDepth = childNode.getCompoundDepth(allNodes: store.nodes)
+                    maxDepth = max(maxDepth, childDepth)
+                }
+                // 普通节点深度为0，不影响maxDepth
+            }
+        }
+        
+        return maxDepth
+    }
+    
     private func createNewCompoundNode(name: String, childNames: [String], layerId: UUID) {
         // 为复合节点创建特殊标签，包含所有子节点名称作为标签值
         var compoundTags: [Tag] = []
         
-        // 主复合节点标签
+        // 计算复合节点层级
+        let childDepth = calculateMaxChildDepth(childNames: childNames)
+        let currentDepth = childDepth + 1
+        
+        // 主复合节点标签，包含层级信息
         let compoundTag = Tag(
             type: .custom("compound"),
-            value: "复合节点"
+            value: "\(currentDepth)级复合节点"
         )
         compoundTags.append(compoundTag)
         

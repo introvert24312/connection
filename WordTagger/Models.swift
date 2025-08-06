@@ -63,6 +63,33 @@ public struct Node: Identifiable, Hashable, Codable {
         return tags.filter { $0.hasCoordinates }
     }
     
+    // 计算复合节点的嵌套深度
+    public func getCompoundDepth(allNodes: [Node]) -> Int {
+        guard isCompound else { return 0 }
+        
+        // 获取所有子节点引用
+        let childReferences = tags.filter { 
+            if case .custom(let key) = $0.type {
+                return key == "child"
+            }
+            return false
+        }
+        
+        var maxChildDepth = 0
+        
+        // 检查每个子节点的深度
+        for childRef in childReferences {
+            let childName = childRef.value
+            if let childNode = allNodes.first(where: { $0.text.lowercased() == childName.lowercased() }) {
+                let childDepth = childNode.getCompoundDepth(allNodes: allNodes)
+                maxChildDepth = max(maxChildDepth, childDepth)
+            }
+        }
+        
+        // 当前节点的深度 = 最大子节点深度 + 1
+        return maxChildDepth + 1
+    }
+    
     public static func == (lhs: Node, rhs: Node) -> Bool {
         return lhs.id == rhs.id
     }
