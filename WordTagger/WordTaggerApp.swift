@@ -1666,9 +1666,13 @@ struct CompoundNodeAddSheetView: View {
                         .font(.body)
                         .foregroundColor(.secondary)
                     
-                    Text("示例：动物 狗 猫 鸟")
+                    Text("创建新复合节点：动物 狗 猫 鸟")
                         .font(.caption)
                         .foregroundColor(.secondary.opacity(0.7))
+                    
+                    Text("添加到现有复合节点：动物 老鼠")
+                        .font(.caption)
+                        .foregroundColor(.green.opacity(0.8))
                 }
                 
                 TextField("例如：颜色 红色 蓝色 绿色", text: $inputText, axis: .vertical)
@@ -1730,6 +1734,101 @@ struct CompoundNodeAddSheetView: View {
             return
         }
         
+        // 检查复合节点是否已存在
+        if let existingCompoundNode = store.nodes.first(where: { 
+            $0.text.lowercased() == compoundNodeName.lowercased() && $0.isCompound 
+        }) {
+            // 模式2: 向已存在的复合节点添加子节点
+            print("🔄 向已存在的复合节点添加子节点: \(compoundNodeName)")
+            addChildrenToExistingCompoundNode(existingCompoundNode, childNames: childNodeNames)
+        } else {
+            // 模式1: 创建新的复合节点
+            print("🏗️ 创建新复合节点: \(compoundNodeName)")
+            createNewCompoundNode(name: compoundNodeName, childNames: childNodeNames, layerId: currentLayer.id)
+        }
+        
+        // 清空输入并关闭
+        inputText = ""
+        dismiss()
+    }
+    
+    private func addChildrenToExistingCompoundNode(_ compoundNode: Node, childNames: [String]) {
+        print("🔗 向复合节点 '\(compoundNode.text)' 添加 \(childNames.count) 个子节点")
+        
+        // 获取现有的子节点引用
+        let existingChildReferences = compoundNode.tags.compactMap { tag in
+            if case .custom(let key) = tag.type, key == "child" {
+                return tag.value
+            }
+            return nil
+        }
+        print("🔍 现有子节点: [\(existingChildReferences.joined(separator: ", "))]")
+        
+        // 过滤掉已经存在的子节点
+        let newChildNames = childNames.filter { childName in
+            !existingChildReferences.contains { existingChild in
+                existingChild.lowercased() == childName.lowercased()
+            }
+        }
+        
+        guard !newChildNames.isEmpty else {
+            errorMessage = "这些子节点已经存在于复合节点中"
+            showingErrorAlert = true
+            return
+        }
+        
+        print("🆕 需要添加的新子节点: [\(newChildNames.joined(separator: ", "))]")
+        
+        // 为新子节点创建标签
+        var newChildTags: [Tag] = []
+        for childName in newChildNames {
+            let childReferenceTag = Tag(
+                type: .custom("child"),
+                value: childName
+            )
+            newChildTags.append(childReferenceTag)
+        }
+        
+        // 更新复合节点的标签（添加新的子节点引用）
+        let updatedTags = compoundNode.tags + newChildTags
+        let updatedMeaning = "复合节点：包含 \(existingChildReferences.count + newChildNames.count) 个子节点"
+        
+        store.updateNodeTags(compoundNode.id, tags: updatedTags)
+        store.updateNode(compoundNode.id, text: nil, phonetic: nil, meaning: updatedMeaning)
+        
+        // 创建或确保新子节点存在
+        var childNodesToCreate: [Node] = []
+        for childName in newChildNames {
+            if let existingNode = store.nodes.first(where: { $0.text.lowercased() == childName.lowercased() }) {
+                print("🔍 找到已存在的子节点: \(existingNode.text), 保持其标签不变")
+            } else {
+                let childNode = Node(
+                    text: childName,
+                    phonetic: nil,
+                    meaning: nil,
+                    layerId: compoundNode.layerId,
+                    tags: []
+                )
+                childNodesToCreate.append(childNode)
+                print("🆕 创建新子节点: \(childName)")
+            }
+        }
+        
+        // 添加新创建的子节点到store
+        for childNode in childNodesToCreate {
+            store.addNode(childNode)
+        }
+        
+        // 清除图谱缓存以刷新显示
+        NodeGraphDataCache.shared.invalidateCache(for: compoundNode.id)
+        
+        print("✅ 复合节点更新完成:")
+        print("  复合节点: \(compoundNode.text)")
+        print("  原有子节点: [\(existingChildReferences.joined(separator: ", "))]")
+        print("  新增子节点: [\(newChildNames.joined(separator: ", "))]")
+    }
+    
+    private func createNewCompoundNode(name: String, childNames: [String], layerId: UUID) {
         // 为复合节点创建特殊标签，包含所有子节点名称作为标签值
         var compoundTags: [Tag] = []
         
@@ -1741,7 +1840,7 @@ struct CompoundNodeAddSheetView: View {
         compoundTags.append(compoundTag)
         
         // 为每个子节点创建标签，记录子节点的名称
-        for childName in childNodeNames {
+        for childName in childNames {
             let childReferenceTag = Tag(
                 type: .custom("child"),
                 value: childName
@@ -1750,7 +1849,7 @@ struct CompoundNodeAddSheetView: View {
             print("🔗 为复合节点添加子节点引用标签: \(childName)")
         }
         
-        print("🏗️ 创建复合节点: \(compoundNodeName), 标签数: \(compoundTags.count)")
+        print("🏗️ 创建复合节点: \(name), 标签数: \(compoundTags.count)")
         print("  - 复合标签: \(compoundTag.value)")
         for tag in compoundTags.dropFirst() {
             print("  - 子节点引用: \(tag.value)")
@@ -1758,17 +1857,17 @@ struct CompoundNodeAddSheetView: View {
         
         // 创建复合节点，只包含复合标签和子节点引用标签
         let compoundNode = Node(
-            text: compoundNodeName,
+            text: name,
             phonetic: nil,
-            meaning: "复合节点：包含 \(childNodeNames.joined(separator: ", "))",
-            layerId: currentLayer.id,
+            meaning: "复合节点：包含 \(childNames.joined(separator: ", "))",
+            layerId: layerId,
             tags: compoundTags,
             isCompound: true
         )
         
         // 创建或确保子节点存在
         var childNodes: [Node] = []
-        for childName in childNodeNames {
+        for childName in childNames {
             // 检查是否已存在
             if let existingNode = store.nodes.first(where: { $0.text.lowercased() == childName.lowercased() }) {
                 print("🔍 找到已存在的子节点: \(existingNode.text), 保持其标签不变")
@@ -1779,7 +1878,7 @@ struct CompoundNodeAddSheetView: View {
                     text: childName,
                     phonetic: nil,
                     meaning: nil,
-                    layerId: currentLayer.id,
+                    layerId: layerId,
                     tags: []
                 )
                 childNodes.append(childNode)
@@ -1794,12 +1893,8 @@ struct CompoundNodeAddSheetView: View {
         }
         
         print("✅ 复合节点结构创建完成:")
-        print("  复合节点: \(compoundNodeName) (包含 \(compoundTags.count) 个标签)")
-        print("  子节点: \(childNodeNames.joined(separator: ", "))")
-        
-        // 清空输入并关闭
-        inputText = ""
-        dismiss()
+        print("  复合节点: \(name) (包含 \(compoundTags.count) 个标签)")
+        print("  子节点: \(childNames.joined(separator: ", "))")
     }
 }
 

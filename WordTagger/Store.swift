@@ -434,6 +434,17 @@ public final class NodeStore: ObservableObject {
     }
     
     @MainActor
+    public func updateNodeTags(_ nodeId: UUID, tags: [Tag]) {
+        if let index = nodes.firstIndex(where: { $0.id == nodeId }) {
+            var updatedNode = nodes[index]
+            updatedNode.tags = tags
+            updatedNode.updatedAt = Date()
+            nodes[index] = updatedNode
+            print("📝 更新节点标签: \(updatedNode.text), 新标签数: \(tags.count)")
+        }
+    }
+    
+    @MainActor
     public func deleteNode(_ node: Node) {
         nodes.removeAll { $0.id == node.id }
         if selectedNode?.id == node.id {
