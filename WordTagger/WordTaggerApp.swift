@@ -1409,6 +1409,13 @@ struct WordTaggerApp: App {
             FullscreenGraphView()
                 .environmentObject(store)
                 .frame(minWidth: 800, minHeight: 600)
+                .onAppear {
+                    // 窗口级别的焦点设置
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        NSApp.keyWindow?.makeKey()
+                        Swift.print("🎯 WindowGroup: 设置窗口焦点完成")
+                    }
+                }
         }
         .defaultSize(width: 1200, height: 800)
         .windowToolbarStyle(.unified)

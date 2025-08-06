@@ -1327,6 +1327,7 @@ struct FullscreenGraphView: View {
     @EnvironmentObject private var store: NodeStore
     @StateObject private var windowManager = FullscreenGraphWindowManager.shared
     @Environment(\.dismissWindow) private var dismissWindow
+    @FocusState private var isFocused: Bool
     @AppStorage("fullscreenGraphInitialScale") private var fullscreenGraphInitialScale: Double = 1.0
     
     var body: some View {
@@ -1418,7 +1419,7 @@ struct FullscreenGraphView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.windowBackgroundColor))
-        .focusable(true)  // 强制可聚焦
+        .focused($isFocused)  // 使用 @FocusState
         .onKeyPress(.escape) {
             Swift.print("🎯 FullscreenGraphView: ESC键按下，关闭窗口")
             closeWindow()
@@ -1435,6 +1436,10 @@ struct FullscreenGraphView: View {
         }
         .onAppear {
             Swift.print("🖥️ 全屏图谱视图已显示")
+            
+            // 立即设置 SwiftUI 焦点
+            isFocused = true
+            Swift.print("🎯 SwiftUI 焦点已设置: isFocused=\(isFocused)")
             
             // 显示图谱结构信息
             if let graphData = windowManager.currentGraphData {
@@ -1456,12 +1461,14 @@ struct FullscreenGraphView: View {
             // 确保窗口获得键盘焦点（多重保障）
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 Swift.print("🎯 第一次尝试激活全屏图谱窗口...")
+                isFocused = true  // 再次设置 SwiftUI 焦点
                 FullscreenGraphWindowManager.shared.activateFullscreenWindow()
             }
             
             // 添加额外的焦点设置延迟
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 Swift.print("🎯 第二次尝试激活全屏图谱窗口...")
+                isFocused = true  // 第三次设置 SwiftUI 焦点
                 FullscreenGraphWindowManager.shared.activateFullscreenWindow()
             }
         }
