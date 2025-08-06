@@ -1121,6 +1121,7 @@ struct NodeGraphView: View {
     @EnvironmentObject private var store: NodeStore
     @AppStorage("detailGraphInitialScale") private var detailGraphInitialScale: Double = 1.0
     @StateObject private var graphCache = NodeGraphDataCache.shared
+    @State private var showingFullscreenGraph = false
     
     // 从store中获取最新的节点数据
     private var currentNode: Node {
@@ -1149,6 +1150,113 @@ struct NodeGraphView: View {
                 }
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contextMenu {
+                Button("全屏显示 (⌘L)") {
+                    showingFullscreenGraph = true
+                    print("🖥️ 全屏显示图谱")
+                }
+                .keyboardShortcut("l", modifiers: .command)
+            }
+            .sheet(isPresented: $showingFullscreenGraph) {
+                FullscreenGraphSheet(
+                    node: currentNode,
+                    graphData: graphData
+                )
+            }
+        }
+    }
+}
+
+// MARK: - 全屏图谱视图
+
+struct FullscreenGraphSheet: View {
+    let node: Node
+    let graphData: (nodes: [NodeGraphNode], edges: [NodeGraphEdge])
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var store: NodeStore
+    @AppStorage("fullscreenGraphInitialScale") private var fullscreenGraphInitialScale: Double = 0.8
+    
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 0) {
+                // 工具栏
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("节点关系图谱")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                        
+                        Text("\(node.text) - \(graphData.nodes.count) 个节点, \(graphData.edges.count) 条连接")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    // 缩放控制
+                    HStack {
+                        Button(action: {
+                            fullscreenGraphInitialScale = max(0.3, fullscreenGraphInitialScale - 0.1)
+                        }) {
+                            Image(systemName: "minus.magnifyingglass")
+                        }
+                        .disabled(fullscreenGraphInitialScale <= 0.3)
+                        
+                        Text(String(format: "%.0f%%", fullscreenGraphInitialScale * 100))
+                            .font(.caption)
+                            .frame(width: 40)
+                        
+                        Button(action: {
+                            fullscreenGraphInitialScale = min(2.0, fullscreenGraphInitialScale + 0.1)
+                        }) {
+                            Image(systemName: "plus.magnifyingglass")
+                        }
+                        .disabled(fullscreenGraphInitialScale >= 2.0)
+                    }
+                    .buttonStyle(.borderless)
+                    
+                    Button("适应窗口") {
+                        // 发送fit graph通知
+                        NotificationCenter.default.post(name: Notification.Name("fitGraph"), object: nil)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    
+                    Button("关闭") {
+                        dismiss()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                }
+                .padding()
+                .background(Color(NSColor.controlBackgroundColor))
+                
+                Divider()
+                
+                // 图谱显示区域
+                UniversalRelationshipGraphView(
+                    nodes: graphData.nodes,
+                    edges: graphData.edges,
+                    title: "全屏节点关系图谱",
+                    initialScale: fullscreenGraphInitialScale,
+                    onNodeSelected: { nodeId in
+                        // 当点击节点时，选择对应的节点并关闭全屏
+                        if let selectedNode = graphData.nodes.first(where: { $0.id == nodeId }),
+                           let selectedTargetNode = selectedNode.node {
+                            store.selectNode(selectedTargetNode)
+                            dismiss()
+                        }
+                    }
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .navigationBarBackButtonHidden(true)
+        }
+        .frame(minWidth: 800, minHeight: 600)
+        .onKeyPress(.escape) {
+            // ESC键关闭全屏
+            dismiss()
+            return .handled
         }
     }
 }
