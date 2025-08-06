@@ -1673,6 +1673,10 @@ struct CompoundNodeAddSheetView: View {
                     Text("添加到现有复合节点：动物 老鼠")
                         .font(.caption)
                         .foregroundColor(.green.opacity(0.8))
+                    
+                    Text("删除复合节点中的子节点：动物 -狗 -猫")
+                        .font(.caption)
+                        .foregroundColor(.red.opacity(0.8))
                 }
                 
                 TextField("例如：颜色 红色 蓝色 绿色", text: $inputText, axis: .vertical)
@@ -1734,22 +1738,114 @@ struct CompoundNodeAddSheetView: View {
             return
         }
         
+        // 检查是否有删除操作（子节点名以"-"开头）
+        let (childNamesToAdd, childNamesToRemove) = separateAddAndRemoveOperations(childNodeNames)
+        
         // 检查复合节点是否已存在
         if let existingCompoundNode = store.nodes.first(where: { 
             $0.text.lowercased() == compoundNodeName.lowercased() && $0.isCompound 
         }) {
-            // 模式2: 向已存在的复合节点添加子节点
-            print("🔄 向已存在的复合节点添加子节点: \(compoundNodeName)")
-            addChildrenToExistingCompoundNode(existingCompoundNode, childNames: childNodeNames)
+            // 模式2/3: 修改已存在的复合节点
+            if !childNamesToRemove.isEmpty {
+                print("🗑️ 从复合节点删除子节点: \(compoundNodeName)")
+                removeChildrenFromCompoundNode(existingCompoundNode, childNames: childNamesToRemove)
+            }
+            if !childNamesToAdd.isEmpty {
+                print("🔄 向已存在的复合节点添加子节点: \(compoundNodeName)")
+                addChildrenToExistingCompoundNode(existingCompoundNode, childNames: childNamesToAdd)
+            }
         } else {
             // 模式1: 创建新的复合节点
+            if !childNamesToRemove.isEmpty {
+                errorMessage = "无法从不存在的复合节点中删除子节点"
+                showingErrorAlert = true
+                return
+            }
             print("🏗️ 创建新复合节点: \(compoundNodeName)")
-            createNewCompoundNode(name: compoundNodeName, childNames: childNodeNames, layerId: currentLayer.id)
+            createNewCompoundNode(name: compoundNodeName, childNames: childNamesToAdd, layerId: currentLayer.id)
         }
         
         // 清空输入并关闭
         inputText = ""
         dismiss()
+    }
+    
+    private func separateAddAndRemoveOperations(_ childNames: [String]) -> ([String], [String]) {
+        var toAdd: [String] = []
+        var toRemove: [String] = []
+        
+        for name in childNames {
+            if name.hasPrefix("-") {
+                // 删除操作：去掉"-"前缀
+                let nameToRemove = String(name.dropFirst())
+                if !nameToRemove.isEmpty {
+                    toRemove.append(nameToRemove)
+                }
+            } else {
+                // 添加操作
+                toAdd.append(name)
+            }
+        }
+        
+        return (toAdd, toRemove)
+    }
+    
+    private func removeChildrenFromCompoundNode(_ compoundNode: Node, childNames: [String]) {
+        print("🗑️ 从复合节点 '\(compoundNode.text)' 删除 \(childNames.count) 个子节点")
+        
+        // 获取现有的子节点引用
+        let existingChildReferences = compoundNode.tags.compactMap { tag in
+            if case .custom(let key) = tag.type, key == "child" {
+                return tag.value
+            }
+            return nil
+        }
+        print("🔍 现有子节点: [\(existingChildReferences.joined(separator: ", "))]")
+        
+        // 找到要删除的子节点
+        let childNamesToRemove = childNames.filter { childName in
+            existingChildReferences.contains { existingChild in
+                existingChild.lowercased() == childName.lowercased()
+            }
+        }
+        
+        guard !childNamesToRemove.isEmpty else {
+            errorMessage = "这些子节点不存在于复合节点中"
+            showingErrorAlert = true
+            return
+        }
+        
+        print("🗑️ 需要删除的子节点: [\(childNamesToRemove.joined(separator: ", "))]")
+        
+        // 过滤掉要删除的子节点标签
+        let updatedTags = compoundNode.tags.filter { tag in
+            if case .custom(let key) = tag.type, key == "child" {
+                return !childNamesToRemove.contains { childName in
+                    tag.value.lowercased() == childName.lowercased()
+                }
+            }
+            return true // 保留非子节点引用标签
+        }
+        
+        let remainingChildCount = existingChildReferences.count - childNamesToRemove.count
+        let updatedMeaning = "复合节点：包含 \(remainingChildCount) 个子节点"
+        
+        // 更新复合节点
+        store.updateNodeTags(compoundNode.id, tags: updatedTags)
+        store.updateNode(compoundNode.id, text: nil, phonetic: nil, meaning: updatedMeaning)
+        
+        // 清除图谱缓存以刷新显示
+        NodeGraphDataCache.shared.invalidateCache(for: compoundNode.id)
+        
+        // 强制触发UI更新
+        DispatchQueue.main.async {
+            store.objectWillChange.send()
+        }
+        
+        print("✅ 复合节点删除操作完成:")
+        print("  复合节点: \(compoundNode.text)")
+        print("  删除的子节点: [\(childNamesToRemove.joined(separator: ", "))]")
+        print("  剩余子节点数: \(remainingChildCount)")
     }
     
     private func addChildrenToExistingCompoundNode(_ compoundNode: Node, childNames: [String]) {
@@ -1816,11 +1912,18 @@ struct CompoundNodeAddSheetView: View {
         
         // 添加新创建的子节点到store
         for childNode in childNodesToCreate {
-            store.addNode(childNode)
+            let success = store.addNode(childNode)
+            print("📝 子节点添加结果: \(childNode.text) - \(success ? "成功" : "失败")")
         }
         
         // 清除图谱缓存以刷新显示
         NodeGraphDataCache.shared.invalidateCache(for: compoundNode.id)
+        
+        // 强制触发UI更新
+        DispatchQueue.main.async {
+            // 触发@Published属性更新
+            store.objectWillChange.send()
+        }
         
         print("✅ 复合节点更新完成:")
         print("  复合节点: \(compoundNode.text)")
