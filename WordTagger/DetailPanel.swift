@@ -1235,12 +1235,27 @@ class FullscreenGraphWindowManager: ObservableObject {
     }
     
     func activateFullscreenWindow() {
+        Swift.print("🔍 开始查找全屏图谱窗口...")
+        Swift.print("🔍 当前活动窗口总数: \(NSApp.windows.count)")
+        
+        for (index, window) in NSApp.windows.enumerated() {
+            Swift.print("🔍 窗口 \(index): 标题=\(window.title), 类型=\(String(describing: type(of: window)))")
+            Swift.print("🔍 窗口 \(index): isKeyWindow=\(window.isKeyWindow), isMainWindow=\(window.isMainWindow)")
+        }
+        
         // 查找全屏图谱窗口并激活
         for window in NSApp.windows {
-            if window.title == "全屏图谱" {
-                Swift.print("🎯 找到全屏图谱窗口，激活中...")
+            if window.title == "全屏图谱" || window.title.contains("图谱") {
+                Swift.print("🎯 找到全屏图谱窗口 (标题匹配)，激活中...")
                 window.makeKeyAndOrderFront(nil)
+                window.orderFrontRegardless()  // 强制置前
                 NSApp.activate(ignoringOtherApps: true)
+                
+                // 确保窗口真正获得焦点
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    window.makeKey()
+                    Swift.print("🎯 窗口焦点设置完成: isKeyWindow=\(window.isKeyWindow)")
+                }
                 return
             }
         }
@@ -1248,15 +1263,23 @@ class FullscreenGraphWindowManager: ObservableObject {
         // 如果通过标题未找到，尝试通过内容查找
         for window in NSApp.windows {
             if let contentView = window.contentView,
-               String(describing: type(of: contentView)).contains("FullscreenGraphView") {
+               String(describing: type(of: contentView)).contains("FullscreenGraphView") ||
+               String(describing: type(of: contentView)).contains("NSSplitView") { // WindowGroup 创建的窗口
                 Swift.print("🎯 通过内容找到全屏图谱窗口，激活中...")
                 window.makeKeyAndOrderFront(nil)
+                window.orderFrontRegardless()  // 强制置前
                 NSApp.activate(ignoringOtherApps: true)
+                
+                // 确保窗口真正获得焦点
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    window.makeKey()
+                    Swift.print("🎯 窗口焦点设置完成: isKeyWindow=\(window.isKeyWindow)")
+                }
                 return
             }
         }
         
-        Swift.print("⚠️ 未找到全屏图谱窗口")
+        Swift.print("❌ 未找到全屏图谱窗口")
     }
     
     func hideFullscreenGraph() {
@@ -1278,10 +1301,15 @@ class FullscreenGraphWindowManager: ObservableObject {
     }
     
     func isWindowActive() -> Bool {
+        Swift.print("🔍 检查全屏图谱窗口是否活动...")
+        
         // 检查实际窗口是否存在
         let hasActiveWindow = NSApp.windows.contains { window in
-            window.title == "全屏图谱" && window.isVisible
+            Swift.print("🔍 检查窗口: 标题=\(window.title), 可见=\(window.isVisible), isKey=\(window.isKeyWindow)")
+            return (window.title == "全屏图谱" || window.title.contains("图谱")) && window.isVisible
         }
+        
+        Swift.print("🔍 检查结果: hasActiveWindow=\(hasActiveWindow), showingFullscreenGraph=\(showingFullscreenGraph)")
         
         // 如果窗口不存在但状态为true，修正状态
         if showingFullscreenGraph && !hasActiveWindow {
@@ -1390,18 +1418,21 @@ struct FullscreenGraphView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.windowBackgroundColor))
+        .focusable(true)  // 强制可聚焦
         .onKeyPress(.escape) {
+            Swift.print("🎯 FullscreenGraphView: ESC键按下，关闭窗口")
             closeWindow()
             return .handled
         }
         .onKeyPress(.init("l"), phases: .down) { keyPress in
+            Swift.print("🎯 FullscreenGraphView: L键按下，修饰符: \(keyPress.modifiers)")
             if keyPress.modifiers == .command {
+                Swift.print("🎯 FullscreenGraphView: Command+L检测到，关闭窗口")
                 closeWindow()
                 return .handled
             }
             return .ignored
         }
-        .focusable()
         .onAppear {
             Swift.print("🖥️ 全屏图谱视图已显示")
             
@@ -1422,8 +1453,15 @@ struct FullscreenGraphView: View {
                 Swift.print("  - 标签节点: \(tagNodes.count)个")
             }
             
-            // 确保窗口获得键盘焦点（通过WindowManager统一处理）
+            // 确保窗口获得键盘焦点（多重保障）
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                Swift.print("🎯 第一次尝试激活全屏图谱窗口...")
+                FullscreenGraphWindowManager.shared.activateFullscreenWindow()
+            }
+            
+            // 添加额外的焦点设置延迟
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                Swift.print("🎯 第二次尝试激活全屏图谱窗口...")
                 FullscreenGraphWindowManager.shared.activateFullscreenWindow()
             }
         }
