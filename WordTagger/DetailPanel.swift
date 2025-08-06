@@ -1162,17 +1162,22 @@ struct NodeGraphView: View {
         .focusable()
         .onKeyPress(.init("l"), phases: .down) { keyPress in
             if keyPress.modifiers == .command {
-                Swift.print("📝 NodeGraphView: Command+L 被检测到 - 使用SwiftUI原生窗口")
-                
-                // 使用SwiftUI原生窗口管理
                 let windowManager = FullscreenGraphWindowManager.shared
-                windowManager.showFullscreenGraph(node: currentNode, graphData: graphData)
                 
-                // 通过通知打开窗口
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("requestOpenFullscreenGraph"), 
-                    object: nil
-                )
+                // 检查是否已经有全屏图谱窗口打开
+                if windowManager.isWindowActive() {
+                    Swift.print("📝 NodeGraphView: Command+L - 关闭现有全屏图谱窗口")
+                    windowManager.hideFullscreenGraph()
+                } else {
+                    Swift.print("📝 NodeGraphView: Command+L - 打开全屏图谱窗口")
+                    windowManager.showFullscreenGraph(node: currentNode, graphData: graphData)
+                    
+                    // 通过通知打开窗口
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("requestOpenFullscreenGraph"), 
+                        object: nil
+                    )
+                }
                 
                 return .handled
             }
@@ -1200,19 +1205,24 @@ class FullscreenGraphWindowManager: ObservableObject {
     
     func showFullscreenGraph(node: Node, graphData: (nodes: [NodeGraphNode], edges: [NodeGraphEdge])) {
         Swift.print("🔍 显示SwiftUI全屏图谱")
-        currentGraphNode = node
-        currentGraphData = graphData
-        showingFullscreenGraph = true
+        Swift.print("🔍 节点: \(node.text), 数据: \(graphData.nodes.count)个节点, \(graphData.edges.count)条边")
         
-        // 使用SwiftUI原生方式打开窗口
+        // 确保数据设置在主线程
         DispatchQueue.main.async {
+            self.currentGraphNode = node
+            self.currentGraphData = graphData
+            self.showingFullscreenGraph = true
+            
+            Swift.print("🔍 数据已设置: currentGraphNode=\(self.currentGraphNode?.text ?? "nil"), showingFullscreenGraph=\(self.showingFullscreenGraph)")
+            
+            // 发送打开窗口通知
             NotificationCenter.default.post(
                 name: NSNotification.Name("openFullscreenGraph"), 
                 object: nil
             )
             
             // 延迟确保窗口激活
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 self.activateFullscreenWindow()
             }
         }
@@ -1249,6 +1259,15 @@ class FullscreenGraphWindowManager: ObservableObject {
         currentGraphNode = nil
         currentGraphData = nil
         
+        // 查找并关闭全屏图谱窗口
+        for window in NSApp.windows {
+            if window.title == "全屏图谱" {
+                Swift.print("🚪 找到全屏图谱窗口，关闭中...")
+                window.close()
+                break
+            }
+        }
+        
         NotificationCenter.default.post(name: NSNotification.Name("FullscreenGraphClosed"), object: nil)
     }
     
@@ -1268,6 +1287,7 @@ struct FullscreenGraphView: View {
         VStack(spacing: 0) {
             if let node = windowManager.currentGraphNode,
                let graphData = windowManager.currentGraphData {
+                
                 
                 // 顶部标题栏
                 VStack(spacing: 4) {
@@ -1317,6 +1337,7 @@ struct FullscreenGraphView: View {
                 
             } else {
                 // 加载状态
+                
                 VStack(spacing: 20) {
                     ProgressView()
                         .scaleEffect(1.5)
@@ -1329,6 +1350,13 @@ struct FullscreenGraphView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
+                    
+                    // 调试按钮
+                    Button("手动刷新数据") {
+                        Swift.print("🔄 手动刷新: showingFullscreenGraph=\(windowManager.showingFullscreenGraph)")
+                        windowManager.objectWillChange.send()
+                    }
+                    .padding()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color(.windowBackgroundColor))
