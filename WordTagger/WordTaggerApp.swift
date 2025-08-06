@@ -214,7 +214,8 @@ class TagMappingManager: ObservableObject {
     static let builtInCoreTags = [
         TagMapping(key: "loc", typeName: "地点"),
         TagMapping(key: "root", typeName: "词根"),
-        TagMapping(key: "compound", typeName: "复合节点")
+        TagMapping(key: "compound", typeName: "复合节点"),
+        TagMapping(key: "child", typeName: "子节点")
     ]
     
     // 检查是否是内置核心标签
@@ -1729,35 +1730,61 @@ struct CompoundNodeAddSheetView: View {
             return
         }
         
-        // 为复合节点创建特殊标签
+        // 为复合节点创建特殊标签，包含所有子节点名称作为标签值
+        var compoundTags: [Tag] = []
+        
+        // 主复合节点标签
         let compoundTag = Tag(
             type: .custom("compound"),
-            value: "复合节点",
-            latitude: nil,
-            longitude: nil
+            value: "复合节点"
         )
+        compoundTags.append(compoundTag)
         
-        // 创建复合节点
+        // 为每个子节点创建标签，记录子节点的名称
+        for childName in childNodeNames {
+            let childReferenceTag = Tag(
+                type: .custom("child"),
+                value: childName
+            )
+            compoundTags.append(childReferenceTag)
+            print("🔗 为复合节点添加子节点引用标签: \(childName)")
+        }
+        
+        print("🏗️ 创建复合节点: \(compoundNodeName), 标签数: \(compoundTags.count)")
+        print("  - 复合标签: \(compoundTag.value)")
+        for tag in compoundTags.dropFirst() {
+            print("  - 子节点引用: \(tag.value)")
+        }
+        
+        // 创建复合节点，只包含复合标签和子节点引用标签
         let compoundNode = Node(
             text: compoundNodeName,
             phonetic: nil,
             meaning: "复合节点：包含 \(childNodeNames.joined(separator: ", "))",
             layerId: currentLayer.id,
-            tags: [compoundTag],
+            tags: compoundTags,
             isCompound: true
         )
         
-        // 创建子节点
+        // 创建或确保子节点存在
         var childNodes: [Node] = []
         for childName in childNodeNames {
-            let childNode = Node(
-                text: childName,
-                phonetic: nil,
-                meaning: nil,
-                layerId: currentLayer.id,
-                tags: []
-            )
-            childNodes.append(childNode)
+            // 检查是否已存在
+            if let existingNode = store.nodes.first(where: { $0.text.lowercased() == childName.lowercased() }) {
+                print("🔍 找到已存在的子节点: \(existingNode.text), 保持其标签不变")
+                // 子节点已存在，保持其原有标签
+            } else {
+                // 创建新的子节点
+                let childNode = Node(
+                    text: childName,
+                    phonetic: nil,
+                    meaning: nil,
+                    layerId: currentLayer.id,
+                    tags: []
+                )
+                childNodes.append(childNode)
+                print("🆕 创建新子节点: \(childName)")
+            }
         }
         
         // 添加到store
@@ -1765,6 +1792,10 @@ struct CompoundNodeAddSheetView: View {
         for childNode in childNodes {
             store.addNode(childNode)
         }
+        
+        print("✅ 复合节点结构创建完成:")
+        print("  复合节点: \(compoundNodeName) (包含 \(compoundTags.count) 个标签)")
+        print("  子节点: \(childNodeNames.joined(separator: ", "))")
         
         // 清空输入并关闭
         inputText = ""

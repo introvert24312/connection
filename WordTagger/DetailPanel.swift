@@ -667,6 +667,7 @@ class NodeGraphDataCache: ObservableObject {
         print("🗑️ 清除所有图谱缓存")
     }
     
+    @MainActor
     func getCachedGraphData(for node: Node) -> (nodes: [NodeGraphNode], edges: [NodeGraphEdge]) {
         // 检查缓存
         if let cached = cache[node.id] {
@@ -693,35 +694,147 @@ class NodeGraphDataCache: ObservableObject {
         return graphData
     }
     
+    @MainActor
     private func calculateGraphData(for node: Node) -> (nodes: [NodeGraphNode], edges: [NodeGraphEdge]) {
         let nodes = calculateGraphNodes(for: node)
         var edges: [NodeGraphEdge] = []
         let centerNode = nodes.first { $0.isCenter }!
         
-        // 为每个标签节点创建与中心节点的连接
-        for node in nodes where !node.isCenter {
-            if let tag = node.tag {
+        // 如果是复合节点，需要特殊处理连接关系
+        if node.isCompound {
+            // 收集所有子节点
+            var childNodes: [NodeGraphNode] = []
+            var tagNodes: [NodeGraphNode] = []
+            
+            for graphNode in nodes where !graphNode.isCenter {
+                if graphNode.node != nil {
+                    childNodes.append(graphNode)
+                } else if graphNode.tag != nil {
+                    tagNodes.append(graphNode)
+                }
+            }
+            
+            // 复合节点连接到子节点
+            for childNode in childNodes {
                 edges.append(NodeGraphEdge(
                     from: centerNode,
-                    to: node,
-                    relationshipType: tag.type.displayName
+                    to: childNode,
+                    relationshipType: "子节点"
                 ))
+            }
+            
+            // 标签连接到对应的节点
+            for tagNode in tagNodes {
+                if let tag = tagNode.tag {
+                    // 检查这个标签属于哪个子节点
+                    var targetNode = centerNode // 默认连接到中心节点
+                    
+                    // 如果不是子节点引用标签，检查它属于哪个子节点
+                    if let childOwner = findTagOwner(tag: tag, inChildNodes: childNodes) {
+                        targetNode = childOwner
+                    }
+                    
+                    edges.append(NodeGraphEdge(
+                        from: targetNode,
+                        to: tagNode,
+                        relationshipType: tag.type.displayName
+                    ))
+                }
+            }
+        } else {
+            // 普通节点的连接逻辑
+            for graphNode in nodes where !graphNode.isCenter {
+                if let tag = graphNode.tag {
+                    edges.append(NodeGraphEdge(
+                        from: centerNode,
+                        to: graphNode,
+                        relationshipType: tag.type.displayName
+                    ))
+                }
             }
         }
         
         return (nodes: nodes, edges: edges)
     }
     
+    // 帮助方法：查找标签属于哪个子节点
+    @MainActor
+    private func findTagOwner(tag: Tag, inChildNodes childNodes: [NodeGraphNode]) -> NodeGraphNode? {
+        for childNode in childNodes {
+            if let actualNode = childNode.node {
+                // 检查标签是否属于这个子节点
+                if actualNode.tags.contains(where: { $0.type == tag.type && $0.value == tag.value }) ||
+                   actualNode.locationTags.contains(where: { $0.type == tag.type && $0.value == tag.value }) {
+                    return childNode
+                }
+            }
+        }
+        return nil
+    }
+    
+    @MainActor
     private func calculateGraphNodes(for node: Node) -> [NodeGraphNode] {
         var nodes: [NodeGraphNode] = []
         var addedTagKeys: Set<String> = []
+        var addedChildNodes: Set<String> = []
         
         // 添加中心节点（当前节点）
         nodes.append(NodeGraphNode(node: node, isCenter: true))
         
-        // 添加当前节点的所有标签作为节点（去重）
+        // 如果是复合节点，先处理子节点引用
+        if node.isCompound {
+            // 查找子节点引用标签
+            let childReferenceTags = node.tags.filter { 
+                if case .custom(let key) = $0.type {
+                    return key == "child"
+                }
+                return false
+            }
+            
+            // 为每个子节点引用查找实际的子节点并添加
+            for childRefTag in childReferenceTags {
+                let childNodeName = childRefTag.value
+                if !addedChildNodes.contains(childNodeName) {
+                    // 从store中查找实际的子节点
+                    if let actualChildNode = NodeStore.shared.nodes.first(where: { $0.text.lowercased() == childNodeName.lowercased() }) {
+                        // 添加子节点本身
+                        nodes.append(NodeGraphNode(node: actualChildNode, isCenter: false))
+                        addedChildNodes.insert(childNodeName)
+                        print("🔗 图谱中添加子节点: \(actualChildNode.text), 标签数: \(actualChildNode.tags.count)")
+                        
+                        // 添加子节点的所有标签
+                        for childTag in actualChildNode.tags {
+                            let childTagKey = "\(childTag.type.rawValue):\(childTag.value)"
+                            if !addedTagKeys.contains(childTagKey) {
+                                nodes.append(NodeGraphNode(tag: childTag))
+                                addedTagKeys.insert(childTagKey)
+                                print("  ↳ 添加子节点标签: \(childTag.type.displayName) - \(childTag.value)")
+                            }
+                        }
+                        
+                        // 添加子节点的位置标签
+                        for locationTag in actualChildNode.locationTags {
+                            let locationTagKey = "\(locationTag.type.rawValue):\(locationTag.value)"
+                            if !addedTagKeys.contains(locationTagKey) {
+                                nodes.append(NodeGraphNode(tag: locationTag))
+                                addedTagKeys.insert(locationTagKey)
+                                print("  ↳ 添加子节点位置标签: \(locationTag.type.displayName) - \(locationTag.value)")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 添加当前节点的所有标签作为节点（去重），但跳过子节点引用标签
         for tag in node.tags {
             let tagKey = "\(tag.type.rawValue):\(tag.value)"
+            
+            // 跳过子节点引用标签，因为我们已经添加了实际的子节点
+            if case .custom(let key) = tag.type, key == "child" {
+                continue
+            }
+            
             if !addedTagKeys.contains(tagKey) {
                 nodes.append(NodeGraphNode(tag: tag))
                 addedTagKeys.insert(tagKey)
