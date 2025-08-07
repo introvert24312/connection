@@ -60,6 +60,25 @@ struct DetailPanel: View {
         .sheet(isPresented: $showingEditSheet) {
             EditNodeSheet(node: currentNode)
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("toggleDetailEditMode"))) { notification in
+            // 收到全局Command+T通知，切换到详情页并切换编辑模式
+            if let notificationNode = notification.object as? Node,
+               notificationNode.id == node.id {
+                print("📝 DetailPanel: 收到Command+T通知，切换到详情并切换编辑模式")
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    tab = .detail // 切换到详情页
+                }
+                
+                // 延迟一点确保tab切换完成后再切换编辑模式
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    // 发送通知给NodeDetailView切换编辑模式
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("toggleNodeDetailEditMode"),
+                        object: notificationNode
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -275,6 +294,27 @@ struct NodeDetailView: View {
                 return .handled
             }
             return .ignored
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("toggleNodeDetailEditMode"))) { notification in
+            // 收到切换编辑模式的通知
+            if let notificationNode = notification.object as? Node,
+               notificationNode.id == currentNode.id {
+                print("📝 NodeDetailView: 收到切换编辑模式通知")
+                
+                // 切换编辑/预览模式
+                if showingMarkdownPreview {
+                    // 当前是预览模式，切换到编辑模式
+                    print("📝 NodeDetailView: 从预览模式切换到编辑模式")
+                    showingMarkdownPreview = false
+                    isEditingMarkdown = true
+                } else {
+                    // 当前是编辑模式，切换到预览模式并保存
+                    print("📝 NodeDetailView: 从编辑模式切换到预览模式")
+                    saveMarkdown()
+                    showingMarkdownPreview = true
+                    isEditingMarkdown = false
+                }
+            }
         }
     }
     

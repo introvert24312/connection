@@ -65,6 +65,25 @@ struct ContentView: View {
             }
             return .ignored
         }
+        .onKeyPress(.init("t"), phases: .down) { keyPress in
+            if keyPress.modifiers == .command {
+                print("🔑 ContentView: Command+T键按下")
+                // 如果有选中的节点，切换到详情面板并切换编辑模式
+                if let node = selectedNode {
+                    print("🔑 ContentView: 有选中节点，切换详情编辑模式")
+                    // 发送通知给DetailPanel切换编辑模式
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("toggleDetailEditMode"),
+                        object: node
+                    )
+                    return .handled
+                } else {
+                    print("🔑 ContentView: 无选中节点，忽略Command+T")
+                    return .ignored
+                }
+            }
+            return .ignored
+        }
         .onKeyPress(.escape) {
             // 如果标签管理打开，按ESC键关闭它
             print("🔑 ContentView: ESC键事件接收，showSidebar=\(showSidebar)")
