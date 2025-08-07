@@ -211,11 +211,21 @@ struct NodeListView: View {
         .onAppear {
             setupView()
         }
-        .onChange(of: store.searchQuery, perform: handleStoreSearchQueryChange)
-        .onChange(of: store.searchResults, perform: handleSearchResultsChange)
-        .onChange(of: store.selectedTag?.id, perform: handleSelectedTagChange)
-        .onChange(of: store.currentLayer?.id, perform: handleCurrentLayerChange)
-        .onChange(of: sortOption, perform: handleSortOptionChange)
+        .onChange(of: store.searchQuery) { _, newValue in
+            handleStoreSearchQueryChange(newValue)
+        }
+        .onChange(of: store.searchResults) { _, newValue in
+            handleSearchResultsChange(newValue)
+        }
+        .onChange(of: store.selectedTag?.id) { _, newValue in
+            handleSelectedTagChange(newValue)
+        }
+        .onChange(of: store.currentLayer?.id) { _, newValue in
+            handleCurrentLayerChange(newValue)
+        }
+        .onChange(of: sortOption) { _, newValue in
+            handleSortOptionChange(newValue)
+        }
         .onChange(of: store.nodes) { _, newNodes in
             print("📊 NodeListView: store.nodes changed, 节点数量: \(newNodes.count)")
             // 详细输出每个节点的标签信息
