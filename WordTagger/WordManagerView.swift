@@ -758,7 +758,9 @@ struct TagEditCommandView: View {
             
             await MainActor.run {
                 if success {
-                    store.objectWillChange.send()
+                    DispatchQueue.main.async {
+                        store.objectWillChange.send()
+                    }
                     print("✅ 标签批量更新成功")
                 } else {
                     print("❌ 标签批量更新失败")
@@ -1021,7 +1023,9 @@ struct TagEditCommandView: View {
                     do {
                         _ = try await command.execute(with: context)
                         await MainActor.run {
-                            store.objectWillChange.send()
+                            DispatchQueue.main.async {
+                                store.objectWillChange.send()
+                            }
                             dismiss()
                         }
                     } catch {

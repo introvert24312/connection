@@ -698,13 +698,17 @@ class NodeGraphDataCache: ObservableObject {
     // 清除特定节点的缓存
     func invalidateCache(for nodeId: UUID) {
         cache.removeValue(forKey: nodeId)
-        objectWillChange.send()
+        DispatchQueue.main.async { [weak self] in
+            self?.objectWillChange.send()
+        }
     }
     
     // 清除所有缓存
     func clearAllCache() {
         cache.removeAll()
-        objectWillChange.send()
+        DispatchQueue.main.async { [weak self] in
+            self?.objectWillChange.send()
+        }
         print("🗑️ 清除所有图谱缓存")
     }
     
@@ -1405,7 +1409,9 @@ struct FullscreenGraphView: View {
                     // 调试按钮
                     Button("手动刷新数据") {
                         Swift.print("🔄 手动刷新: showingFullscreenGraph=\(windowManager.showingFullscreenGraph)")
-                        windowManager.objectWillChange.send()
+                        DispatchQueue.main.async {
+                            windowManager.objectWillChange.send()
+                        }
                     }
                     .padding()
                 }
