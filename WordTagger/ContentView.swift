@@ -55,12 +55,28 @@ struct ContentView: View {
         }
         .onKeyPress(.init("l"), phases: .down) { keyPress in
             if keyPress.modifiers == .command {
-                // 检查是否有全屏图谱窗口打开
-                let windowManager = FullscreenGraphWindowManager.shared
-                if windowManager.isWindowActive() {
-                    Swift.print("📝 ContentView: Command+L - 关闭全屏图谱窗口")
-                    windowManager.hideFullscreenGraph()
-                    return .handled
+                Swift.print("🔑 ContentView: Command+L键按下")
+                
+                // 检查是否有选中的节点
+                if let node = selectedNode {
+                    // 检查是否有全屏图谱窗口打开
+                    let windowManager = FullscreenGraphWindowManager.shared
+                    if windowManager.isWindowActive() {
+                        Swift.print("📝 ContentView: Command+L - 关闭全屏图谱窗口")
+                        windowManager.hideFullscreenGraph()
+                        return .handled
+                    } else {
+                        Swift.print("📝 ContentView: Command+L - 打开全屏图谱窗口")
+                        // 发送通知打开全屏图谱
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("openFullscreenGraphForNode"),
+                            object: node
+                        )
+                        return .handled
+                    }
+                } else {
+                    Swift.print("🔑 ContentView: Command+L - 无选中节点，忽略")
+                    return .ignored
                 }
             }
             return .ignored
@@ -167,6 +183,26 @@ struct ContentView: View {
                     showSidebar.toggle()
                 }
                 print("🔔 ContentView: 切换后showSidebar=\(showSidebar)")
+            }
+            
+            // 监听打开全屏图谱的通知
+            NotificationCenter.default.addObserver(
+                forName: Notification.Name("openFullscreenGraphForNode"),
+                object: nil,
+                queue: .main
+            ) { notification in
+                if let node = notification.object as? Node {
+                    print("🔔 ContentView: 收到openFullscreenGraphForNode通知，节点: \(node.text)")
+                    
+                    // 通过DetailPanel的图谱功能触发全屏图谱
+                    if node.id == selectedNode?.id {
+                        // 发送通知给DetailPanel，让它打开全屏图谱
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("requestOpenFullscreenGraphFromDetail"),
+                            object: node
+                        )
+                    }
+                }
             }
             
             // 检查数据路径设置

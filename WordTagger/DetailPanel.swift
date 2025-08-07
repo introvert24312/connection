@@ -1170,6 +1170,26 @@ struct NodeGraphView: View {
             showingFullscreenGraph = false
             print("📝 通知: showingFullscreenGraph 设置为 false")
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("requestOpenFullscreenGraphFromDetail"))) { notification in
+            if let node = notification.object as? Node,
+               node.id == currentNode.id {
+                print("📝 NodeGraphView: 收到Command+L触发的全屏图谱请求")
+                
+                let windowManager = FullscreenGraphWindowManager.shared
+                if !windowManager.isWindowActive() {
+                    print("📝 NodeGraphView: 打开全屏图谱")
+                    let graphData = graphCache.getCachedGraphData(for: currentNode)
+                    
+                    windowManager.showFullscreenGraph(node: currentNode, graphData: graphData)
+                    
+                    // 通过通知打开窗口
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("requestOpenFullscreenGraph"), 
+                        object: nil
+                    )
+                }
+            }
+        }
     }
 }
 
