@@ -79,41 +79,7 @@ struct NodeDetailView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // 固定的单词信息区域
-            VStack(alignment: .leading, spacing: 16) {
-                HStack {
-                    Text(currentNode.text)
-                        .font(.system(size: 36, weight: .bold))
-                        .fontWeight(.bold)
-                    
-                    Spacer()
-                    
-                    if let phonetic = currentNode.phonetic {
-                        Text(phonetic)
-                            .font(.system(size: 18))
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(Color.gray.opacity(0.1))
-                            )
-                    }
-                }
-                
-                if let meaning = currentNode.meaning {
-                    Text(meaning)
-                        .font(.system(size: 24))
-                        .foregroundColor(.primary)
-                }
-            }
-            .padding(.horizontal, 24)
-            .padding(.top, 24)
-            .padding(.bottom, 16)
-            
-            Divider()
-            
-            // 笔记部分 - 占据剩余全部空间
+            // 笔记部分 - 占据全部空间
             VStack(alignment: .leading, spacing: 16) {
                 // 笔记标题和工具栏
                 HStack {
