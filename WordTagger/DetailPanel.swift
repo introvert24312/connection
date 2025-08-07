@@ -1823,6 +1823,21 @@ struct MermaidWebView: NSViewRepresentable {
                     border: 1px dashed #ddd;
                     border-radius: 8px;
                     background-color: #fafafa;
+                    opacity: 0;
+                    transition: opacity 0.3s ease-in-out;
+                }
+                
+                .mermaid.rendered {
+                    opacity: 1;
+                }
+                
+                #content {
+                    opacity: 0;
+                    transition: opacity 0.3s ease-in-out;
+                }
+                
+                #content.ready {
+                    opacity: 1;
                 }
                 
                 @media (prefers-color-scheme: dark) {
@@ -1880,23 +1895,36 @@ struct MermaidWebView: NSViewRepresentable {
                         }
                     });
                     
-                    document.getElementById('content').innerHTML = doc.body.innerHTML;
+                    const contentDiv = document.getElementById('content');
+                    contentDiv.innerHTML = doc.body.innerHTML;
                     
                     // 渲染Mermaid图表
-                    setTimeout(() => {
-                        const mermaidElements = document.querySelectorAll('.mermaid');
-                        console.log('准备渲染 ' + mermaidElements.length + ' 个Mermaid图表');
-                        
-                        if (mermaidElements.length > 0) {
-                            mermaid.run({
-                                querySelector: '.mermaid'
-                            }).then(() => {
-                                console.log('✅ Mermaid渲染成功');
-                            }).catch(error => {
-                                console.error('❌ Mermaid渲染失败:', error);
+                    const mermaidElements = document.querySelectorAll('.mermaid');
+                    console.log('准备渲染 ' + mermaidElements.length + ' 个Mermaid图表');
+                    
+                    if (mermaidElements.length > 0) {
+                        // 如果有Mermaid图表，等待渲染完成后再显示
+                        mermaid.run({
+                            querySelector: '.mermaid'
+                        }).then(() => {
+                            console.log('✅ Mermaid渲染成功');
+                            // 添加rendered类，触发淡入动画
+                            mermaidElements.forEach(element => {
+                                element.classList.add('rendered');
                             });
-                        }
-                    }, 100);
+                            // 显示整个内容
+                            setTimeout(() => {
+                                contentDiv.classList.add('ready');
+                            }, 50);
+                        }).catch(error => {
+                            console.error('❌ Mermaid渲染失败:', error);
+                            // 即使渲染失败也要显示内容
+                            contentDiv.classList.add('ready');
+                        });
+                    } else {
+                        // 如果没有Mermaid图表，直接显示内容
+                        contentDiv.classList.add('ready');
+                    }
                 }
                 
                 // 页面加载后渲染
