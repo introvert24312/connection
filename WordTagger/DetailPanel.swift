@@ -78,163 +78,165 @@ struct NodeDetailView: View {
     }
     
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                // 单词信息
-                VStack(alignment: .leading, spacing: 16) {
-                    HStack {
-                        Text(currentNode.text)
-                            .font(.system(size: 36, weight: .bold))
-                            .fontWeight(.bold)
-                        
-                        Spacer()
-                        
-                        if let phonetic = currentNode.phonetic {
-                            Text(phonetic)
-                                .font(.system(size: 18))
-                                .foregroundColor(.secondary)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(Color.gray.opacity(0.1))
-                                )
-                        }
-                    }
+        VStack(spacing: 0) {
+            // 固定的单词信息区域
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Text(currentNode.text)
+                        .font(.system(size: 36, weight: .bold))
+                        .fontWeight(.bold)
                     
-                    if let meaning = currentNode.meaning {
-                        Text(meaning)
-                            .font(.system(size: 24))
-                            .foregroundColor(.primary)
+                    Spacer()
+                    
+                    if let phonetic = currentNode.phonetic {
+                        Text(phonetic)
+                            .font(.system(size: 18))
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.gray.opacity(0.1))
+                            )
                     }
                 }
                 
-                Divider()
-                
-                // 笔记部分 - 占据全部空间
-                VStack(alignment: .leading, spacing: 16) {
-                    // 笔记标题和工具栏
-                    HStack {
-                        Text("笔记")
-                            .font(.system(size: 20, weight: .semibold))
-                        
-                        Spacer()
-                        
-                        // 编辑/预览切换按钮
-                        HStack(spacing: 8) {
-                            Button(action: { 
-                                showingMarkdownPreview = false
-                                isEditingMarkdown = true 
-                            }) {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "pencil")
-                                        .font(.caption)
-                                    Text("编辑")
-                                        .font(.caption)
-                                }
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                            .disabled(isEditingMarkdown && !showingMarkdownPreview)
-                            
-                            Button(action: { 
-                                showingMarkdownPreview = true
-                                isEditingMarkdown = false
-                                saveMarkdown()
-                            }) {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "eye")
-                                        .font(.caption)
-                                    Text("预览")
-                                        .font(.caption)
-                                }
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                            .disabled(showingMarkdownPreview)
-                        }
-                    }
+                if let meaning = currentNode.meaning {
+                    Text(meaning)
+                        .font(.system(size: 24))
+                        .foregroundColor(.primary)
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 24)
+            .padding(.bottom, 16)
+            
+            Divider()
+            
+            // 笔记部分 - 占据剩余全部空间
+            VStack(alignment: .leading, spacing: 16) {
+                // 笔记标题和工具栏
+                HStack {
+                    Text("笔记")
+                        .font(.system(size: 20, weight: .semibold))
                     
-                    // 笔记内容区域
-                    if showingMarkdownPreview {
-                        // Markdown预览
-                        VStack(alignment: .leading, spacing: 12) {
-                            if markdownText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                VStack(spacing: 8) {
-                                    Image(systemName: "doc.text")
-                                        .font(.title2)
-                                        .foregroundColor(.gray)
-                                    
-                                    Text("暂无笔记内容")
-                                        .font(.system(size: 16))
-                                        .foregroundColor(.secondary)
-                                    
-                                    Text("点击「编辑」按钮开始记录笔记")
-                                        .font(.system(size: 13))
-                                        .foregroundColor(Color.secondary)
-                                        .multilineTextAlignment(.center)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 32)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(Color.gray.opacity(0.05))
-                                )
-                            } else {
-                                // Markdown预览 - 使用Web渲染支持Mermaid图表
-                                MermaidWebView(markdown: markdownText)
-                                    .frame(minHeight: 300)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .fill(Color.gray.opacity(0.03))
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 8)
-                                                    .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                                            )
-                                    )
+                    Spacer()
+                    
+                    // 编辑/预览切换按钮
+                    HStack(spacing: 8) {
+                        Button(action: { 
+                            showingMarkdownPreview = false
+                            isEditingMarkdown = true 
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "pencil")
+                                    .font(.caption)
+                                Text("编辑")
+                                    .font(.caption)
                             }
                         }
-                    } else {
-                        // Markdown编辑器
-                        VStack(spacing: 8) {
-                            // 编辑提示和保存按钮
-                            HStack {
-                                Text("支持Markdown语法：**粗体** *斜体* `代码` # 标题，以及Mermaid图表")
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .disabled(isEditingMarkdown && !showingMarkdownPreview)
+                        
+                        Button(action: { 
+                            showingMarkdownPreview = true
+                            isEditingMarkdown = false
+                            saveMarkdown()
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "eye")
                                     .font(.caption)
+                                Text("预览")
+                                    .font(.caption)
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .disabled(showingMarkdownPreview)
+                    }
+                }
+                
+                // 笔记内容区域
+                if showingMarkdownPreview {
+                    // Markdown预览
+                    VStack(alignment: .leading, spacing: 12) {
+                        if markdownText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            VStack(spacing: 8) {
+                                Image(systemName: "doc.text")
+                                    .font(.title2)
+                                    .foregroundColor(.gray)
+                                
+                                Text("暂无笔记内容")
+                                    .font(.system(size: 16))
                                     .foregroundColor(.secondary)
                                 
-                                Spacer()
-                                
-                                Button("保存") {
-                                    saveMarkdown()
-                                    showingMarkdownPreview = true
-                                    isEditingMarkdown = false
-                                }
-                                .buttonStyle(.borderedProminent)
-                                .controlSize(.small)
+                                Text("点击「编辑」按钮开始记录笔记")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(Color.secondary)
+                                    .multilineTextAlignment(.center)
                             }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(Color.blue.opacity(0.05))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 32)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.gray.opacity(0.05))
                             )
-                            
-                            // 文本编辑器
-                            TextEditor(text: $markdownText)
-                                .font(.system(.body, design: .monospaced))
-                                .padding(12)
-                                .frame(minHeight: 200)
-                                .background(Color(NSColor.textBackgroundColor))
-                                .overlay(
+                        } else {
+                            // Markdown预览 - 使用Web渲染支持Mermaid图表
+                            MermaidWebView(markdown: markdownText)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .background(
                                     RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color(NSColor.separatorColor), lineWidth: 1)
+                                        .fill(Color.gray.opacity(0.03))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                                        )
                                 )
                         }
+                    }
+                } else {
+                    // Markdown编辑器
+                    VStack(spacing: 8) {
+                        // 编辑提示和保存按钮
+                        HStack {
+                            Text("支持Markdown语法：**粗体** *斜体* `代码` # 标题，以及Mermaid图表")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            Spacer()
+                            
+                            Button("保存") {
+                                saveMarkdown()
+                                showingMarkdownPreview = true
+                                isEditingMarkdown = false
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color.blue.opacity(0.05))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+                        )
+                        
+                        // 文本编辑器
+                        TextEditor(text: $markdownText)
+                            .font(.system(.body, design: .monospaced))
+                            .padding(12)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .background(Color(NSColor.textBackgroundColor))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color(NSColor.separatorColor), lineWidth: 1)
+                            )
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(24)
         }
         .onAppear {
