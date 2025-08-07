@@ -258,6 +258,24 @@ struct NodeDetailView: View {
         .onChange(of: currentNode.id) { _, _ in
             loadMarkdown()
         }
+        .focusable()
+        .onKeyPress(.init("t"), phases: .down) { keyPress in
+            if keyPress.modifiers == .command {
+                // Command+T: 切换编辑/预览模式
+                if showingMarkdownPreview {
+                    // 当前是预览模式，切换到编辑模式
+                    showingMarkdownPreview = false
+                    isEditingMarkdown = true
+                } else {
+                    // 当前是编辑模式，切换到预览模式并保存
+                    saveMarkdown()
+                    showingMarkdownPreview = true
+                    isEditingMarkdown = false
+                }
+                return .handled
+            }
+            return .ignored
+        }
     }
     
     private func loadMarkdown() {
