@@ -26,10 +26,10 @@ struct ContentView: View {
             // 右侧：详情面板 (图谱区域)
             if let node = selectedNode {
                 DetailPanel(node: node)
-                    .frame(minWidth: showSidebar ? 500 : 650)
+                    .frame(minWidth: showSidebar ? 400 : 500, maxWidth: .infinity)
             } else {
                 WelcomeView()
-                    .frame(minWidth: showSidebar ? 500 : 650)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .animation(.easeInOut(duration: 0.3), value: showSidebar)
@@ -166,62 +166,68 @@ struct WelcomeView: View {
     @EnvironmentObject private var store: NodeStore
     
     var body: some View {
-        VStack(spacing: 30) {
-            Spacer()
-            
-            VStack(spacing: 20) {
-                Image(systemName: "book.closed")
-                    .font(.system(size: 60))
-                    .foregroundColor(.blue)
+        ScrollView {
+            VStack(spacing: 24) {
+                Spacer(minLength: 40)
                 
-                Text("欢迎使用节点标签管理器")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                
-                Text("使用智能标签系统来组织和记忆节点")
-                    .font(.title3)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            
-            VStack(spacing: 16) {
-                HStack {
-                    Image(systemName: "plus.circle.fill")
-                        .foregroundColor(.green)
-                    Text("按 ⌘N 添加新节点")
-                }
-                
-                HStack {
-                    Image(systemName: "magnifyingglass")
+                VStack(spacing: 16) {
+                    Image(systemName: "book.closed")
+                        .font(.system(size: 50))
                         .foregroundColor(.blue)
-                    Text("按 ⌘F 搜索节点")
+                    
+                    Text("欢迎使用节点标签管理器")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .multilineTextAlignment(.center)
+                    
+                    Text("使用智能标签系统来组织和记忆节点")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
                 }
                 
-                HStack {
-                    Image(systemName: "command")
-                        .foregroundColor(.purple)
-                    Text("按 ⌘K 打开命令面板")
+                VStack(spacing: 12) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundColor(.green)
+                        Text("按 ⌘N 添加新节点")
+                            .font(.callout)
+                    }
+                    
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.blue)
+                        Text("按 ⌘F 搜索节点")
+                            .font(.callout)
+                    }
+                    
+                    HStack(spacing: 8) {
+                        Image(systemName: "command")
+                            .foregroundColor(.purple)
+                        Text("按 ⌘K 打开命令面板")
+                            .font(.callout)
+                    }
                 }
-            }
-            .font(.body)
-            .foregroundColor(.secondary)
-            
-            Spacer()
-            
-            VStack(spacing: 8) {
-                Text("当前统计")
-                    .font(.headline)
+                .foregroundColor(.secondary)
                 
-                HStack(spacing: 30) {
-                    StatCard(title: "节点总数", value: "\(store.nodes.count)", color: .blue)
-                    StatCard(title: "标签总数", value: "\(store.allTags.count)", color: .green)
-                    StatCard(title: "地点标签", value: "\(store.allTags.filter { $0.hasCoordinates }.count)", color: .red)
+                VStack(spacing: 8) {
+                    Text("当前统计")
+                        .font(.headline)
+                    
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: 3), spacing: 16) {
+                        StatCard(title: "节点总数", value: "\(store.nodes.count)", color: .blue)
+                        StatCard(title: "标签总数", value: "\(store.allTags.count)", color: .green)
+                        StatCard(title: "地点标签", value: "\(store.allTags.filter { $0.hasCoordinates }.count)", color: .red)
+                    }
                 }
+                
+                Spacer(minLength: 40)
             }
-            
-            Spacer()
+            .padding(.horizontal, 20)
+            .frame(maxWidth: .infinity)
         }
-        .padding(40)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(NSColor.windowBackgroundColor))
     }
 }
 
@@ -231,19 +237,25 @@ struct StatCard: View {
     let color: Color
     
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 4) {
             Text(value)
-                .font(.title)
+                .font(.title3)
                 .fontWeight(.bold)
                 .foregroundColor(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
             
             Text(title)
-                .font(.caption)
+                .font(.caption2)
                 .foregroundColor(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
-        .padding()
+        .padding(.vertical, 8)
+        .padding(.horizontal, 6)
+        .frame(maxWidth: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: 8)
                 .fill(color.opacity(0.1))
         )
     }
