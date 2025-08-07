@@ -217,16 +217,16 @@ struct NodeDetailView: View {
                                         .fill(Color.gray.opacity(0.05))
                                 )
                             } else {
-                                // 增强的Markdown预览 - 选择渲染方式
+                                // Markdown预览 - 支持渲染模式切换
                                 VStack(spacing: 0) {
                                     // 渲染方式选择器
                                     HStack {
                                         Picker("渲染方式", selection: $renderingMode) {
                                             Text("原生渲染").tag(RenderingMode.native)
-                                            Text("Web渲染").tag(RenderingMode.web)
+                                            Text("Web渲染 (支持Mermaid)").tag(RenderingMode.web)
                                         }
                                         .pickerStyle(.segmented)
-                                        .frame(width: 200)
+                                        .frame(width: 280)
                                         
                                         Spacer()
                                     }
@@ -240,9 +240,9 @@ struct NodeDetailView: View {
                                         MarkdownRenderedText(markdown: markdownText)
                                             .padding(16)
                                     } else {
-                                        // Web渲染器
-                                        AdvancedMarkdownWebView(markdown: markdownText)
-                                            .frame(minHeight: 200)
+                                        // Web渲染器 - 支持真实的Mermaid图表
+                                        MermaidWebView(markdown: markdownText)
+                                            .frame(minHeight: 300)
                                     }
                                 }
                                 .background(
@@ -308,6 +308,13 @@ struct NodeDetailView: View {
     
     private func loadMarkdown() {
         markdownText = currentNode.markdown
+        
+        // 智能渲染模式选择：如果包含Mermaid图表，自动推荐Web渲染
+        if markdownText.contains("```mermaid") && renderingMode == .native {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                renderingMode = .web
+            }
+        }
     }
     
     private func saveMarkdown() {
@@ -1927,15 +1934,15 @@ struct CodeBlockView: View {
 
 struct MermaidView: View {
     let diagram: String
-    @State private var isExpanded = false
+    @State private var isExpanded = true  // 默认展开显示代码
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             // Mermaid头部
             HStack {
-                Image(systemName: "chart.bar.doc.horizontal")
+                Image(systemName: getIconName())
                     .foregroundColor(.blue)
-                Text("Mermaid 图表")
+                Text("\(getMermaidDescription()) - Mermaid图表")
                     .font(.caption)
                     .fontWeight(.medium)
                     .foregroundColor(.secondary)
@@ -1957,7 +1964,7 @@ struct MermaidView: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundColor(.secondary)
-                    .help(isExpanded ? "收起" : "展开")
+                    .help(isExpanded ? "收起代码" : "展开代码")
                 }
             }
             .padding(.horizontal, 12)
@@ -1965,37 +1972,84 @@ struct MermaidView: View {
             .background(Color.blue.opacity(0.1))
             
             if isExpanded {
-                // 显示原始Mermaid代码
-                ScrollView(.horizontal, showsIndicators: false) {
-                    Text(diagram)
-                        .font(.system(.body, design: .monospaced))
-                        .foregroundColor(.primary)
-                        .textSelection(.enabled)
-                        .padding(12)
+                // 显示图表预览信息和代码
+                VStack(alignment: .leading, spacing: 12) {
+                    // 图表信息摘要
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: getIconName())
+                                .font(.title2)
+                                .foregroundColor(.blue)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(getMermaidDescription())
+                                    .font(.headline)
+                                    .foregroundColor(.primary)
+                                
+                                Text(getContentSummary())
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(2)
+                            }
+                            
+                            Spacer()
+                        }
+                        
+                        // 显示图表的主要元素
+                        Text(getElementsSummary())
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.vertical, 4)
+                            .padding(.horizontal, 8)
+                            .background(Color.gray.opacity(0.1))
+                            .cornerRadius(4)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.blue.opacity(0.05))
+                    .cornerRadius(6)
+                    
+                    // 原始代码
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Mermaid 源码：")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.secondary)
+                        
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            Text(diagram)
+                                .font(.system(.body, design: .monospaced))
+                                .foregroundColor(.primary)
+                                .textSelection(.enabled)
+                                .padding(12)
+                        }
+                        .background(Color(NSColor.textBackgroundColor))
+                        .cornerRadius(4)
+                    }
                 }
-                .background(Color(NSColor.textBackgroundColor))
+                .padding(.horizontal, 12)
+                .padding(.bottom, 12)
             } else {
-                // 简化的图表表示
-                VStack(spacing: 12) {
-                    Image(systemName: "flowchart")
-                        .font(.largeTitle)
+                // 收起时的简化显示
+                HStack(spacing: 12) {
+                    Image(systemName: getIconName())
+                        .font(.title)
                         .foregroundColor(.blue)
                     
-                    Text(getMermaidDescription())
-                        .font(.body)
-                        .foregroundColor(.primary)
-                        .multilineTextAlignment(.center)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(getMermaidDescription())
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                        
+                        Text("点击展开查看详细信息")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                     
-                    Text("点击展开查看完整代码")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    Spacer()
                 }
-                .frame(maxWidth: .infinity)
-                .padding(20)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.blue.opacity(0.03))
-                )
+                .padding(16)
+                .background(Color.blue.opacity(0.05))
             }
         }
         .overlay(
@@ -2004,9 +2058,7 @@ struct MermaidView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .onTapGesture {
-            if !isExpanded {
-                isExpanded.toggle()
-            }
+            isExpanded.toggle()
         }
     }
     
@@ -2036,13 +2088,73 @@ struct MermaidView: View {
             return "Mermaid 图表"
         }
     }
+    
+    private func getIconName() -> String {
+        let firstLine = diagram.components(separatedBy: .newlines).first?.trimmingCharacters(in: .whitespaces) ?? ""
+        
+        if firstLine.hasPrefix("graph") {
+            return "flowchart"
+        } else if firstLine.hasPrefix("sequenceDiagram") {
+            return "arrow.left.arrow.right"
+        } else if firstLine.hasPrefix("classDiagram") {
+            return "rectangle.3.offgrid"
+        } else if firstLine.hasPrefix("erDiagram") {
+            return "square.grid.3x3"
+        } else if firstLine.hasPrefix("gantt") {
+            return "calendar"
+        } else if firstLine.hasPrefix("pie") {
+            return "chart.pie"
+        } else if firstLine.hasPrefix("journey") {
+            return "map"
+        } else {
+            return "chart.bar.doc.horizontal"
+        }
+    }
+    
+    private func getContentSummary() -> String {
+        let lines = diagram.components(separatedBy: .newlines)
+        let contentLines = lines.dropFirst().filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        
+        if contentLines.count <= 3 {
+            return "包含 \(contentLines.count) 行定义"
+        } else {
+            return "包含 \(contentLines.count) 行定义 - 复杂图表"
+        }
+    }
+    
+    private func getElementsSummary() -> String {
+        let content = diagram.lowercased()
+        var elements: [String] = []
+        
+        // 分析内容中的关键元素
+        if content.contains("-->") || content.contains("->") {
+            let arrowCount = content.components(separatedBy: "-->").count + content.components(separatedBy: "->").count - 2
+            elements.append("\(arrowCount)个连接")
+        }
+        
+        if content.contains("[") && content.contains("]") {
+            let nodeCount = content.components(separatedBy: "[").count - 1
+            elements.append("\(nodeCount)个节点")
+        }
+        
+        if content.contains("{") && content.contains("}") {
+            let decisionCount = content.components(separatedBy: "{").count - 1
+            elements.append("\(decisionCount)个判断")
+        }
+        
+        if elements.isEmpty {
+            return "分析图表结构..."
+        } else {
+            return elements.joined(separator: ", ")
+        }
+    }
 }
 
-// MARK: - 高级WebKit Markdown渲染器
+// MARK: - 简化的Mermaid WebView渲染器
 
 import WebKit
 
-struct AdvancedMarkdownWebView: NSViewRepresentable {
+struct MermaidWebView: NSViewRepresentable {
     let markdown: String
     
     func makeNSView(context: Context) -> WKWebView {
@@ -2057,7 +2169,7 @@ struct AdvancedMarkdownWebView: NSViewRepresentable {
     }
     
     func makeCoordinator() -> Coordinator {
-        Coordinator(self)
+        Coordinator()
     }
     
     private func generateHTML(from markdown: String) -> String {
@@ -2067,154 +2179,62 @@ struct AdvancedMarkdownWebView: NSViewRepresentable {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Markdown Preview</title>
+            <title>Mermaid Preview</title>
             
-            <!-- Marked.js for Markdown parsing -->
+            <!-- Marked.js -->
             <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
             
-            <!-- Mermaid for diagram rendering -->
+            <!-- Mermaid -->
             <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-            
-            <!-- Prism.js for syntax highlighting -->
-            <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
             
             <style>
                 body {
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
                     line-height: 1.6;
                     color: #333;
-                    max-width: none;
                     margin: 0;
-                    padding: 20px;
+                    padding: 16px;
                     background-color: #ffffff;
                 }
                 
                 @media (prefers-color-scheme: dark) {
-                    body {
-                        background-color: #1e1e1e;
-                        color: #d4d4d4;
-                    }
-                    
-                    pre {
-                        background-color: #2d2d2d !important;
-                        border: 1px solid #404040;
-                    }
-                    
-                    code {
-                        background-color: #2d2d2d;
-                        color: #d4d4d4;
-                    }
-                    
-                    blockquote {
-                        border-left-color: #666;
-                        color: #b3b3b3;
-                    }
+                    body { background-color: #1e1e1e; color: #d4d4d4; }
+                    pre { background-color: #2d2d2d !important; }
+                    code { background-color: #2d2d2d; color: #d4d4d4; }
                 }
                 
-                h1, h2, h3, h4, h5, h6 {
-                    margin-top: 24px;
-                    margin-bottom: 16px;
-                    font-weight: 600;
-                    line-height: 1.25;
-                }
-                
-                h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-                h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
-                h3 { font-size: 1.25em; }
-                h4 { font-size: 1em; }
-                h5 { font-size: 0.875em; }
-                h6 { font-size: 0.85em; color: #6a737d; }
-                
-                p {
-                    margin-bottom: 16px;
-                }
-                
-                ul, ol {
-                    padding-left: 2em;
-                    margin-bottom: 16px;
-                }
-                
-                li {
-                    margin-bottom: 0.25em;
-                }
+                h1, h2, h3 { margin-top: 24px; margin-bottom: 16px; }
+                p { margin-bottom: 16px; }
                 
                 pre {
                     background-color: #f6f8fa;
                     border-radius: 6px;
-                    font-size: 85%;
-                    line-height: 1.45;
-                    overflow: auto;
                     padding: 16px;
-                    margin-bottom: 16px;
+                    margin: 16px 0;
+                    overflow-x: auto;
                 }
                 
                 code {
                     background-color: rgba(175, 184, 193, 0.2);
                     border-radius: 3px;
-                    font-size: 85%;
-                    margin: 0;
                     padding: 0.2em 0.4em;
-                    font-family: 'SF Mono', Monaco, Inconsolata, 'Roboto Mono', monospace;
-                }
-                
-                pre code {
-                    background-color: transparent;
-                    border: 0;
-                    display: inline;
-                    line-height: inherit;
-                    margin: 0;
-                    max-width: auto;
-                    overflow: visible;
-                    padding: 0;
-                    word-wrap: normal;
-                }
-                
-                blockquote {
-                    border-left: 4px solid #dfe2e5;
-                    color: #6a737d;
-                    margin: 0 0 16px 0;
-                    padding: 0 16px;
-                }
-                
-                table {
-                    border-collapse: collapse;
-                    border-spacing: 0;
-                    margin-bottom: 16px;
-                    width: 100%;
-                }
-                
-                table th, table td {
-                    border: 1px solid #dfe2e5;
-                    padding: 6px 13px;
-                }
-                
-                table th {
-                    background-color: #f6f8fa;
-                    font-weight: 600;
+                    font-family: 'SF Mono', Monaco, monospace;
                 }
                 
                 .mermaid {
                     text-align: center;
                     margin: 20px 0;
+                    padding: 20px;
+                    border: 1px dashed #ddd;
+                    border-radius: 8px;
+                    background-color: #fafafa;
                 }
                 
-                hr {
-                    border: none;
-                    border-top: 1px solid #eaecef;
-                    height: 1px;
-                    margin: 24px 0;
-                }
-                
-                /* 任务列表样式 */
-                .task-list-item {
-                    list-style-type: none;
-                }
-                
-                .task-list-item input {
-                    margin: 0 0.2em 0.25em -1.6em;
-                    vertical-align: middle;
+                @media (prefers-color-scheme: dark) {
+                    .mermaid {
+                        background-color: #2d2d2d;
+                        border-color: #555;
+                    }
                 }
             </style>
         </head>
@@ -2222,46 +2242,71 @@ struct AdvancedMarkdownWebView: NSViewRepresentable {
             <div id="content"></div>
             
             <script>
-                // 配置Marked.js
-                marked.setOptions({
-                    breaks: true,
-                    gfm: true,
-                    highlight: function(code, lang) {
-                        if (Prism.languages[lang]) {
-                            return Prism.highlight(code, Prism.languages[lang], lang);
-                        }
-                        return code;
-                    }
-                });
-                
                 // 配置Mermaid
                 mermaid.initialize({
                     startOnLoad: false,
-                    theme: 'default',
-                    securityLevel: 'loose'
+                    theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default',
+                    securityLevel: 'loose',
+                    flowchart: { useMaxWidth: true, htmlLabels: true }
+                });
+                
+                // 配置Marked
+                marked.setOptions({
+                    breaks: true,
+                    gfm: true
                 });
                 
                 // Markdown内容
                 const markdownContent = `\(escapeForJavaScript(markdown))`;
                 
-                // 渲染Markdown
-                function renderMarkdown() {
+                // 渲染函数
+                function renderContent() {
+                    console.log('开始渲染Markdown内容...');
+                    
                     let html = marked.parse(markdownContent);
+                    console.log('Marked解析完成');
                     
-                    // 处理Mermaid图表
-                    html = html.replace(/&lt;div class=&quot;mermaid&quot;&gt;([\\s\\S]*?)&lt;\\/div&gt;/g, 
-                        '<div class="mermaid">$1</div>');
+                    // 查找并替换Mermaid代码块
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const mermaidBlocks = doc.querySelectorAll('pre code.language-mermaid');
                     
-                    document.getElementById('content').innerHTML = html;
+                    console.log('找到 ' + mermaidBlocks.length + ' 个Mermaid代码块');
+                    
+                    mermaidBlocks.forEach((block, index) => {
+                        const pre = block.parentElement;
+                        if (pre) {
+                            const mermaidDiv = document.createElement('div');
+                            mermaidDiv.className = 'mermaid';
+                            mermaidDiv.id = 'mermaid-' + index;
+                            mermaidDiv.textContent = block.textContent;
+                            pre.parentNode.replaceChild(mermaidDiv, pre);
+                            console.log('替换Mermaid块 ' + index);
+                        }
+                    });
+                    
+                    document.getElementById('content').innerHTML = doc.body.innerHTML;
                     
                     // 渲染Mermaid图表
-                    mermaid.run({
-                        querySelector: '.mermaid'
-                    });
+                    setTimeout(() => {
+                        const mermaidElements = document.querySelectorAll('.mermaid');
+                        console.log('准备渲染 ' + mermaidElements.length + ' 个Mermaid图表');
+                        
+                        if (mermaidElements.length > 0) {
+                            mermaid.run({
+                                querySelector: '.mermaid'
+                            }).then(() => {
+                                console.log('✅ Mermaid渲染成功');
+                            }).catch(error => {
+                                console.error('❌ Mermaid渲染失败:', error);
+                            });
+                        }
+                    }, 100);
                 }
                 
-                // 页面加载完成后渲染
-                renderMarkdown();
+                // 页面加载后渲染
+                window.addEventListener('load', renderContent);
+                renderContent();
             </script>
         </body>
         </html>
@@ -2280,23 +2325,12 @@ struct AdvancedMarkdownWebView: NSViewRepresentable {
     }
     
     class Coordinator: NSObject, WKNavigationDelegate {
-        let parent: AdvancedMarkdownWebView
-        
-        init(_ parent: AdvancedMarkdownWebView) {
-            self.parent = parent
-        }
-        
-        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, 
-                    decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-            // 允许加载初始HTML内容，阻止其他导航
-            if navigationAction.navigationType == .other {
-                decisionHandler(.allow)
-            } else {
-                decisionHandler(.cancel)
-            }
+        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+            decisionHandler(navigationAction.navigationType == .other ? .allow : .cancel)
         }
     }
 }
+
 
 #Preview {
     let sampleNode = Node(
