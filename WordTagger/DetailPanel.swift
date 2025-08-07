@@ -71,12 +71,6 @@ struct NodeDetailView: View {
     @State private var markdownText: String = ""
     @State private var isEditingMarkdown: Bool = false
     @State private var showingMarkdownPreview: Bool = true
-    @State private var renderingMode: RenderingMode = .native
-    
-    enum RenderingMode {
-        case native
-        case web
-    }
     
     // 从store中获取最新的节点数据
     private var currentNode: Node {
@@ -217,42 +211,17 @@ struct NodeDetailView: View {
                                         .fill(Color.gray.opacity(0.05))
                                 )
                             } else {
-                                // Markdown预览 - 支持渲染模式切换
-                                VStack(spacing: 0) {
-                                    // 渲染方式选择器
-                                    HStack {
-                                        Picker("渲染方式", selection: $renderingMode) {
-                                            Text("原生渲染").tag(RenderingMode.native)
-                                            Text("Web渲染 (支持Mermaid)").tag(RenderingMode.web)
-                                        }
-                                        .pickerStyle(.segmented)
-                                        .frame(width: 280)
-                                        
-                                        Spacer()
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background(Color.gray.opacity(0.05))
-                                    
-                                    // 根据选择的模式渲染内容
-                                    if renderingMode == .native {
-                                        // 原生SwiftUI渲染
-                                        MarkdownRenderedText(markdown: markdownText)
-                                            .padding(16)
-                                    } else {
-                                        // Web渲染器 - 支持真实的Mermaid图表
-                                        MermaidWebView(markdown: markdownText)
-                                            .frame(minHeight: 300)
-                                    }
-                                }
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(Color.gray.opacity(0.03))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 8)
-                                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                                        )
-                                )
+                                // Markdown预览 - 使用Web渲染支持Mermaid图表
+                                MermaidWebView(markdown: markdownText)
+                                    .frame(minHeight: 300)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(Color.gray.opacity(0.03))
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                                            )
+                                    )
                             }
                         }
                     } else {
@@ -308,13 +277,6 @@ struct NodeDetailView: View {
     
     private func loadMarkdown() {
         markdownText = currentNode.markdown
-        
-        // 智能渲染模式选择：如果包含Mermaid图表，自动推荐Web渲染
-        if markdownText.contains("```mermaid") && renderingMode == .native {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                renderingMode = .web
-            }
-        }
     }
     
     private func saveMarkdown() {
@@ -436,7 +398,8 @@ struct TagTypeSection: View {
             
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHGrid(rows: [
-                    GridItem(.adaptive(minimum: 80), spacing: 8)
+                    GridItem(.flexible(), spacing: 4),
+                    GridItem(.flexible(), spacing: 4)
                 ], spacing: 8) {
                     ForEach(Array(tags.enumerated()), id: \.offset) { localIndex, tag in
                         let globalIndex = flattenedTags.firstIndex(where: { $0.id == tag.id }) ?? 0
@@ -448,7 +411,7 @@ struct TagTypeSection: View {
                 }
                 .padding(.horizontal, 4)
             }
-            .frame(maxHeight: 120) // 减少标签区域高度，为笔记留出更多空间
+            .frame(maxHeight: 80) // 极大压缩标签区域高度，为笔记留出最大空间
         }
     }
 }
@@ -463,41 +426,44 @@ struct DetailTagCard: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Circle()
-                    .fill(Color.from(tagType: tag.type))
-                    .frame(width: 10, height: 10)
-                
-                Spacer()
-                
-                if tag.hasCoordinates {
+        HStack(alignment: .center, spacing: 8) {
+            // 类型指示器
+            Circle()
+                .fill(Color.from(tagType: tag.type))
+                .frame(width: 8, height: 8)
+            
+            // 标签值
+            Text(tag.value)
+                .font(.system(size: 14, weight: .medium))
+                .lineLimit(1)
+            
+            Spacer()
+            
+            // 位置坐标（如果有）
+            if tag.hasCoordinates {
+                HStack(spacing: 4) {
                     Image(systemName: "location.fill")
-                        .font(.system(size: 12))
+                        .font(.system(size: 10))
                         .foregroundColor(.red)
+                    
+                    if let lat = tag.latitude, let lon = tag.longitude {
+                        Text("\(String(format: "%.2f", lat)),\(String(format: "%.2f", lon))")
+                            .font(.system(size: 9))
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
-            
-            Text(tag.value)
-                .font(.system(size: 16, weight: .medium))
-                .multilineTextAlignment(.leading)
-                .lineLimit(2)
-            
-            if tag.hasCoordinates, let lat = tag.latitude, let lon = tag.longitude {
-                Text("\(String(format: "%.3f", lat)), \(String(format: "%.3f", lon))")
-                    .font(.system(size: 9))
-                    .foregroundColor(.secondary)
-            }
         }
-        .padding(12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
         .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.from(tagType: tag.type).opacity(isHighlighted ? 0.25 : 0.08))
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.from(tagType: tag.type).opacity(isHighlighted ? 0.2 : 0.06))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10)
+                    RoundedRectangle(cornerRadius: 6)
                         .stroke(
-                            Color.from(tagType: tag.type).opacity(isHighlighted ? 0.7 : 0.25), 
-                            lineWidth: isHighlighted ? 2 : 1
+                            Color.from(tagType: tag.type).opacity(isHighlighted ? 0.6 : 0.2), 
+                            lineWidth: isHighlighted ? 1.5 : 0.5
                         )
                 )
         )
@@ -1733,149 +1699,6 @@ struct EditNodeSheet: View {
 }
 
 
-// MARK: - Markdown渲染文本视图
-
-struct MarkdownRenderedText: View {
-    let markdown: String
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            let processedContent = processMarkdownBlocks(markdown)
-            
-            ForEach(Array(processedContent.enumerated()), id: \.offset) { index, block in
-                renderMarkdownBlock(block)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-    
-    // 处理Markdown内容，识别代码块
-    private func processMarkdownBlocks(_ text: String) -> [MarkdownBlock] {
-        var blocks: [MarkdownBlock] = []
-        let lines = text.components(separatedBy: .newlines)
-        var i = 0
-        
-        while i < lines.count {
-            let line = lines[i]
-            
-            // 检测代码块开始
-            if line.trimmingCharacters(in: .whitespaces).hasPrefix("```") {
-                let language = String(line.trimmingCharacters(in: .whitespaces).dropFirst(3)).trimmingCharacters(in: .whitespaces)
-                var codeLines: [String] = []
-                i += 1
-                
-                // 收集代码块内容直到遇到结束标记
-                while i < lines.count && !lines[i].trimmingCharacters(in: .whitespaces).hasPrefix("```") {
-                    codeLines.append(lines[i])
-                    i += 1
-                }
-                
-                let codeContent = codeLines.joined(separator: "\n")
-                
-                if language.lowercased() == "mermaid" {
-                    blocks.append(.mermaid(codeContent))
-                } else {
-                    blocks.append(.codeBlock(codeContent, language: language))
-                }
-                
-                i += 1 // 跳过结束的```
-            } else {
-                // 普通文本行
-                blocks.append(.text(line))
-                i += 1
-            }
-        }
-        
-        return blocks
-    }
-    
-    @ViewBuilder
-    private func renderMarkdownBlock(_ block: MarkdownBlock) -> some View {
-        switch block {
-        case .text(let line):
-            renderMarkdownLine(line)
-        case .codeBlock(let code, let language):
-            CodeBlockView(code: code, language: language)
-        case .mermaid(let diagram):
-            MermaidView(diagram: diagram)
-        }
-    }
-    
-    // Markdown块类型
-    enum MarkdownBlock {
-        case text(String)
-        case codeBlock(String, language: String)
-        case mermaid(String)
-    }
-    
-    @ViewBuilder
-    private func renderMarkdownLine(_ line: String) -> some View {
-        let trimmedLine = line.trimmingCharacters(in: .whitespaces)
-        
-        if trimmedLine.isEmpty {
-            Text("")
-                .frame(height: 6)
-        } else if trimmedLine.hasPrefix("# ") {
-            // 标题1
-            Text(String(trimmedLine.dropFirst(2)))
-                .font(.system(size: 24, weight: .bold))
-                .padding(.vertical, 4)
-        } else if trimmedLine.hasPrefix("## ") {
-            // 标题2
-            Text(String(trimmedLine.dropFirst(3)))
-                .font(.system(size: 20, weight: .semibold))
-                .padding(.vertical, 3)
-        } else if trimmedLine.hasPrefix("### ") {
-            // 标题3
-            Text(String(trimmedLine.dropFirst(4)))
-                .font(.system(size: 16, weight: .medium))
-                .padding(.vertical, 2)
-        } else if trimmedLine.hasPrefix("- ") || trimmedLine.hasPrefix("* ") {
-            // 列表项
-            HStack(alignment: .top, spacing: 8) {
-                Text("•")
-                    .font(.system(size: 14))
-                    .foregroundColor(.primary)
-                Text(renderInlineMarkdown(String(trimmedLine.dropFirst(2))))
-                    .font(.system(size: 14))
-                Spacer()
-            }
-        } else {
-            // 普通段落
-            Text(renderInlineMarkdown(trimmedLine))
-                .font(.system(size: 14))
-                .lineSpacing(4)
-        }
-    }
-    
-    private func renderInlineMarkdown(_ text: String) -> AttributedString {
-        // 简单的markdown处理，先处理加粗
-        var processedText = text
-        
-        // 处理加粗 **text** 
-        processedText = processedText.replacingOccurrences(
-            of: "\\*\\*(.*?)\\*\\*",
-            with: "$1",
-            options: .regularExpression
-        )
-        
-        // 处理斜体 *text*
-        processedText = processedText.replacingOccurrences(
-            of: "\\*(.*?)\\*",
-            with: "$1", 
-            options: .regularExpression
-        )
-        
-        // 处理代码 `code`
-        processedText = processedText.replacingOccurrences(
-            of: "`(.*?)`",
-            with: "$1",
-            options: .regularExpression
-        )
-        
-        return AttributedString(processedText)
-    }
-}
 
 // MARK: - 代码块视图
 
