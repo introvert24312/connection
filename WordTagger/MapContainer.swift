@@ -252,20 +252,6 @@ struct MapContainer: View {
                 .transition(.opacity)
             }
             
-            // 调试信息覆盖层
-            if isLocationSelectionMode {
-                VStack {
-                    Text("🐛 调试信息")
-                        .font(.caption)
-                        .foregroundColor(.red)
-                    Text("位置选择模式: \(isLocationSelectionMode ? "✅" : "❌")")
-                        .font(.caption)
-                }
-                .padding(8)
-                .background(Color.yellow.opacity(0.8))
-                .cornerRadius(8)
-                .padding()
-            }
             
             Spacer()
             selectedNodeCard
