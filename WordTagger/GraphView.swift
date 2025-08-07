@@ -28,13 +28,28 @@ struct GraphView: View {
             nodesToShow = store.nodes
         }
         
-        // 首先添加所有节点
+        var addedNodeIds: Set<UUID> = []
+        
+        // 首先添加所有顶级节点
         for node in nodesToShow {
             nodes.append(NodeGraphNode(node: node))
+            addedNodeIds.insert(node.id)
+            
+            // 如果是复合节点，递归添加其子节点结构
+            if node.isCompound {
+                addChildNodesForGlobalGraph(
+                    for: node, 
+                    nodes: &nodes, 
+                    addedTagKeys: &addedTagKeys, 
+                    addedNodeIds: &addedNodeIds,
+                    depth: 1
+                )
+            }
         }
         
-        // 然后添加所有标签节点（去重），但过滤掉复合节点的管理标签
-        for node in nodesToShow {
+        // 添加所有已添加节点的标签（去重），但过滤掉复合节点的管理标签
+        let allAddedNodes = nodes.compactMap { $0.node }
+        for node in allAddedNodes {
             for tag in node.tags {
                 // 过滤掉复合节点的内部管理标签
                 if case .custom(let key) = tag.type {
@@ -53,6 +68,15 @@ struct GraphView: View {
                     addedTagKeys.insert(tagKey)
                 }
             }
+            
+            // 添加位置标签
+            for locationTag in node.locationTags {
+                let locationTagKey = "\(locationTag.type.rawValue):\(locationTag.value)"
+                if !addedTagKeys.contains(locationTagKey) {
+                    nodes.append(NodeGraphNode(tag: locationTag))
+                    addedTagKeys.insert(locationTagKey)
+                }
+            }
         }
         
         // 现在使用同一批节点创建边
@@ -67,8 +91,9 @@ struct GraphView: View {
         }
         #endif
         
-        // 为每个节点与其标签创建连接
-        for node in nodesToShow {
+        // 为所有节点与其标签和子节点创建连接
+        let allProcessedNodes = nodes.compactMap { $0.node }
+        for node in allProcessedNodes {
             guard let nodeGraphNode = nodes.first(where: { $0.node?.id == node.id }) else { 
                 #if DEBUG
                 if enableGraphDebug {
@@ -80,10 +105,39 @@ struct GraphView: View {
             
             #if DEBUG
             if enableGraphDebug {
-                print("🔹 处理节点: \(node.text), 标签数: \(node.tags.count)")
+                print("🔹 处理节点: \(node.text), 标签数: \(node.tags.count), 是否复合: \(node.isCompound)")
             }
             #endif
             
+            // 如果是复合节点，创建到子节点的连接
+            if node.isCompound {
+                let childReferenceTags = node.tags.filter {
+                    if case .custom(let key) = $0.type, key == "child" {
+                        return true
+                    }
+                    return false
+                }
+                
+                for childRefTag in childReferenceTags {
+                    let childNodeName = childRefTag.value
+                    if let childNodeGraphNode = nodes.first(where: { 
+                        $0.node?.text.lowercased() == childNodeName.lowercased() 
+                    }) {
+                        edges.append(NodeGraphEdge(
+                            from: nodeGraphNode,
+                            to: childNodeGraphNode,
+                            relationshipType: "子节点"
+                        ))
+                        #if DEBUG
+                        if enableGraphDebug {
+                            print("✅ 创建子节点连接: \(node.text) -> \(childNodeName)")
+                        }
+                        #endif
+                    }
+                }
+            }
+            
+            // 创建节点到标签的连接
             for tag in node.tags {
                 // 过滤掉复合节点的内部管理标签，不创建连接
                 if case .custom(let key) = tag.type {
@@ -105,13 +159,31 @@ struct GraphView: View {
                     ))
                     #if DEBUG
                     if enableGraphDebug {
-                        print("✅ 创建连接: \(node.text) -> \(tag.value)")
+                        print("✅ 创建标签连接: \(node.text) -> \(tag.value)")
                     }
                     #endif
                 } else {
                     #if DEBUG
                     if enableGraphDebug {
                         print("❌ 找不到标签节点: \(tag.type.rawValue):\(tag.value)")
+                    }
+                    #endif
+                }
+            }
+            
+            // 创建节点到位置标签的连接
+            for locationTag in node.locationTags {
+                if let tagNode = nodes.first(where: { 
+                    $0.tag?.type.rawValue == locationTag.type.rawValue && $0.tag?.value == locationTag.value 
+                }) {
+                    edges.append(NodeGraphEdge(
+                        from: nodeGraphNode,
+                        to: tagNode,
+                        relationshipType: locationTag.type.displayName
+                    ))
+                    #if DEBUG
+                    if enableGraphDebug {
+                        print("✅ 创建位置标签连接: \(node.text) -> \(locationTag.value)")
                     }
                     #endif
                 }
@@ -271,6 +343,65 @@ struct GraphView: View {
         finalNodes.formUnion(relatedNodes)
         
         displayedNodes = Array(finalNodes).sorted { $0.text < $1.text }
+    }
+    
+    // 递归添加复合节点的子节点结构（类似DetailPanel的逻辑）
+    private func addChildNodesForGlobalGraph(
+        for node: Node, 
+        nodes: inout [NodeGraphNode], 
+        addedTagKeys: inout Set<String>, 
+        addedNodeIds: inout Set<UUID>,
+        depth: Int
+    ) {
+        // 防止无限递归
+        guard depth <= 10 else { return }
+        
+        #if DEBUG
+        @AppStorage("enableGraphDebug") var enableGraphDebug: Bool = false
+        if enableGraphDebug {
+            let indentPrefix = String(repeating: "  ", count: depth)
+            print("\(indentPrefix)🏗️ 全局图谱添加子节点结构: \(node.text) (深度: \(depth))")
+        }
+        #endif
+        
+        // 查找子节点引用标签
+        let childReferenceTags = node.tags.filter {
+            if case .custom(let key) = $0.type, key == "child" {
+                return true
+            }
+            return false
+        }
+        
+        for childRefTag in childReferenceTags {
+            let childNodeName = childRefTag.value
+            
+            // 从store中查找实际的子节点
+            if let childNode = store.nodes.first(where: { $0.text.lowercased() == childNodeName.lowercased() }) {
+                // 如果子节点还没被添加，则添加它
+                if !addedNodeIds.contains(childNode.id) {
+                    nodes.append(NodeGraphNode(node: childNode))
+                    addedNodeIds.insert(childNode.id)
+                    
+                    #if DEBUG
+                    if enableGraphDebug {
+                        let indentPrefix = String(repeating: "  ", count: depth)
+                        print("\(indentPrefix)  ↳ 添加子节点: \(childNode.text)")
+                    }
+                    #endif
+                    
+                    // 如果子节点也是复合节点，递归添加其子节点
+                    if childNode.isCompound {
+                        addChildNodesForGlobalGraph(
+                            for: childNode, 
+                            nodes: &nodes, 
+                            addedTagKeys: &addedTagKeys, 
+                            addedNodeIds: &addedNodeIds,
+                            depth: depth + 1
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
