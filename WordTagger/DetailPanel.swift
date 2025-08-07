@@ -83,48 +83,52 @@ struct NodeDetailView: View {
             VStack(alignment: .leading, spacing: 16) {
                 // 节点标题、标签和工具栏
                 HStack {
-                    VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .center, spacing: 12) {
+                        // 节点名称
                         Text(currentNode.text)
                             .font(.system(size: 20, weight: .semibold))
                         
-                        // 显示节点的标签
+                        // 标签列表 - 与节点名称在同一行
                         if !currentNode.tags.isEmpty {
                             ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 6) {
-                                    ForEach(currentNode.tags.prefix(8), id: \.id) { tag in
-                                        HStack(spacing: 2) {
+                                HStack(spacing: 8) {
+                                    ForEach(currentNode.tags.prefix(6), id: \.id) { tag in
+                                        HStack(spacing: 3) {
                                             Text(tag.type.displayName)
-                                                .font(.caption2)
+                                                .font(.caption)
                                                 .foregroundColor(.secondary)
                                             Text(tag.value)
-                                                .font(.caption)
+                                                .font(.body)
                                                 .fontWeight(.medium)
                                         }
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
                                         .background(
-                                            RoundedRectangle(cornerRadius: 4)
+                                            RoundedRectangle(cornerRadius: 6)
                                                 .fill(Color.blue.opacity(0.1))
                                         )
                                         .overlay(
-                                            RoundedRectangle(cornerRadius: 4)
+                                            RoundedRectangle(cornerRadius: 6)
                                                 .stroke(Color.blue.opacity(0.3), lineWidth: 0.5)
                                         )
                                     }
                                     
                                     // 如果标签太多，显示剩余数量
-                                    if currentNode.tags.count > 8 {
-                                        Text("+\(currentNode.tags.count - 8)")
-                                            .font(.caption2)
+                                    if currentNode.tags.count > 6 {
+                                        Text("+\(currentNode.tags.count - 6)")
+                                            .font(.caption)
                                             .foregroundColor(.secondary)
-                                            .padding(.horizontal, 4)
-                                            .padding(.vertical, 2)
-                                            .background(Color.gray.opacity(0.1))
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 4)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 6)
+                                                    .fill(Color.gray.opacity(0.1))
+                                            )
                                     }
                                 }
                                 .padding(.horizontal, 1)
                             }
-                            .frame(height: 24)
+                            .frame(height: 32)
                         }
                     }
                     

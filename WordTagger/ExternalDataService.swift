@@ -447,7 +447,7 @@ public class ExternalDataService: ObservableObject {
         }
         
         // 检查是否有现有数据
-        let (layers, nodes) = try await loadAllData()
+        let (layers, _) = try await loadAllData()
         
         // 如果没有数据，创建默认结构
         if layers.isEmpty {
