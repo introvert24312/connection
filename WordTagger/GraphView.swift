@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct GraphView: View {
     @EnvironmentObject private var store: NodeStore
@@ -286,6 +287,8 @@ struct GraphView: View {
         .sheet(isPresented: $showingNodeSelector) {
             NodeSelectorView(selectedNodeIds: $selectedNodeIds)
                 .environmentObject(store)
+                .frame(width: 700, height: 600)
+                .background(WindowAccessor())
         }
         .onKeyPress(.init("k"), phases: .down) { _ in
             NotificationCenter.default.post(name: Notification.Name("fitGraph"), object: nil)
@@ -456,127 +459,134 @@ struct NodeSelectorView: View {
     }
     
     var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                // 搜索栏
-                HStack {
-                    TextField("搜索节点...", text: $searchQuery)
-                        .textFieldStyle(.roundedBorder)
-                    
-                    if !searchQuery.isEmpty {
-                        Button("清除") {
-                            searchQuery = ""
+        VStack(spacing: 0) {
+            // 标题栏
+            HStack {
+                Button("取消") {
+                    dismiss()
+                }
+                .buttonStyle(.plain)
+                
+                Spacer()
+                
+                Text("选择要显示的节点")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+                
+                Button("完成") {
+                    selectedNodeIds = tempSelectedIds
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .padding()
+            .background(Color(NSColor.controlBackgroundColor))
+            
+            Divider()
+            
+            // 搜索栏
+            HStack {
+                TextField("搜索节点...", text: $searchQuery)
+                    .textFieldStyle(.roundedBorder)
+                
+                if !searchQuery.isEmpty {
+                    Button("清除") {
+                        searchQuery = ""
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding()
+            .background(Color(NSColor.controlBackgroundColor))
+            
+            Divider()
+            
+            // 快速选择按钮
+            HStack {
+                Button("全选") {
+                    tempSelectedIds = Set(store.nodes.map { $0.id })
+                }
+                .buttonStyle(.bordered)
+                
+                Button("全不选") {
+                    tempSelectedIds.removeAll()
+                }
+                .buttonStyle(.bordered)
+                
+                Button("仅复合节点") {
+                    tempSelectedIds = Set(store.nodes.filter { $0.isCompound }.map { $0.id })
+                }
+                .buttonStyle(.bordered)
+                
+                Button("仅普通节点") {
+                    tempSelectedIds = Set(store.nodes.filter { !$0.isCompound }.map { $0.id })
+                }
+                .buttonStyle(.bordered)
+                
+                Spacer()
+            }
+            .padding()
+            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+            
+            Divider()
+            
+            // 节点列表
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    // 复合节点部分
+                    if !compoundNodes.isEmpty {
+                        SectionHeaderView(title: "复合节点", count: compoundNodes.count)
+                        
+                        ForEach(compoundNodes, id: \.id) { node in
+                            NodeSelectorRow(
+                                node: node,
+                                isSelected: tempSelectedIds.contains(node.id),
+                                isCompound: true
+                            ) {
+                                toggleNode(node)
+                            }
                         }
-                        .buttonStyle(.plain)
+                        
+                        Divider()
+                            .padding(.vertical, 8)
+                    }
+                    
+                    // 普通节点部分
+                    if !regularNodes.isEmpty {
+                        SectionHeaderView(title: "普通节点", count: regularNodes.count)
+                        
+                        ForEach(regularNodes, id: \.id) { node in
+                            NodeSelectorRow(
+                                node: node,
+                                isSelected: tempSelectedIds.contains(node.id),
+                                isCompound: false
+                            ) {
+                                toggleNode(node)
+                            }
+                        }
+                    }
+                    
+                    // 空状态
+                    if filteredNodes.isEmpty {
+                        VStack(spacing: 16) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.largeTitle)
+                                .foregroundColor(.gray)
+                            
+                            Text("没有找到匹配的节点")
+                                .font(.title3)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 200)
                     }
                 }
                 .padding()
-                .background(Color(NSColor.controlBackgroundColor))
-                
-                Divider()
-                
-                // 快速选择按钮
-                HStack {
-                    Button("全选") {
-                        tempSelectedIds = Set(store.nodes.map { $0.id })
-                    }
-                    .buttonStyle(.bordered)
-                    
-                    Button("全不选") {
-                        tempSelectedIds.removeAll()
-                    }
-                    .buttonStyle(.bordered)
-                    
-                    Button("仅复合节点") {
-                        tempSelectedIds = Set(store.nodes.filter { $0.isCompound }.map { $0.id })
-                    }
-                    .buttonStyle(.bordered)
-                    
-                    Button("仅普通节点") {
-                        tempSelectedIds = Set(store.nodes.filter { !$0.isCompound }.map { $0.id })
-                    }
-                    .buttonStyle(.bordered)
-                    
-                    Spacer()
-                }
-                .padding()
-                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                
-                Divider()
-                
-                // 节点列表
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        // 复合节点部分
-                        if !compoundNodes.isEmpty {
-                            SectionHeaderView(title: "复合节点", count: compoundNodes.count)
-                            
-                            ForEach(compoundNodes, id: \.id) { node in
-                                NodeSelectorRow(
-                                    node: node,
-                                    isSelected: tempSelectedIds.contains(node.id),
-                                    isCompound: true
-                                ) {
-                                    toggleNode(node)
-                                }
-                            }
-                            
-                            Divider()
-                                .padding(.vertical, 8)
-                        }
-                        
-                        // 普通节点部分
-                        if !regularNodes.isEmpty {
-                            SectionHeaderView(title: "普通节点", count: regularNodes.count)
-                            
-                            ForEach(regularNodes, id: \.id) { node in
-                                NodeSelectorRow(
-                                    node: node,
-                                    isSelected: tempSelectedIds.contains(node.id),
-                                    isCompound: false
-                                ) {
-                                    toggleNode(node)
-                                }
-                            }
-                        }
-                        
-                        // 空状态
-                        if filteredNodes.isEmpty {
-                            VStack(spacing: 16) {
-                                Image(systemName: "magnifyingglass")
-                                    .font(.largeTitle)
-                                    .foregroundColor(.gray)
-                                
-                                Text("没有找到匹配的节点")
-                                    .font(.title3)
-                                    .foregroundColor(.secondary)
-                            }
-                            .frame(maxWidth: .infinity, minHeight: 200)
-                        }
-                    }
-                    .padding()
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle("选择要显示的节点")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") {
-                        dismiss()
-                    }
-                }
-                
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("完成") {
-                        selectedNodeIds = tempSelectedIds
-                        dismiss()
-                    }
-                }
-            }
         }
-        .frame(width: 700, height: 600)
-        .fixedSize()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             tempSelectedIds = selectedNodeIds
         }
@@ -681,6 +691,76 @@ struct SectionHeaderView: View {
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 4)
+    }
+}
+
+// MARK: - Window Accessor for fixing sheet window size
+
+struct WindowAccessor: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.findAndConfigureWindow()
+        }
+        
+        // 多次延迟尝试，确保能找到并配置窗口
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            self.findAndConfigureWindow()
+        }
+        
+        return view
+    }
+    
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            self.findAndConfigureWindow()
+        }
+    }
+    
+    private func findAndConfigureWindow() {
+        // 查找所有Sheet类型的窗口
+        for window in NSApp.windows {
+            // 检查是否是Sheet窗口并且包含我们的内容
+            if window.isSheet || window.title.contains("选择要显示的节点") || window.level == NSWindow.Level.modalPanel {
+                self.configureWindow(window)
+            }
+        }
+        
+        // 如果找不到特定窗口，尝试最新的非主窗口
+        if let latestWindow = NSApp.windows.filter({ !$0.isMainWindow && $0.isVisible }).first {
+            self.configureWindow(latestWindow)
+        }
+    }
+    
+    private func configureWindow(_ window: NSWindow) {
+        // 完全禁用窗口大小调整
+        window.styleMask.remove(.resizable)
+        
+        // 设置固定尺寸约束
+        let targetSize = NSSize(width: 700, height: 600)
+        window.minSize = targetSize
+        window.maxSize = targetSize
+        
+        // 强制设置窗口尺寸
+        if window.frame.size != targetSize {
+            let currentFrame = window.frame
+            let newFrame = NSRect(
+                x: currentFrame.origin.x,
+                y: currentFrame.origin.y,
+                width: targetSize.width,
+                height: targetSize.height
+            )
+            window.setFrame(newFrame, display: true, animate: false)
+        }
+        
+        // 设置窗口不可移动（如果需要的话）
+        window.isMovable = true // 保持可移动，但不可调整大小
+        
+        // 确保内容视图也不能调整大小
+        if let contentView = window.contentView {
+            contentView.autoresizingMask = []
+        }
     }
 }
 
