@@ -2065,9 +2065,9 @@ struct CompoundNodeAddSheetView: View {
         }
         
         // 添加到store
-        store.addNode(compoundNode)
+        _ = store.addNode(compoundNode)
         for childNode in childNodes {
-            store.addNode(childNode)
+            _ = store.addNode(childNode)
         }
         
         print("✅ 复合节点结构创建完成:")

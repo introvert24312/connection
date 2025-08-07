@@ -42,7 +42,7 @@ public class ExternalDataManager: ObservableObject {
             panel.directoryURL = documentsURL
         }
         
-        panel.begin { [weak self] response in
+        panel.begin(completionHandler: { [weak self] response in
             if response == .OK, let url = panel.url {
                 // 检查是否是系统敏感目录
                 if self?.isSystemSensitiveDirectory(url) == true {
@@ -53,7 +53,7 @@ public class ExternalDataManager: ObservableObject {
                 }
                 self?.setDataPath(url, createBookmark: true)
             }
-        }
+        })
     }
     
     public func setDataPath(_ url: URL, createBookmark: Bool = false) {
