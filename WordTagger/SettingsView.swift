@@ -333,7 +333,7 @@ struct LayerManagementView: View {
                 Spacer()
                 
                 // 快速统计
-                if let currentLayer = store.currentLayer {
+                if store.currentLayer != nil {
                     HStack(spacing: 12) {
                         VStack(spacing: 2) {
                             Text("\(store.getNodesInCurrentLayer().count)")
@@ -473,9 +473,8 @@ struct LayerManagementView: View {
             }
         } message: {
             if let layer = layerToDelete {
-                let wordCount = store.nodes.filter { $0.layerId == layer.id }.count
                 let nodeCount = store.nodes.filter { $0.layerId == layer.id }.count
-                Text("确定要删除层 \"\(layer.displayName)\" 吗？\n这将同时删除该层中的 \(wordCount) 个节点，此操作无法撤销。")
+                Text("确定要删除层 \"\(layer.displayName)\" 吗？\n这将同时删除该层中的 \(nodeCount) 个节点，此操作无法撤销。")
             }
         }
     }
