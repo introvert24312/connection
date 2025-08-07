@@ -71,6 +71,12 @@ struct NodeDetailView: View {
     @State private var markdownText: String = ""
     @State private var isEditingMarkdown: Bool = false
     @State private var showingMarkdownPreview: Bool = true
+    @State private var renderingMode: RenderingMode = .native
+    
+    enum RenderingMode {
+        case native
+        case web
+    }
     
     // 从store中获取最新的节点数据
     private var currentNode: Node {
@@ -211,17 +217,42 @@ struct NodeDetailView: View {
                                         .fill(Color.gray.opacity(0.05))
                                 )
                             } else {
-                                // Markdown渲染内容
-                                MarkdownRenderedText(markdown: markdownText)
-                                    .padding(16)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .fill(Color.gray.opacity(0.03))
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 8)
-                                                    .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                                            )
-                                    )
+                                // 增强的Markdown预览 - 选择渲染方式
+                                VStack(spacing: 0) {
+                                    // 渲染方式选择器
+                                    HStack {
+                                        Picker("渲染方式", selection: $renderingMode) {
+                                            Text("原生渲染").tag(RenderingMode.native)
+                                            Text("Web渲染").tag(RenderingMode.web)
+                                        }
+                                        .pickerStyle(.segmented)
+                                        .frame(width: 200)
+                                        
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(Color.gray.opacity(0.05))
+                                    
+                                    // 根据选择的模式渲染内容
+                                    if renderingMode == .native {
+                                        // 原生SwiftUI渲染
+                                        MarkdownRenderedText(markdown: markdownText)
+                                            .padding(16)
+                                    } else {
+                                        // Web渲染器
+                                        AdvancedMarkdownWebView(markdown: markdownText)
+                                            .frame(minHeight: 200)
+                                    }
+                                }
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(Color.gray.opacity(0.03))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                                        )
+                                )
                             }
                         }
                     } else {
@@ -2003,6 +2034,266 @@ struct MermaidView: View {
             return "用户旅程图"
         } else {
             return "Mermaid 图表"
+        }
+    }
+}
+
+// MARK: - 高级WebKit Markdown渲染器
+
+import WebKit
+
+struct AdvancedMarkdownWebView: NSViewRepresentable {
+    let markdown: String
+    
+    func makeNSView(context: Context) -> WKWebView {
+        let webView = WKWebView()
+        webView.navigationDelegate = context.coordinator
+        return webView
+    }
+    
+    func updateNSView(_ webView: WKWebView, context: Context) {
+        let html = generateHTML(from: markdown)
+        webView.loadHTMLString(html, baseURL: nil)
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    private func generateHTML(from markdown: String) -> String {
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Markdown Preview</title>
+            
+            <!-- Marked.js for Markdown parsing -->
+            <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+            
+            <!-- Mermaid for diagram rendering -->
+            <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+            
+            <!-- Prism.js for syntax highlighting -->
+            <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+            
+            <style>
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                    max-width: none;
+                    margin: 0;
+                    padding: 20px;
+                    background-color: #ffffff;
+                }
+                
+                @media (prefers-color-scheme: dark) {
+                    body {
+                        background-color: #1e1e1e;
+                        color: #d4d4d4;
+                    }
+                    
+                    pre {
+                        background-color: #2d2d2d !important;
+                        border: 1px solid #404040;
+                    }
+                    
+                    code {
+                        background-color: #2d2d2d;
+                        color: #d4d4d4;
+                    }
+                    
+                    blockquote {
+                        border-left-color: #666;
+                        color: #b3b3b3;
+                    }
+                }
+                
+                h1, h2, h3, h4, h5, h6 {
+                    margin-top: 24px;
+                    margin-bottom: 16px;
+                    font-weight: 600;
+                    line-height: 1.25;
+                }
+                
+                h1 { font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+                h2 { font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+                h3 { font-size: 1.25em; }
+                h4 { font-size: 1em; }
+                h5 { font-size: 0.875em; }
+                h6 { font-size: 0.85em; color: #6a737d; }
+                
+                p {
+                    margin-bottom: 16px;
+                }
+                
+                ul, ol {
+                    padding-left: 2em;
+                    margin-bottom: 16px;
+                }
+                
+                li {
+                    margin-bottom: 0.25em;
+                }
+                
+                pre {
+                    background-color: #f6f8fa;
+                    border-radius: 6px;
+                    font-size: 85%;
+                    line-height: 1.45;
+                    overflow: auto;
+                    padding: 16px;
+                    margin-bottom: 16px;
+                }
+                
+                code {
+                    background-color: rgba(175, 184, 193, 0.2);
+                    border-radius: 3px;
+                    font-size: 85%;
+                    margin: 0;
+                    padding: 0.2em 0.4em;
+                    font-family: 'SF Mono', Monaco, Inconsolata, 'Roboto Mono', monospace;
+                }
+                
+                pre code {
+                    background-color: transparent;
+                    border: 0;
+                    display: inline;
+                    line-height: inherit;
+                    margin: 0;
+                    max-width: auto;
+                    overflow: visible;
+                    padding: 0;
+                    word-wrap: normal;
+                }
+                
+                blockquote {
+                    border-left: 4px solid #dfe2e5;
+                    color: #6a737d;
+                    margin: 0 0 16px 0;
+                    padding: 0 16px;
+                }
+                
+                table {
+                    border-collapse: collapse;
+                    border-spacing: 0;
+                    margin-bottom: 16px;
+                    width: 100%;
+                }
+                
+                table th, table td {
+                    border: 1px solid #dfe2e5;
+                    padding: 6px 13px;
+                }
+                
+                table th {
+                    background-color: #f6f8fa;
+                    font-weight: 600;
+                }
+                
+                .mermaid {
+                    text-align: center;
+                    margin: 20px 0;
+                }
+                
+                hr {
+                    border: none;
+                    border-top: 1px solid #eaecef;
+                    height: 1px;
+                    margin: 24px 0;
+                }
+                
+                /* 任务列表样式 */
+                .task-list-item {
+                    list-style-type: none;
+                }
+                
+                .task-list-item input {
+                    margin: 0 0.2em 0.25em -1.6em;
+                    vertical-align: middle;
+                }
+            </style>
+        </head>
+        <body>
+            <div id="content"></div>
+            
+            <script>
+                // 配置Marked.js
+                marked.setOptions({
+                    breaks: true,
+                    gfm: true,
+                    highlight: function(code, lang) {
+                        if (Prism.languages[lang]) {
+                            return Prism.highlight(code, Prism.languages[lang], lang);
+                        }
+                        return code;
+                    }
+                });
+                
+                // 配置Mermaid
+                mermaid.initialize({
+                    startOnLoad: false,
+                    theme: 'default',
+                    securityLevel: 'loose'
+                });
+                
+                // Markdown内容
+                const markdownContent = `\(escapeForJavaScript(markdown))`;
+                
+                // 渲染Markdown
+                function renderMarkdown() {
+                    let html = marked.parse(markdownContent);
+                    
+                    // 处理Mermaid图表
+                    html = html.replace(/&lt;div class=&quot;mermaid&quot;&gt;([\\s\\S]*?)&lt;\\/div&gt;/g, 
+                        '<div class="mermaid">$1</div>');
+                    
+                    document.getElementById('content').innerHTML = html;
+                    
+                    // 渲染Mermaid图表
+                    mermaid.run({
+                        querySelector: '.mermaid'
+                    });
+                }
+                
+                // 页面加载完成后渲染
+                renderMarkdown();
+            </script>
+        </body>
+        </html>
+        """
+    }
+    
+    private func escapeForJavaScript(_ string: String) -> String {
+        return string
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "`", with: "\\`")
+            .replacingOccurrences(of: "$", with: "\\$")
+            .replacingOccurrences(of: "\n", with: "\\n")
+            .replacingOccurrences(of: "\r", with: "\\r")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "'", with: "\\'")
+    }
+    
+    class Coordinator: NSObject, WKNavigationDelegate {
+        let parent: AdvancedMarkdownWebView
+        
+        init(_ parent: AdvancedMarkdownWebView) {
+            self.parent = parent
+        }
+        
+        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, 
+                    decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+            // 允许加载初始HTML内容，阻止其他导航
+            if navigationAction.navigationType == .other {
+                decisionHandler(.allow)
+            } else {
+                decisionHandler(.cancel)
+            }
         }
     }
 }
