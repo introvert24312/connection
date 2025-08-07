@@ -423,7 +423,8 @@ struct NodeSelectorView: View {
                 }
             }
         }
-        .frame(minWidth: 500, idealWidth: 600, maxWidth: 800, minHeight: 400, idealHeight: 500, maxHeight: 700)
+        .frame(width: 700, height: 600)
+        .fixedSize()
         .onAppear {
             tempSelectedIds = selectedNodeIds
         }
