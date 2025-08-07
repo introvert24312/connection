@@ -1852,28 +1852,41 @@ struct MermaidWebView: NSViewRepresentable {
             <div id="content"></div>
             
             <script>
-                // 使用最新的Mermaid API
-                const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                // 主题检测和监听
+                const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+                let isDarkMode = darkModeQuery.matches;
                 
-                // 基础配置 - 支持用户代码中的自定义主题
-                const baseConfig = {
-                    startOnLoad: false,
-                    theme: isDarkMode ? 'dark' : 'base',
-                    securityLevel: 'loose',
-                    fontFamily: 'system-ui, -apple-system, sans-serif',
-                    flowchart: { 
-                        useMaxWidth: true, 
-                        htmlLabels: true,
-                        curve: 'basis'
-                    },
-                    sequence: { useMaxWidth: true },
-                    gantt: { useMaxWidth: true },
-                    journey: { useMaxWidth: true },
-                    pie: { useMaxWidth: true }
-                };
+                // 获取当前主题配置
+                function getCurrentThemeConfig() {
+                    return {
+                        startOnLoad: false,
+                        theme: isDarkMode ? 'dark' : 'base',
+                        securityLevel: 'loose',
+                        fontFamily: 'system-ui, -apple-system, sans-serif',
+                        flowchart: { 
+                            useMaxWidth: true, 
+                            htmlLabels: true,
+                            curve: 'basis'
+                        },
+                        sequence: { useMaxWidth: true },
+                        gantt: { useMaxWidth: true },
+                        journey: { useMaxWidth: true },
+                        pie: { useMaxWidth: true }
+                    };
+                }
                 
                 // 初始化Mermaid
-                mermaid.initialize(baseConfig);
+                mermaid.initialize(getCurrentThemeConfig());
+                
+                // 监听主题变化
+                darkModeQuery.addListener(function(e) {
+                    console.log('🎨 检测到主题变化:', e.matches ? 'dark' : 'light');
+                    isDarkMode = e.matches;
+                    
+                    // 重新配置并重新渲染所有Mermaid图表
+                    mermaid.initialize(getCurrentThemeConfig());
+                    reRenderMermaidCharts();
+                });
                 
                 // 配置Marked
                 marked.setOptions({
@@ -1883,6 +1896,45 @@ struct MermaidWebView: NSViewRepresentable {
                 
                 // Markdown内容
                 const markdownContent = `\(escapeForJavaScript(markdown))`;
+                
+                // 重新渲染Mermaid图表的函数
+                function reRenderMermaidCharts() {
+                    console.log('🔄 开始重新渲染Mermaid图表...');
+                    
+                    const mermaidElements = document.querySelectorAll('.mermaid');
+                    console.log('找到 ' + mermaidElements.length + ' 个Mermaid图表需要重新渲染');
+                    
+                    if (mermaidElements.length === 0) {
+                        console.log('没有Mermaid图表需要重新渲染');
+                        return;
+                    }
+                    
+                    // 清理现有的渲染内容，保留原始文本
+                    mermaidElements.forEach((element, index) => {
+                        // 重置元素内容为原始Mermaid代码
+                        const originalCode = element.getAttribute('data-original-code');
+                        if (originalCode) {
+                            element.innerHTML = originalCode;
+                            element.removeAttribute('data-processed');
+                        }
+                        
+                        // 移除rendered类以重新触发动画
+                        element.classList.remove('rendered');
+                    });
+                    
+                    // 使用setTimeout确保DOM更新完成后再重新渲染
+                    setTimeout(() => {
+                        mermaid.run().then(() => {
+                            console.log('✅ Mermaid重新渲染成功');
+                            // 重新添加rendered类，触发淡入动画
+                            mermaidElements.forEach(element => {
+                                element.classList.add('rendered');
+                            });
+                        }).catch(error => {
+                            console.error('❌ Mermaid重新渲染失败:', error);
+                        });
+                    }, 10);
+                }
                 
                 // 渲染函数
                 function renderContent() {
@@ -1905,6 +1957,8 @@ struct MermaidWebView: NSViewRepresentable {
                             mermaidDiv.className = 'mermaid';
                             mermaidDiv.id = 'mermaid-' + index;
                             mermaidDiv.textContent = block.textContent;
+                            // 保存原始代码以便主题切换时重新渲染
+                            mermaidDiv.setAttribute('data-original-code', block.textContent);
                             pre.parentNode.replaceChild(mermaidDiv, pre);
                             console.log('替换Mermaid块 ' + index);
                         }
