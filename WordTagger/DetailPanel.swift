@@ -81,10 +81,51 @@ struct NodeDetailView: View {
         VStack(spacing: 0) {
             // 笔记部分 - 占据全部空间
             VStack(alignment: .leading, spacing: 16) {
-                // 笔记标题和工具栏
+                // 节点标题、标签和工具栏
                 HStack {
-                    Text("笔记")
-                        .font(.system(size: 20, weight: .semibold))
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(currentNode.text)
+                            .font(.system(size: 20, weight: .semibold))
+                        
+                        // 显示节点的标签
+                        if !currentNode.tags.isEmpty {
+                            HStack(spacing: 6) {
+                                ForEach(currentNode.tags.prefix(6), id: \.id) { tag in
+                                    HStack(spacing: 2) {
+                                        Text(tag.type.displayName)
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                        Text(tag.value)
+                                            .font(.caption)
+                                            .fontWeight(.medium)
+                                    }
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(tag.type.color.opacity(0.15))
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .stroke(tag.type.color.opacity(0.4), lineWidth: 0.5)
+                                    )
+                                }
+                                
+                                // 如果标签太多，显示剩余数量
+                                if currentNode.tags.count > 6 {
+                                    Text("+\(currentNode.tags.count - 6)")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                        .padding(.horizontal, 4)
+                                        .padding(.vertical, 2)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 4)
+                                                .fill(Color.gray.opacity(0.1))
+                                        )
+                                }
+                            }
+                        }
+                    }
                     
                     Spacer()
                     
