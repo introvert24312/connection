@@ -118,7 +118,7 @@ struct NodeDetailView: View {
                 Divider()
                 
                 // 标签部分
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Text("标签")
                             .font(.system(size: 20, weight: .semibold))
@@ -351,7 +351,7 @@ struct TagsByTypeView: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
             // 先显示预定义类型的标签
             ForEach(Tag.TagType.allCases, id: \.self) { type in
                 if let tagsOfType = groupedTags[type], !tagsOfType.isEmpty {
@@ -420,7 +420,7 @@ struct TagTypeSection: View {
     let flattenedTags: [Tag]
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Circle()
                     .fill(Color.from(tagType: type))
@@ -436,8 +436,8 @@ struct TagTypeSection: View {
             
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHGrid(rows: [
-                    GridItem(.adaptive(minimum: 60), spacing: 12)
-                ], spacing: 12) {
+                    GridItem(.adaptive(minimum: 80), spacing: 8)
+                ], spacing: 8) {
                     ForEach(Array(tags.enumerated()), id: \.offset) { localIndex, tag in
                         let globalIndex = flattenedTags.firstIndex(where: { $0.id == tag.id }) ?? 0
                         DetailTagCard(
@@ -446,9 +446,9 @@ struct TagTypeSection: View {
                         )
                     }
                 }
-                .padding(.horizontal, 8)
+                .padding(.horizontal, 4)
             }
-            .frame(maxHeight: 150) // 增加最大高度以容纳更大的标签
+            .frame(maxHeight: 120) // 减少标签区域高度，为笔记留出更多空间
         }
     }
 }
@@ -463,42 +463,41 @@ struct DetailTagCard: View {
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Circle()
                     .fill(Color.from(tagType: tag.type))
-                    .frame(width: 14, height: 14)
+                    .frame(width: 10, height: 10)
                 
                 Spacer()
                 
                 if tag.hasCoordinates {
                     Image(systemName: "location.fill")
-                        .font(.system(size: 16))
+                        .font(.system(size: 12))
                         .foregroundColor(.red)
                 }
             }
             
             Text(tag.value)
-                .font(.system(size: 22, weight: .semibold))
-                .fontWeight(.semibold)
+                .font(.system(size: 16, weight: .medium))
                 .multilineTextAlignment(.leading)
                 .lineLimit(2)
             
             if tag.hasCoordinates, let lat = tag.latitude, let lon = tag.longitude {
-                Text("\(String(format: "%.4f", lat)), \(String(format: "%.4f", lon))")
-                    .font(.system(size: 11))
+                Text("\(String(format: "%.3f", lat)), \(String(format: "%.3f", lon))")
+                    .font(.system(size: 9))
                     .foregroundColor(.secondary)
             }
         }
-        .padding(20)
+        .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.from(tagType: tag.type).opacity(isHighlighted ? 0.3 : 0.1))
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.from(tagType: tag.type).opacity(isHighlighted ? 0.25 : 0.08))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16)
+                    RoundedRectangle(cornerRadius: 10)
                         .stroke(
-                            Color.from(tagType: tag.type).opacity(isHighlighted ? 0.8 : 0.3), 
-                            lineWidth: isHighlighted ? 3 : 2
+                            Color.from(tagType: tag.type).opacity(isHighlighted ? 0.7 : 0.25), 
+                            lineWidth: isHighlighted ? 2 : 1
                         )
                 )
         )
