@@ -1916,6 +1916,29 @@ struct MermaidWebView: NSViewRepresentable {
                     console.log('准备渲染 ' + mermaidElements.length + ' 个Mermaid图表');
                     
                     if (mermaidElements.length > 0) {
+                        // 根据当前主题重新初始化Mermaid
+                        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                        const currentTheme = isDark ? 'dark' : 'forest';
+                        
+                        // 重新配置Mermaid主题
+                        mermaid.initialize({
+                            startOnLoad: false,
+                            theme: currentTheme,
+                            securityLevel: 'loose',
+                            flowchart: { useMaxWidth: true, htmlLabels: true },
+                            themeVariables: isDark ? {} : {
+                                primaryColor: '#c8e6c9',
+                                primaryTextColor: '#1b5e20',
+                                primaryBorderColor: '#4caf50',
+                                lineColor: '#388e3c',
+                                secondaryColor: '#e8f5e8',
+                                tertiaryColor: '#f1f8e9',
+                                background: '#fafafa',
+                                mainBkg: '#ffffff',
+                                secondBkg: '#f5f5f5'
+                            }
+                        });
+                        
                         // 如果有Mermaid图表，等待渲染完成后再显示
                         mermaid.run({
                             querySelector: '.mermaid'
