@@ -86,45 +86,6 @@ struct NodeDetailView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(currentNode.text)
                             .font(.system(size: 20, weight: .semibold))
-                        
-                        // 显示节点的标签
-                        if !currentNode.tags.isEmpty {
-                            HStack(spacing: 6) {
-                                ForEach(currentNode.tags.prefix(6), id: \.id) { tag in
-                                    HStack(spacing: 2) {
-                                        Text(tag.type.displayName)
-                                            .font(.caption2)
-                                            .foregroundColor(.secondary)
-                                        Text(tag.value)
-                                            .font(.caption)
-                                            .fontWeight(.medium)
-                                    }
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 4)
-                                            .fill(tag.type.color.opacity(0.15))
-                                    )
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 4)
-                                            .stroke(tag.type.color.opacity(0.4), lineWidth: 0.5)
-                                    )
-                                }
-                                
-                                // 如果标签太多，显示剩余数量
-                                if currentNode.tags.count > 6 {
-                                    Text("+\(currentNode.tags.count - 6)")
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
-                                        .padding(.horizontal, 4)
-                                        .padding(.vertical, 2)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 4)
-                                                .fill(Color.gray.opacity(0.1))
-                                        )
-                                }
-                            }
-                        }
                     }
                     
                     Spacer()
@@ -1933,3 +1894,4 @@ struct MermaidWebView: NSViewRepresentable {
     DetailPanel(node: sampleNode)
         .environmentObject(NodeStore.shared)
 }
+
