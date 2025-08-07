@@ -33,9 +33,20 @@ struct GraphView: View {
             nodes.append(NodeGraphNode(node: node))
         }
         
-        // 然后添加所有标签节点（去重）
+        // 然后添加所有标签节点（去重），但过滤掉复合节点的管理标签
         for node in nodesToShow {
             for tag in node.tags {
+                // 过滤掉复合节点的内部管理标签
+                if case .custom(let key) = tag.type {
+                    // 过滤掉复合节点管理标签
+                    if key == "compound" || 
+                       key == "child" ||
+                       key.hasSuffix("复合节点") ||
+                       key.hasSuffix("compound") {
+                        continue
+                    }
+                }
+                
                 let tagKey = "\(tag.type.rawValue):\(tag.value)"
                 if !addedTagKeys.contains(tagKey) {
                     nodes.append(NodeGraphNode(tag: tag))
@@ -74,6 +85,16 @@ struct GraphView: View {
             #endif
             
             for tag in node.tags {
+                // 过滤掉复合节点的内部管理标签，不创建连接
+                if case .custom(let key) = tag.type {
+                    if key == "compound" || 
+                       key == "child" ||
+                       key.hasSuffix("复合节点") ||
+                       key.hasSuffix("compound") {
+                        continue
+                    }
+                }
+                
                 if let tagNode = nodes.first(where: { 
                     $0.tag?.type.rawValue == tag.type.rawValue && $0.tag?.value == tag.value 
                 }) {
