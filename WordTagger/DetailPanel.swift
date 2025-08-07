@@ -16,8 +16,9 @@ struct DetailPanel: View {
     
     enum Tab: String, CaseIterable {
         case related = "图谱"
-        case map = "地图"
+        case map = "地图"  
         case detail = "详情"
+        case markdown = "笔记"
     }
     
     var body: some View {
@@ -54,6 +55,8 @@ struct DetailPanel: View {
                     NodeMapView(node: currentNode)
                 case .related:
                     NodeGraphView(node: currentNode)
+                case .markdown:
+                    NodeMarkdownView(node: currentNode)
                 }
             }
         }
@@ -1551,6 +1554,230 @@ struct EditNodeSheet: View {
             }
         }
         .frame(width: 400, height: 300)
+    }
+}
+
+// MARK: - Markdown笔记视图
+
+struct NodeMarkdownView: View {
+    let node: Node
+    @EnvironmentObject private var store: NodeStore
+    @State private var markdownText: String = ""
+    @State private var isEditing: Bool = false
+    @State private var showingPreview: Bool = false
+    
+    // 从store中获取最新的节点数据
+    private var currentNode: Node {
+        return store.nodes.first { $0.id == node.id } ?? node
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // 顶部工具栏
+            HStack {
+                Text("笔记")
+                    .font(.system(size: 18, weight: .semibold))
+                
+                Spacer()
+                
+                // 预览/编辑切换
+                HStack(spacing: 12) {
+                    Button(action: { 
+                        showingPreview = false
+                        isEditing = true 
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "pencil")
+                            Text("编辑")
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(isEditing && !showingPreview)
+                    
+                    Button(action: { 
+                        showingPreview = true
+                        isEditing = false
+                        saveMarkdown()
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "eye")
+                            Text("预览")
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(showingPreview)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Color(NSColor.controlBackgroundColor))
+            
+            Divider()
+            
+            // 内容区域
+            if showingPreview {
+                // Markdown预览
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        if markdownText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            VStack(spacing: 12) {
+                                Image(systemName: "doc.text")
+                                    .font(.largeTitle)
+                                    .foregroundColor(.gray)
+                                
+                                Text("暂无笔记内容")
+                                    .font(.system(size: 18))
+                                    .foregroundColor(.secondary)
+                                
+                                Text("点击「编辑」按钮开始记录笔记")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(Color.secondary)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 200)
+                        } else {
+                            // 简单的Markdown渲染
+                            MarkdownRenderedText(markdown: markdownText)
+                        }
+                    }
+                    .padding(20)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                // Markdown编辑器
+                VStack(spacing: 0) {
+                    // 编辑提示
+                    HStack {
+                        Text("支持Markdown语法：**粗体** *斜体* `代码` # 标题")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Spacer()
+                        
+                        Button("保存") {
+                            saveMarkdown()
+                            showingPreview = true
+                            isEditing = false
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color.gray.opacity(0.1))
+                    
+                    // 文本编辑器
+                    TextEditor(text: $markdownText)
+                        .font(.system(.body, design: .monospaced))
+                        .padding(16)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+        }
+        .onAppear {
+            loadMarkdown()
+            if !isEditing && !showingPreview {
+                showingPreview = true // 默认显示预览模式
+            }
+        }
+        .onChange(of: currentNode.id) { _, _ in
+            loadMarkdown()
+        }
+    }
+    
+    private func loadMarkdown() {
+        markdownText = currentNode.markdown
+    }
+    
+    private func saveMarkdown() {
+        store.updateNodeMarkdown(currentNode.id, markdown: markdownText)
+    }
+}
+
+// MARK: - Markdown渲染文本视图
+
+struct MarkdownRenderedText: View {
+    let markdown: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            let lines = markdown.components(separatedBy: .newlines)
+            
+            ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
+                renderMarkdownLine(line)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    
+    @ViewBuilder
+    private func renderMarkdownLine(_ line: String) -> some View {
+        let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+        
+        if trimmedLine.isEmpty {
+            Text("")
+                .frame(height: 6)
+        } else if trimmedLine.hasPrefix("# ") {
+            // 标题1
+            Text(String(trimmedLine.dropFirst(2)))
+                .font(.system(size: 24, weight: .bold))
+                .padding(.vertical, 4)
+        } else if trimmedLine.hasPrefix("## ") {
+            // 标题2
+            Text(String(trimmedLine.dropFirst(3)))
+                .font(.system(size: 20, weight: .semibold))
+                .padding(.vertical, 3)
+        } else if trimmedLine.hasPrefix("### ") {
+            // 标题3
+            Text(String(trimmedLine.dropFirst(4)))
+                .font(.system(size: 16, weight: .medium))
+                .padding(.vertical, 2)
+        } else if trimmedLine.hasPrefix("- ") || trimmedLine.hasPrefix("* ") {
+            // 列表项
+            HStack(alignment: .top, spacing: 8) {
+                Text("•")
+                    .font(.system(size: 14))
+                    .foregroundColor(.primary)
+                Text(renderInlineMarkdown(String(trimmedLine.dropFirst(2))))
+                    .font(.system(size: 14))
+                Spacer()
+            }
+        } else {
+            // 普通段落
+            Text(renderInlineMarkdown(trimmedLine))
+                .font(.system(size: 14))
+                .lineSpacing(4)
+        }
+    }
+    
+    private func renderInlineMarkdown(_ text: String) -> AttributedString {
+        // 简单的markdown处理，先处理加粗
+        var processedText = text
+        
+        // 处理加粗 **text** 
+        processedText = processedText.replacingOccurrences(
+            of: "\\*\\*(.*?)\\*\\*",
+            with: "$1",
+            options: .regularExpression
+        )
+        
+        // 处理斜体 *text*
+        processedText = processedText.replacingOccurrences(
+            of: "\\*(.*?)\\*",
+            with: "$1", 
+            options: .regularExpression
+        )
+        
+        // 处理代码 `code`
+        processedText = processedText.replacingOccurrences(
+            of: "`(.*?)`",
+            with: "$1",
+            options: .regularExpression
+        )
+        
+        return AttributedString(processedText)
     }
 }
 

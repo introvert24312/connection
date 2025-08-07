@@ -434,6 +434,25 @@ public final class NodeStore: ObservableObject {
     }
     
     @MainActor
+    public func updateNodeMarkdown(_ nodeId: UUID, markdown: String) {
+        if let index = nodes.firstIndex(where: { $0.id == nodeId }) {
+            var updatedNode = nodes[index]
+            updatedNode.markdown = markdown
+            updatedNode.updatedAt = Date()
+            nodes[index] = updatedNode
+            
+            // 如果当前选中的节点是这个节点，更新选中节点引用
+            if selectedNode?.id == nodeId {
+                selectedNode = updatedNode
+                print("🔄 更新选中节点Markdown内容")
+            }
+            
+            // 手动触发objectWillChange以确保UI更新
+            objectWillChange.send()
+        }
+    }
+    
+    @MainActor
     public func updateNodeTags(_ nodeId: UUID, tags: [Tag]) {
         if let index = nodes.firstIndex(where: { $0.id == nodeId }) {
             var updatedNode = nodes[index]

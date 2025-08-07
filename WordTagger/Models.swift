@@ -36,10 +36,11 @@ public struct Node: Identifiable, Hashable, Codable {
     public var layerId: UUID
     public var tags: [Tag]
     public var isCompound: Bool
+    public var markdown: String  // 新增Markdown字段
     public var createdAt: Date
     public var updatedAt: Date
     
-    public init(text: String, phonetic: String? = nil, meaning: String? = nil, layerId: UUID, tags: [Tag] = [], isCompound: Bool = false) {
+    public init(text: String, phonetic: String? = nil, meaning: String? = nil, layerId: UUID, tags: [Tag] = [], isCompound: Bool = false, markdown: String = "") {
         self.id = UUID()
         self.text = text
         self.phonetic = phonetic
@@ -47,8 +48,31 @@ public struct Node: Identifiable, Hashable, Codable {
         self.layerId = layerId
         self.tags = tags
         self.isCompound = isCompound
+        self.markdown = markdown  // 初始化Markdown字段
         self.createdAt = Date()
         self.updatedAt = Date()
+    }
+    
+    // 自定义解码器，确保向后兼容现有数据
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        id = try container.decode(UUID.self, forKey: .id)
+        text = try container.decode(String.self, forKey: .text)
+        phonetic = try container.decodeIfPresent(String.self, forKey: .phonetic)
+        meaning = try container.decodeIfPresent(String.self, forKey: .meaning)
+        layerId = try container.decode(UUID.self, forKey: .layerId)
+        tags = try container.decode([Tag].self, forKey: .tags)
+        isCompound = try container.decode(Bool.self, forKey: .isCompound)
+        // 为markdown字段提供默认值，确保向后兼容
+        markdown = try container.decodeIfPresent(String.self, forKey: .markdown) ?? ""
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+    }
+    
+    // 编码键
+    private enum CodingKeys: String, CodingKey {
+        case id, text, phonetic, meaning, layerId, tags, isCompound, markdown, createdAt, updatedAt
     }
     
     public func tags(of type: Tag.TagType) -> [Tag] {
