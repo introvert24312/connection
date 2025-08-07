@@ -229,7 +229,7 @@ struct NodeDetailView: View {
                         VStack(spacing: 8) {
                             // 编辑提示和保存按钮
                             HStack {
-                                Text("支持Markdown语法：**粗体** *斜体* `代码` # 标题")
+                                Text("支持Markdown语法：**粗体** *斜体* `代码` # 标题，以及Mermaid图表")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 
@@ -256,10 +256,10 @@ struct NodeDetailView: View {
                                 .font(.system(.body, design: .monospaced))
                                 .padding(12)
                                 .frame(minHeight: 200)
-                                .background(Color.white)
+                                .background(Color(NSColor.textBackgroundColor))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                                        .stroke(Color(NSColor.separatorColor), lineWidth: 1)
                                 )
                         }
                     }
@@ -1703,13 +1703,72 @@ struct MarkdownRenderedText: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            let lines = markdown.components(separatedBy: .newlines)
+            let processedContent = processMarkdownBlocks(markdown)
             
-            ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
-                renderMarkdownLine(line)
+            ForEach(Array(processedContent.enumerated()), id: \.offset) { index, block in
+                renderMarkdownBlock(block)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    
+    // 处理Markdown内容，识别代码块
+    private func processMarkdownBlocks(_ text: String) -> [MarkdownBlock] {
+        var blocks: [MarkdownBlock] = []
+        let lines = text.components(separatedBy: .newlines)
+        var i = 0
+        
+        while i < lines.count {
+            let line = lines[i]
+            
+            // 检测代码块开始
+            if line.trimmingCharacters(in: .whitespaces).hasPrefix("```") {
+                let language = String(line.trimmingCharacters(in: .whitespaces).dropFirst(3)).trimmingCharacters(in: .whitespaces)
+                var codeLines: [String] = []
+                i += 1
+                
+                // 收集代码块内容直到遇到结束标记
+                while i < lines.count && !lines[i].trimmingCharacters(in: .whitespaces).hasPrefix("```") {
+                    codeLines.append(lines[i])
+                    i += 1
+                }
+                
+                let codeContent = codeLines.joined(separator: "\n")
+                
+                if language.lowercased() == "mermaid" {
+                    blocks.append(.mermaid(codeContent))
+                } else {
+                    blocks.append(.codeBlock(codeContent, language: language))
+                }
+                
+                i += 1 // 跳过结束的```
+            } else {
+                // 普通文本行
+                blocks.append(.text(line))
+                i += 1
+            }
+        }
+        
+        return blocks
+    }
+    
+    @ViewBuilder
+    private func renderMarkdownBlock(_ block: MarkdownBlock) -> some View {
+        switch block {
+        case .text(let line):
+            renderMarkdownLine(line)
+        case .codeBlock(let code, let language):
+            CodeBlockView(code: code, language: language)
+        case .mermaid(let diagram):
+            MermaidView(diagram: diagram)
+        }
+    }
+    
+    // Markdown块类型
+    enum MarkdownBlock {
+        case text(String)
+        case codeBlock(String, language: String)
+        case mermaid(String)
     }
     
     @ViewBuilder
@@ -1778,6 +1837,173 @@ struct MarkdownRenderedText: View {
         )
         
         return AttributedString(processedText)
+    }
+}
+
+// MARK: - 代码块视图
+
+struct CodeBlockView: View {
+    let code: String
+    let language: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // 代码块头部
+            HStack {
+                Text(language.isEmpty ? "代码" : language.uppercased())
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(.secondary)
+                
+                Spacer()
+                
+                Button(action: copyToClipboard) {
+                    Image(systemName: "doc.on.doc")
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.secondary)
+                .help("复制代码")
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color(NSColor.controlBackgroundColor))
+            
+            // 代码内容
+            ScrollView(.horizontal, showsIndicators: false) {
+                Text(code)
+                    .font(.system(.body, design: .monospaced))
+                    .foregroundColor(.primary)
+                    .textSelection(.enabled)
+                    .padding(12)
+            }
+            .background(Color(NSColor.textBackgroundColor))
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color(NSColor.separatorColor), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+    
+    private func copyToClipboard() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(code, forType: .string)
+    }
+}
+
+// MARK: - Mermaid图表视图
+
+struct MermaidView: View {
+    let diagram: String
+    @State private var isExpanded = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Mermaid头部
+            HStack {
+                Image(systemName: "chart.bar.doc.horizontal")
+                    .foregroundColor(.blue)
+                Text("Mermaid 图表")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(.secondary)
+                
+                Spacer()
+                
+                HStack(spacing: 8) {
+                    Button(action: copyToClipboard) {
+                        Image(systemName: "doc.on.doc")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(.secondary)
+                    .help("复制代码")
+                    
+                    Button(action: { isExpanded.toggle() }) {
+                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(.secondary)
+                    .help(isExpanded ? "收起" : "展开")
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color.blue.opacity(0.1))
+            
+            if isExpanded {
+                // 显示原始Mermaid代码
+                ScrollView(.horizontal, showsIndicators: false) {
+                    Text(diagram)
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundColor(.primary)
+                        .textSelection(.enabled)
+                        .padding(12)
+                }
+                .background(Color(NSColor.textBackgroundColor))
+            } else {
+                // 简化的图表表示
+                VStack(spacing: 12) {
+                    Image(systemName: "flowchart")
+                        .font(.largeTitle)
+                        .foregroundColor(.blue)
+                    
+                    Text(getMermaidDescription())
+                        .font(.body)
+                        .foregroundColor(.primary)
+                        .multilineTextAlignment(.center)
+                    
+                    Text("点击展开查看完整代码")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(20)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.blue.opacity(0.03))
+                )
+            }
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .onTapGesture {
+            if !isExpanded {
+                isExpanded.toggle()
+            }
+        }
+    }
+    
+    private func copyToClipboard() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(diagram, forType: .string)
+    }
+    
+    private func getMermaidDescription() -> String {
+        let firstLine = diagram.components(separatedBy: .newlines).first?.trimmingCharacters(in: .whitespaces) ?? ""
+        
+        if firstLine.hasPrefix("graph") {
+            return "流程图"
+        } else if firstLine.hasPrefix("sequenceDiagram") {
+            return "时序图"
+        } else if firstLine.hasPrefix("classDiagram") {
+            return "类图"
+        } else if firstLine.hasPrefix("erDiagram") {
+            return "实体关系图"
+        } else if firstLine.hasPrefix("gantt") {
+            return "甘特图"
+        } else if firstLine.hasPrefix("pie") {
+            return "饼图"
+        } else if firstLine.hasPrefix("journey") {
+            return "用户旅程图"
+        } else {
+            return "Mermaid 图表"
+        }
     }
 }
 
