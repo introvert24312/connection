@@ -1779,8 +1779,8 @@ struct MermaidWebView: NSViewRepresentable {
             <!-- Marked.js -->
             <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
             
-            <!-- Mermaid -->
-            <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+            <!-- Mermaid 最新版本 -->
+            <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
             
             <style>
                 body {
@@ -1852,26 +1852,28 @@ struct MermaidWebView: NSViewRepresentable {
             <div id="content"></div>
             
             <script>
-                // 配置Mermaid
-                mermaid.initialize({
+                // 使用最新的Mermaid API
+                const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                
+                // 基础配置 - 支持用户代码中的自定义主题
+                const baseConfig = {
                     startOnLoad: false,
-                    theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'neutral',
+                    theme: isDarkMode ? 'dark' : 'base',
                     securityLevel: 'loose',
-                    flowchart: { useMaxWidth: true, htmlLabels: true },
-                    themeVariables: window.matchMedia('(prefers-color-scheme: dark)').matches ? {} : {
-                        // 浅色模式自定义变量
-                        primaryColor: '#e1f5fe',
-                        primaryTextColor: '#1565c0',
-                        primaryBorderColor: '#42a5f5',
-                        lineColor: '#1976d2',
-                        secondaryColor: '#f3e5f5',
-                        tertiaryColor: '#fff3e0',
-                        background: '#fafafa',
-                        mainBkg: '#ffffff',
-                        secondBkg: '#f5f5f5',
-                        tertiaryBkg: '#e3f2fd'
-                    }
-                });
+                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                    flowchart: { 
+                        useMaxWidth: true, 
+                        htmlLabels: true,
+                        curve: 'basis'
+                    },
+                    sequence: { useMaxWidth: true },
+                    gantt: { useMaxWidth: true },
+                    journey: { useMaxWidth: true },
+                    pie: { useMaxWidth: true }
+                };
+                
+                // 初始化Mermaid
+                mermaid.initialize(baseConfig);
                 
                 // 配置Marked
                 marked.setOptions({
@@ -1916,33 +1918,11 @@ struct MermaidWebView: NSViewRepresentable {
                     console.log('准备渲染 ' + mermaidElements.length + ' 个Mermaid图表');
                     
                     if (mermaidElements.length > 0) {
-                        // 根据当前主题重新初始化Mermaid
-                        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                        const currentTheme = isDark ? 'dark' : 'forest';
+                        // 使用最新的Mermaid API渲染
+                        console.log('使用官方Mermaid引擎渲染图表...');
                         
-                        // 重新配置Mermaid主题
-                        mermaid.initialize({
-                            startOnLoad: false,
-                            theme: currentTheme,
-                            securityLevel: 'loose',
-                            flowchart: { useMaxWidth: true, htmlLabels: true },
-                            themeVariables: isDark ? {} : {
-                                primaryColor: '#c8e6c9',
-                                primaryTextColor: '#1b5e20',
-                                primaryBorderColor: '#4caf50',
-                                lineColor: '#388e3c',
-                                secondaryColor: '#e8f5e8',
-                                tertiaryColor: '#f1f8e9',
-                                background: '#fafafa',
-                                mainBkg: '#ffffff',
-                                secondBkg: '#f5f5f5'
-                            }
-                        });
-                        
-                        // 如果有Mermaid图表，等待渲染完成后再显示
-                        mermaid.run({
-                            querySelector: '.mermaid'
-                        }).then(() => {
+                        // 使用官方推荐的渲染方式
+                        mermaid.run().then(() => {
                             console.log('✅ Mermaid渲染成功');
                             // 添加rendered类，触发淡入动画
                             mermaidElements.forEach(element => {
