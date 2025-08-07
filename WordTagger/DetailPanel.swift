@@ -174,7 +174,7 @@ struct NodeDetailView: View {
                     // Markdown预览
                     VStack(alignment: .leading, spacing: 12) {
                         if markdownText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            VStack(spacing: 8) {
+                            VStack(alignment: .leading, spacing: 8) {
                                 Image(systemName: "doc.text")
                                     .font(.title2)
                                     .foregroundColor(.gray)
@@ -186,10 +186,11 @@ struct NodeDetailView: View {
                                 Text("点击「编辑」按钮开始记录笔记")
                                     .font(.system(size: 13))
                                     .foregroundColor(Color.secondary)
-                                    .multilineTextAlignment(.center)
+                                
+                                Spacer()
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 32)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                            .padding(.all, 16)
                             .background(
                                 RoundedRectangle(cornerRadius: 8)
                                     .fill(Color.gray.opacity(0.05))
@@ -248,7 +249,7 @@ struct NodeDetailView: View {
                     }
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .padding(24)
         }
         .onAppear {
