@@ -1855,9 +1855,22 @@ struct MermaidWebView: NSViewRepresentable {
                 // 配置Mermaid
                 mermaid.initialize({
                     startOnLoad: false,
-                    theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default',
+                    theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'neutral',
                     securityLevel: 'loose',
-                    flowchart: { useMaxWidth: true, htmlLabels: true }
+                    flowchart: { useMaxWidth: true, htmlLabels: true },
+                    themeVariables: window.matchMedia('(prefers-color-scheme: dark)').matches ? {} : {
+                        // 浅色模式自定义变量
+                        primaryColor: '#e1f5fe',
+                        primaryTextColor: '#1565c0',
+                        primaryBorderColor: '#42a5f5',
+                        lineColor: '#1976d2',
+                        secondaryColor: '#f3e5f5',
+                        tertiaryColor: '#fff3e0',
+                        background: '#fafafa',
+                        mainBkg: '#ffffff',
+                        secondBkg: '#f5f5f5',
+                        tertiaryBkg: '#e3f2fd'
+                    }
                 });
                 
                 // 配置Marked
