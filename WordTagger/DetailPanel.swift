@@ -18,7 +18,6 @@ struct DetailPanel: View {
         case related = "图谱"
         case map = "地图"  
         case detail = "详情"
-        case markdown = "笔记"
     }
     
     var body: some View {
@@ -55,8 +54,6 @@ struct DetailPanel: View {
                     NodeMapView(node: currentNode)
                 case .related:
                     NodeGraphView(node: currentNode)
-                case .markdown:
-                    NodeMarkdownView(node: currentNode)
                 }
             }
         }
@@ -71,6 +68,9 @@ struct DetailPanel: View {
 struct NodeDetailView: View {
     let node: Node
     @EnvironmentObject private var store: NodeStore
+    @State private var markdownText: String = ""
+    @State private var isEditingMarkdown: Bool = false
+    @State private var showingMarkdownPreview: Bool = true
     
     // 从store中获取最新的节点数据
     private var currentNode: Node {
@@ -139,10 +139,148 @@ struct NodeDetailView: View {
                     }
                 }
                 
-                // 移除了无效的元数据信息（创建时间、更新时间、单词ID）
+                Divider()
+                
+                // 笔记部分 - 整合在详情页面中
+                VStack(alignment: .leading, spacing: 16) {
+                    // 笔记标题和工具栏
+                    HStack {
+                        Text("笔记")
+                            .font(.system(size: 20, weight: .semibold))
+                        
+                        Spacer()
+                        
+                        // 编辑/预览切换按钮
+                        HStack(spacing: 8) {
+                            Button(action: { 
+                                showingMarkdownPreview = false
+                                isEditingMarkdown = true 
+                            }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "pencil")
+                                        .font(.caption)
+                                    Text("编辑")
+                                        .font(.caption)
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .disabled(isEditingMarkdown && !showingMarkdownPreview)
+                            
+                            Button(action: { 
+                                showingMarkdownPreview = true
+                                isEditingMarkdown = false
+                                saveMarkdown()
+                            }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "eye")
+                                        .font(.caption)
+                                    Text("预览")
+                                        .font(.caption)
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .disabled(showingMarkdownPreview)
+                        }
+                    }
+                    
+                    // 笔记内容区域
+                    if showingMarkdownPreview {
+                        // Markdown预览
+                        VStack(alignment: .leading, spacing: 12) {
+                            if markdownText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                VStack(spacing: 8) {
+                                    Image(systemName: "doc.text")
+                                        .font(.title2)
+                                        .foregroundColor(.gray)
+                                    
+                                    Text("暂无笔记内容")
+                                        .font(.system(size: 16))
+                                        .foregroundColor(.secondary)
+                                    
+                                    Text("点击「编辑」按钮开始记录笔记")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(Color.secondary)
+                                        .multilineTextAlignment(.center)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 32)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(Color.gray.opacity(0.05))
+                                )
+                            } else {
+                                // Markdown渲染内容
+                                MarkdownRenderedText(markdown: markdownText)
+                                    .padding(16)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(Color.gray.opacity(0.03))
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                                            )
+                                    )
+                            }
+                        }
+                    } else {
+                        // Markdown编辑器
+                        VStack(spacing: 8) {
+                            // 编辑提示和保存按钮
+                            HStack {
+                                Text("支持Markdown语法：**粗体** *斜体* `代码` # 标题")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                
+                                Spacer()
+                                
+                                Button("保存") {
+                                    saveMarkdown()
+                                    showingMarkdownPreview = true
+                                    isEditingMarkdown = false
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .controlSize(.small)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color.blue.opacity(0.05))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+                            )
+                            
+                            // 文本编辑器
+                            TextEditor(text: $markdownText)
+                                .font(.system(.body, design: .monospaced))
+                                .padding(12)
+                                .frame(minHeight: 200)
+                                .background(Color.white)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                                )
+                        }
+                    }
+                }
             }
             .padding(24)
         }
+        .onAppear {
+            loadMarkdown()
+        }
+        .onChange(of: currentNode.id) { _, _ in
+            loadMarkdown()
+        }
+    }
+    
+    private func loadMarkdown() {
+        markdownText = currentNode.markdown
+    }
+    
+    private func saveMarkdown() {
+        store.updateNodeMarkdown(currentNode.id, markdown: markdownText)
     }
 }
 
@@ -1557,144 +1695,6 @@ struct EditNodeSheet: View {
     }
 }
 
-// MARK: - Markdown笔记视图
-
-struct NodeMarkdownView: View {
-    let node: Node
-    @EnvironmentObject private var store: NodeStore
-    @State private var markdownText: String = ""
-    @State private var isEditing: Bool = false
-    @State private var showingPreview: Bool = false
-    
-    // 从store中获取最新的节点数据
-    private var currentNode: Node {
-        return store.nodes.first { $0.id == node.id } ?? node
-    }
-    
-    var body: some View {
-        VStack(spacing: 0) {
-            // 顶部工具栏
-            HStack {
-                Text("笔记")
-                    .font(.system(size: 18, weight: .semibold))
-                
-                Spacer()
-                
-                // 预览/编辑切换
-                HStack(spacing: 12) {
-                    Button(action: { 
-                        showingPreview = false
-                        isEditing = true 
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "pencil")
-                            Text("编辑")
-                        }
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .disabled(isEditing && !showingPreview)
-                    
-                    Button(action: { 
-                        showingPreview = true
-                        isEditing = false
-                        saveMarkdown()
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "eye")
-                            Text("预览")
-                        }
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .disabled(showingPreview)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(Color(NSColor.controlBackgroundColor))
-            
-            Divider()
-            
-            // 内容区域
-            if showingPreview {
-                // Markdown预览
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        if markdownText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            VStack(spacing: 12) {
-                                Image(systemName: "doc.text")
-                                    .font(.largeTitle)
-                                    .foregroundColor(.gray)
-                                
-                                Text("暂无笔记内容")
-                                    .font(.system(size: 18))
-                                    .foregroundColor(.secondary)
-                                
-                                Text("点击「编辑」按钮开始记录笔记")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(Color.secondary)
-                                    .multilineTextAlignment(.center)
-                            }
-                            .frame(maxWidth: .infinity, minHeight: 200)
-                        } else {
-                            // 简单的Markdown渲染
-                            MarkdownRenderedText(markdown: markdownText)
-                        }
-                    }
-                    .padding(20)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                // Markdown编辑器
-                VStack(spacing: 0) {
-                    // 编辑提示
-                    HStack {
-                        Text("支持Markdown语法：**粗体** *斜体* `代码` # 标题")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        Spacer()
-                        
-                        Button("保存") {
-                            saveMarkdown()
-                            showingPreview = true
-                            isEditing = false
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(Color.gray.opacity(0.1))
-                    
-                    // 文本编辑器
-                    TextEditor(text: $markdownText)
-                        .font(.system(.body, design: .monospaced))
-                        .padding(16)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-            }
-        }
-        .onAppear {
-            loadMarkdown()
-            if !isEditing && !showingPreview {
-                showingPreview = true // 默认显示预览模式
-            }
-        }
-        .onChange(of: currentNode.id) { _, _ in
-            loadMarkdown()
-        }
-    }
-    
-    private func loadMarkdown() {
-        markdownText = currentNode.markdown
-    }
-    
-    private func saveMarkdown() {
-        store.updateNodeMarkdown(currentNode.id, markdown: markdownText)
-    }
-}
 
 // MARK: - Markdown渲染文本视图
 
