@@ -404,7 +404,9 @@ struct NodeSelectorView: View {
                     }
                     .padding()
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .navigationTitle("选择要显示的节点")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -421,7 +423,7 @@ struct NodeSelectorView: View {
                 }
             }
         }
-        .frame(width: 600, height: 500)
+        .frame(minWidth: 500, idealWidth: 600, maxWidth: 800, minHeight: 400, idealHeight: 500, maxHeight: 700)
         .onAppear {
             tempSelectedIds = selectedNodeIds
         }
