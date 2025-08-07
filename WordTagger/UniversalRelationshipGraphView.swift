@@ -393,6 +393,8 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
     }
     
     private func generateGraphHTML(initialScale: Double = 1.0) -> String {
+        // 安全检查：确保initialScale值在合理范围内
+        let safeInitialScale = max(0.1, min(10.0, initialScale.isNaN ? 1.0 : initialScale))
         // 获取调试设置
         @AppStorage("enableGraphDebug") var enableGraphDebug: Bool = false
         
@@ -671,24 +673,49 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                         }
                     };
                     
-                    var network = new vis.Network(container, data, options);
+                    var network;
+                    try {
+                        network = new vis.Network(container, data, options);
+                        console.log('图谱网络创建成功');
+                    } catch (error) {
+                        console.error('图谱网络创建失败:', error);
+                        // 显示错误信息而不是崩溃
+                        container.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">图谱加载失败，请重试</div>';
+                        return;
+                    }
                     
                     
                     network.once('stabilized', function() {
                         document.getElementById('loading').style.display = 'none';
                         container.style.display = 'block';
                         
-                        var initialScale = \(initialScale);
+                        var initialScale = \(safeInitialScale);
+                        
+                        // 安全检查：确保initialScale在合理范围内
+                        if (isNaN(initialScale) || initialScale <= 0 || initialScale > 10) {
+                            console.warn('无效的initialScale值:', initialScale, '重置为1.0');
+                            initialScale = 1.0;
+                        }
                         
                         // 先fit让所有节点在视野中，然后立即应用用户缩放设置
-                        network.fit();
+                        try {
+                            network.fit();
+                            console.log('图谱fit操作完成');
+                        } catch (error) {
+                            console.error('图谱fit操作失败:', error);
+                        }
                         
                         if (initialScale !== 1.0) {
-                            // 立即应用用户设置的缩放级别，避免视觉跳跃
-                            network.moveTo({
-                                scale: initialScale,
-                                animation: false  // 禁用动画，直接跳转到目标缩放
-                            });
+                            try {
+                                // 立即应用用户设置的缩放级别，避免视觉跳跃
+                                network.moveTo({
+                                    scale: initialScale,
+                                    animation: false  // 禁用动画，直接跳转到目标缩放
+                                });
+                                console.log('成功应用初始缩放:', initialScale);
+                            } catch (error) {
+                                console.error('应用初始缩放失败:', error);
+                            }
                         }
                     });
                     
