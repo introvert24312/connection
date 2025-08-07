@@ -8,6 +8,8 @@ struct ContentView: View {
     @State private var selectedNode: Node?
     @State private var showSidebar: Bool = true
     @State private var showingDataSetup = false
+    @State private var wordListWidth: CGFloat = 280 // 收窄WordList默认宽度
+    @State private var isDraggingDivider = false // 是否正在拖动分割线
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -19,20 +21,34 @@ struct ContentView: View {
                     .transition(.move(edge: .leading).combined(with: .opacity))
             }
             
-            // 中间：单词列表
+            // 中间：单词列表 - 可拖动调节宽度
             NodeListView(selectedNode: $selectedNode)
-                .frame(minWidth: showSidebar ? 350 : 400, maxWidth: showSidebar ? 400 : 450)
+                .frame(width: wordListWidth)
+            
+            // 拖动分割线
+            ResizableDivider(
+                width: $wordListWidth,
+                isDragging: $isDraggingDivider,
+                minWidth: showSidebar ? 200 : 250,
+                maxWidth: showSidebar ? 450 : 500
+            )
             
             // 右侧：详情面板 (图谱区域)
             if let node = selectedNode {
                 DetailPanel(node: node)
-                    .frame(minWidth: showSidebar ? 400 : 500, maxWidth: .infinity)
+                    .frame(minWidth: 400, maxWidth: .infinity)
             } else {
                 WelcomeView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .animation(.easeInOut(duration: 0.3), value: showSidebar)
+        .onChange(of: showSidebar) { _, newValue in
+            // 当侧边栏状态改变时，调整WordList宽度以适应新的约束
+            let minWidth: CGFloat = newValue ? 200 : 250
+            let maxWidth: CGFloat = newValue ? 450 : 500
+            wordListWidth = max(minWidth, min(maxWidth, wordListWidth))
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("requestOpenFullscreenGraph"))) { _ in
             Swift.print("📝 ContentView: 收到打开全屏图谱请求")
             openWindow(id: "fullscreenGraph")
@@ -258,6 +274,58 @@ struct StatCard: View {
             RoundedRectangle(cornerRadius: 8)
                 .fill(color.opacity(0.1))
         )
+    }
+}
+
+// MARK: - 可拖动分割线组件
+
+struct ResizableDivider: View {
+    @Binding var width: CGFloat
+    @Binding var isDragging: Bool
+    let minWidth: CGFloat
+    let maxWidth: CGFloat
+    @State private var isHovering = false
+    
+    var body: some View {
+        ZStack {
+            // 背景分割线
+            Rectangle()
+                .fill(Color.gray.opacity(0.2))
+                .frame(width: 1)
+            
+            // 拖动区域（比可见线宽一些，便于拖动）
+            Rectangle()
+                .fill(Color.clear)
+                .frame(width: 6)
+                .contentShape(Rectangle())
+                .onHover { hovering in
+                    isHovering = hovering
+                    if hovering {
+                        NSCursor.resizeLeftRight.push()
+                    } else {
+                        NSCursor.pop()
+                    }
+                }
+                .overlay(
+                    // 悬停或拖动时显示的提示线
+                    Rectangle()
+                        .fill(Color.blue.opacity(0.6))
+                        .frame(width: 2)
+                        .opacity(isHovering || isDragging ? 1 : 0)
+                        .animation(.easeInOut(duration: 0.2), value: isHovering || isDragging)
+                )
+                .gesture(
+                    DragGesture()
+                        .onChanged { value in
+                            isDragging = true
+                            let newWidth = width + value.translation.width
+                            width = max(minWidth, min(maxWidth, newWidth))
+                        }
+                        .onEnded { _ in
+                            isDragging = false
+                        }
+                )
+        }
     }
 }
 

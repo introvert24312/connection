@@ -42,38 +42,38 @@ public class ExternalDataManager: ObservableObject {
             panel.directoryURL = documentsURL
         }
         
-        panel.begin(completionHandler: { [weak self] response in
+        panel.begin { [weak self] response in
             if response == .OK, let url = panel.url {
                 // 检查是否是系统敏感目录
                 if self?.isSystemSensitiveDirectory(url) == true {
-                    Task { @MainActor in
+                    Task(operation: { @MainActor in
                         self?.lastError = "不允许选择系统目录，请选择Documents、Desktop或其他用户目录"
-                    }
+                    })
                     return
                 }
                 self?.setDataPath(url, createBookmark: true)
             }
-        })
+        }
     }
     
     public func setDataPath(_ url: URL, createBookmark: Bool = false) {
         Task {
             // 在切换路径前，先通知保存当前数据
-            if await MainActor.run { isDataPathSelected && currentDataPath != url } {
+            if await MainActor.run(body: { isDataPathSelected && currentDataPath != url }) {
                 print("💾 切换路径前保存当前数据...")
                 NotificationCenter.default.post(
                     name: .saveCurrentDataBeforeSwitch,
                     object: self,
-                    userInfo: ["oldPath": await MainActor.run { currentDataPath } as Any, "newPath": url]
+                    userInfo: ["oldPath": await MainActor.run(body: { currentDataPath }) as Any, "newPath": url]
                 )
                 
                 // 等待一段时间确保数据保存完成
                 try? await Task.sleep(nanoseconds: 1_000_000_000) // 1秒
             }
             
-            await MainActor.run {
+            await MainActor.run(body: {
                 self.performDataPathChange(url: url, createBookmark: createBookmark)
-            }
+            })
         }
     }
     
