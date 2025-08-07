@@ -93,12 +93,12 @@ struct NodeDetailView: View {
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 8) {
                                     ForEach(currentNode.tags.prefix(6), id: \.id) { tag in
-                                        HStack(spacing: 3) {
+                                        HStack(spacing: 4) {
                                             Text(tag.type.displayName)
-                                                .font(.caption)
+                                                .font(.system(size: 16))
                                                 .foregroundColor(.secondary)
                                             Text(tag.value)
-                                                .font(.body)
+                                                .font(.system(size: 18, weight: .medium))
                                                 .fontWeight(.medium)
                                         }
                                         .padding(.horizontal, 8)
@@ -116,7 +116,7 @@ struct NodeDetailView: View {
                                     // 如果标签太多，显示剩余数量
                                     if currentNode.tags.count > 6 {
                                         Text("+\(currentNode.tags.count - 6)")
-                                            .font(.caption)
+                                            .font(.system(size: 16))
                                             .foregroundColor(.secondary)
                                             .padding(.horizontal, 6)
                                             .padding(.vertical, 4)
