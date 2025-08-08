@@ -199,7 +199,7 @@ public final class CommandParser: ObservableObject {
         
         for command in layerCommands {
             let score = calculateMatchScore(command: command, tokens: searchTokens, context: context)
-            if score > 0.3 {
+            if score > 0.1 { // 降低阈值让更多层能被搜索到
                 scoredCommands.append((command, score))
             }
         }
@@ -233,17 +233,73 @@ public final class CommandParser: ObservableObject {
     private func calculateTokenSimilarity(_ tokens1: [String], _ tokens2: [String]) -> Double {
         guard !tokens1.isEmpty && !tokens2.isEmpty else { return 0 }
         
-        var matches = 0
+        var totalScore = 0.0
+        var matchedTokens = 0
+        
         for token1 in tokens1 {
+            var bestScore = 0.0
             for token2 in tokens2 {
-                if token1.similarity(to: token2) > 0.7 {
-                    matches += 1
-                    break
-                }
+                // 支持模糊搜索
+                let score = calculateFuzzyScore(token1, token2)
+                bestScore = max(bestScore, score)
+            }
+            if bestScore > 0.3 { // 降低匹配阈值支持模糊搜索
+                totalScore += bestScore
+                matchedTokens += 1
             }
         }
         
-        return Double(matches) / Double(max(tokens1.count, tokens2.count))
+        return matchedTokens > 0 ? totalScore / Double(tokens1.count) : 0
+    }
+    
+    private func calculateFuzzyScore(_ query: String, _ target: String) -> Double {
+        let queryLower = query.lowercased()
+        let targetLower = target.lowercased()
+        
+        // 完全匹配
+        if queryLower == targetLower {
+            return 1.0
+        }
+        
+        // 前缀匹配
+        if targetLower.hasPrefix(queryLower) {
+            return 0.9
+        }
+        
+        // 包含匹配
+        if targetLower.contains(queryLower) {
+            return 0.8
+        }
+        
+        // 字符顺序匹配（支持层名的部分输入）
+        if containsInOrder(target: targetLower, query: queryLower) {
+            return 0.7
+        }
+        
+        // 使用原有的相似度算法作为后备
+        let similarity = queryLower.similarity(to: targetLower)
+        return similarity > 0.5 ? similarity : 0
+    }
+    
+    private func containsInOrder(target: String, query: String) -> Bool {
+        var targetIndex = target.startIndex
+        let targetEnd = target.endIndex
+        
+        for queryChar in query {
+            guard targetIndex < targetEnd else { return false }
+            
+            while targetIndex < targetEnd && target[targetIndex] != queryChar {
+                targetIndex = target.index(after: targetIndex)
+            }
+            
+            if targetIndex < targetEnd {
+                targetIndex = target.index(after: targetIndex)
+            } else {
+                return false
+            }
+        }
+        
+        return true
     }
     
     private func calculateContextRelevance(command: Command, context: CommandContext) -> Double {
@@ -769,14 +825,16 @@ public struct SwitchLayerCommand: Command {
     public let description: String
     public let icon = "rectangle.stack"
     public let category = CommandCategory.layer
-    public let keywords = ["切换", "层", "学科", "分类"]
+    public let keywords: [String]
     
     private let layerName: String
     
     public init(layerName: String) {
         self.layerName = layerName
-        self.title = "切换到 \(layerName)"
+        self.title = layerName
         self.description = "切换到 \(layerName) 学科层"
+        // 包含层名和相关关键词，支持模糊搜索
+        self.keywords = ["切换", "层", "学科", "分类", layerName] + layerName.map { String($0) }
     }
     
     public func execute(with context: CommandContext) async throws -> CommandResult {
