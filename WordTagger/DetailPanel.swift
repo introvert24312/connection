@@ -64,7 +64,7 @@ struct DetailPanel: View {
             // 收到全局Command+T通知，切换到详情页并切换编辑模式
             if let notificationNode = notification.object as? Node,
                notificationNode.id == node.id {
-                print("📝 DetailPanel: 收到Command+T通知，切换到详情并切换编辑模式")
+                // 静默切换到详情编辑模式
                 withAnimation(.easeInOut(duration: 0.2)) {
                     tab = .detail // 切换到详情页
                 }
@@ -90,6 +90,8 @@ struct NodeDetailView: View {
     @State private var markdownText: String = ""
     @StateObject private var imageManager = NodeImageManager.shared
     @State private var debounceTask: Task<Void, Never>?
+    @State private var isEditing: Bool = false
+    @FocusState private var isTextEditorFocused: Bool
     
     // 从store中获取最新的节点数据
     private var currentNode: Node {
@@ -97,187 +99,39 @@ struct NodeDetailView: View {
     }
     
     var body: some View {
-        VStack(spacing: 0) {
-            // 笔记部分 - 占据全部空间
-            VStack(alignment: .leading, spacing: 16) {
-                // 节点标题、标签和工具栏
-                HStack {
-                    HStack(alignment: .center, spacing: 12) {
-                        // 节点名称
-                        Text(currentNode.text)
-                            .font(.system(size: 20, weight: .semibold))
-                        
-                        // 标签列表 - 与节点名称在同一行
-                        if !currentNode.tags.isEmpty {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(currentNode.tags.prefix(6), id: \.id) { tag in
-                                        HStack(spacing: 4) {
-                                            Text(tag.type.displayName)
-                                                .font(.system(size: 16))
-                                                .foregroundColor(.secondary)
-                                            Text(tag.value)
-                                                .font(.system(size: 18, weight: .medium))
-                                                .fontWeight(.medium)
-                                        }
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 4)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 6)
-                                                .fill(Color.blue.opacity(0.1))
-                                        )
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 6)
-                                                .stroke(Color.blue.opacity(0.3), lineWidth: 0.5)
-                                        )
-                                    }
-                                    
-                                    // 如果标签太多，显示剩余数量
-                                    if currentNode.tags.count > 6 {
-                                        Text("+\(currentNode.tags.count - 6)")
-                                            .font(.system(size: 16))
-                                            .foregroundColor(.secondary)
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 4)
-                                            .background(
-                                                RoundedRectangle(cornerRadius: 6)
-                                                    .fill(Color.gray.opacity(0.1))
-                                            )
-                                    }
-                                }
-                                .padding(.horizontal, 1)
-                            }
-                            .frame(height: 32)
-                        }
-                    }
-                    
-                    Spacer()
-                    
-                    // 实时编辑指示器
-                    HStack(spacing: 8) {
-                        Image(systemName: "pencil.and.list.clipboard")
-                            .font(.caption)
-                            .foregroundColor(.blue)
-                        
-                        Text("实时编辑")
-                            .font(.caption)
-                            .foregroundColor(.blue)
-                        
-                        Spacer()
-                        
-                        if !markdownText.isEmpty {
-                            Text("自动保存")
-                                .font(.caption2)
-                                .foregroundColor(.green)
-                        }
-                    }
-                }
+        VStack(spacing: 16) {
+            // 简洁的标题栏
+            HStack {
+                Text(currentNode.text)
+                    .font(.headline)
+                Spacer()
                 
-                // Typora样式的分屏编辑预览
-                HStack(spacing: 0) {
-                    // 左侧：编辑器
-                    VStack(spacing: 8) {
-                        // 编辑工具栏
-                        HStack {
-                            Button(action: insertImage) {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "photo")
-                                    Text("图片")
-                                }
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                            
-                            Button(action: insertCodeBlock) {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "curlybraces")
-                                    Text("代码")
-                                }
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                            
-                            Button(action: insertMermaidBlock) {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "flowchart")
-                                    Text("图表")
-                                }
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                            
-                            Spacer()
-                            
-                            Text("⌘+I 插入图片")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 6)
-                        .background(Color(NSColor.controlBackgroundColor))
-                        
-                        // 文本编辑器
-                        TextEditor(text: $markdownText)
-                            .font(.system(.body, design: .monospaced))
-                            .padding(8)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .background(Color(NSColor.textBackgroundColor))
-                            .onChange(of: markdownText) { _, newValue in
-                                debouncedSave(newValue)
-                            }
+                // 状态指示器 - 仅显示编辑状态
+                if isEditing {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(Color.green)
+                            .frame(width: 8, height: 8)
+                        Text("编辑中")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
-                    .frame(maxWidth: .infinity)
-                    
-                    // 分割线
-                    Divider()
-                    
-                    // 右侧：实时预览
-                    VStack(alignment: .leading, spacing: 0) {
-                        // 预览头部
-                        HStack {
-                            Text("实时预览")
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundColor(.secondary)
-                            
-                            Spacer()
-                            
-                            if !markdownText.isEmpty {
-                                Image(systemName: "eye.fill")
-                                    .font(.caption)
-                                    .foregroundColor(.green)
-                            }
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 6)
-                        .background(Color(NSColor.controlBackgroundColor))
-                        
-                        // 预览内容
-                        if markdownText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            VStack(spacing: 12) {
-                                Image(systemName: "eye.slash")
-                                    .font(.title2)
-                                    .foregroundColor(.secondary)
-                                
-                                Text("开始输入以查看预览")
-                                    .font(.body)
-                                    .foregroundColor(.secondary)
-                                
-                                Spacer()
-                            }
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .padding(20)
-                        } else {
-                            MermaidWebView(markdown: markdownText)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .background(Color(NSColor.textBackgroundColor))
+                } else if markdownText.isEmpty {
+                    Text("点击开始编辑...")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .padding(24)
+            .padding(.horizontal)
+            
+            // 调试版本 - 最简单的点击测试
+            DebugClickableEditor(
+                text: $markdownText,
+                isEditing: $isEditing,
+                onTextChange: { newValue in
+                    debouncedSave(newValue)
+                }
+            )
         }
         .onAppear {
             loadMarkdown()
@@ -285,17 +139,22 @@ struct NodeDetailView: View {
         .onChange(of: currentNode.id) { _, _ in
             loadMarkdown()
         }
+        .onChange(of: isEditing) { _, newValue in
+            if newValue {
+                // 静默进入编辑模式
+            }
+        }
         .focusable()
-        .onKeyPress(.init("i"), phases: .down) { keyPress in
+        .onKeyPress(.init("/"), phases: .down) { keyPress in
             if keyPress.modifiers == .command {
-                // Command+I: 插入图片
-                insertImage()
+                // Command+/: 切换编辑模式
+                isEditing.toggle()
                 return .handled
             }
             return .ignored
         }
         .onDisappear {
-            // 清理防抖任务
+            // 清理异步任务
             debounceTask?.cancel()
         }
     }
@@ -324,25 +183,43 @@ struct NodeDetailView: View {
         }
     }
     
-    private func insertImage() {
-        if let fileName = imageManager.selectAndCopyImage() {
-            let imageMarkdown = imageManager.generateImageMarkdown(fileName: fileName)
-            insertTextAtCursor(imageMarkdown + "\n\n")
+    private func handleImageDrop(providers: [NSItemProvider]) -> Bool {
+        for provider in providers {
+            if provider.hasItemConformingToTypeIdentifier("public.image") {
+                provider.loadItem(forTypeIdentifier: "public.image") { item, error in
+                    guard error == nil else {
+                        print("图片拖拽加载失败: \(error!)")
+                        return
+                    }
+                    
+                    var imageURL: URL?
+                    
+                    if let url = item as? URL {
+                        imageURL = url
+                    } else if let data = item as? Data {
+                        // 处理剪贴板或其他数据源的图片
+                        let tempURL = FileManager.default.temporaryDirectory
+                            .appendingPathComponent("dropped_image_\(UUID().uuidString).png")
+                        try? data.write(to: tempURL)
+                        imageURL = tempURL
+                    }
+                    
+                    guard let sourceURL = imageURL else { return }
+                    
+                    DispatchQueue.main.async {
+                        if let fileName = self.imageManager.copyImageFromURL(sourceURL) {
+                            let imageMarkdown = self.imageManager.generateImageMarkdown(fileName: fileName)
+                            self.insertTextAtCursor(imageMarkdown + "\n\n")
+                        }
+                    }
+                }
+                return true
+            }
         }
-    }
-    
-    private func insertCodeBlock() {
-        let codeBlock = "```\n\n```\n"
-        insertTextAtCursor(codeBlock)
-    }
-    
-    private func insertMermaidBlock() {
-        let mermaidBlock = "```mermaid\ngraph TD\n    A[开始] --> B[结束]\n```\n\n"
-        insertTextAtCursor(mermaidBlock)
+        return false
     }
     
     private func insertTextAtCursor(_ text: String) {
-        // 简单的文本插入，在末尾添加
         if markdownText.isEmpty {
             markdownText = text
         } else {
@@ -2218,6 +2095,10 @@ class NodeImageManager: ObservableObject {
         return nil
     }
     
+    func copyImageFromURL(_ sourceURL: URL) -> String? {
+        return copyImageToAppDirectory(from: sourceURL)
+    }
+    
     private func copyImageToAppDirectory(from sourceURL: URL) -> String? {
         let fileExtension = sourceURL.pathExtension
         let fileName = "\(UUID().uuidString).\(fileExtension)"
@@ -2243,6 +2124,333 @@ class NodeImageManager: ObservableObject {
     
     func generateImageMarkdown(fileName: String, description: String = "图片") -> String {
         return "![\(description)](NodeImages/\(fileName))"
+    }
+}
+
+// MARK: - 完全隐形的实时编辑器 (无任何UI提示)
+
+struct DebugClickableEditor: View {
+    @Binding var text: String
+    @Binding var isEditing: Bool
+    let onTextChange: (String) -> Void
+    
+    @State private var currentlyEditingLine: Int? = nil
+    @State private var editingText: String = ""
+    @FocusState private var isTextFieldFocused: Bool
+    
+    var body: some View {
+        if text.isEmpty {
+            // 空状态 - 简洁提示
+            VStack(spacing: 30) {
+                VStack(spacing: 12) {
+                    Text("开始编写")
+                        .font(.title2)
+                        .foregroundColor(.primary)
+                    Text("点击开始，支持 Markdown")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                }
+                
+                TextField("", text: $editingText, prompt: Text("开始输入...").foregroundColor(.secondary))
+                    .textFieldStyle(.plain)
+                    .focused($isTextFieldFocused)
+                    .font(.system(.body))
+                    .onSubmit {
+                        if !editingText.isEmpty {
+                            text = editingText
+                            onTextChange(editingText)
+                            editingText = ""
+                        }
+                    }
+                    .frame(maxWidth: 500)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                isTextFieldFocused = true
+            }
+        } else {
+            // 完全隐形的内联编辑 - 没有任何编辑状态UI
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 16) {
+                    ForEach(text.components(separatedBy: .newlines).indices, id: \.self) { index in
+                        let line = text.components(separatedBy: .newlines)[index]
+                        
+                        if currentlyEditingLine == index {
+                            // 编辑状态 - 完全隐形，看起来就像普通文本但可以输入
+                            TextField("", text: $editingText, prompt: Text(line).foregroundColor(.secondary))
+                                .textFieldStyle(.plain)
+                                .focused($isTextFieldFocused)
+                                .font(fontForLine(line))
+                                .fontWeight(fontWeightForLine(line))
+                                .foregroundColor(.primary)
+                                .onSubmit {
+                                    finishEditingLine(at: index)
+                                }
+                                .onAppear {
+                                    editingText = line
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 4)
+                        } else {
+                            // 显示状态 - 可点击进入编辑
+                            renderInvisibleEditableLine(line, at: index)
+                        }
+                    }
+                    
+                    // 隐形的添加新行区域 - 点击空白区域自动添加
+                    Rectangle()
+                        .fill(Color.clear)
+                        .frame(height: 50)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            addNewLineInvisibly()
+                        }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 20)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+    
+    private func fontForLine(_ line: String) -> Font {
+        if line.hasPrefix("# ") {
+            return .title
+        } else if line.hasPrefix("## ") {
+            return .title2
+        } else if line.hasPrefix("### ") {
+            return .title3
+        } else {
+            return .body
+        }
+    }
+    
+    private func fontWeightForLine(_ line: String) -> Font.Weight {
+        if line.hasPrefix("# ") {
+            return .bold
+        } else if line.hasPrefix("## ") {
+            return .semibold
+        } else if line.hasPrefix("### ") {
+            return .medium
+        } else {
+            return .regular
+        }
+    }
+    
+    @ViewBuilder
+    private func renderInvisibleEditableLine(_ line: String, at index: Int) -> some View {
+        Group {
+            if line.hasPrefix("# ") {
+                Text(String(line.dropFirst(2)))
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .foregroundColor(.primary)
+            } else if line.hasPrefix("## ") {
+                Text(String(line.dropFirst(3)))
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+            } else if line.hasPrefix("### ") {
+                Text(String(line.dropFirst(4)))
+                    .font(.title3)
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+            } else if line.hasPrefix("- ") {
+                HStack(alignment: .top, spacing: 8) {
+                    Text("•")
+                        .font(.body)
+                        .foregroundColor(.blue)
+                    Text(String(line.dropFirst(2)))
+                        .font(.body)
+                        .foregroundColor(.primary)
+                }
+            } else if line.trimmingCharacters(in: .whitespaces).isEmpty {
+                Text(" ")
+                    .font(.body)
+                    .frame(height: 24)
+            } else {
+                Text(line)
+                    .font(.body)
+                    .foregroundColor(.primary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 4)
+        .background(Color.clear)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            startEditingInvisibly(at: index, content: line)
+        }
+    }
+    
+    private func startEditingInvisibly(at index: Int, content: String) {
+        // 完全静默开始编辑
+        currentlyEditingLine = index
+        editingText = content
+        isTextFieldFocused = true
+    }
+    
+    private func finishEditingLine(at index: Int) {
+        guard currentlyEditingLine == index else { return }
+        
+        var lines = text.components(separatedBy: .newlines)
+        if index < lines.count {
+            lines[index] = editingText
+            let newText = lines.joined(separator: "\n")
+            text = newText
+            onTextChange(newText)
+        }
+        
+        // 静默完成编辑
+        currentlyEditingLine = nil
+        editingText = ""
+        isTextFieldFocused = false
+    }
+    
+    private func addNewLineInvisibly() {
+        let newText = text + "\n"
+        text = newText
+        onTextChange(newText)
+        
+        // 立即静默编辑新行
+        let newLineIndex = text.components(separatedBy: .newlines).count - 1
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            startEditingInvisibly(at: newLineIndex, content: "")
+        }
+    }
+}
+
+// MARK: - Typora风格编辑器
+
+struct TyporaStyleEditor: View {
+    @Binding var text: String
+    @Binding var isEditing: Bool
+    let onTextChange: (String) -> Void
+    
+    @FocusState private var isTextEditorFocused: Bool
+    @State private var showRawSource: Bool = false
+    
+    var body: some View {
+        ZStack {
+            if text.isEmpty {
+                // 空内容状态 - 显示提示信息
+                VStack {
+                    Spacer()
+                    VStack(spacing: 12) {
+                        Image(systemName: "doc.text")
+                            .font(.system(size: 48))
+                            .foregroundColor(.gray.opacity(0.6))
+                        Text("开始编写你的内容...")
+                            .font(.title2)
+                            .foregroundColor(.secondary)
+                        Text("支持 Markdown 语法，实时渲染")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    isEditing = true
+                    isTextEditorFocused = true
+                    showRawSource = true
+                }
+            } else if showRawSource {
+                // 原始源码编辑模式
+                TextEditor(text: $text)
+                    .font(.system(.body, design: .monospaced))
+                    .focused($isTextEditorFocused)
+                    .onChange(of: text) { _, newValue in
+                        onTextChange(newValue)
+                    }
+                    .onChange(of: isTextEditorFocused) { _, focused in
+                        isEditing = focused
+                        if !focused && !text.isEmpty {
+                            // 失去焦点时切换到渲染模式
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                showRawSource = false
+                            }
+                        }
+                    }
+                    .overlay(
+                        // 源码模式指示器
+                        VStack {
+                            HStack {
+                                Spacer()
+                                HStack(spacing: 4) {
+                                    Image(systemName: "chevron.left.forwardslash.chevron.right")
+                                        .font(.caption2)
+                                    Text("源码模式")
+                                        .font(.caption2)
+                                }
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.blue.opacity(0.1))
+                                .cornerRadius(6)
+                                .padding()
+                            }
+                            Spacer()
+                        }
+                    )
+            } else {
+                // Typora风格实时渲染模式
+                MermaidWebView(markdown: text)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        // 静默切换到编辑模式
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showRawSource = true
+                            isEditing = true
+                        }
+                        // 延迟聚焦确保动画完成
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            isTextEditorFocused = true
+                        }
+                    }
+                    .overlay(
+                        // 渲染模式悬停提示
+                        VStack {
+                            Spacer()
+                            HStack {
+                                Spacer()
+                                Text("点击编辑")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.black.opacity(0.05))
+                                    .cornerRadius(6)
+                                    .padding()
+                                    .opacity(isEditing ? 0 : 0.7)
+                            }
+                        }
+                    )
+            }
+        }
+        .onKeyPress(.init("/"), phases: .down) { keyPress in
+            if keyPress.modifiers == .command {
+                // Command+/: 切换源码/渲染模式
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showRawSource.toggle()
+                }
+                if showRawSource {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        isTextEditorFocused = true
+                    }
+                }
+                return .handled
+            }
+            return .ignored
+        }
+        .onChange(of: text) { _, newValue in
+            if newValue.isEmpty {
+                showRawSource = false
+                isEditing = false
+            }
+        }
     }
 }
 
