@@ -1,7 +1,7 @@
 import SwiftUI
 import CoreLocation
 import MapKit
-import MapKit
+import UniformTypeIdentifiers
 
 struct DetailPanel: View {
     let node: Node
@@ -88,8 +88,8 @@ struct NodeDetailView: View {
     let node: Node
     @EnvironmentObject private var store: NodeStore
     @State private var markdownText: String = ""
-    @State private var isEditingMarkdown: Bool = false
-    @State private var showingMarkdownPreview: Bool = true
+    @StateObject private var imageManager = NodeImageManager.shared
+    @State private var debounceTask: Task<Void, Never>?
     
     // 从store中获取最新的节点数据
     private var currentNode: Node {
@@ -153,119 +153,127 @@ struct NodeDetailView: View {
                     
                     Spacer()
                     
-                    // 编辑/预览切换按钮
+                    // 实时编辑指示器
                     HStack(spacing: 8) {
-                        Button(action: { 
-                            showingMarkdownPreview = false
-                            isEditingMarkdown = true 
-                        }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "pencil")
-                                    .font(.caption)
-                                Text("编辑")
-                                    .font(.caption)
-                            }
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .disabled(isEditingMarkdown && !showingMarkdownPreview)
+                        Image(systemName: "pencil.and.list.clipboard")
+                            .font(.caption)
+                            .foregroundColor(.blue)
                         
-                        Button(action: { 
-                            showingMarkdownPreview = true
-                            isEditingMarkdown = false
-                            saveMarkdown()
-                        }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "eye")
-                                    .font(.caption)
-                                Text("预览")
-                                    .font(.caption)
-                            }
+                        Text("实时编辑")
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                        
+                        Spacer()
+                        
+                        if !markdownText.isEmpty {
+                            Text("自动保存")
+                                .font(.caption2)
+                                .foregroundColor(.green)
                         }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .disabled(showingMarkdownPreview)
                     }
                 }
                 
-                // 笔记内容区域
-                if showingMarkdownPreview {
-                    // Markdown预览
-                    VStack(alignment: .leading, spacing: 12) {
-                        if markdownText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Image(systemName: "doc.text")
-                                    .font(.title2)
-                                    .foregroundColor(.gray)
-                                
-                                Text("暂无笔记内容")
-                                    .font(.system(size: 16))
-                                    .foregroundColor(.secondary)
-                                
-                                Text("点击「编辑」按钮开始记录笔记")
-                                    .font(.system(size: 13))
-                                    .foregroundColor(Color.secondary)
-                                
-                                Spacer()
-                            }
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                            .padding(.all, 16)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(Color.gray.opacity(0.05))
-                            )
-                        } else {
-                            // Markdown预览 - 使用Web渲染支持Mermaid图表
-                            MermaidWebView(markdown: markdownText)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(Color.gray.opacity(0.03))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 8)
-                                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                                        )
-                                )
-                        }
-                    }
-                } else {
-                    // Markdown编辑器
+                // Typora样式的分屏编辑预览
+                HStack(spacing: 0) {
+                    // 左侧：编辑器
                     VStack(spacing: 8) {
-                        // 编辑提示和保存按钮
+                        // 编辑工具栏
                         HStack {
-                            Text("支持Markdown语法：**粗体** *斜体* `代码` # 标题，以及Mermaid图表")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                            Button(action: insertImage) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "photo")
+                                    Text("图片")
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            
+                            Button(action: insertCodeBlock) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "curlybraces")
+                                    Text("代码")
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            
+                            Button(action: insertMermaidBlock) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "flowchart")
+                                    Text("图表")
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
                             
                             Spacer()
                             
-                            Button("保存") {
-                                saveMarkdown()
-                                showingMarkdownPreview = true
-                                isEditingMarkdown = false
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .controlSize(.small)
+                            Text("⌘+I 插入图片")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(Color.blue.opacity(0.05))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6)
-                                .stroke(Color.blue.opacity(0.2), lineWidth: 1)
-                        )
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background(Color(NSColor.controlBackgroundColor))
                         
                         // 文本编辑器
                         TextEditor(text: $markdownText)
                             .font(.system(.body, design: .monospaced))
-                            .padding(12)
+                            .padding(8)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .background(Color(NSColor.textBackgroundColor))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color(NSColor.separatorColor), lineWidth: 1)
-                            )
+                            .onChange(of: markdownText) { _, newValue in
+                                debouncedSave(newValue)
+                            }
                     }
+                    .frame(maxWidth: .infinity)
+                    
+                    // 分割线
+                    Divider()
+                    
+                    // 右侧：实时预览
+                    VStack(alignment: .leading, spacing: 0) {
+                        // 预览头部
+                        HStack {
+                            Text("实时预览")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.secondary)
+                            
+                            Spacer()
+                            
+                            if !markdownText.isEmpty {
+                                Image(systemName: "eye.fill")
+                                    .font(.caption)
+                                    .foregroundColor(.green)
+                            }
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background(Color(NSColor.controlBackgroundColor))
+                        
+                        // 预览内容
+                        if markdownText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            VStack(spacing: 12) {
+                                Image(systemName: "eye.slash")
+                                    .font(.title2)
+                                    .foregroundColor(.secondary)
+                                
+                                Text("开始输入以查看预览")
+                                    .font(.body)
+                                    .foregroundColor(.secondary)
+                                
+                                Spacer()
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .padding(20)
+                        } else {
+                            MermaidWebView(markdown: markdownText)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .background(Color(NSColor.textBackgroundColor))
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -278,43 +286,17 @@ struct NodeDetailView: View {
             loadMarkdown()
         }
         .focusable()
-        .onKeyPress(.init("t"), phases: .down) { keyPress in
+        .onKeyPress(.init("i"), phases: .down) { keyPress in
             if keyPress.modifiers == .command {
-                // Command+T: 切换编辑/预览模式
-                if showingMarkdownPreview {
-                    // 当前是预览模式，切换到编辑模式
-                    showingMarkdownPreview = false
-                    isEditingMarkdown = true
-                } else {
-                    // 当前是编辑模式，切换到预览模式并保存
-                    saveMarkdown()
-                    showingMarkdownPreview = true
-                    isEditingMarkdown = false
-                }
+                // Command+I: 插入图片
+                insertImage()
                 return .handled
             }
             return .ignored
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("toggleNodeDetailEditMode"))) { notification in
-            // 收到切换编辑模式的通知
-            if let notificationNode = notification.object as? Node,
-               notificationNode.id == currentNode.id {
-                print("📝 NodeDetailView: 收到切换编辑模式通知")
-                
-                // 切换编辑/预览模式
-                if showingMarkdownPreview {
-                    // 当前是预览模式，切换到编辑模式
-                    print("📝 NodeDetailView: 从预览模式切换到编辑模式")
-                    showingMarkdownPreview = false
-                    isEditingMarkdown = true
-                } else {
-                    // 当前是编辑模式，切换到预览模式并保存
-                    print("📝 NodeDetailView: 从编辑模式切换到预览模式")
-                    saveMarkdown()
-                    showingMarkdownPreview = true
-                    isEditingMarkdown = false
-                }
-            }
+        .onDisappear {
+            // 清理防抖任务
+            debounceTask?.cancel()
         }
     }
     
@@ -323,7 +305,49 @@ struct NodeDetailView: View {
     }
     
     private func saveMarkdown() {
-        store.updateNodeMarkdown(currentNode.id, markdown: markdownText)
+        Task { @MainActor in
+            store.updateNodeMarkdown(currentNode.id, markdown: markdownText)
+        }
+    }
+    
+    private func debouncedSave(_ newValue: String) {
+        // 取消之前的任务
+        debounceTask?.cancel()
+        
+        // 创建新的防抖任务
+        debounceTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5秒延迟
+            
+            if !Task.isCancelled {
+                store.updateNodeMarkdown(currentNode.id, markdown: newValue)
+            }
+        }
+    }
+    
+    private func insertImage() {
+        if let fileName = imageManager.selectAndCopyImage() {
+            let imageMarkdown = imageManager.generateImageMarkdown(fileName: fileName)
+            insertTextAtCursor(imageMarkdown + "\n\n")
+        }
+    }
+    
+    private func insertCodeBlock() {
+        let codeBlock = "```\n\n```\n"
+        insertTextAtCursor(codeBlock)
+    }
+    
+    private func insertMermaidBlock() {
+        let mermaidBlock = "```mermaid\ngraph TD\n    A[开始] --> B[结束]\n```\n\n"
+        insertTextAtCursor(mermaidBlock)
+    }
+    
+    private func insertTextAtCursor(_ text: String) {
+        // 简单的文本插入，在末尾添加
+        if markdownText.isEmpty {
+            markdownText = text
+        } else {
+            markdownText += "\n" + text
+        }
     }
 }
 
@@ -1845,14 +1869,53 @@ struct MermaidWebView: NSViewRepresentable {
     
     func updateNSView(_ webView: WKWebView, context: Context) {
         let html = generateHTML(from: markdown)
-        webView.loadHTMLString(html, baseURL: nil)
+        // 使用Documents目录作为baseURL以支持本地图片
+        let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        webView.loadHTMLString(html, baseURL: documentsURL)
     }
     
     func makeCoordinator() -> Coordinator {
         Coordinator()
     }
     
+    private func processLocalImages(in markdown: String) -> String {
+        // 正则表达式匹配Markdown图片语法：![alt](NodeImages/filename)
+        let pattern = #"!\[([^\]]*)\]\(NodeImages/([^)]+)\)"#
+        
+        do {
+            let regex = try NSRegularExpression(pattern: pattern)
+            let range = NSRange(markdown.startIndex..., in: markdown)
+            
+            var processedMarkdown = markdown
+            let matches = regex.matches(in: markdown, range: range)
+            
+            // 从后往前替换，避免索引偏移问题
+            for match in matches.reversed() {
+                if let altRange = Range(match.range(at: 1), in: markdown),
+                   let fileRange = Range(match.range(at: 2), in: markdown),
+                   let fullRange = Range(match.range(at: 0), in: markdown) {
+                    
+                    let altText = String(markdown[altRange])
+                    let fileName = String(markdown[fileRange])
+                    
+                    // 使用相对路径，依赖baseURL
+                    let replacement = "![\(altText)](NodeImages/\(fileName))"
+                    
+                    processedMarkdown.replaceSubrange(fullRange, with: replacement)
+                }
+            }
+            
+            return processedMarkdown
+        } catch {
+            print("图片路径处理失败: \(error)")
+            return markdown
+        }
+    }
+    
     private func generateHTML(from markdown: String) -> String {
+        // 处理本地图片路径
+        let processedMarkdown = processLocalImages(in: markdown)
+        
         return """
         <!DOCTYPE html>
         <html>
@@ -1925,10 +1988,21 @@ struct MermaidWebView: NSViewRepresentable {
                     opacity: 1;
                 }
                 
+                img {
+                    max-width: 100%;
+                    height: auto;
+                    border-radius: 6px;
+                    margin: 16px 0;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                }
+                
                 @media (prefers-color-scheme: dark) {
                     .mermaid {
                         background-color: #2d2d2d;
                         border-color: #555;
+                    }
+                    img {
+                        box-shadow: 0 2px 8px rgba(255,255,255,0.1);
                     }
                 }
             </style>
@@ -1980,7 +2054,7 @@ struct MermaidWebView: NSViewRepresentable {
                 });
                 
                 // Markdown内容
-                const markdownContent = `\(escapeForJavaScript(markdown))`;
+                const markdownContent = `\(escapeForJavaScript(processedMarkdown))`;
                 
                 // 重新渲染Mermaid图表的函数
                 function reRenderMermaidCharts() {
@@ -2109,6 +2183,68 @@ struct MermaidWebView: NSViewRepresentable {
     }
 }
 
+
+// MARK: - 图片管理器
+
+class NodeImageManager: ObservableObject {
+    static let shared = NodeImageManager()
+    
+    private init() {}
+    
+    private var imagesDirectory: URL {
+        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let imagesURL = documentsPath.appendingPathComponent("NodeImages")
+        
+        // 确保目录存在
+        if !FileManager.default.fileExists(atPath: imagesURL.path) {
+            try? FileManager.default.createDirectory(at: imagesURL, withIntermediateDirectories: true)
+        }
+        
+        return imagesURL
+    }
+    
+    func selectAndCopyImage() -> String? {
+        let panel = NSOpenPanel()
+        panel.title = "选择图片"
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowedContentTypes = [.image]
+        
+        if panel.runModal() == .OK, let url = panel.url {
+            return copyImageToAppDirectory(from: url)
+        }
+        
+        return nil
+    }
+    
+    private func copyImageToAppDirectory(from sourceURL: URL) -> String? {
+        let fileExtension = sourceURL.pathExtension
+        let fileName = "\(UUID().uuidString).\(fileExtension)"
+        let destinationURL = imagesDirectory.appendingPathComponent(fileName)
+        
+        do {
+            try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+            return fileName // 返回相对路径
+        } catch {
+            print("图片复制失败: \(error)")
+            return nil
+        }
+    }
+    
+    func getImageURL(for fileName: String) -> URL {
+        return imagesDirectory.appendingPathComponent(fileName)
+    }
+    
+    func deleteImage(fileName: String) {
+        let imageURL = imagesDirectory.appendingPathComponent(fileName)
+        try? FileManager.default.removeItem(at: imageURL)
+    }
+    
+    func generateImageMarkdown(fileName: String, description: String = "图片") -> String {
+        return "![\(description)](NodeImages/\(fileName))"
+    }
+}
 
 #Preview {
     let sampleNode = Node(
