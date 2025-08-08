@@ -124,8 +124,8 @@ struct NodeDetailView: View {
             }
             .padding(.horizontal)
             
-            // 调试版本 - 最简单的点击测试
-            DebugClickableEditor(
+            // Typora风格编辑器 - 简单直接
+            SimpleTyporaEditor(
                 text: $markdownText,
                 isEditing: $isEditing,
                 onTextChange: { newValue in
@@ -2683,6 +2683,61 @@ struct TyporaStyleEditor: View {
                 showRawSource = false
                 isEditing = false
             }
+        }
+    }
+}
+
+// MARK: - Typora风格编辑器 - 简单直接
+struct SimpleTyporaEditor: View {
+    @Binding var text: String
+    @Binding var isEditing: Bool
+    let onTextChange: (String) -> Void
+    
+    @FocusState private var isTextEditorFocused: Bool
+    
+    var body: some View {
+        if text.isEmpty {
+            // 空状态 - 点击开始编辑
+            VStack(spacing: 20) {
+                Text("开始编写")
+                    .font(.title2)
+                    .foregroundColor(.secondary)
+                
+                TextEditor(text: $text)
+                    .focused($isTextEditorFocused)
+                    .font(.title3)
+                    .scrollContentBackground(.hidden)
+                    .background(Color.clear)
+                    .onChange(of: text) { _, newValue in
+                        onTextChange(newValue)
+                    }
+                    .onAppear {
+                        isTextEditorFocused = true
+                    }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                isTextEditorFocused = true
+            }
+        } else {
+            // 有内容状态 - 就是一个纯粹的TextEditor，像Typora一样
+            TextEditor(text: $text)
+                .focused($isTextEditorFocused)
+                .font(.title3)
+                .scrollContentBackground(.hidden)
+                .background(Color.clear)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 20)
+                .onChange(of: text) { _, newValue in
+                    onTextChange(newValue)
+                }
+                .onChange(of: isTextEditorFocused) { _, focused in
+                    isEditing = focused
+                }
+                .onTapGesture {
+                    isTextEditorFocused = true
+                }
         }
     }
 }
