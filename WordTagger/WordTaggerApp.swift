@@ -1452,7 +1452,7 @@ struct TagManagerView: View {
                 // 标题栏
                 HStack {
                     Text("标签管理")
-                        .font(.title2)
+                        .font(.title)
                         .fontWeight(.semibold)
                     
                     Spacer()
@@ -1473,7 +1473,7 @@ struct TagManagerView: View {
                 // 现有标签列表
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(tagManager.tagMappings, id: \.id) { mapping in
+                        ForEach(tagManager.tagMappings.filter { !shouldHideSystemTag($0) }, id: \.id) { mapping in
                             TagMappingRow(
                                 mapping: mapping,
                                 onEdit: {
@@ -1500,14 +1500,14 @@ struct TagManagerView: View {
                 // 添加新标签
                 VStack(spacing: 12) {
                     Text(editingMapping != nil ? "编辑标签" : "添加新标签")
-                        .font(.headline)
+                        .font(.title2)
                         .foregroundColor(.primary)
                     
                     VStack(spacing: 12) {
                         HStack(spacing: 12) {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("快捷键")
-                                    .font(.caption)
+                                    .font(.subheadline)
                                     .foregroundColor(.secondary)
                                 TextField("例如: root", text: $newKey)
                                     .textFieldStyle(.roundedBorder)
@@ -1515,7 +1515,7 @@ struct TagManagerView: View {
                             
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("类型名称")
-                                    .font(.caption)
+                                    .font(.subheadline)
                                     .foregroundColor(.secondary)
                                 TextField("例如: 词根", text: $newTypeName)
                                     .textFieldStyle(.roundedBorder)
@@ -1602,6 +1602,13 @@ struct TagManagerView: View {
         print("   - 表单已重置")
     }
     
+    // 判断是否应该隐藏系统标签
+    private func shouldHideSystemTag(_ mapping: TagMapping) -> Bool {
+        // 隐藏这些系统标签以减少认知负荷
+        let systemTagsToHide = ["root", "compound", "child"]
+        return systemTagsToHide.contains(mapping.key)
+    }
+    
 }
 
 struct TagMappingRow: View {
@@ -1624,11 +1631,11 @@ struct TagMappingRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
                     Text(mapping.key)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 18, weight: .medium))
                     
                     if isBuiltInCore {
                         Text("系统")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.system(size: 12, weight: .bold))
                             .foregroundColor(.white)
                             .padding(.horizontal, 4)
                             .padding(.vertical, 1)
@@ -1640,14 +1647,14 @@ struct TagMappingRow: View {
                 }
                 
                 Text("→ \(mapping.typeName)")
-                    .font(.caption)
+                    .font(.subheadline)
                     .foregroundColor(.secondary)
             }
             
             Spacer()
             
             Text(mapping.typeName)
-                .font(.caption)
+                .font(.subheadline)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 2)
                 .background(
