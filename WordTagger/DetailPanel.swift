@@ -16,7 +16,7 @@ struct DetailPanel: View {
     
     enum Tab: String, CaseIterable {
         case related = "图谱"
-        case map = "地图"  
+        case map = "地图"
         case detail = "详情"
     }
     
@@ -98,10 +98,16 @@ struct NodeDetailView: View {
     private var currentNode: Node {
         return store.nodes.first { $0.id == node.id } ?? node
     }
+
+    private var hasMermaid: Bool {
+        // 检测是否包含 mermaid 代码块或常见的 mermaid 关键字
+        let pattern = #"(^|\n)```(mermaid|mmd)\b|(^|\n):::mermaid\b|(^|\n)(graph|sequenceDiagram|classDiagram|erDiagram|gantt|pie|journey)\b"#
+        return markdownText.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
+    }
     
     var body: some View {
-        VStack(spacing: 16) {
-            // 简洁的标题栏
+        VStack(alignment: .leading, spacing: 8) {
+                // 简洁的标题栏
             HStack {
                 Text(currentNode.text)
                     .font(.headline)
@@ -123,40 +129,30 @@ struct NodeDetailView: View {
                         .foregroundColor(.secondary)
                 }
                 
-                // 🚨 临时调试按钮
-                Button("强制编辑") {
-                    print("🚨 强制进入编辑模式")
+                // 编辑按钮
+                Button("编辑") {
                     isEditing.toggle()
-                    print("🚨 isEditing现在是: \(isEditing)")
                 }
-                .foregroundColor(.red)
             }
             .padding(.horizontal)
             
-            // 🚨 回到调试版本 - 一片灰说明WKWebView本身有问题
-            VStack(spacing: 8) {
-                Text("🚨 WKWebView调试")
-                    .font(.caption)
-                    .foregroundColor(.red)
-                
-                Text("如果下面还是灰色，说明WKWebView创建失败")
-                    .font(.caption2)
-                    .foregroundColor(.orange)
-                
-                DebugWebEditor(
-                    markdown: $markdownText,
-                    onTextChange: { newText in
-                        debouncedSave(newText)
-                    }
-                )
-                .frame(minHeight: 200)  // 强制最小高度
-                .background(Color.red.opacity(0.3))  // 红色背景确保容器存在
-                
-                Text("👆 如果上面是红色但没有WebView内容，说明HTML加载失败")
-                    .font(.caption2)
-                    .foregroundColor(.blue)
-            }
+            // 使用 Milkdown WebView 实时 Markdown 编辑
+            MilkdownWebView(
+                markdown: markdownText,
+                onChange: { newValue in
+                    // 从 WebView 回传的 Markdown，做防抖保存
+                    debouncedSave(newValue)
+                    markdownText = newValue
+                }
+            )
+            .frame(minHeight: 300)
+            .background(Color.clear)
+            .zIndex(2)
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color(NSColor.textBackgroundColor))
         .onAppear {
             loadMarkdown()
         }
@@ -319,7 +315,7 @@ struct NodeMapView: View {
         // 如果是复合节点，收集所有子节点的地图标签
         if currentNode.isCompound {
             // 获取子节点引用标签
-            let childReferenceTags = currentNode.tags.filter { 
+            let childReferenceTags = currentNode.tags.filter {
                 if case .custom(let key) = $0.type {
                     return key == "child"
                 }
@@ -364,7 +360,7 @@ struct NodeMapView: View {
                         .foregroundColor(.gray)
                     
                     if locationTagsWithoutCoords.isEmpty {
-                        Text("该节点暂无地点标签") 
+                        Text("该节点暂无地点标签")
                             .font(.body)
                             .foregroundColor(.secondary)
                         Text("添加地点标签来在地图上显示相关位置")
@@ -415,7 +411,7 @@ struct NodeMapView: View {
                         Button("打开节点编辑") {
                             // 触发编辑界面
                             NotificationCenter.default.post(
-                                name: NSNotification.Name("editNode"), 
+                                name: NSNotification.Name("editNode"),
                                 object: node
                             )
                         }
@@ -427,7 +423,7 @@ struct NodeMapView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 Map(position: $cameraPosition) {
-                    ForEach(locationTags, id: \.id) { tag in
+                    ForEach(Array(locationTags.enumerated()), id: \.0) { _, tag in
                         Annotation(
                             tag.value,
                             coordinate: CLLocationCoordinate2D(
@@ -608,8 +604,8 @@ class NodeGraphDataCache: ObservableObject {
     private init() {
         // 监听节点变化以清除相关缓存
         NotificationCenter.default.addObserver(
-            forName: Notification.Name("nodeUpdated"), 
-            object: nil, 
+            forName: Notification.Name("nodeUpdated"),
+            object: nil,
             queue: .main
         ) { [weak self] notification in
             if let nodeId = notification.userInfo?["nodeId"] as? UUID {
@@ -755,8 +751,8 @@ class NodeGraphDataCache: ObservableObject {
         var directChildren: [NodeGraphNode] = []
         for childRefTag in childReferenceTags {
             let childNodeName = childRefTag.value
-            if let childNodeGraph = allNodeGraphNodes.first(where: { 
-                $0.node?.text.lowercased() == childNodeName.lowercased() 
+            if let childNodeGraph = allNodeGraphNodes.first(where: {
+                $0.node?.text.lowercased() == childNodeName.lowercased()
             }) {
                 directChildren.append(childNodeGraph)
             }
@@ -828,7 +824,7 @@ class NodeGraphDataCache: ObservableObject {
         // 如果是复合节点，处理子节点引用，但保持层次结构
         if node.isCompound {
             // 查找子节点引用标签
-            let childReferenceTags = node.tags.filter { 
+            let childReferenceTags = node.tags.filter {
                 if case .custom(let key) = $0.type {
                     return key == "child"
                 }
@@ -1082,7 +1078,7 @@ struct NodeGraphView: View {
                     
                     // 通过通知打开窗口
                     NotificationCenter.default.post(
-                        name: NSNotification.Name("requestOpenFullscreenGraph"), 
+                        name: NSNotification.Name("requestOpenFullscreenGraph"),
                         object: nil
                     )
                     
@@ -1112,7 +1108,7 @@ struct NodeGraphView: View {
                     
                     // 通过通知打开窗口
                     NotificationCenter.default.post(
-                        name: NSNotification.Name("requestOpenFullscreenGraph"), 
+                        name: NSNotification.Name("requestOpenFullscreenGraph"),
                         object: nil
                     )
                 }
@@ -1147,7 +1143,7 @@ class FullscreenGraphWindowManager: ObservableObject {
             
             // 发送打开窗口通知
             NotificationCenter.default.post(
-                name: NSNotification.Name("openFullscreenGraph"), 
+                name: NSNotification.Name("openFullscreenGraph"),
                 object: nil
             )
             
@@ -1379,7 +1375,7 @@ struct FullscreenGraphView: View {
                 
                 Swift.print("🏗️ 复合节点结构:")
                 Swift.print("  - 中心节点: \(centerNodes.count)个")
-                Swift.print("  - 复合子节点: \(compoundNodes.count)个") 
+                Swift.print("  - 复合子节点: \(compoundNodes.count)个")
                 Swift.print("  - 普通节点: \(regularNodes.count)个")
                 Swift.print("  - 标签节点: \(tagNodes.count)个")
             }
@@ -1755,7 +1751,6 @@ struct MermaidView: View {
 }
 
 // MARK: - 简化的Mermaid WebView渲染器
-
 import WebKit
 
 struct MermaidWebView: NSViewRepresentable {
@@ -1763,6 +1758,12 @@ struct MermaidWebView: NSViewRepresentable {
     
     func makeNSView(context: Context) -> WKWebView {
         let webView = WKWebView()
+        // macOS: 彻底透明
+        webView.setValue(false, forKey: "drawsBackground")
+        webView.wantsLayer = true
+        webView.layer?.backgroundColor = NSColor.clear.cgColor
+        webView.setValue(false, forKey: "opaque")
+
         webView.navigationDelegate = context.coordinator
         return webView
     }
@@ -1816,7 +1817,7 @@ struct MermaidWebView: NSViewRepresentable {
         // 处理本地图片路径
         let processedMarkdown = processLocalImages(in: markdown)
         
-        return """
+        return #"""
         <!DOCTYPE html>
         <html>
         <head>
@@ -1829,7 +1830,17 @@ struct MermaidWebView: NSViewRepresentable {
             
             <!-- Mermaid 最新版本 -->
             <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
-            
+        <script>
+          window.addEventListener('error', function(e){
+            if (String(e.message || '').includes('mermaid')) {
+              var b = document.createElement('div');
+              b.textContent = 'Mermaid 加载失败：请检查网络，或稍后重试。';
+              b.style.cssText = 'position:fixed;left:12px;bottom:12px;padding:6px 10px;border-radius:6px;background:rgba(255,0,0,.1);border:1px solid rgba(255,0,0,.3);font:12px -apple-system,BlinkMacSystemFont,Segoe UI,Roboto;z-index:9999;';
+              document.body.appendChild(b);
+            }
+          });
+        </script>
+        
             <style>
                 body {
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
@@ -1837,11 +1848,11 @@ struct MermaidWebView: NSViewRepresentable {
                     color: #333;
                     margin: 0;
                     padding: 16px;
-                    background-color: #ffffff;
+                    background-color: transparent;;
                 }
                 
                 @media (prefers-color-scheme: dark) {
-                    body { background-color: #1e1e1e; color: #d4d4d4; }
+                    body { background-color: transparent; color: #d4d4d4; }
                     pre { background-color: #2d2d2d !important; }
                     code { background-color: #2d2d2d; color: #d4d4d4; }
                 }
@@ -1864,16 +1875,16 @@ struct MermaidWebView: NSViewRepresentable {
                     font-family: 'SF Mono', Monaco, monospace;
                 }
                 
-                .mermaid {
-                    text-align: center;
-                    margin: 20px 0;
-                    padding: 20px;
-                    border: 1px dashed #ddd;
-                    border-radius: 8px;
-                    background-color: #fafafa;
-                    opacity: 0;
-                    transition: opacity 0.3s ease-in-out;
-                }
+              .mermaid {
+                  text-align: center;
+                  margin: 20px 0;
+                  padding: 0;
+                  border: none;
+                  border-radius: 0;
+                  background-color: transparent;
+                  opacity: 0;
+                  transition: opacity 0.3s ease-in-out;
+              }
                 
                 .mermaid.rendered {
                     opacity: 1;
@@ -1897,10 +1908,7 @@ struct MermaidWebView: NSViewRepresentable {
                 }
                 
                 @media (prefers-color-scheme: dark) {
-                    .mermaid {
-                        background-color: #2d2d2d;
-                        border-color: #555;
-                    }
+                    .mermaid { }
                     img {
                         box-shadow: 0 2px 8px rgba(255,255,255,0.1);
                     }
@@ -1953,8 +1961,19 @@ struct MermaidWebView: NSViewRepresentable {
                     gfm: true
                 });
                 
-                // Markdown内容
-                const markdownContent = `\(escapeForJavaScript(processedMarkdown))`;
+                // Markdown内容（规范化：容错 mermiad/mmd/:::mermaid，并尽量补齐未闭合围栏）
+                const rawMarkdown = `\#(escapeForJavaScript(processedMarkdown))`;
+                let normalized = rawMarkdown
+                  // 常见拼写：mermiad / mmd
+                  .replace(/```mermiad/gi, '```mermaid')
+                  .replace(/```mmd/gi, '```mermaid')
+                  // 支持 :::mermaid ... :::
+                  .replace(/:::mermaid\s([\s\S]*?):::/gi, '```mermaid\n$1\n```');
+                // 若存在未闭合的 ```mermaid，则在文末补一个 ```
+                if (/```mermaid[\s\S]*?(?!```)[\s\S]*$/.test(normalized) && !/```\s*$/.test(normalized)) {
+                  normalized += '\n```';
+                }
+                const markdownContent = normalized;
                 
                 // 重新渲染Mermaid图表的函数
                 function reRenderMermaidCharts() {
@@ -1983,7 +2002,8 @@ struct MermaidWebView: NSViewRepresentable {
                     
                     // 使用setTimeout确保DOM更新完成后再重新渲染
                     setTimeout(() => {
-                        mermaid.run().then(() => {
+                        (window.mermaid ? mermaid.run() : Promise.reject(new Error('Mermaid not available'))).then(() => {
+        
                             console.log('✅ Mermaid重新渲染成功');
                             // 重新添加rendered类，触发淡入动画
                             mermaidElements.forEach(element => {
@@ -2005,7 +2025,12 @@ struct MermaidWebView: NSViewRepresentable {
                     // 查找并替换Mermaid代码块
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(html, 'text/html');
-                    const mermaidBlocks = doc.querySelectorAll('pre code.language-mermaid');
+                    let mermaidBlocks = Array.from(doc.querySelectorAll('pre code.language-mermaid'));
+                    // 兜底：没有显式语言也识别（以 mermaid 关键字开头）
+                    const keywordPattern = /^(graph|sequenceDiagram|classDiagram|erDiagram|gantt|pie|journey)\b/;
+                    const genericBlocks = Array.from(doc.querySelectorAll('pre code'))
+                      .filter(el => !el.className.includes('language-mermaid') && keywordPattern.test((el.textContent || '').trim()));
+                    mermaidBlocks = mermaidBlocks.concat(genericBlocks);
                     
                     console.log('找到 ' + mermaidBlocks.length + ' 个Mermaid代码块');
                     
@@ -2035,8 +2060,8 @@ struct MermaidWebView: NSViewRepresentable {
                         console.log('使用官方Mermaid引擎渲染图表...');
                         
                         // 使用官方推荐的渲染方式
-                        mermaid.run().then(() => {
-                            console.log('✅ Mermaid渲染成功');
+        (window.mermaid ? mermaid.run() : Promise.reject(new Error('Mermaid not available'))).then(() => {                            console.log('✅ Mermaid渲染成功');
+        
                             // 添加rendered类，触发淡入动画
                             mermaidElements.forEach(element => {
                                 element.classList.add('rendered');
@@ -2062,7 +2087,7 @@ struct MermaidWebView: NSViewRepresentable {
             </script>
         </body>
         </html>
-        """
+        """#
     }
     
     private func escapeForJavaScript(_ string: String) -> String {
@@ -2077,6 +2102,282 @@ struct MermaidWebView: NSViewRepresentable {
     }
     
     class Coordinator: NSObject, WKNavigationDelegate {
+        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+            decisionHandler(navigationAction.navigationType == .other ? .allow : .cancel)
+        }
+    }
+}
+
+// MARK: - 实时 Markdown（Milkdown）WebView
+import WebKit
+
+struct MilkdownWebView: NSViewRepresentable {
+    var markdown: String
+    var onChange: (String) -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(parentMarkdown: markdown, onChange: onChange) }
+
+    func makeNSView(context: Context) -> WKWebView {
+        let config = WKWebViewConfiguration()
+        let uc = WKUserContentController()
+        uc.add(context.coordinator, name: "bridge")
+        config.userContentController = uc
+
+        let webView = WKWebView(frame: .zero, configuration: config)
+        webView.focusRingType = .none   // ← 关掉 AppKit 焦点环
+        // macOS 侧彻底透明（isOpaque 在 macOS 是只读，用 KVC 与图层实现）
+        webView.setValue(false, forKey: "drawsBackground")
+        webView.wantsLayer = true
+        webView.layer?.backgroundColor = NSColor.clear.cgColor
+        webView.setValue(false, forKey: "opaque")
+        
+        // 确保用户可以交互 - 这些是View的默认行为，无需显式设置
+
+        webView.navigationDelegate = context.coordinator
+
+        // 初次载入
+        let html = context.coordinator.generateHTML(initialMarkdown: markdown)
+        webView.loadHTMLString(html, baseURL: nil)
+        context.coordinator.webView = webView
+        return webView
+    }
+
+    func updateNSView(_ webView: WKWebView, context: Context) {
+        // 仅当外部 markdown 发生变化时，注入到编辑器；避免回环
+        context.coordinator.setMarkdownIfNeeded(markdown)
+    }
+
+    class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
+        weak var webView: WKWebView?
+        private var lastSentFromSwift: String
+        private var isSettingFromSwift = false
+        private let onChange: (String) -> Void
+
+        init(parentMarkdown: String, onChange: @escaping (String) -> Void) {
+            self.lastSentFromSwift = parentMarkdown
+            self.onChange = onChange
+        }
+
+        // 接收来自 JS 的消息
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            guard message.name == "bridge" else { return }
+            if let dict = message.body as? [String: Any], let type = dict["type"] as? String {
+                if type == "markdown", let value = dict["value"] as? String {
+                    // 来自编辑器的变更
+                    if !isSettingFromSwift {
+                        lastSentFromSwift = value
+                        onChange(value)
+                    }
+                }
+            }
+        }
+
+        func setMarkdownIfNeeded(_ newValue: String) {
+            guard newValue != lastSentFromSwift else { return }
+            lastSentFromSwift = newValue
+            isSettingFromSwift = true
+            let escaped = escapeForJavaScript(newValue)
+            let js = "window.__milkdown_setMarkdown && window.__milkdown_setMarkdown(\"\(escaped)\");"
+            webView?.evaluateJavaScript(js) { [weak self] _, _ in
+                self?.isSettingFromSwift = false
+            }
+        }
+
+        // 生成自包含的 HTML（从 CDN 加载模块；首次需要联网）
+        func generateHTML(initialMarkdown: String) -> String {
+            let md = escapeForJavaScript(initialMarkdown)
+            return #"""
+            <!doctype html>
+            <html>
+            <head>
+              <meta charset="utf-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1" />
+              <title>Milkdown Editor</title>
+              <style>
+                :root{ --text: #111827; }
+                @media (prefers-color-scheme: dark){ :root{ --text: #e5e7eb; } }
+                html,body{height:100%;margin:0}
+                /* 关键：彻底透明，交给 SwiftUI 打底色 */
+                body{background:transparent !important;color:var(--text) !important;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,PingFang SC,Hiragino Sans GB,Microsoft YaHei,Noto Sans CJK SC,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+                .container{max-width:960px;margin:0 auto;padding:0}
+                #app{background:transparent !important;border:none !important;border-radius:0;min-height:0;padding:0;box-shadow:none}
+                .milkdown{background:transparent !important}
+                .ProseMirror{background:transparent !important}
+                .milkdown{padding:0 !important;margin:0 !important}
+                .ProseMirror{padding:0 !important;margin:0 !important}
+                /* 移除聚焦蓝框（AppKit & WebKit 双保险） */
+                *:focus{ outline: none !important; }
+                .milkdown .ProseMirror:focus{ outline: none !important; box-shadow: none !important; }
+                .milkdown .editor:focus{ outline: none !important; box-shadow: none !important; }
+                ::-moz-focus-inner{ border: 0 !important; }
+                a{color:#8b5cf6;text-decoration:none}
+                a:hover{text-decoration:underline}
+
+                /* Typography */
+                .milkdown .editor{font-size:16px;line-height:1.75;letter-spacing:.1px}
+                .milkdown h1,.milkdown h2,.milkdown h3,.milkdown h4{font-weight:750;letter-spacing:-.01em;margin:1.25em 0 .6em}
+                .milkdown h1{font-size:1.9rem}
+                .milkdown h2{font-size:1.6rem}
+                .milkdown h3{font-size:1.3rem}
+                .milkdown p{margin:.6em 0}
+                .milkdown ul,.milkdown ol{margin:.6em 0 .6em 1.3em}
+
+                /* Code */
+                .milkdown pre,.milkdown code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
+                .milkdown pre{background:rgba(0,0,0,.05);border:0;border-radius:10px;padding:12px 14px;overflow:auto}
+                @media (prefers-color-scheme: dark){ .milkdown pre{background:rgba(255,255,255,.06)} }
+                .milkdown code:not(pre code){background:rgba(0,0,0,.05);padding:2px 6px;border-radius:6px}
+                @media (prefers-color-scheme: dark){ .milkdown code:not(pre code){background:rgba(255,255,255,.06)} }
+
+                /* HR */
+                .milkdown hr{border:0;border-top:1px solid rgba(0,0,0,.12);margin:2em 0}
+                @media (prefers-color-scheme: dark){ .milkdown hr{border-top-color: rgba(255,255,255,.15)} }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <div id="app"></div>
+              </div>
+              <script type="module">
+                import { Editor, rootCtx, defaultValueCtx } from 'https://esm.sh/@milkdown/core@7';
+                import { commonmark } from 'https://esm.sh/@milkdown/preset-commonmark@7';
+                import { listener, listenerCtx } from 'https://esm.sh/@milkdown/plugin-listener@7';
+                import { exitCode } from 'https://esm.sh/prosemirror-commands@1';
+                import { editorViewCtx } from 'https://esm.sh/@milkdown/core@7';
+                import { TextSelection } from 'https://esm.sh/prosemirror-state@1';
+
+                let editor; let debouncing;
+                function setup(initial){
+                  editor = Editor.make()
+                    .config((ctx)=>{
+                      ctx.set(rootCtx, document.getElementById('app'));
+                      ctx.set(defaultValueCtx, initial);
+                      const l = ctx.get(listenerCtx);
+                      l.markdownUpdated((_, md)=>{
+                        clearTimeout(debouncing);
+                        debouncing = setTimeout(()=>{
+                          window.webkit?.messageHandlers?.bridge?.postMessage({type:'markdown', value: md});
+                        }, 200);
+                      });
+                    })
+                    .use(commonmark)
+                    .use(listener)
+                    .create();
+                }
+
+                // 获取当前 EditorView 的辅助函数
+                const withView = (fn) => editor?.action((ctx)=>{ try { fn(ctx.get(editorViewCtx)); } catch(e){} });
+
+                // 退出代码块：Shift+Enter 或 Alt+Enter；在代码块中键入 ``` 也会自动退出
+                let backtickCount = 0;
+                document.addEventListener('keydown', (e)=>{
+                  // 退出快捷键：Shift+Enter / Alt+Enter
+                  if (e.key === 'Enter' && (e.shiftKey || e.altKey)) {
+                    withView((view)=>{ if (exitCode(view.state, view.dispatch)) e.preventDefault(); });
+                    return;
+                  }
+
+                  // 在段落中输入 ``` 或 ```mermaid + Enter → 自动生成围栏，并把光标放到中间
+                  if (e.key === 'Enter' && !e.shiftKey && !e.altKey) {
+                    withView((view)=>{
+                      const {$from} = view.state.selection;
+                      const inParagraph = $from.parent?.type?.name === 'paragraph';
+                      if (!inParagraph) return;
+                      const text = $from.parent.textContent || '';
+                      const pos = $from.parentOffset;
+                      const lastLine = text.slice(0, pos).split('\n').pop() || '';
+                      const m = lastLine.match(/^```(mermaid)?\s*$/i);
+                      if (m) {
+                        e.preventDefault();
+                        const lang = (m[1] || '').toLowerCase() === 'mermaid' ? 'mermaid' : '';
+                        const start = $from.start();
+                        const lineStart = pos - lastLine.length;
+                        let tr = view.state.tr;
+                        // 删除触发行
+                        tr = tr.delete(start + lineStart, start + pos);
+                        // 插入完整围栏
+                        const fenced = '```' + lang + '\n\n```';
+                        tr = tr.insertText(fenced, start + lineStart);
+                        view.dispatch(tr);
+                        // 将光标移动到围栏中间空行
+                        const between = start + lineStart + 3 + lang.length + 1; // 开头围栏 + 换行
+                        view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, between)));
+                      }
+                    });
+                    return;
+                  }
+
+                  // 在代码块中，连续输入 ``` 自动退出
+                  if (e.key === '`') {
+                    backtickCount++;
+                    if (backtickCount >= 3) {
+                      withView((view)=>{
+                        const {$from} = view.state.selection;
+                        const inCode = $from.parent?.type?.name === 'code_block';
+                        if (inCode && exitCode(view.state, view.dispatch)) {
+                          e.preventDefault();
+                        }
+                      });
+                      backtickCount = 0;
+                    }
+                  } else {
+                    backtickCount = 0;
+                  }
+
+                  // 回车时若当前行仅为 ``` 则删除该行并退出代码块
+                  if (e.key === 'Enter' && !e.shiftKey && !e.altKey) {
+                    withView((view)=>{
+                      const {$from} = view.state.selection;
+                      const inCode = $from.parent?.type?.name === 'code_block';
+                      if (!inCode) return;
+                      const text = $from.parent.textContent || '';
+                      const pos = $from.parentOffset;
+                      const before = text.slice(0, pos);
+                      const lastLine = before.split('\n').pop() || '';
+                      if (/^```\s*$/.test(lastLine)) {
+                        e.preventDefault();
+                        const start = $from.start();
+                        const lineStart = pos - lastLine.length;
+                        let tr = view.state.tr.delete(start + lineStart, start + pos);
+                        view.dispatch(tr);
+                        exitCode(view.state, view.dispatch);
+                      }
+                    });
+                  }
+                });
+
+                // Swift 调用：覆盖内容
+                window.__milkdown_setMarkdown = (md)=>{
+                  if (!editor){ return; }
+                  import('https://esm.sh/@milkdown/utils@7').then(({ callCommand })=>{
+                    editor.action(callCommand((ctx)=>{
+                      const { replaceAll } = ctx.getState();
+                      return replaceAll(md);
+                    }));
+                  });
+                };
+
+                // 将 Swift 传入的 Markdown 注入到 JS（Swift 侧已完成转义）
+                setup(`\#(md)`);
+              </script>
+            </body>
+            </html>
+            """#
+        }
+
+        // 工具：转义到 JS 字符串
+        func escapeForJavaScript(_ string: String) -> String {
+            return string
+                .replacingOccurrences(of: "\\\\", with: "\\\\\\\\")
+                .replacingOccurrences(of: "`", with: "\\\\`")
+                .replacingOccurrences(of: "$", with: "\\\\$")
+                .replacingOccurrences(of: "\\n", with: "\\\\n")
+                .replacingOccurrences(of: "\\r", with: "\\\\r")
+                .replacingOccurrences(of: "\\\"", with: "\\\\\\\"")
+                .replacingOccurrences(of: "'", with: "\\\\'")
+        }
+
+        // 屏蔽外链跳转，保留内部脚本运行
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
             decisionHandler(navigationAction.navigationType == .other ? .allow : .cancel)
         }
@@ -2150,1548 +2451,6 @@ class NodeImageManager: ObservableObject {
     }
 }
 
-// MARK: - 完全隐形的实时编辑器 (无任何UI提示)
-
-struct DebugClickableEditor: View {
-    @Binding var text: String
-    @Binding var isEditing: Bool
-    let onTextChange: (String) -> Void
-    
-    @State private var currentlyEditingLines: ClosedRange<Int>? = nil  // 支持多行编辑
-    @State private var editingText: String = ""
-    @FocusState private var isTextFieldFocused: Bool
-    @FocusState private var isTextEditorFocused: Bool
-    
-    var body: some View {
-        if text.isEmpty {
-            emptyStateView
-        } else {
-            editingContentView
-        }
-    }
-    
-    private var emptyStateView: some View {
-        VStack(spacing: 30) {
-            VStack(spacing: 12) {
-                Text("开始编写")
-                    .font(.title2)
-                    .foregroundColor(.primary)
-                Text("点击开始，支持 Markdown")
-                    .font(.body)
-                    .foregroundColor(.secondary)
-            }
-            
-            TextField("", text: $editingText, prompt: Text("开始输入...").foregroundColor(.secondary))
-                .textFieldStyle(.plain)
-                .focused($isTextFieldFocused)
-                .font(.system(.body))
-                .onSubmit {
-                    if !editingText.isEmpty {
-                        text = editingText
-                        onTextChange(editingText)
-                        editingText = ""
-                    }
-                }
-                .frame(maxWidth: 500)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            isTextFieldFocused = true
-        }
-    }
-    
-    private var editingContentView: some View {
-        GeometryReader { geometry in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) { // spacing改为0，我们用padding控制间距
-                    ForEach(text.components(separatedBy: .newlines).indices, id: \.self) { index in
-                        smartLineView(for: index, in: geometry)
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 20)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(Color.clear)
-            .contentShape(Rectangle())
-            .onTapGesture { location in
-                // 智能判断点击位置对应的行
-                handleSmartTap(at: location, in: geometry)
-            }
-        }
-    }
-    
-    @ViewBuilder
-    private func smartLineView(for index: Int, in geometry: GeometryProxy) -> some View {
-        let line = text.components(separatedBy: .newlines)[index]
-        let allLines = text.components(separatedBy: .newlines)
-        
-        VStack(spacing: 0) {
-            if let editingRange = currentlyEditingLines, editingRange.contains(index) {
-                if index == editingRange.lowerBound {
-                    editingView(for: index, line: line, allLines: allLines, editingRange: editingRange)
-                        .padding(.vertical, 12)
-                }
-            } else {
-                smartRenderEditableLine(line, at: index)
-                    .padding(.vertical, 12) // 每行有足够的垂直空间
-            }
-        }
-    }
-    
-    @ViewBuilder
-    private func lineView(for index: Int) -> some View {
-        let line = text.components(separatedBy: .newlines)[index]
-        let allLines = text.components(separatedBy: .newlines)
-        
-        if let editingRange = currentlyEditingLines, editingRange.contains(index) {
-            if index == editingRange.lowerBound {
-                editingView(for: index, line: line, allLines: allLines, editingRange: editingRange)
-            }
-        } else {
-            renderInvisibleEditableLine(line, at: index)
-        }
-    }
-    
-    @ViewBuilder
-    private func editingView(for index: Int, line: String, allLines: [String], editingRange: ClosedRange<Int>) -> some View {
-        if isMultiLineContent(startingAt: index, in: allLines) {
-            multiLineEditor(allLines: allLines, editingRange: editingRange)
-        } else {
-            singleLineEditor(line: line, index: index)
-        }
-    }
-    
-    private func multiLineEditor(allLines: [String], editingRange: ClosedRange<Int>) -> some View {
-        TextEditor(text: $editingText)
-            .focused($isTextEditorFocused)
-            .font(.system(.title3, design: .monospaced))  // 更大
-            .foregroundColor(.primary)
-            .scrollContentBackground(.hidden)
-            .background(Color.clear)
-            .frame(minHeight: 100, maxHeight: 300)
-            .onAppear {
-                let editingContent = allLines[editingRange].joined(separator: "\n")
-                editingText = editingContent
-            }
-            .onChange(of: isTextEditorFocused) { _, focused in
-                if !focused {
-                    finishMultiLineEditing()
-                }
-            }
-            .onKeyPress(.escape) {
-                finishMultiLineEditing()
-                return .handled
-            }
-            .onKeyPress(.return) {
-                finishMultiLineEditing()
-                return .handled
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(Color.clear)
-    }
-    
-    private func singleLineEditor(line: String, index: Int) -> some View {
-        TextField("", text: $editingText, prompt: Text(line).foregroundColor(.secondary))
-            .textFieldStyle(.plain)
-            .focused($isTextFieldFocused)
-            .font(fontForLine(line))
-            .fontWeight(fontWeightForLine(line))
-            .foregroundColor(.primary)
-            .onSubmit {
-                finishEditingSingleLine(at: index)
-            }
-            .onAppear {
-                editingText = line
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 4)
-    }
-    
-    private func fontForLine(_ line: String) -> Font {
-        if line.hasPrefix("# ") {
-            return .largeTitle  // 更大
-        } else if line.hasPrefix("## ") {
-            return .title       // 更大
-        } else if line.hasPrefix("### ") {
-            return .title2      // 更大
-        } else {
-            return .title3      // 从.body改为.title3，更大
-        }
-    }
-    
-    private func fontWeightForLine(_ line: String) -> Font.Weight {
-        if line.hasPrefix("# ") {
-            return .bold
-        } else if line.hasPrefix("## ") {
-            return .semibold
-        } else if line.hasPrefix("### ") {
-            return .medium
-        } else {
-            return .regular
-        }
-    }
-    
-    @ViewBuilder
-    private func renderInvisibleEditableLine(_ line: String, at index: Int) -> some View {
-        HStack {
-            Group {
-                if line.hasPrefix("# ") {
-                    Text(String(line.dropFirst(2)))
-                        .font(.largeTitle)  // 更大
-                        .fontWeight(.bold)
-                        .foregroundColor(.primary)
-                } else if line.hasPrefix("## ") {
-                    Text(String(line.dropFirst(3)))
-                        .font(.title)       // 更大
-                        .fontWeight(.semibold)
-                        .foregroundColor(.primary)
-                } else if line.hasPrefix("### ") {
-                    Text(String(line.dropFirst(4)))
-                        .font(.title2)      // 更大
-                        .fontWeight(.medium)
-                        .foregroundColor(.primary)
-                } else if line.hasPrefix("- ") {
-                    HStack(alignment: .top, spacing: 8) {
-                        Text("•")
-                            .font(.body)
-                            .foregroundColor(.blue)
-                        Text(String(line.dropFirst(2)))
-                            .font(.title3)  // 更大
-                            .foregroundColor(.primary)
-                    }
-                } else if line.trimmingCharacters(in: .whitespaces).isEmpty {
-                    Text(" ")
-                        .font(.title3)  // 更大
-                        .frame(height: 32)  // 也调大高度
-                } else {
-                    Text(line)
-                        .font(.title3)  // 更大
-                        .foregroundColor(.primary)
-                }
-            }
-            
-            Spacer() // 填充整行，让整个区域都可以点击
-        }
-        .frame(minHeight: 50) // 增大最小高度，扩大点击区域
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12) // 大幅增加垂直间距，让行间完全可点击
-        .background(Color.clear)
-        .contentShape(Rectangle()) // 让整个矩形区域都可以点击
-        .allowsHitTesting(true)
-        .onTapGesture {
-            startEditingInvisibly(at: index, content: line)
-        }
-    }
-    
-    // 智能点击处理 - 根据点击位置自动判断行
-    private func handleSmartTap(at location: CGPoint, in geometry: GeometryProxy) {
-        let lines = text.components(separatedBy: .newlines)
-        let lineHeight: CGFloat = 50 + 24 // minHeight + padding
-        let contentStartY: CGFloat = 20 // top padding
-        
-        // 计算点击位置对应的行索引
-        let clickedLineIndex = Int((location.y - contentStartY) / lineHeight)
-        
-        if clickedLineIndex >= 0 && clickedLineIndex < lines.count {
-            // 点击了有效行
-            let line = lines[clickedLineIndex]
-            startEditingInvisibly(at: clickedLineIndex, content: line)
-        }
-        // 点击空白区域不做任何操作，只有空格键才添加新行
-    }
-    
-    // 智能行渲染 - 无点击事件冲突的版本
-    @ViewBuilder
-    private func smartRenderEditableLine(_ line: String, at index: Int) -> some View {
-        HStack {
-            Group {
-                if line.hasPrefix("# ") {
-                    Text(String(line.dropFirst(2)))
-                        .font(.largeTitle)  // 更大
-                        .fontWeight(.bold)
-                        .foregroundColor(.primary)
-                } else if line.hasPrefix("## ") {
-                    Text(String(line.dropFirst(3)))
-                        .font(.title)       // 更大
-                        .fontWeight(.semibold)
-                        .foregroundColor(.primary)
-                } else if line.hasPrefix("### ") {
-                    Text(String(line.dropFirst(4)))
-                        .font(.title2)      // 更大
-                        .fontWeight(.medium)
-                        .foregroundColor(.primary)
-                } else if line.hasPrefix("- ") {
-                    HStack(alignment: .top, spacing: 8) {
-                        Text("•")
-                            .font(.body)
-                            .foregroundColor(.blue)
-                        Text(String(line.dropFirst(2)))
-                            .font(.title3)  // 更大
-                            .foregroundColor(.primary)
-                    }
-                } else if line.trimmingCharacters(in: .whitespaces).isEmpty {
-                    Text(" ")
-                        .font(.title3)  // 更大
-                        .frame(height: 32)  // 也调大高度
-                } else {
-                    Text(line)
-                        .font(.title3)  // 更大
-                        .foregroundColor(.primary)
-                }
-            }
-            
-            Spacer() // 填充整行
-        }
-        .frame(minHeight: 50) // 确保有足够的点击区域
-        .background(Color.clear)
-    }
-    
-    // 检测是否是多行内容（如代码块）
-    private func isMultiLineContent(startingAt index: Int, in lines: [String]) -> Bool {
-        guard index < lines.count else { return false }
-        let line = lines[index]
-        
-        // 检测代码块开始
-        if line.hasPrefix("```") {
-            return true
-        }
-        
-        // 检测是否在代码块中间
-        for i in (0..<index).reversed() {
-            if lines[i].hasPrefix("```") {
-                // 找到了代码块开始，检查是否已经结束
-                for j in (i+1)..<lines.count {
-                    if lines[j].hasPrefix("```") && j != i {
-                        return j > index // 如果结束标记在当前行之后，说明在代码块内
-                    }
-                }
-                return true // 没找到结束标记，说明在代码块内
-            }
-        }
-        
-        return false
-    }
-    
-    // 找到多行内容的范围
-    private func findMultiLineRange(startingAt index: Int, in lines: [String]) -> ClosedRange<Int> {
-        guard index < lines.count else { return index...index }
-        
-        if lines[index].hasPrefix("```") {
-            // 从代码块开始标记找到结束标记
-            for i in (index+1)..<lines.count {
-                if lines[i].hasPrefix("```") {
-                    return index...i
-                }
-            }
-            return index...(lines.count - 1) // 如果没找到结束标记，到文档末尾
-        } else {
-            // 在代码块中间，找到开始和结束
-            var startIndex = index
-            var endIndex = index
-            
-            // 向前找开始标记
-            for i in (0..<index).reversed() {
-                if lines[i].hasPrefix("```") {
-                    startIndex = i
-                    break
-                }
-            }
-            
-            // 向后找结束标记
-            for i in index..<lines.count {
-                if lines[i].hasPrefix("```") && i > startIndex {
-                    endIndex = i
-                    break
-                }
-            }
-            
-            return startIndex...endIndex
-        }
-    }
-    
-    private func startEditingInvisibly(at index: Int, content: String) {
-        let lines = text.components(separatedBy: .newlines)
-        
-        if isMultiLineContent(startingAt: index, in: lines) {
-            // 多行编辑
-            let range = findMultiLineRange(startingAt: index, in: lines)
-            currentlyEditingLines = range
-            editingText = lines[range].joined(separator: "\n")
-            isTextEditorFocused = true
-        } else {
-            // 单行编辑
-            currentlyEditingLines = index...index
-            editingText = content
-            isTextFieldFocused = true
-        }
-    }
-    
-    private func finishEditingSingleLine(at index: Int) {
-        guard let editingRange = currentlyEditingLines, editingRange.contains(index) else { return }
-        
-        var lines = text.components(separatedBy: .newlines)
-        if index < lines.count {
-            lines[index] = editingText
-            let newText = lines.joined(separator: "\n")
-            text = newText
-            onTextChange(newText)
-        }
-        
-        // 静默完成编辑
-        currentlyEditingLines = nil
-        editingText = ""
-        isTextFieldFocused = false
-    }
-    
-    private func finishMultiLineEditing() {
-        guard let editingRange = currentlyEditingLines else { return }
-        
-        var lines = text.components(separatedBy: .newlines)
-        let newLines = editingText.components(separatedBy: .newlines)
-        
-        // 替换编辑范围内的所有行
-        lines.removeSubrange(editingRange)
-        lines.insert(contentsOf: newLines, at: editingRange.lowerBound)
-        
-        let newText = lines.joined(separator: "\n")
-        text = newText
-        onTextChange(newText)
-        
-        // 静默完成编辑
-        currentlyEditingLines = nil
-        editingText = ""
-        isTextEditorFocused = false
-    }
-    
-    private func addNewLineInvisibly() {
-        let newText = text + "\n"
-        text = newText
-        onTextChange(newText)
-        
-        // 立即静默编辑新行
-        let newLineIndex = text.components(separatedBy: .newlines).count - 1
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            startEditingInvisibly(at: newLineIndex, content: "")
-        }
-    }
-}
-
-// MARK: - Typora风格编辑器
-
-struct TyporaStyleEditor: View {
-    @Binding var text: String
-    @Binding var isEditing: Bool
-    let onTextChange: (String) -> Void
-    
-    @FocusState private var isTextEditorFocused: Bool
-    @State private var showRawSource: Bool = false
-    
-    var body: some View {
-        ZStack {
-            if text.isEmpty {
-                // 空内容状态 - 显示提示信息
-                VStack {
-                    Spacer()
-                    VStack(spacing: 12) {
-                        Image(systemName: "doc.text")
-                            .font(.system(size: 48))
-                            .foregroundColor(.gray.opacity(0.6))
-                        Text("开始编写你的内容...")
-                            .font(.title2)
-                            .foregroundColor(.secondary)
-                        Text("支持 Markdown 语法，实时渲染")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    Spacer()
-                }
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    isEditing = true
-                    isTextEditorFocused = true
-                    showRawSource = true
-                }
-            } else if showRawSource {
-                // 原始源码编辑模式
-                TextEditor(text: $text)
-                    .font(.system(.title3, design: .monospaced))  // 更大
-                    .focused($isTextEditorFocused)
-                    .onChange(of: text) { _, newValue in
-                        onTextChange(newValue)
-                    }
-                    .onChange(of: isTextEditorFocused) { _, focused in
-                        isEditing = focused
-                        if !focused && !text.isEmpty {
-                            // 失去焦点时切换到渲染模式
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                showRawSource = false
-                            }
-                        }
-                    }
-                    .overlay(
-                        // 源码模式指示器
-                        VStack {
-                            HStack {
-                                Spacer()
-                                HStack(spacing: 4) {
-                                    Image(systemName: "chevron.left.forwardslash.chevron.right")
-                                        .font(.caption2)
-                                    Text("源码模式")
-                                        .font(.caption2)
-                                }
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.blue.opacity(0.1))
-                                .cornerRadius(6)
-                                .padding()
-                            }
-                            Spacer()
-                        }
-                    )
-            } else {
-                // Typora风格实时渲染模式
-                MermaidWebView(markdown: text)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        // 静默切换到编辑模式
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            showRawSource = true
-                            isEditing = true
-                        }
-                        // 延迟聚焦确保动画完成
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            isTextEditorFocused = true
-                        }
-                    }
-                    .overlay(
-                        // 渲染模式悬停提示
-                        VStack {
-                            Spacer()
-                            HStack {
-                                Spacer()
-                                Text("点击编辑")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(Color.black.opacity(0.05))
-                                    .cornerRadius(6)
-                                    .padding()
-                                    .opacity(isEditing ? 0 : 0.7)
-                            }
-                        }
-                    )
-            }
-        }
-        .onKeyPress(.init("/"), phases: .down) { keyPress in
-            if keyPress.modifiers == .command {
-                // Command+/: 切换源码/渲染模式
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    showRawSource.toggle()
-                }
-                if showRawSource {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        isTextEditorFocused = true
-                    }
-                }
-                return .handled
-            }
-            return .ignored
-        }
-        .onChange(of: text) { _, newValue in
-            if newValue.isEmpty {
-                showRawSource = false
-                isEditing = false
-            }
-        }
-    }
-}
-
-// MARK: - Typora风格编辑器 - 简单直接
-struct SimpleTyporaEditor: View {
-    @Binding var text: String
-    @Binding var isEditing: Bool
-    let onTextChange: (String) -> Void
-
-    @FocusState private var isTextEditorFocused: Bool
-
-    var body: some View {
-        let _ = print("🔄 SimpleTyporaEditor body 刷新: isEditing=\(isEditing), text.isEmpty=\(text.isEmpty)")
-        return Group {
-            if isEditing {
-                VStack(spacing: 0) {
-                    Text("🚀 WebMarkdownEditor 已激活")
-                        .font(.caption)
-                        .foregroundColor(.blue)
-                        .padding(.top, 8)
-                    
-                    WebMarkdownEditor(text: $text) { new in
-                        onTextChange(new)
-                    }
-                    .frame(minHeight: 400)  // 确保有足够高度
-                    .background(Color.red.opacity(0.1))  // 红色背景确认WebView位置
-                    .onAppear { 
-                        print("🚀 WebMarkdownEditor onAppear被调用")
-                        isTextEditorFocused = true 
-                    }
-                    .onExitCommand { isEditing = false }
-                }
-                .background(Color.blue.opacity(0.1))  // 蓝色背景确认整个容器
-            } else if text.isEmpty {
-                ZStack(alignment: .topLeading) {
-                    Color.clear
-                    Text("开始输入…（支持 Markdown，点击或按 ⌘/ 进入编辑）")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .padding(.top, 26)
-                        .padding(.leading, 21)
-                }
-                .contentShape(Rectangle())
-                .onTapGesture { 
-                    print("🎯 点击了空状态区域")
-                    isEditing = true 
-                    print("🎯 isEditing已设为: \(isEditing)")
-                }
-                .onKeyPress(.init("/"), phases: .down) { kp in
-                    if kp.modifiers == .command { isEditing = true; return .handled }
-                    return .ignored
-                }
-            } else {
-                MermaidWebView(markdown: text)
-                    .contentShape(Rectangle())
-                    .onTapGesture { 
-                        print("🎯 点击了预览区域，准备进入编辑模式")
-                        isEditing = true 
-                        print("🎯 isEditing已设为: \(isEditing)")
-                    }
-                    .onKeyPress(.init("/"), phases: .down) { kp in
-                        if kp.modifiers == .command { isEditing = true; return .handled }
-                        return .ignored
-                    }
-                    .overlay(alignment: .bottomTrailing) {
-                        Text("点击编辑 · ⌘/ 切换")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.black.opacity(0.05))
-                            .cornerRadius(6)
-                            .padding(12)
-                            .opacity(0.8)
-                    }
-            }
-        }
-        .onChange(of: text) { _, newValue in
-            onTextChange(newValue)
-        }
-    }
-}
-
-// MARK: - WebMarkdownEditor using Milkdown
-import WebKit
-
-struct WebMarkdownEditor: NSViewRepresentable {
-    @Binding var text: String
-    var onTextChange: (String) -> Void
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(parent: self)
-    }
-
-    func makeNSView(context: Context) -> WKWebView {
-        let webView = WKWebView()
-        webView.navigationDelegate = context.coordinator
-        webView.configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
-        webView.configuration.userContentController.add(context.coordinator, name: "editorChanged")
-        webView.setValue(false, forKey: "drawsBackground")
-        let html = Self.htmlString(with: text)
-        webView.loadHTMLString(html, baseURL: nil)
-        context.coordinator.webView = webView
-        return webView
-    }
-
-    func updateNSView(_ webView: WKWebView, context: Context) {
-        context.coordinator.ignoreNextUpdate = true
-        let js = """
-            if (window.milkdownEditor && window.milkdownEditor.getMarkdown) {
-                window.milkdownEditor.getMarkdown().then(function(current) {
-                    if (current !== \(Self.jsStringLiteral(text))) {
-                        window.milkdownEditor.setMarkdown(\(Self.jsStringLiteral(text)));
-                    }
-                });
-            }
-        """
-        webView.evaluateJavaScript(js, completionHandler: nil)
-    }
-
-    class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
-        var parent: WebMarkdownEditor
-        weak var webView: WKWebView?
-        var ignoreNextUpdate = false
-        init(parent: WebMarkdownEditor) { self.parent = parent }
-        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-            if message.name == "editorChanged", let str = message.body as? String {
-                if !ignoreNextUpdate {
-                    DispatchQueue.main.async {
-                        self.parent.text = str
-                        self.parent.onTextChange(str)
-                    }
-                }
-                ignoreNextUpdate = false
-            }
-        }
-    }
-
-    static func jsStringLiteral(_ str: String) -> String {
-        // Properly escape for JS string literal
-        var s = str
-        s = s.replacingOccurrences(of: "\\", with: "\\\\")
-        s = s.replacingOccurrences(of: "\"", with: "\\\"")
-        s = s.replacingOccurrences(of: "\n", with: "\\n")
-        s = s.replacingOccurrences(of: "\r", with: "\\r")
-        s = s.replacingOccurrences(of: "'", with: "\\'")
-        return "\"\(s)\""
-    }
-
-    static func htmlString(with markdown: String) -> String {
-        // Inline HTML for Milkdown editor
-        return """
-        <!DOCTYPE html>
-        <html lang="zh">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Milkdown Editor</title>
-            <style>
-                html, body {
-                    height: 100%;
-                    margin: 0;
-                    padding: 0;
-                    background: transparent;
-                }
-                body {
-                    font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
-                    color: #222;
-                    min-height: 100vh;
-                }
-                #editor {
-                    min-height: 300px;
-                    font-size: 17px;
-                    outline: none;
-                    background: transparent;
-                    color: #222;
-                    border-radius: 8px;
-                    padding: 24px 20px 24px 20px;
-                }
-                .milkdown {
-                    background: transparent;
-                }
-                .editor-prose * {
-                    font-size: 1em !important;
-                }
-                @media (prefers-color-scheme: dark) {
-                    body { color: #eee; background: transparent;}
-                    #editor { color: #eee; background: transparent;}
-                }
-            </style>
-            <script src="https://cdn.jsdelivr.net/npm/@milkdown/core@7.15.4/dist/milkdown.min.js"></script>
-            <script src="https://cdn.jsdelivr.net/npm/@milkdown/preset-gfm@7.15.4/dist/milkdown-preset-gfm.min.js"></script>
-            <script src="https://cdn.jsdelivr.net/npm/@milkdown/plugin-listener@7.15.4/dist/milkdown-plugin-listener.min.js"></script>
-        </head>
-        <body>
-            <div id="editor"></div>
-            <script>
-                const { Editor, rootCtx, defaultValueCtx } = window.Milkdown;
-                const { gfm } = window.MilkdownPresetGfm;
-                const { listener } = window.MilkdownPluginListener;
-                let currentMarkdown = \(jsStringLiteral(markdown));
-                const editor = Editor.make()
-                    .config((ctx) => {
-                        ctx.set(rootCtx, document.getElementById('editor'));
-                        ctx.set(defaultValueCtx, currentMarkdown);
-                    })
-                    .use(gfm)
-                    .use(listener.withConfig((ctx, plugin) => ({
-                        markdownUpdated: (ctx, markdown, prevMarkdown) => {
-                            currentMarkdown = markdown;
-                            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.editorChanged) {
-                                window.webkit.messageHandlers.editorChanged.postMessage(markdown);
-                            }
-                        }
-                    })))
-                    .create();
-                window.milkdownEditor = editor;
-                editor.action((ctx) => {
-                    window.milkdownEditor.getMarkdown = () => Promise.resolve(currentMarkdown);
-                    window.milkdownEditor.setMarkdown = (md) => {
-                        ctx.set(defaultValueCtx, md);
-                        editor.action((ctx) => {
-                            ctx.get(window.Milkdown.EditorState).tr.insertText(md, 0, ctx.get(window.Milkdown.EditorState).doc.content.size);
-                        });
-                    };
-                });
-                // Support Cmd + / to blur/exit
-                document.addEventListener('keydown', function(e) {
-                    if ((e.metaKey || e.ctrlKey) && e.key === '/') {
-                        window.blur();
-                    }
-                    if (e.key === 'Escape') {
-                        window.blur();
-                    }
-                });
-            </script>
-        </body>
-        </html>
-        """
-    }
-}
-
-// MARK: - 调试WebView编辑器
-import WebKit
-
-struct DebugWebEditor: NSViewRepresentable {
-    @Binding var markdown: String
-    let onTextChange: (String) -> Void
-    
-    func makeCoordinator() -> Coordinator {
-        Coordinator(parent: self)
-    }
-    
-    func makeNSView(context: Context) -> WKWebView {
-        print("🚨 开始创建WKWebView")
-        
-        let config = WKWebViewConfiguration()
-        config.userContentController.add(context.coordinator, name: "textChanged")
-        config.userContentController.add(context.coordinator, name: "exitEditor")
-        print("🚨 WKWebViewConfiguration创建完成")
-        
-        let webView = WKWebView(frame: .zero, configuration: config)
-        print("🚨 WKWebView创建完成")
-        
-        // 简单可靠的所见即所得编辑器
-        let wysiwygHTML = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                * { margin: 0; padding: 0; box-sizing: border-box; }
-                body {
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-                    background: transparent;
-                    color: #333;
-                    padding: 24px;
-                    line-height: 1.6;
-                }
-                
-                #editor {
-                    min-height: 300px;
-                    font-size: 18px;
-                    outline: none;
-                    background: transparent;
-                    border-radius: 8px;
-                    padding: 16px;
-                }
-                
-                #editor h1 {
-                    font-size: 2.2em;
-                    font-weight: bold;
-                    margin: 1.2em 0 0.6em 0;
-                    color: #2c3e50;
-                    border-bottom: 2px solid #3498db;
-                    padding-bottom: 0.3em;
-                }
-                
-                #editor h2 {
-                    font-size: 1.8em;
-                    font-weight: 600;
-                    margin: 1em 0 0.5em 0;
-                    color: #34495e;
-                }
-                
-                #editor h3 {
-                    font-size: 1.4em;
-                    font-weight: 500;
-                    margin: 0.8em 0 0.4em 0;
-                    color: #7f8c8d;
-                }
-                
-                #editor p {
-                    margin: 0.3em 0;
-                    min-height: 1.2em;
-                }
-                
-                #editor p:empty::before {
-                    content: '\\200b'; /* 零宽空格，确保空行有高度 */
-                    color: transparent;
-                }
-                
-                #editor strong {
-                    font-weight: 600;
-                    color: #2c3e50;
-                }
-                
-                #editor em {
-                    font-style: italic;
-                    color: #8e44ad;
-                }
-                
-                #editor ul, #editor ol {
-                    margin: 0.8em 0;
-                    padding-left: 2em;
-                }
-                
-                #editor li {
-                    margin: 0.3em 0;
-                }
-                
-                #editor code {
-                    background: #f8f9fa;
-                    border-radius: 4px;
-                    padding: 0.2em 0.4em;
-                    font-family: 'SF Mono', Consolas, monospace;
-                    font-size: 0.9em;
-                    color: #8e44ad;
-                }
-                
-                #editor blockquote {
-                    border-left: 4px solid #3498db;
-                    padding-left: 1em;
-                    margin: 1em 0;
-                    color: #7f8c8d;
-                    font-style: italic;
-                }
-                
-                @media (prefers-color-scheme: dark) {
-                    body { color: #e8e8e8; }
-                    #editor h1 { color: #fff; border-bottom-color: #5dade2; }
-                    #editor h2 { color: #f0f0f0; }
-                    #editor h3 { color: #ccc; }
-                    #editor strong { color: #fff; }
-                    #editor em { color: #ff6b6b; }
-                    #editor code { background: #2c2c2e; color: #ff6b6b; }
-                    #editor blockquote { border-left-color: #5dade2; color: #bbb; }
-                }
-            </style>
-        </head>
-        <body>
-            <div id="editor" contenteditable="true">\(markdown.isEmpty ? "开始输入，支持 Markdown..." : markdown)</div>
-            
-            <script>
-                const editor = document.getElementById('editor');
-                let isUpdating = false;
-                
-                // 获取光标在纯文本中的位置
-                function getCursorPosition() {
-                    const selection = window.getSelection();
-                    if (!selection.rangeCount) return 0;
-                    
-                    const range = selection.getRangeAt(0);
-                    const preCaretRange = range.cloneRange();
-                    preCaretRange.selectNodeContents(editor);
-                    preCaretRange.setEnd(range.startContainer, range.startOffset);
-                    return preCaretRange.toString().length;
-                }
-                
-                // 设置光标到纯文本位置
-                function setCursorPosition(pos) {
-                    const selection = window.getSelection();
-                    const range = document.createRange();
-                    
-                    let charIndex = 0;
-                    let node = editor;
-                    let found = false;
-                    
-                    function traverseNode(node) {
-                        if (found) return;
-                        
-                        if (node.nodeType === Node.TEXT_NODE) {
-                            const nextCharIndex = charIndex + node.textContent.length;
-                            if (pos >= charIndex && pos <= nextCharIndex) {
-                                range.setStart(node, pos - charIndex);
-                                range.collapse(true);
-                                found = true;
-                                return;
-                            }
-                            charIndex = nextCharIndex;
-                        } else {
-                            for (let i = 0; i < node.childNodes.length; i++) {
-                                traverseNode(node.childNodes[i]);
-                                if (found) return;
-                            }
-                        }
-                    }
-                    
-                    traverseNode(editor);
-                    
-                    if (found) {
-                        selection.removeAllRanges();
-                        selection.addRange(range);
-                    }
-                }
-                
-                // 实时Markdown渲染
-                function renderMarkdown() {
-                    if (isUpdating) return;
-                    
-                    // 保存光标位置（基于纯文本偏移）
-                    const cursorPos = getCursorPosition();
-                    
-                    let text = editor.innerText || editor.textContent || '';
-                    let html = text;
-                    
-                    // 基本Markdown转换，保持换行
-                    html = html
-                        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-                        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-                        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-                        .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')
-                        .replace(/\\*(.+?)\\*/g, '<em>$1</em>')
-                        .replace(/`(.+?)`/g, '<code>$1</code>')
-                        .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
-                        .replace(/^- (.+)$/gm, '<li>$1</li>')
-                        .replace(/(<li>.*?<\\/li>\\s*)+/gs, function(match) {
-                            return '<ul>' + match + '</ul>';
-                        })
-                        .split('\\n').map(line => {
-                            // 如果行已经被包装在标签中，保持原样
-                            if (line.match(/^<(h[1-6]|blockquote|ul|li)/)) {
-                                return line;
-                            }
-                            // 空行或只有空格的行
-                            if (!line.trim()) {
-                                return '<p><br></p>';
-                            }
-                            // 普通行包装在p标签中
-                            return '<p>' + line + '</p>';
-                        }).join('');
-                    
-                    // 避免无限循环
-                    if (editor.innerHTML !== html) {
-                        isUpdating = true;
-                        editor.innerHTML = html;
-                        
-                        // 恢复光标位置
-                        setTimeout(() => {
-                            setCursorPosition(cursorPos);
-                            isUpdating = false;
-                            
-                            // 渲染完成后立即保存
-                            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.textChanged) {
-                                window.webkit.messageHandlers.textChanged.postMessage(text);
-                                console.log('💾 渲染完成，立即保存');
-                            }
-                        }, 0);
-                    }
-                }
-                
-                // 延迟渲染计时器
-                let renderTimer = null;
-                
-                // 只在停止输入后才渲染，避免光标跳跃
-                function delayedRender() {
-                    if (renderTimer) {
-                        clearTimeout(renderTimer);
-                    }
-                    renderTimer = setTimeout(() => {
-                        renderMarkdown();
-                        renderTimer = null;
-                    }, 300); // 300ms后渲染
-                }
-                
-                // 监听输入 - 延迟渲染，渲染后自动保存
-                editor.addEventListener('input', function(e) {
-                    delayedRender(); // 300ms后渲染，渲染完成后自动保存
-                });
-                
-                // 失去焦点时立即渲染并保存
-                editor.addEventListener('blur', function(e) {
-                    if (renderTimer) {
-                        clearTimeout(renderTimer);
-                        renderTimer = null;
-                    }
-                    setTimeout(renderMarkdown, 50); // 渲染完成后会自动保存
-                });
-                
-                // 键盘快捷键监听
-                editor.addEventListener('keydown', function(e) {
-                    // ESC键退出编辑
-                    if (e.key === 'Escape') {
-                        e.preventDefault();
-                        editor.blur(); // 失去焦点
-                        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.exitEditor) {
-                            window.webkit.messageHandlers.exitEditor.postMessage('exit');
-                        }
-                    }
-                    // Cmd+S 手动保存
-                    else if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-                        e.preventDefault();
-                        const text = editor.innerText || editor.textContent || '';
-                        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.textChanged) {
-                            window.webkit.messageHandlers.textChanged.postMessage(text);
-                        }
-                        console.log('✅ 手动保存完成');
-                    }
-                });
-                
-                // 不需要定时自动保存 - 渲染后立即保存
-                
-                // 初始渲染
-                setTimeout(renderMarkdown, 100);
-                
-                console.log('✅ 简单WYSIWYG编辑器已就绪');
-            </script>
-        </body>
-        </html>
-        """
-        
-        print("🚨 准备加载WYSIWYG HTML...")
-        webView.loadHTMLString(wysiwygHTML, baseURL: nil)
-        print("🚨 HTML加载命令已发送")
-        
-        // 设置WebView属性
-        webView.setValue(false, forKey: "drawsBackground")
-        webView.isHidden = false
-        webView.alphaValue = 1.0
-        
-        print("🚨 WebView配置完成，准备返回")
-        return webView
-    }
-    
-    func updateNSView(_ webView: WKWebView, context: Context) {
-        // 简单更新
-        if !markdown.isEmpty {
-            let js = "document.getElementById('editor').innerText = '\(markdown.replacingOccurrences(of: "'", with: "\\'"))'"
-            webView.evaluateJavaScript(js)
-        }
-    }
-    
-    class Coordinator: NSObject, WKScriptMessageHandler {
-        let parent: DebugWebEditor
-        
-        init(parent: DebugWebEditor) {
-            self.parent = parent
-        }
-        
-        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-            print("🚨 收到WebView消息: \(message.name) - \(message.body)")
-            DispatchQueue.main.async {
-                if message.name == "textChanged", let text = message.body as? String {
-                    self.parent.markdown = text
-                    self.parent.onTextChange(text)
-                } else if message.name == "exitEditor" {
-                    // 退出编辑模式 - 让WebView失去焦点
-                    NSApp.keyWindow?.makeFirstResponder(nil)
-                }
-            }
-        }
-    }
-}
-
-// MARK: - 真正的Typora编辑器 - ProseMirror + Milkdown 单窗格WYSIWYG
-struct TrueTyporaEditor: NSViewRepresentable {
-    @Binding var markdown: String
-    let onTextChange: (String) -> Void
-    
-    func makeCoordinator() -> Coordinator {
-        Coordinator(parent: self)
-    }
-    
-    func makeNSView(context: Context) -> WKWebView {
-        let config = WKWebViewConfiguration()
-        config.preferences.setValue(true, forKey: "developerExtrasEnabled")
-        config.userContentController.add(context.coordinator, name: "markdownChanged")
-        
-        let webView = WKWebView(frame: .zero, configuration: config)
-        webView.setValue(false, forKey: "drawsBackground")
-        webView.loadHTMLString(typoraHTML(with: markdown), baseURL: nil)
-        
-        return webView
-    }
-    
-    func updateNSView(_ webView: WKWebView, context: Context) {
-        // 只有外部改变时才更新编辑器
-        let escapedMarkdown = markdown
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-            .replacingOccurrences(of: "\n", with: "\\n")
-        
-        let js = """
-            if (window.milkdownEditor && window.currentMarkdown !== "\(escapedMarkdown)") {
-                window.milkdownEditor.action((ctx) => {
-                    ctx.get(window.Milkdown.defaultValueCtx.key).set("\(escapedMarkdown)");
-                });
-                window.currentMarkdown = "\(escapedMarkdown)";
-            }
-        """
-        webView.evaluateJavaScript(js)
-    }
-    
-    class Coordinator: NSObject, WKScriptMessageHandler {
-        let parent: TrueTyporaEditor
-        
-        init(parent: TrueTyporaEditor) {
-            self.parent = parent
-        }
-        
-        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-            DispatchQueue.main.async {
-                if message.name == "markdownChanged", let text = message.body as? String {
-                    self.parent.markdown = text
-                    self.parent.onTextChange(text)
-                }
-            }
-        }
-    }
-    
-    private func typoraHTML(with initialMarkdown: String) -> String {
-        let escapedMarkdown = initialMarkdown
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-            .replacingOccurrences(of: "\n", with: "\\n")
-        
-        return """
-        <!DOCTYPE html>
-        <html lang="zh">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Typora Editor</title>
-            <style>
-                * { margin: 0; padding: 0; box-sizing: border-box; }
-                html, body {
-                    height: 100%;
-                    background: transparent;
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-                }
-                
-                .milkdown {
-                    padding: 24px 32px;
-                    min-height: 100vh;
-                    background: transparent;
-                    font-size: 18px;
-                    line-height: 1.6;
-                    color: #333;
-                    outline: none;
-                }
-                
-                .milkdown h1 {
-                    font-size: 2.2em;
-                    font-weight: bold;
-                    margin: 1.5em 0 0.8em 0;
-                    color: #2c3e50;
-                }
-                
-                .milkdown h2 {
-                    font-size: 1.8em;
-                    font-weight: 600;
-                    margin: 1.3em 0 0.7em 0;
-                    color: #34495e;
-                }
-                
-                .milkdown h3 {
-                    font-size: 1.4em;
-                    font-weight: 500;
-                    margin: 1.2em 0 0.6em 0;
-                    color: #7f8c8d;
-                }
-                
-                .milkdown p {
-                    margin: 0.8em 0;
-                }
-                
-                .milkdown ul, .milkdown ol {
-                    margin: 0.8em 0;
-                    padding-left: 2em;
-                }
-                
-                .milkdown li {
-                    margin: 0.3em 0;
-                }
-                
-                .milkdown code {
-                    background: #f8f9fa;
-                    border-radius: 4px;
-                    padding: 0.2em 0.4em;
-                    font-family: 'SF Mono', Consolas, monospace;
-                    font-size: 0.9em;
-                    color: #e74c3c;
-                }
-                
-                .milkdown pre {
-                    background: #f8f9fa;
-                    border-radius: 8px;
-                    padding: 1em;
-                    margin: 1em 0;
-                    overflow-x: auto;
-                    font-family: 'SF Mono', Consolas, monospace;
-                    font-size: 0.9em;
-                }
-                
-                .milkdown blockquote {
-                    border-left: 4px solid #3498db;
-                    padding-left: 1em;
-                    margin: 1em 0;
-                    color: #7f8c8d;
-                }
-                
-                .milkdown strong {
-                    font-weight: 600;
-                    color: #2c3e50;
-                }
-                
-                .milkdown em {
-                    font-style: italic;
-                    color: #34495e;
-                }
-                
-                @media (prefers-color-scheme: dark) {
-                    .milkdown { color: #e8e8e8; }
-                    .milkdown h1 { color: #fff; }
-                    .milkdown h2 { color: #f0f0f0; }
-                    .milkdown h3 { color: #ccc; }
-                    .milkdown code { 
-                        background: #2c2c2e; 
-                        color: #ff6b6b; 
-                    }
-                    .milkdown pre { background: #2c2c2e; }
-                    .milkdown blockquote { 
-                        border-left-color: #5dade2;
-                        color: #bbb; 
-                    }
-                    .milkdown strong { color: #fff; }
-                    .milkdown em { color: #f0f0f0; }
-                }
-            </style>
-            <script src="https://cdn.jsdelivr.net/npm/@milkdown/core@7.15.4/dist/milkdown.min.js"></script>
-            <script src="https://cdn.jsdelivr.net/npm/@milkdown/preset-gfm@7.15.4/dist/milkdown-preset-gfm.min.js"></script>
-            <script src="https://cdn.jsdelivr.net/npm/@milkdown/plugin-listener@7.15.4/dist/milkdown-plugin-listener.min.js"></script>
-        </head>
-        <body>
-            <div id="editor"></div>
-            
-            <script>
-                window.currentMarkdown = "\(escapedMarkdown)";
-                
-                // 防抖函数
-                function debounce(func, wait) {
-                    let timeout;
-                    return function executedFunction(...args) {
-                        const later = () => {
-                            clearTimeout(timeout);
-                            func(...args);
-                        };
-                        clearTimeout(timeout);
-                        timeout = setTimeout(later, wait);
-                    };
-                }
-                
-                // 尝试创建Milkdown编辑器，失败则降级到简单编辑器
-                try {
-                    if (window.Milkdown && window.MilkdownPresetGfm && window.MilkdownPluginListener) {
-                        const { Editor, rootCtx, defaultValueCtx } = window.Milkdown;
-                        const { gfm } = window.MilkdownPresetGfm;
-                        const { listener } = window.MilkdownPluginListener;
-                        
-                        const editor = Editor.make()
-                            .config((ctx) => {
-                                ctx.set(rootCtx, document.getElementById('editor'));
-                                ctx.set(defaultValueCtx, window.currentMarkdown);
-                            })
-                            .use(gfm)
-                            .use(listener.withConfig((ctx, plugin) => ({
-                                markdownUpdated: debounce((ctx, markdown, prevMarkdown) => {
-                                    if (markdown !== window.currentMarkdown) {
-                                        window.currentMarkdown = markdown;
-                                        // 通知Swift
-                                        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.markdownChanged) {
-                                            window.webkit.messageHandlers.markdownChanged.postMessage(markdown);
-                                        }
-                                    }
-                                }, 300)
-                            })))
-                            .create();
-                        
-                        window.milkdownEditor = editor;
-                        console.log('🎯 Milkdown编辑器初始化完成');
-                    } else {
-                        throw new Error('Milkdown libraries not loaded');
-                    }
-                } catch (error) {
-                    console.log('🚨 Milkdown加载失败，使用降级编辑器:', error);
-                    // 降级到简单的contenteditable
-                    setupSimpleEditor();
-                }
-                
-                function setupSimpleEditor() {
-                    const editor = document.getElementById('editor');
-                    editor.innerHTML = window.currentMarkdown.replace(/\n/g, '<br>');
-                    editor.style.border = '2px solid #007AFF';
-                    editor.style.borderRadius = '8px';
-                    editor.style.padding = '16px';
-                    
-                    // 添加简单的Markdown渲染
-                    editor.addEventListener('input', function() {
-                        const text = editor.innerText;
-                        window.currentMarkdown = text;
-                        
-                        // 简单渲染
-                        let html = text
-                            .replace(/^# (.*)$/gm, '<h1>$1</h1>')
-                            .replace(/^## (.*)$/gm, '<h2>$1</h2>')
-                            .replace(/^### (.*)$/gm, '<h3>$1</h3>')
-                            .replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>')
-                            .replace(/\\*(.*?)\\*/g, '<em>$1</em>')
-                            .replace(/\\n/g, '<br>');
-                            
-                        editor.innerHTML = html;
-                        
-                        // 通知Swift
-                        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.markdownChanged) {
-                            window.webkit.messageHandlers.markdownChanged.postMessage(text);
-                        }
-                    });
-                    
-                    console.log('🎯 简单编辑器已就绪');
-                }
-            </script>
-        </body>
-        </html>
-        """
-    }
-}
-
-// MARK: - 简单可靠的Milkdown编辑器（备用）
-struct SimpleMilkdownEditor: NSViewRepresentable {
-    @Binding var markdown: String
-    let onExit: () -> Void
-    let onTextChange: (String) -> Void
-    
-    func makeCoordinator() -> Coordinator {
-        Coordinator(parent: self)
-    }
-    
-    func makeNSView(context: Context) -> WKWebView {
-        let config = WKWebViewConfiguration()
-        config.preferences.setValue(true, forKey: "developerExtrasEnabled")
-        config.userContentController.add(context.coordinator, name: "textChanged")
-        config.userContentController.add(context.coordinator, name: "exitEditor")
-        
-        let webView = WKWebView(frame: .zero, configuration: config)
-        webView.setValue(false, forKey: "drawsBackground")
-        webView.loadHTMLString(htmlContent(with: markdown), baseURL: nil)
-        
-        return webView
-    }
-    
-    func updateNSView(_ webView: WKWebView, context: Context) {
-        // 当外部文本变化时，更新编辑器内容
-        let js = "updateEditorContent('\(markdown.replacingOccurrences(of: "'", with: "\\'").replacingOccurrences(of: "\n", with: "\\n"))');"
-        webView.evaluateJavaScript(js)
-    }
-    
-    class Coordinator: NSObject, WKScriptMessageHandler {
-        let parent: SimpleMilkdownEditor
-        
-        init(parent: SimpleMilkdownEditor) {
-            self.parent = parent
-        }
-        
-        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-            DispatchQueue.main.async {
-                switch message.name {
-                case "textChanged":
-                    if let text = message.body as? String {
-                        self.parent.markdown = text
-                        self.parent.onTextChange(text)
-                    }
-                case "exitEditor":
-                    self.parent.onExit()
-                default:
-                    break
-                }
-            }
-        }
-    }
-    
-    private func htmlContent(with initialText: String) -> String {
-        return """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-                * { margin: 0; padding: 0; box-sizing: border-box; }
-                body { 
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-                    background: transparent;
-                    color: #333;
-                    padding: 20px;
-                    min-height: 100vh;
-                }
-                #editor {
-                    min-height: 400px;
-                    font-size: 18px;
-                    line-height: 1.6;
-                    outline: none;
-                    background: transparent;
-                    width: 100%;
-                }
-                @media (prefers-color-scheme: dark) {
-                    body { color: #eee; }
-                    #editor { color: #eee; }
-                }
-            </style>
-        </head>
-        <body>
-            <div id="editor" contenteditable="true">\(escapeHtml(initialText))</div>
-            
-            <script>
-                const editor = document.getElementById('editor');
-                
-                // 文本变化时通知Swift
-                editor.addEventListener('input', function() {
-                    const text = editor.innerText;
-                    window.webkit.messageHandlers.textChanged.postMessage(text);
-                });
-                
-                // ESC键退出编辑
-                document.addEventListener('keydown', function(e) {
-                    if (e.key === 'Escape') {
-                        window.webkit.messageHandlers.exitEditor.postMessage('exit');
-                    }
-                });
-                
-                // 更新编辑器内容的函数
-                function updateEditorContent(text) {
-                    if (editor.innerText !== text) {
-                        editor.innerText = text;
-                    }
-                }
-                
-                // 自动聚焦
-                editor.focus();
-            </script>
-        </body>
-        </html>
-        """
-    }
-    
-    private func escapeHtml(_ text: String) -> String {
-        return text
-            .replacingOccurrences(of: "&", with: "&amp;")
-            .replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
-            .replacingOccurrences(of: "\"", with: "&quot;")
-            .replacingOccurrences(of: "'", with: "&#x27;")
-            .replacingOccurrences(of: "\n", with: "<br>")
-    }
-}
 
 #Preview {
     let sampleNode = Node(
