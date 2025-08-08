@@ -133,70 +133,13 @@ struct NodeDetailView: View {
             }
             .padding(.horizontal)
             
-            // 超简单测试编辑器
-            VStack {
-                if isEditing {
-                    VStack(spacing: 0) {
-                        HStack {
-                            Text("📝 Typora编辑模式")
-                                .font(.caption)
-                                .foregroundColor(.green)
-                            Spacer()
-                            Button("预览") { 
-                                isEditing = false 
-                            }
-                            .font(.caption)
-                        }
-                        .padding(.horizontal)
-                        .padding(.top, 8)
-                        
-                        // 真正的Milkdown编辑器
-                        SimpleMilkdownEditor(
-                            markdown: $markdownText,
-                            onExit: { isEditing = false },
-                            onTextChange: { newText in
-                                debouncedSave(newText)
-                            }
-                        )
-                    }
-                } else if markdownText.isEmpty {
-                    VStack(spacing: 20) {
-                        Text("开始编写")
-                            .font(.title)
-                        Text("点击开始")
-                            .foregroundColor(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        isEditing = true
-                    }
-                } else {
-                    ZStack {
-                        MermaidWebView(markdown: markdownText)
-                        
-                        // 完全透明的点击层
-                        Color.clear
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                print("🎯 点击了预览区域！")
-                                isEditing = true
-                                print("🎯 isEditing = \(isEditing)")
-                            }
-                    }
-                    .overlay(alignment: .bottomTrailing) {
-                        Text("点击编辑")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.black.opacity(0.05))
-                            .cornerRadius(6)
-                            .padding(12)
-                            .opacity(0.7)
-                    }
+            // 🎯 真正的Typora单窗格编辑器 - 无模式切换
+            TrueTyporaEditor(
+                markdown: $markdownText,
+                onTextChange: { newText in
+                    debouncedSave(newText)
                 }
-            }
+            )
         }
         .onAppear {
             loadMarkdown()
@@ -2991,9 +2934,241 @@ struct WebMarkdownEditor: NSViewRepresentable {
     }
 }
 
-// MARK: - 简单可靠的Milkdown编辑器
+// MARK: - 真正的Typora编辑器 - ProseMirror + Milkdown 单窗格WYSIWYG
 import WebKit
 
+struct TrueTyporaEditor: NSViewRepresentable {
+    @Binding var markdown: String
+    let onTextChange: (String) -> Void
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+    
+    func makeNSView(context: Context) -> WKWebView {
+        let config = WKWebViewConfiguration()
+        config.preferences.setValue(true, forKey: "developerExtrasEnabled")
+        config.userContentController.add(context.coordinator, name: "markdownChanged")
+        
+        let webView = WKWebView(frame: .zero, configuration: config)
+        webView.setValue(false, forKey: "drawsBackground")
+        webView.loadHTMLString(typoraHTML(with: markdown), baseURL: nil)
+        
+        return webView
+    }
+    
+    func updateNSView(_ webView: WKWebView, context: Context) {
+        // 只有外部改变时才更新编辑器
+        let escapedMarkdown = markdown
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "\\n")
+        
+        let js = """
+            if (window.milkdownEditor && window.currentMarkdown !== "\(escapedMarkdown)") {
+                window.milkdownEditor.action((ctx) => {
+                    ctx.get(window.Milkdown.defaultValueCtx.key).set("\(escapedMarkdown)");
+                });
+                window.currentMarkdown = "\(escapedMarkdown)";
+            }
+        """
+        webView.evaluateJavaScript(js)
+    }
+    
+    class Coordinator: NSObject, WKScriptMessageHandler {
+        let parent: TrueTyporaEditor
+        
+        init(parent: TrueTyporaEditor) {
+            self.parent = parent
+        }
+        
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            DispatchQueue.main.async {
+                if message.name == "markdownChanged", let text = message.body as? String {
+                    self.parent.markdown = text
+                    self.parent.onTextChange(text)
+                }
+            }
+        }
+    }
+    
+    private func typoraHTML(with initialMarkdown: String) -> String {
+        let escapedMarkdown = initialMarkdown
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "\\n")
+        
+        return """
+        <!DOCTYPE html>
+        <html lang="zh">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Typora Editor</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                html, body {
+                    height: 100%;
+                    background: transparent;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                }
+                
+                .milkdown {
+                    padding: 24px 32px;
+                    min-height: 100vh;
+                    background: transparent;
+                    font-size: 18px;
+                    line-height: 1.6;
+                    color: #333;
+                    outline: none;
+                }
+                
+                .milkdown h1 {
+                    font-size: 2.2em;
+                    font-weight: bold;
+                    margin: 1.5em 0 0.8em 0;
+                    color: #2c3e50;
+                }
+                
+                .milkdown h2 {
+                    font-size: 1.8em;
+                    font-weight: 600;
+                    margin: 1.3em 0 0.7em 0;
+                    color: #34495e;
+                }
+                
+                .milkdown h3 {
+                    font-size: 1.4em;
+                    font-weight: 500;
+                    margin: 1.2em 0 0.6em 0;
+                    color: #7f8c8d;
+                }
+                
+                .milkdown p {
+                    margin: 0.8em 0;
+                }
+                
+                .milkdown ul, .milkdown ol {
+                    margin: 0.8em 0;
+                    padding-left: 2em;
+                }
+                
+                .milkdown li {
+                    margin: 0.3em 0;
+                }
+                
+                .milkdown code {
+                    background: #f8f9fa;
+                    border-radius: 4px;
+                    padding: 0.2em 0.4em;
+                    font-family: 'SF Mono', Consolas, monospace;
+                    font-size: 0.9em;
+                    color: #e74c3c;
+                }
+                
+                .milkdown pre {
+                    background: #f8f9fa;
+                    border-radius: 8px;
+                    padding: 1em;
+                    margin: 1em 0;
+                    overflow-x: auto;
+                    font-family: 'SF Mono', Consolas, monospace;
+                    font-size: 0.9em;
+                }
+                
+                .milkdown blockquote {
+                    border-left: 4px solid #3498db;
+                    padding-left: 1em;
+                    margin: 1em 0;
+                    color: #7f8c8d;
+                }
+                
+                .milkdown strong {
+                    font-weight: 600;
+                    color: #2c3e50;
+                }
+                
+                .milkdown em {
+                    font-style: italic;
+                    color: #34495e;
+                }
+                
+                @media (prefers-color-scheme: dark) {
+                    .milkdown { color: #e8e8e8; }
+                    .milkdown h1 { color: #fff; }
+                    .milkdown h2 { color: #f0f0f0; }
+                    .milkdown h3 { color: #ccc; }
+                    .milkdown code { 
+                        background: #2c2c2e; 
+                        color: #ff6b6b; 
+                    }
+                    .milkdown pre { background: #2c2c2e; }
+                    .milkdown blockquote { 
+                        border-left-color: #5dade2;
+                        color: #bbb; 
+                    }
+                    .milkdown strong { color: #fff; }
+                    .milkdown em { color: #f0f0f0; }
+                }
+            </style>
+            <script src="https://cdn.jsdelivr.net/npm/@milkdown/core@7.15.4/dist/milkdown.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/@milkdown/preset-gfm@7.15.4/dist/milkdown-preset-gfm.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/@milkdown/plugin-listener@7.15.4/dist/milkdown-plugin-listener.min.js"></script>
+        </head>
+        <body>
+            <div id="editor"></div>
+            
+            <script>
+                window.currentMarkdown = "\(escapedMarkdown)";
+                
+                // 防抖函数
+                function debounce(func, wait) {
+                    let timeout;
+                    return function executedFunction(...args) {
+                        const later = () => {
+                            clearTimeout(timeout);
+                            func(...args);
+                        };
+                        clearTimeout(timeout);
+                        timeout = setTimeout(later, wait);
+                    };
+                }
+                
+                // 创建Milkdown编辑器
+                const { Editor, rootCtx, defaultValueCtx } = window.Milkdown;
+                const { gfm } = window.MilkdownPresetGfm;
+                const { listener } = window.MilkdownPluginListener;
+                
+                const editor = Editor.make()
+                    .config((ctx) => {
+                        ctx.set(rootCtx, document.getElementById('editor'));
+                        ctx.set(defaultValueCtx, window.currentMarkdown);
+                    })
+                    .use(gfm)
+                    .use(listener.withConfig((ctx, plugin) => ({
+                        markdownUpdated: debounce((ctx, markdown, prevMarkdown) => {
+                            if (markdown !== window.currentMarkdown) {
+                                window.currentMarkdown = markdown;
+                                // 通知Swift
+                                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.markdownChanged) {
+                                    window.webkit.messageHandlers.markdownChanged.postMessage(markdown);
+                                }
+                            }
+                        }, 300)
+                    })))
+                    .create();
+                
+                window.milkdownEditor = editor;
+                
+                console.log('🎯 Milkdown编辑器初始化完成');
+            </script>
+        </body>
+        </html>
+        """
+    }
+}
+
+// MARK: - 简单可靠的Milkdown编辑器（备用）
 struct SimpleMilkdownEditor: NSViewRepresentable {
     @Binding var markdown: String
     let onExit: () -> Void
