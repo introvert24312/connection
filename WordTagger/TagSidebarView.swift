@@ -5,11 +5,13 @@ import MapKit
 struct TagSidebarView: View {
     @EnvironmentObject private var store: NodeStore
     @State private var filter: String = ""
+    @State private var tagTypeSearchQuery: String = ""
     @State private var selectedTagTypes: Set<Tag.TagType> = []
     @State private var expandedGroups: Set<Tag.TagType> = []
     @Binding var selectedNode: Node?
     @State private var selectedIndex: Int = -1
     @FocusState private var isListFocused: Bool
+    @FocusState private var isTagTypeSearchFocused: Bool
     
     var body: some View {
         VStack(spacing: 0) {
@@ -57,33 +59,74 @@ struct TagSidebarView: View {
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(.secondary)
                     
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 8) {
-                        ForEach(Tag.TagType.allCases, id: \.self) { type in
-                            TagTypeMultiSelectButton(
-                                type: type,
-                                isSelected: selectedTagTypes.contains(type),
-                                action: {
-                                    toggleTagType(type)
+                    // 标签类型搜索框
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.gray)
+                            .font(.system(size: 12))
+                        TextField("搜索标签类型...", text: $tagTypeSearchQuery)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 13))
+                            .focused($isTagTypeSearchFocused)
+                    }
+                    .padding(8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color.gray.opacity(0.1))
+                    )
+                    
+                    // 搜索结果和添加按钮
+                    if !tagTypeSearchQuery.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(searchableTagTypes, id: \.rawValue) { type in
+                                    TagTypeSearchResultButton(
+                                        type: type,
+                                        isAlreadySelected: selectedTagTypes.contains(type),
+                                        onAdd: {
+                                            addTagType(type)
+                                        }
+                                    )
                                 }
-                            )
+                            }
+                            .padding(.horizontal, 4)
                         }
+                        .frame(maxHeight: 40)
                     }
                     
+                    // 已选择的标签类型
                     if !selectedTagTypes.isEmpty {
-                        HStack {
-                            Text("已选择 \(selectedTagTypes.count) 种标签类型")
-                                .font(.system(size: 12))
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("已选择的标签类型")
+                                .font(.system(size: 12, weight: .medium))
                                 .foregroundColor(.secondary)
                             
-                            Spacer()
-                            
-                            Button("清空") {
-                                selectedTagTypes.removeAll()
-                                expandedGroups.removeAll()
+                            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 8) {
+                                ForEach(Array(selectedTagTypes.sorted(by: { $0.displayName < $1.displayName })), id: \.self) { type in
+                                    SelectedTagTypeChip(
+                                        type: type,
+                                        onRemove: {
+                                            removeTagType(type)
+                                        }
+                                    )
+                                }
                             }
-                            .font(.system(size: 12))
-                            .foregroundColor(.blue)
-                            .buttonStyle(.plain)
+                            
+                            HStack {
+                                Text("\(selectedTagTypes.count) 种标签类型")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.secondary)
+                                
+                                Spacer()
+                                
+                                Button("清空") {
+                                    selectedTagTypes.removeAll()
+                                    expandedGroups.removeAll()
+                                }
+                                .font(.system(size: 12))
+                                .foregroundColor(.blue)
+                                .buttonStyle(.plain)
+                            }
                         }
                     }
                 }
@@ -160,14 +203,36 @@ struct TagSidebarView: View {
         }
     }
     
+    // 搜索匹配的标签类型
+    private var searchableTagTypes: [Tag.TagType] {
+        guard !tagTypeSearchQuery.isEmpty else { return [] }
+        
+        // 获取所有实际存在的标签类型（不仅仅是预定义的）
+        let allExistingTypes = Set(store.allTags.map { $0.type })
+        
+        return allExistingTypes.filter { tagType in
+            tagType.displayName.localizedCaseInsensitiveContains(tagTypeSearchQuery) ||
+            tagType.rawValue.localizedCaseInsensitiveContains(tagTypeSearchQuery)
+        }.sorted { $0.displayName < $1.displayName }
+    }
+    
+    private func addTagType(_ tagType: Tag.TagType) {
+        selectedTagTypes.insert(tagType)
+        expandedGroups.insert(tagType)
+        // 清空搜索框
+        tagTypeSearchQuery = ""
+    }
+    
+    private func removeTagType(_ tagType: Tag.TagType) {
+        selectedTagTypes.remove(tagType)
+        expandedGroups.remove(tagType)
+    }
+    
     private func toggleTagType(_ tagType: Tag.TagType) {
         if selectedTagTypes.contains(tagType) {
-            selectedTagTypes.remove(tagType)
-            expandedGroups.remove(tagType)
+            removeTagType(tagType)
         } else {
-            selectedTagTypes.insert(tagType)
-            // 新选择的标签类型默认展开
-            expandedGroups.insert(tagType)
+            addTagType(tagType)
         }
     }
     
@@ -222,6 +287,82 @@ struct TagSidebarView: View {
         }
     }
     
+}
+
+// MARK: - 标签类型搜索结果按钮
+
+struct TagTypeSearchResultButton: View {
+    let type: Tag.TagType
+    let isAlreadySelected: Bool
+    let onAdd: () -> Void
+    
+    var body: some View {
+        Button(action: onAdd) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Color.from(tagType: type))
+                    .frame(width: 8, height: 8)
+                
+                Text(type.displayName)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(isAlreadySelected ? .secondary : .primary)
+                
+                if !isAlreadySelected {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(.blue)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isAlreadySelected ? Color.gray.opacity(0.1) : Color.blue.opacity(0.1))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isAlreadySelected ? Color.gray.opacity(0.3) : Color.blue, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(isAlreadySelected)
+    }
+}
+
+// MARK: - 已选择标签类型芯片
+
+struct SelectedTagTypeChip: View {
+    let type: Tag.TagType
+    let onRemove: () -> Void
+    
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(Color.from(tagType: type))
+                .frame(width: 8, height: 8)
+            
+            Text(type.displayName)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.primary)
+            
+            Button(action: onRemove) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 12))
+                    .foregroundColor(.gray)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.blue.opacity(0.1))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.blue, lineWidth: 1)
+        )
+    }
 }
 
 // MARK: - 标签类型多选按钮
