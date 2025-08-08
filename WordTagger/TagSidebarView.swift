@@ -8,6 +8,7 @@ struct TagSidebarView: View {
     @State private var tagTypeSearchQuery: String = ""
     @State private var selectedTagTypes: Set<Tag.TagType> = []
     @State private var expandedGroups: Set<Tag.TagType> = []
+    @State private var hiddenTagTypes: Set<Tag.TagType> = [.root] // 默认隐藏词根标签
     @Binding var selectedNode: Node?
     @State private var selectedIndex: Int = -1
     @FocusState private var isListFocused: Bool
@@ -56,7 +57,7 @@ struct TagSidebarView: View {
                 // 标签类型多选器
                 VStack(alignment: .leading, spacing: 12) {
                     Text("选择标签类型")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 16, weight: .medium))
                         .foregroundColor(.secondary)
                     
                     // 标签类型搜索框
@@ -66,7 +67,7 @@ struct TagSidebarView: View {
                             .font(.system(size: 12))
                         TextField("搜索标签类型...", text: $tagTypeSearchQuery)
                             .textFieldStyle(.plain)
-                            .font(.system(size: 13))
+                            .font(.system(size: 15))
                             .focused($isTagTypeSearchFocused)
                     }
                     .padding(8)
@@ -74,6 +75,36 @@ struct TagSidebarView: View {
                         RoundedRectangle(cornerRadius: 6)
                             .fill(Color.gray.opacity(0.1))
                     )
+                    
+                    // 隐藏选项
+                    HStack {
+                        Button(action: {
+                            if hiddenTagTypes.contains(.root) {
+                                hiddenTagTypes.remove(.root)
+                            } else {
+                                hiddenTagTypes.insert(.root)
+                                // 如果隐藏了词根标签，同时从已选择中移除
+                                selectedTagTypes.remove(.root)
+                                expandedGroups.remove(.root)
+                            }
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: hiddenTagTypes.contains(.root) ? "eye.slash" : "eye")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.secondary)
+                                Text("词根标签")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Spacer()
+                        
+                        Text(hiddenTagTypes.contains(.root) ? "已隐藏" : "显示中")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                    }
                     
                     // 搜索结果和添加按钮
                     if !tagTypeSearchQuery.isEmpty {
@@ -98,7 +129,7 @@ struct TagSidebarView: View {
                     if !selectedTagTypes.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("已选择的标签类型")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.system(size: 15, weight: .medium))
                                 .foregroundColor(.secondary)
                             
                             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 8) {
@@ -114,7 +145,7 @@ struct TagSidebarView: View {
                             
                             HStack {
                                 Text("\(selectedTagTypes.count) 种标签类型")
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 14))
                                     .foregroundColor(.secondary)
                                 
                                 Spacer()
@@ -123,7 +154,7 @@ struct TagSidebarView: View {
                                     selectedTagTypes.removeAll()
                                     expandedGroups.removeAll()
                                 }
-                                .font(.system(size: 12))
+                                .font(.system(size: 14))
                                 .foregroundColor(.blue)
                                 .buttonStyle(.plain)
                             }
@@ -147,12 +178,12 @@ struct TagSidebarView: View {
                                 .foregroundColor(.gray.opacity(0.5))
                             
                             Text("请选择标签类型")
-                                .font(.system(size: 16, weight: .medium))
+                                .font(.system(size: 18, weight: .medium))
                                 .foregroundColor(.secondary)
                                 .multilineTextAlignment(.center)
                             
                             Text("选择上方的标签类型来查看相关标签")
-                                .font(.system(size: 14))
+                                .font(.system(size: 16))
                                 .foregroundColor(.secondary)
                                 .multilineTextAlignment(.center)
                         }
@@ -211,8 +242,10 @@ struct TagSidebarView: View {
         let allExistingTypes = Set(store.allTags.map { $0.type })
         
         return allExistingTypes.filter { tagType in
-            tagType.displayName.localizedCaseInsensitiveContains(tagTypeSearchQuery) ||
-            tagType.rawValue.localizedCaseInsensitiveContains(tagTypeSearchQuery)
+            // 过滤掉隐藏的标签类型
+            !hiddenTagTypes.contains(tagType) &&
+            (tagType.displayName.localizedCaseInsensitiveContains(tagTypeSearchQuery) ||
+            tagType.rawValue.localizedCaseInsensitiveContains(tagTypeSearchQuery))
         }.sorted { $0.displayName < $1.displayName }
     }
     
@@ -304,7 +337,7 @@ struct TagTypeSearchResultButton: View {
                     .frame(width: 8, height: 8)
                 
                 Text(type.displayName)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundColor(isAlreadySelected ? .secondary : .primary)
                 
                 if !isAlreadySelected {
@@ -342,7 +375,7 @@ struct SelectedTagTypeChip: View {
                 .frame(width: 8, height: 8)
             
             Text(type.displayName)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 14, weight: .medium))
                 .foregroundColor(.primary)
             
             Button(action: onRemove) {
@@ -442,11 +475,11 @@ struct TagGroupView: View {
                     
                     // 标签类型名称和数量
                     Text(tagType.displayName)
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(.primary)
                     
                     Text("(\(tags.count))")
-                        .font(.system(size: 13))
+                        .font(.system(size: 15))
                         .foregroundColor(.secondary)
                     
                     Spacer()
@@ -511,14 +544,14 @@ struct TagValueRow: View {
                 
                 // 标签值
                 Text(tag.value)
-                    .font(.system(size: 14))
+                    .font(.system(size: 16))
                     .foregroundColor(isSelected ? .blue : .primary)
                 
                 Spacer()
                 
                 // 节点数量
                 Text("\(nodeCount)")
-                    .font(.system(size: 12))
+                    .font(.system(size: 14))
                     .foregroundColor(.secondary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
