@@ -39,6 +39,7 @@ struct DetailPanel: View {
                 }
                 .buttonStyle(.borderless)
                 .help("编辑节点")
+                
             }
             .padding()
             .background(Color(NSColor.controlBackgroundColor))
@@ -121,6 +122,14 @@ struct NodeDetailView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
+                
+                // 🚨 临时调试按钮
+                Button("强制编辑") {
+                    print("🚨 强制进入编辑模式")
+                    isEditing.toggle()
+                    print("🚨 isEditing现在是: \(isEditing)")
+                }
+                .foregroundColor(.red)
             }
             .padding(.horizontal)
             
@@ -2696,7 +2705,8 @@ struct SimpleTyporaEditor: View {
     @FocusState private var isTextEditorFocused: Bool
 
     var body: some View {
-        Group {
+        let _ = print("🔄 SimpleTyporaEditor body 刷新: isEditing=\(isEditing), text.isEmpty=\(text.isEmpty)")
+        return Group {
             if isEditing {
                 WebMarkdownEditor(text: $text) { new in
                     onTextChange(new)
@@ -2713,7 +2723,11 @@ struct SimpleTyporaEditor: View {
                         .padding(.leading, 21)
                 }
                 .contentShape(Rectangle())
-                .onTapGesture { isEditing = true }
+                .onTapGesture { 
+                    print("🎯 点击了空状态区域")
+                    isEditing = true 
+                    print("🎯 isEditing已设为: \(isEditing)")
+                }
                 .onKeyPress(.init("/"), phases: .down) { kp in
                     if kp.modifiers == .command { isEditing = true; return .handled }
                     return .ignored
@@ -2721,7 +2735,11 @@ struct SimpleTyporaEditor: View {
             } else {
                 MermaidWebView(markdown: text)
                     .contentShape(Rectangle())
-                    .onTapGesture { isEditing = true }
+                    .onTapGesture { 
+                        print("🎯 点击了预览区域，准备进入编辑模式")
+                        isEditing = true 
+                        print("🎯 isEditing已设为: \(isEditing)")
+                    }
                     .onKeyPress(.init("/"), phases: .down) { kp in
                         if kp.modifiers == .command { isEditing = true; return .handled }
                         return .ignored
