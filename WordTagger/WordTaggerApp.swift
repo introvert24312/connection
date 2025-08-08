@@ -1456,6 +1456,7 @@ struct TagManagerView: View {
     @State private var newTypeName: String = ""
     @State private var editingMapping: TagMapping?
     @State private var showSystemTags: Bool = false  // 默认隐藏系统标签
+    @FocusState private var isViewFocused: Bool
     
     let onDismiss: () -> Void
     
@@ -1468,6 +1469,12 @@ struct TagManagerView: View {
                     onDismiss()
                 }
             
+            // 隐藏的聚焦元素，用于接收键盘事件
+            Rectangle()
+                .fill(Color.clear)
+                .frame(width: 0, height: 0)
+                .focusable()
+                .focused($isViewFocused)
             
             VStack(spacing: 0) {
                 // 标题栏
@@ -1600,6 +1607,10 @@ struct TagManagerView: View {
             .frame(maxWidth: 700, maxHeight: 600)
             .padding(20)
         }
+        .onAppear {
+            // 视图出现时自动聚焦，确保可以接收键盘事件
+            isViewFocused = true
+        }
     }
     
     private func saveMapping() {
@@ -1644,9 +1655,23 @@ struct TagManagerView: View {
     }
     
     private var filteredMappings: [TagMapping] {
-        return tagManager.tagMappings.filter { mapping in
+        let allMappings = tagManager.tagMappings
+        print("🔍 TagManagerView: filteredMappings调试信息")
+        print("   - 所有标签数量: \(allMappings.count)")
+        print("   - showSystemTags: \(showSystemTags)")
+        
+        for mapping in allMappings {
+            let isSystem = shouldHideSystemTag(mapping)
+            let willShow = showSystemTags || !isSystem
+            print("   - 标签'\(mapping.key)': 是系统标签=\(isSystem), 将显示=\(willShow)")
+        }
+        
+        let filtered = allMappings.filter { mapping in
             showSystemTags || !shouldHideSystemTag(mapping)
         }
+        
+        print("   - 过滤后数量: \(filtered.count)")
+        return filtered
     }
     
 }
