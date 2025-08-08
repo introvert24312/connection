@@ -778,9 +778,9 @@ public final class NodeStore: ObservableObject {
     
     private func createSampleData() {
         // 创建一些简单的示例标签，避免使用可能引起混淆的名称
-        let rootTag1 = createTag(type: .root, value: "vis")
-        let rootTag2 = createTag(type: .root, value: "log")
-        let rootTag3 = createTag(type: .root, value: "cogn")
+        let rootTag1 = createTag(type: .custom("root"), value: "vis")
+        let rootTag2 = createTag(type: .custom("root"), value: "log")
+        let rootTag3 = createTag(type: .custom("root"), value: "cogn")
         let locationTag1 = createTag(type: .location, value: "教室A", latitude: 39.9042, longitude: 116.4074)
         let locationTag2 = createTag(type: .location, value: "办公室", latitude: 40.7589, longitude: -73.9851)
         let locationTag3 = createTag(type: .location, value: "会议室", latitude: 39.9055, longitude: 116.4078)

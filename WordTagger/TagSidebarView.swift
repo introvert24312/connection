@@ -8,7 +8,7 @@ struct TagSidebarView: View {
     @State private var tagTypeSearchQuery: String = ""
     @State private var selectedTagTypes: Set<Tag.TagType> = []
     @State private var expandedGroups: Set<Tag.TagType> = []
-    @State private var hiddenTagTypes: Set<Tag.TagType> = [.root] // 默认隐藏词根标签
+    @State private var hiddenTagTypes: Set<Tag.TagType> = [] // 默认不隐藏任何标签
     @Binding var selectedNode: Node?
     @State private var selectedIndex: Int = -1
     @FocusState private var isListFocused: Bool
@@ -77,34 +77,6 @@ struct TagSidebarView: View {
                     )
                     
                     // 隐藏选项
-                    HStack {
-                        Button(action: {
-                            if hiddenTagTypes.contains(.root) {
-                                hiddenTagTypes.remove(.root)
-                            } else {
-                                hiddenTagTypes.insert(.root)
-                                // 如果隐藏了词根标签，同时从已选择中移除
-                                selectedTagTypes.remove(.root)
-                                expandedGroups.remove(.root)
-                            }
-                        }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: hiddenTagTypes.contains(.root) ? "eye.slash" : "eye")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.secondary)
-                                Text("词根标签")
-                                    .font(.system(size: 13))
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        
-                        Spacer()
-                        
-                        Text(hiddenTagTypes.contains(.root) ? "已隐藏" : "显示中")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-                    }
                     
                     // 搜索结果和添加按钮
                     if !tagTypeSearchQuery.isEmpty {

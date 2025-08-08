@@ -126,13 +126,11 @@ public struct Node: Identifiable, Hashable, Codable {
 public struct Tag: Identifiable, Hashable, Codable {
     public enum TagType: Codable, Hashable {
         case location
-        case root
         case custom(String)
         
         public var rawValue: String {
             switch self {
             case .location: return "location"
-            case .root: return "root"
             case .custom(let name): return "custom_\(name)"
             }
         }
@@ -140,7 +138,6 @@ public struct Tag: Identifiable, Hashable, Codable {
         public var displayName: String {
             switch self {
             case .location: return "地点"
-            case .root: return "词根"
             case .custom(let key): 
                 // 从TagMappingManager获取最新的typeName
                 let tagManager = TagMappingManager.shared
@@ -154,12 +151,11 @@ public struct Tag: Identifiable, Hashable, Codable {
         public var color: String {
             switch self {
             case .location: return "red"
-            case .root: return "blue"
             case .custom: return "purple"
             }
         }
         
-        public static let predefinedCases: [TagType] = [.location, .root]
+        public static let predefinedCases: [TagType] = [.location]
         
         public static var allCases: [TagType] {
             return predefinedCases
@@ -172,8 +168,6 @@ public struct Tag: Identifiable, Hashable, Codable {
             switch value {
             case "location":
                 self = .location
-            case "root":
-                self = .root
             default:
                 if value.hasPrefix("custom_") {
                     let customName = String(value.dropFirst(7))

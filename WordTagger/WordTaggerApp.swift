@@ -213,9 +213,13 @@ class TagMappingManager: ObservableObject {
     // 系统内置核心标签 - 永远不能被删除
     static let builtInCoreTags = [
         TagMapping(key: "loc", typeName: "地点"),
-        TagMapping(key: "root", typeName: "词根"),
         TagMapping(key: "compound", typeName: "复合节点"),
         TagMapping(key: "child", typeName: "子节点")
+    ]
+    
+    // 常用标签 - 可以删除的预设标签
+    static let commonTags = [
+        TagMapping(key: "root", typeName: "词根")
     ]
     
     // 检查是否是内置核心标签
@@ -296,8 +300,8 @@ class TagMappingManager: ObservableObject {
     
     // 获取默认映射
     private func getDefaultMappings() -> [TagMapping] {
-        // 总是包含内置核心标签
-        return Self.builtInCoreTags
+        // 总是包含内置核心标签和常用标签
+        return Self.builtInCoreTags + Self.commonTags
     }
     
     // 优先从外部存储加载，失败时从UserDefaults加载

@@ -115,11 +115,21 @@ public final class GraphService: ObservableObject {
     
     private func buildRootNodeEdges(in graph: inout NodeGraph, words: [Node]) async {
         let rootNodes = words.filter { word in
-            word.tags.contains { $0.type == .root }
+            word.tags.contains { tag in
+                if case .custom(let key) = tag.type, key == "root" {
+                    return true
+                }
+                return false
+            }
         }
         
         let rootGroups = Dictionary(grouping: rootNodes) { word in
-            word.tags.filter { $0.type == .root }.map { $0.value }
+            word.tags.compactMap { tag in
+                if case .custom(let key) = tag.type, key == "root" {
+                    return tag.value
+                }
+                return nil
+            }
         }
         
         for (rootValues, wordsWithRoot) in rootGroups {

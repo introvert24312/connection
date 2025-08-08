@@ -33,7 +33,6 @@ extension Color {
     public static func from(tagType: Tag.TagType) -> Color {
         switch tagType {
         case .location: return Color(.systemGreen)
-        case .root: return Color(.systemBlue)
         case .custom: return Color(.systemGray)
         }
     }

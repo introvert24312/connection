@@ -76,14 +76,12 @@ class AutoColorManager {
         // 初始化预定义标签颜色
         assignedColors["memory"] = "#FF69B4"    // 粉色
         assignedColors["location"] = "#FF4444"   // 红色
-        assignedColors["root"] = "#4169E1"       // 蓝色
         assignedColors["shape"] = "#32CD32"      // 绿色
         assignedColors["sound"] = "#FF8C00"      // 橙色
         
         // 标记已使用的颜色索引
         usedColorIndices.insert(0) // 粉色
         usedColorIndices.insert(1) // 红色
-        usedColorIndices.insert(2) // 蓝色
         usedColorIndices.insert(3) // 绿色
         usedColorIndices.insert(4) // 橙色
     }
@@ -823,8 +821,6 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                 switch tagType {
                 case .location:
                     tagKey = "location"
-                case .root:
-                    tagKey = "root"
                 case .custom(let customName):
                     // 自定义标签使用自定义名称作为key
                     tagKey = "custom_\(customName)"
