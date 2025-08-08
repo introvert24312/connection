@@ -152,6 +152,16 @@ struct NodeDetailView: View {
             }
             return .ignored
         }
+        .onKeyPress(.init(" "), phases: .down) { keyPress in
+            // 空格键添加新行
+            if markdownText.isEmpty {
+                markdownText = "\n"
+            } else {
+                markdownText += "\n"
+            }
+            debouncedSave(markdownText)
+            return .handled
+        }
         .onDisappear {
             // 清理异步任务
             debounceTask?.cancel()
@@ -2184,15 +2194,6 @@ struct DebugClickableEditor: View {
                     ForEach(text.components(separatedBy: .newlines).indices, id: \.self) { index in
                         smartLineView(for: index, in: geometry)
                     }
-                    
-                    // 底部空白区域 - 点击添加新行
-                    Rectangle()
-                        .fill(Color.clear)
-                        .frame(height: 100)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            addNewLineInvisibly()
-                        }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 20)
@@ -2275,10 +2276,7 @@ struct DebugClickableEditor: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.gray.opacity(0.05))
-            )
+            .background(Color.clear)
     }
     
     private func singleLineEditor(line: String, index: Int) -> some View {
@@ -2388,10 +2386,8 @@ struct DebugClickableEditor: View {
             // 点击了有效行
             let line = lines[clickedLineIndex]
             startEditingInvisibly(at: clickedLineIndex, content: line)
-        } else if clickedLineIndex >= lines.count {
-            // 点击了底部空白区域，添加新行
-            addNewLineInvisibly()
         }
+        // 点击空白区域不做任何操作，只有空格键才添加新行
     }
     
     // 智能行渲染 - 无点击事件冲突的版本
