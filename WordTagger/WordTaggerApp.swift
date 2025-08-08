@@ -13,12 +13,14 @@ class TagMappingManager: ObservableObject {
     private let userDefaultsKey = "tagMappings"
     
     private init() {
-        // 启动时延迟加载，等待外部数据服务准备好
-        tagMappings = getDefaultMappings()
+        // 启动时只加载基础标签，延迟扫描现有标签
+        tagMappings = Self.builtInCoreTags + Self.commonTags
         
-        // 异步尝试从外部存储加载
-        Task {
+        // 异步尝试从外部存储加载，并扫描现有标签
+        Task { @MainActor in
             await loadFromExternalStorageOrFallback()
+            // 启动后扫描现有标签并更新映射
+            rescanAndUpdateMappings()
         }
     }
     
@@ -298,10 +300,50 @@ class TagMappingManager: ObservableObject {
         await loadFromExternalStorageOrFallback()
     }
     
+    // 重新扫描现有标签并更新映射
+    @MainActor
+    func rescanAndUpdateMappings() {
+        print("🔄 TagMappingManager: 重新扫描现有标签...")
+        let newMappings = getDefaultMappings()
+        tagMappings = newMappings
+        
+        // 保存到外部存储
+        Task {
+            try? await ExternalDataService.shared.saveTagMappingsOnly()
+        }
+    }
+    
     // 获取默认映射
+    @MainActor
     private func getDefaultMappings() -> [TagMapping] {
         // 总是包含内置核心标签和常用标签
-        return Self.builtInCoreTags + Self.commonTags
+        var mappings = Self.builtInCoreTags + Self.commonTags
+        
+        // 扫描现有节点中的标签，自动创建缺失的映射
+        let store = NodeStore.shared
+        let allTags = store.allTags
+        
+        print("🔍 扫描现有标签创建映射: 发现 \(allTags.count) 个标签")
+        
+        // 详细调试输出
+        for tag in allTags {
+            print("   检查标签: value='\(tag.value)', type=\(tag.type), displayName='\(tag.type.displayName)'")
+            if case .custom(let key) = tag.type {
+                // 检查是否已有映射
+                if !mappings.contains(where: { $0.key == key.lowercased() }) {
+                    let newMapping = TagMapping(key: key.lowercased(), typeName: key)
+                    mappings.append(newMapping)
+                    print("   + 自动创建标签映射: \(key)")
+                } else {
+                    print("   = 已存在标签映射: \(key)")
+                }
+            } else {
+                print("   - 非自定义标签，跳过: \(tag.type)")
+            }
+        }
+        
+        print("🔍 最终映射数量: \(mappings.count)")
+        return mappings
     }
     
     // 优先从外部存储加载，失败时从UserDefaults加载
@@ -336,12 +378,11 @@ class TagMappingManager: ObservableObject {
         
         // 外部存储失败，尝试从UserDefaults加载
         print("🏷️ TagMappingManager: 从UserDefaults加载标签映射...")
-        await MainActor.run {
-            loadTagMappingsFromUserDefaults()
-        }
+        await loadTagMappingsFromUserDefaults()
     }
     
     // 从UserDefaults加载（作为fallback）
+    @MainActor
     private func loadTagMappingsFromUserDefaults() {
         let decoder = JSONDecoder()
         if let data = UserDefaults.standard.data(forKey: userDefaultsKey),
@@ -1499,6 +1540,22 @@ struct TagManagerView: View {
                     .buttonStyle(.plain)
                     .help(showSystemTags ? "隐藏系统标签" : "显示系统标签")
                     
+                    // 重新扫描按钮
+                    Button(action: {
+                        tagManager.rescanAndUpdateMappings()
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 14))
+                                .foregroundColor(.secondary)
+                            Text("重新扫描")
+                                .font(.system(size: 14))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .help("重新扫描现有标签并创建缺失的映射")
+                    
                     Button(action: onDismiss) {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundColor(.secondary)
@@ -1655,23 +1712,9 @@ struct TagManagerView: View {
     }
     
     private var filteredMappings: [TagMapping] {
-        let allMappings = tagManager.tagMappings
-        print("🔍 TagManagerView: filteredMappings调试信息")
-        print("   - 所有标签数量: \(allMappings.count)")
-        print("   - showSystemTags: \(showSystemTags)")
-        
-        for mapping in allMappings {
-            let isSystem = shouldHideSystemTag(mapping)
-            let willShow = showSystemTags || !isSystem
-            print("   - 标签'\(mapping.key)': 是系统标签=\(isSystem), 将显示=\(willShow)")
-        }
-        
-        let filtered = allMappings.filter { mapping in
+        return tagManager.tagMappings.filter { mapping in
             showSystemTags || !shouldHideSystemTag(mapping)
         }
-        
-        print("   - 过滤后数量: \(filtered.count)")
-        return filtered
     }
     
 }
