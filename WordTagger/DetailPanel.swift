@@ -2179,7 +2179,7 @@ struct DebugClickableEditor: View {
     
     private var editingContentView: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16) {
+            LazyVStack(alignment: .leading, spacing: 8) {
                 ForEach(text.components(separatedBy: .newlines).indices, id: \.self) { index in
                     lineView(for: index)
                 }
@@ -2252,7 +2252,6 @@ struct DebugClickableEditor: View {
             .background(
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color.gray.opacity(0.05))
-                    .stroke(Color.blue.opacity(0.2), lineWidth: 1)
             )
     }
     
@@ -2339,9 +2338,9 @@ struct DebugClickableEditor: View {
             
             Spacer() // 填充整行，让整个区域都可以点击
         }
-        .frame(minHeight: 30) // 确保有最小高度
+        .frame(minHeight: 50) // 增大最小高度，扩大点击区域
         .padding(.horizontal, 16)
-        .padding(.vertical, 2) // 减小垂直间距，增加点击区域覆盖
+        .padding(.vertical, 12) // 大幅增加垂直间距，让行间完全可点击
         .background(Color.clear)
         .contentShape(Rectangle()) // 让整个矩形区域都可以点击
         .onTapGesture {
