@@ -5,7 +5,8 @@ import MapKit
 struct TagSidebarView: View {
     @EnvironmentObject private var store: NodeStore
     @State private var filter: String = ""
-    @State private var selectedTagType: Tag.TagType?
+    @State private var selectedTagTypes: Set<Tag.TagType> = []
+    @State private var expandedGroups: Set<Tag.TagType> = []
     @Binding var selectedNode: Node?
     @State private var selectedIndex: Int = -1
     @FocusState private var isListFocused: Bool
@@ -50,26 +51,41 @@ struct TagSidebarView: View {
                         .fill(Color(NSColor.controlBackgroundColor))
                 )
                 
-                // 标签类型过滤器
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        TagTypeFilterButton(
-                            type: nil,
-                            isSelected: selectedTagType == nil,
-                            action: { selectedTagType = nil }
-                        )
-                        
+                // 标签类型多选器
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("选择标签类型")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.secondary)
+                    
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 8) {
                         ForEach(Tag.TagType.allCases, id: \.self) { type in
-                            TagTypeFilterButton(
+                            TagTypeMultiSelectButton(
                                 type: type,
-                                isSelected: selectedTagType == type,
-                                action: { 
-                                    selectedTagType = selectedTagType == type ? nil : type
+                                isSelected: selectedTagTypes.contains(type),
+                                action: {
+                                    toggleTagType(type)
                                 }
                             )
                         }
                     }
-                    .padding(.horizontal, 4)
+                    
+                    if !selectedTagTypes.isEmpty {
+                        HStack {
+                            Text("已选择 \(selectedTagTypes.count) 种标签类型")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                            
+                            Spacer()
+                            
+                            Button("清空") {
+                                selectedTagTypes.removeAll()
+                                expandedGroups.removeAll()
+                            }
+                            .font(.system(size: 12))
+                            .foregroundColor(.blue)
+                            .buttonStyle(.plain)
+                        }
+                    }
                 }
             }
             .padding()
@@ -77,68 +93,46 @@ struct TagSidebarView: View {
             
             Divider()
             
-            // 标签列表
-            ScrollViewReader { proxy in
-                List(Array(filteredTags.enumerated()), id: \.offset) { index, tag in
-                    TagRowView(
-                        tag: tag,
-                        isHighlighted: index == selectedIndex
-                    ) {
-                        selectTagAtIndex(index)
-                    }
-                    .id(index)
-                    .onAppear {
-                        print("🎨 TagRow出现: index=\(index), tag='\(tag.value)', highlighted=\(index == selectedIndex)")
-                    }
-                }
-                .listStyle(.sidebar)
-                .focused($isListFocused)
-                .onKeyPress(.upArrow) {
-                    if selectedIndex > 0 {
-                        selectedIndex -= 1
-                        selectTagAtIndex(selectedIndex)
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            proxy.scrollTo(selectedIndex, anchor: .center)
+            // 标签组列表
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    if selectedTagTypes.isEmpty {
+                        // 未选择标签类型时的提示
+                        VStack(spacing: 16) {
+                            Image(systemName: "tag.circle")
+                                .font(.system(size: 48))
+                                .foregroundColor(.gray.opacity(0.5))
+                            
+                            Text("请选择标签类型")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                            
+                            Text("选择上方的标签类型来查看相关标签")
+                                .font(.system(size: 14))
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
                         }
-                    }
-                    return .handled
-                }
-                .onKeyPress(.downArrow) {
-                    if selectedIndex < filteredTags.count - 1 {
-                        selectedIndex += 1
-                        selectTagAtIndex(selectedIndex)
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            proxy.scrollTo(selectedIndex, anchor: .center)
-                        }
-                    }
-                    return .handled
-                }
-                .onKeyPress(.return) {
-                    selectTagAtIndex(selectedIndex)
-                    return .handled
-                }
-                .onChange(of: filteredTags) { _, newTags in
-                    print("🔄 filteredTags changed: 旧selectedIndex=\(selectedIndex), 新标签数=\(newTags.count)")
-                    DispatchQueue.main.async {
-                        let oldIndex = self.selectedIndex
-                        self.selectedIndex = min(self.selectedIndex, max(0, newTags.count - 1))
-                        print("🔄 selectedIndex 更新: \(oldIndex) -> \(self.selectedIndex)")
-                        
-                        // 如果没有标签了，确保清除选中状态
-                        if newTags.isEmpty {
-                            self.selectedIndex = -1
-                            print("🧹 清空选中索引，因为没有标签")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 60)
+                    } else {
+                        // 显示选中的标签类型组
+                        ForEach(Array(selectedTagTypes.sorted(by: { $0.rawValue < $1.rawValue })), id: \.self) { tagType in
+                            TagGroupView(
+                                tagType: tagType,
+                                tags: getTagsForType(tagType),
+                                isExpanded: expandedGroups.contains(tagType),
+                                onToggleExpanded: {
+                                    toggleGroup(tagType)
+                                },
+                                onSelectTag: { tag in
+                                    selectTag(tag)
+                                }
+                            )
                         }
                     }
                 }
-                .onAppear {
-                    DispatchQueue.main.async {
-                        isListFocused = true
-                        // 重置选中索引，避免显示异常高亮
-                        selectedIndex = -1
-                        print("🧹 onAppear: 重置selectedIndex=-1，避免意外高亮")
-                    }
-                }
+                .padding(.horizontal)
             }
             .navigationTitle("标签")
             .focusable()
@@ -166,31 +160,39 @@ struct TagSidebarView: View {
         }
     }
     
-    private var filteredTags: [Tag] {
-        print("🔍 TagSidebarView.filteredTags 开始计算")
-        print("   - searchQuery: '\(store.searchQuery)'")
-        print("   - currentLayer: \(store.currentLayer?.displayName ?? "nil")")
-        
-        // 如果有全局搜索查询，优先显示相关标签
+    private func toggleTagType(_ tagType: Tag.TagType) {
+        if selectedTagTypes.contains(tagType) {
+            selectedTagTypes.remove(tagType)
+            expandedGroups.remove(tagType)
+        } else {
+            selectedTagTypes.insert(tagType)
+            // 新选择的标签类型默认展开
+            expandedGroups.insert(tagType)
+        }
+    }
+    
+    private func toggleGroup(_ tagType: Tag.TagType) {
+        if expandedGroups.contains(tagType) {
+            expandedGroups.remove(tagType)
+        } else {
+            expandedGroups.insert(tagType)
+        }
+    }
+    
+    private func getTagsForType(_ tagType: Tag.TagType) -> [Tag] {
         var tags: [Tag]
+        
+        // 根据搜索状态和当前层获取标签
         if !store.searchQuery.isEmpty {
             tags = store.getRelevantTags(for: store.searchQuery)
-            print("   - 使用搜索标签: \(tags.count)个")
+        } else if store.currentLayer != nil {
+            tags = store.currentLayerTags
         } else {
-            // 如果有当前层，显示当前层标签；否则显示所有标签
-            if store.currentLayer != nil {
-                tags = store.currentLayerTags
-                print("   - 使用当前层标签: \(tags.count)个")
-            } else {
-                tags = store.allTags
-                print("   - 使用全局标签: \(tags.count)个")
-            }
+            tags = store.allTags
         }
         
         // 按类型过滤
-        if let selectedType = selectedTagType {
-            tags = tags.filter { $0.type == selectedType }
-        }
+        tags = tags.filter { $0.type == tagType }
         
         // 过滤掉内部管理标签
         tags = tags.filter { tag in
@@ -205,21 +207,11 @@ struct TagSidebarView: View {
             tags = tags.filter { $0.value.localizedCaseInsensitiveContains(filter) }
         }
         
-        // 按类型和值排序
-        return tags.sorted { tag1, tag2 in
-            if tag1.type != tag2.type {
-                return tag1.type.rawValue < tag2.type.rawValue
-            }
-            return tag1.value < tag2.value
-        }
+        // 按值排序
+        return tags.sorted { $0.value < $1.value }
     }
     
-    private func selectTagAtIndex(_ index: Int) {
-        guard index < filteredTags.count else { return }
-        let tag = filteredTags[index]
-        selectedIndex = index
-        
-        // 使用异步调度避免在视图更新期间修改状态
+    private func selectTag(_ tag: Tag) {
         DispatchQueue.main.async {
             store.selectTag(tag)
             let relatedNodes = store.nodes(withTag: tag)
@@ -232,38 +224,171 @@ struct TagSidebarView: View {
     
 }
 
-// MARK: - 标签类型过滤按钮
+// MARK: - 标签类型多选按钮
 
-struct TagTypeFilterButton: View {
-    let type: Tag.TagType?
+struct TagTypeMultiSelectButton: View {
+    let type: Tag.TagType
     let isSelected: Bool
     let action: () -> Void
     
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
-                if let type = type {
+            HStack(spacing: 8) {
+                // 选择状态指示
+                ZStack {
                     Circle()
-                        .fill(Color.from(tagType: type))
-                        .frame(width: 8, height: 8)
-                    Text(type.displayName)
-                        .font(.system(size: 12, weight: .medium))
-                } else {
-                    Text("全部")
-                        .font(.system(size: 12, weight: .medium))
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(width: 20, height: 20)
+                    
+                    if isSelected {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.blue)
+                    }
                 }
+                
+                // 标签类型指示和名称
+                Circle()
+                    .fill(Color.from(tagType: type))
+                    .frame(width: 12, height: 12)
+                
+                Text(type.displayName)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(isSelected ? .primary : .secondary)
+                
+                Spacer()
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(isSelected ? Color.blue.opacity(0.2) : Color.gray.opacity(0.1))
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? Color.blue.opacity(0.1) : Color.gray.opacity(0.05))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 1)
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(isSelected ? Color.blue : Color.gray.opacity(0.2), lineWidth: 1)
             )
-            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - 标签组视图
+
+struct TagGroupView: View {
+    let tagType: Tag.TagType
+    let tags: [Tag]
+    let isExpanded: Bool
+    let onToggleExpanded: () -> Void
+    let onSelectTag: (Tag) -> Void
+    @EnvironmentObject private var store: NodeStore
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // 组标题头部
+            Button(action: onToggleExpanded) {
+                HStack(spacing: 12) {
+                    // 展开/折叠箭头
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .frame(width: 12)
+                    
+                    // 标签类型指示器
+                    Circle()
+                        .fill(Color.from(tagType: tagType))
+                        .frame(width: 12, height: 12)
+                    
+                    // 标签类型名称和数量
+                    Text(tagType.displayName)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.primary)
+                    
+                    Text("(\(tags.count))")
+                        .font(.system(size: 13))
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(Color.gray.opacity(0.05))
+            }
+            .buttonStyle(.plain)
+            
+            // 标签列表（展开时显示）
+            if isExpanded {
+                LazyVStack(spacing: 0) {
+                    ForEach(tags, id: \.id) { tag in
+                        TagValueRow(
+                            tag: tag,
+                            isSelected: store.selectedTag?.id == tag.id,
+                            onSelect: { onSelectTag(tag) }
+                        )
+                        
+                        if tag != tags.last {
+                            Divider()
+                                .padding(.leading, 44)
+                        }
+                    }
+                }
+                .background(Color.white)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+        )
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - 标签值行视图
+
+struct TagValueRow: View {
+    let tag: Tag
+    let isSelected: Bool
+    let onSelect: () -> Void
+    @EnvironmentObject private var store: NodeStore
+    
+    private var nodeCount: Int {
+        store.nodes(withTag: tag).count
+    }
+    
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 12) {
+                // 缩进空间
+                Spacer()
+                    .frame(width: 32)
+                
+                // 选择状态指示
+                Circle()
+                    .fill(isSelected ? Color.blue : Color.gray.opacity(0.3))
+                    .frame(width: 8, height: 8)
+                
+                // 标签值
+                Text(tag.value)
+                    .font(.system(size: 14))
+                    .foregroundColor(isSelected ? .blue : .primary)
+                
+                Spacer()
+                
+                // 节点数量
+                Text("\(nodeCount)")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color.gray.opacity(0.1))
+                    )
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(isSelected ? Color.blue.opacity(0.05) : Color.clear)
         }
         .buttonStyle(.plain)
     }
