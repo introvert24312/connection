@@ -1619,12 +1619,11 @@ struct TagManagerView: View {
     
     // 判断是否应该隐藏系统标签
     private func shouldHideSystemTag(_ mapping: TagMapping) -> Bool {
-        // 隐藏这些系统标签以减少认知负荷
-        // root: 词根标签，虽有图谱连接功能但界面杂乱
-        // loc: 地点标签，虽有地图功能但用户不直接管理
-        // compound: 复合节点标记标签  
-        // child: 子节点引用标签
-        let systemTagsToHide = ["root", "loc", "compound", "child"]
+        // 隐藏核心系统标签以减少认知负荷
+        // compound: 复合节点标记标签，系统内部使用
+        // child: 子节点引用标签，系统内部使用
+        // loc: 地点标签，地图功能使用
+        let systemTagsToHide = ["compound", "child", "loc"]
         return systemTagsToHide.contains(mapping.key)
     }
     
