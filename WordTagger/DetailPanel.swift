@@ -152,8 +152,8 @@ struct NodeDetailView: View {
             }
             return .ignored
         }
-        .onKeyPress(.init(" "), phases: .down) { keyPress in
-            // 空格键添加新行
+        .onKeyPress(.return, phases: .down) { keyPress in
+            // 回车键添加新行
             if markdownText.isEmpty {
                 markdownText = "\n"
             } else {
