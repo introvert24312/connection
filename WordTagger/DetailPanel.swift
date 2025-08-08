@@ -107,7 +107,7 @@ struct NodeDetailView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-                // 简洁的标题栏
+            // 简洁的标题栏
             HStack {
                 Text(currentNode.text)
                     .font(.headline)
@@ -135,19 +135,19 @@ struct NodeDetailView: View {
                 }
             }
             .padding(.horizontal)
-            
-            // 使用 Milkdown WebView 实时 Markdown 编辑
+
+            // 使用 Milkdown WebView 实时 Markdown 编辑（主角）
             MilkdownWebView(
                 markdown: markdownText,
                 onChange: { newValue in
-                    // 从 WebView 回传的 Markdown，做防抖保存
                     debouncedSave(newValue)
                     markdownText = newValue
                 }
             )
-            .frame(minHeight: 300)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)   // 让它吃满可用空间
             .background(Color.clear)
             .zIndex(2)
+            
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
@@ -1813,6 +1813,18 @@ struct MermaidWebView: NSViewRepresentable {
         }
     }
     
+    // 工具：把 Swift 字符串安全地嵌进 JS 模板字符串
+    private func escapeForJavaScript(_ string: String) -> String {
+        return string
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "`", with: "\\`")
+            .replacingOccurrences(of: "$", with: "\\$")
+            .replacingOccurrences(of: "\n", with: "\\n")
+            .replacingOccurrences(of: "\r", with: "\\r")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "'", with: "\\'")
+    }
+    
     private func generateHTML(from markdown: String) -> String {
         // 处理本地图片路径
         let processedMarkdown = processLocalImages(in: markdown)
@@ -1979,7 +1991,8 @@ struct MermaidWebView: NSViewRepresentable {
                 function reRenderMermaidCharts() {
                     console.log('🔄 开始重新渲染Mermaid图表...');
                     
-                    const mermaidElements = document.querySelectorAll('.mermaid');
+                    const contentDiv = document.getElementById('content');
+                    const mermaidElements = contentDiv.querySelectorAll('.mermaid');
                     console.log('找到 ' + mermaidElements.length + ' 个Mermaid图表需要重新渲染');
                     
                     if (mermaidElements.length === 0) {
@@ -2003,7 +2016,6 @@ struct MermaidWebView: NSViewRepresentable {
                     // 使用setTimeout确保DOM更新完成后再重新渲染
                     setTimeout(() => {
                         (window.mermaid ? mermaid.run() : Promise.reject(new Error('Mermaid not available'))).then(() => {
-        
                             console.log('✅ Mermaid重新渲染成功');
                             // 重新添加rendered类，触发淡入动画
                             mermaidElements.forEach(element => {
@@ -2049,10 +2061,15 @@ struct MermaidWebView: NSViewRepresentable {
                     });
                     
                     const contentDiv = document.getElementById('content');
-                    contentDiv.innerHTML = doc.body.innerHTML;
+                    // 仅渲染 Mermaid 图表，避免与上半部分内容重复
+                    contentDiv.innerHTML = '';
+                    const mermaidsInDoc = doc.querySelectorAll('.mermaid');
+                    if (mermaidsInDoc.length > 0) {
+                        mermaidsInDoc.forEach((el) => contentDiv.appendChild(el));
+                    }
                     
                     // 渲染Mermaid图表
-                    const mermaidElements = document.querySelectorAll('.mermaid');
+                    const mermaidElements = document.getElementById('content').querySelectorAll('.mermaid');
                     console.log('准备渲染 ' + mermaidElements.length + ' 个Mermaid图表');
                     
                     if (mermaidElements.length > 0) {
@@ -2060,8 +2077,8 @@ struct MermaidWebView: NSViewRepresentable {
                         console.log('使用官方Mermaid引擎渲染图表...');
                         
                         // 使用官方推荐的渲染方式
-        (window.mermaid ? mermaid.run() : Promise.reject(new Error('Mermaid not available'))).then(() => {                            console.log('✅ Mermaid渲染成功');
-        
+                        (window.mermaid ? mermaid.run() : Promise.reject(new Error('Mermaid not available'))).then(() => {
+                            console.log('✅ Mermaid渲染成功');
                             // 添加rendered类，触发淡入动画
                             mermaidElements.forEach(element => {
                                 element.classList.add('rendered');
@@ -2081,24 +2098,14 @@ struct MermaidWebView: NSViewRepresentable {
                     }
                 }
                 
-                // 页面加载后渲染
-                window.addEventListener('load', renderContent);
-                renderContent();
+                // 确保渲染一定触发；并在文档就绪 / 完全加载后再尝试一次
+                try { renderContent(); } catch (e) { console.error(e); }
+                document.addEventListener('DOMContentLoaded', () => { try { renderContent(); } catch (e) { console.error(e); } });
+                window.addEventListener('load', () => { try { renderContent(); } catch (e) { console.error(e); } });
             </script>
         </body>
         </html>
         """#
-    }
-    
-    private func escapeForJavaScript(_ string: String) -> String {
-        return string
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "`", with: "\\`")
-            .replacingOccurrences(of: "$", with: "\\$")
-            .replacingOccurrences(of: "\n", with: "\\n")
-            .replacingOccurrences(of: "\r", with: "\\r")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-            .replacingOccurrences(of: "'", with: "\\'")
     }
     
     class Coordinator: NSObject, WKNavigationDelegate {
@@ -2203,6 +2210,8 @@ struct MilkdownWebView: NSViewRepresentable {
                 #app{background:transparent !important;border:none !important;border-radius:0;min-height:0;padding:0;box-shadow:none}
                 .milkdown{background:transparent !important}
                 .ProseMirror{background:transparent !important}
+                /* 在编辑器内联预览 Mermaid（只展示，不拦截编辑） */
+                .pm-mermaid-preview{ margin:12px 0; padding:0; background:transparent; pointer-events:none; opacity:1; }
                 .milkdown{padding:0 !important;margin:0 !important}
                 .ProseMirror{padding:0 !important;margin:0 !important}
                 /* 移除聚焦蓝框（AppKit & WebKit 双保险） */
@@ -2233,6 +2242,17 @@ struct MilkdownWebView: NSViewRepresentable {
                 .milkdown hr{border:0;border-top:1px solid rgba(0,0,0,.12);margin:2em 0}
                 @media (prefers-color-scheme: dark){ .milkdown hr{border-top-color: rgba(255,255,255,.15)} }
               </style>
+              <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+              <script>
+                (function(){
+                  try{
+                    const dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    if (window.mermaid && window.mermaid.initialize){
+                      window.mermaid.initialize({ startOnLoad:false, securityLevel:'loose', theme: dark ? 'dark' : 'base' });
+                    }
+                  }catch(e){ console.warn('Mermaid init failed', e); }
+                })();
+              </script>
             </head>
             <body>
               <div class="container">
@@ -2245,8 +2265,71 @@ struct MilkdownWebView: NSViewRepresentable {
                 import { exitCode } from 'https://esm.sh/prosemirror-commands@1';
                 import { editorViewCtx } from 'https://esm.sh/@milkdown/core@7';
                 import { TextSelection } from 'https://esm.sh/prosemirror-state@1';
+                import { Plugin, PluginKey } from 'https://esm.sh/prosemirror-state@1';
+                import { Decoration, DecorationSet } from 'https://esm.sh/prosemirror-view@1';
 
                 let editor; let debouncing;
+                
+                // === ProseMirror 插件：在代码块下方内联预览 Mermaid ===
+                function buildMermaidDecorations(state){
+                  const decos = [];
+                  const {doc} = state;
+                  const mermaidStart = /^(graph|sequenceDiagram|classDiagram|erDiagram|gantt|pie|journey)\b/i;
+                  doc.descendants((node, pos)=>{
+                    if (node.type && node.type.name === 'code_block'){
+                      const lang = (node.attrs && (node.attrs.language || node.attrs.params || node.attrs.lang) || '').toString().toLowerCase();
+                      const text = (node.textContent || '').trim();
+                      const isMermaid = lang.includes('mermaid') || mermaidStart.test(text);
+                      if (isMermaid){
+                        const dom = document.createElement('div');
+                        dom.className = 'mermaid pm-mermaid-preview';
+                        dom.setAttribute('data-source', text);
+                        dom.textContent = text; // 先放原始代码，稍后由 mermaid 渲染
+                        // 作为 widget decoration 插入到代码块之后（不影响编辑）
+                        decos.push(Decoration.widget(pos + node.nodeSize, dom, {side: 1, ignoreSelection: true}));
+                      }
+                    }
+                  });
+                  return DecorationSet.create(doc, decos);
+                }
+
+                const mermaidPreviewKey = new PluginKey('mermaid-preview');
+                const mermaidPreviewPlugin = new Plugin({
+                  key: mermaidPreviewKey,
+                  state: {
+                    init(){ return DecorationSet.empty; },
+                    apply(tr, old, _oldState, newState){
+                      if (tr.docChanged || tr.getMeta('forceMermaidPreview')) return buildMermaidDecorations(newState);
+                      return old.map(tr.mapping, tr.doc);
+                    }
+                  },
+                  props: {
+                    decorations(state){ return this.getState(state); }
+                  },
+                  view(view){
+                    function renderPreviews(){
+                      const nodes = view.dom.querySelectorAll('.pm-mermaid-preview');
+                      if (!nodes || nodes.length === 0) return;
+                      nodes.forEach((el)=>{
+                        const src = el.getAttribute('data-source') || el.textContent || '';
+                        el.innerHTML = '';
+                        try{
+                          const id = 'm-' + Math.random().toString(36).slice(2);
+                          if (window.mermaid && window.mermaid.render){
+                            window.mermaid.render(id, src).then(({svg})=>{
+                              el.innerHTML = svg; el.classList.add('rendered');
+                            }).catch(()=>{});
+                          } else if (window.mermaid && window.mermaid.run){
+                            el.textContent = src; window.mermaid.run();
+                          }
+                        }catch(_e){ /* 忽略单个失败 */ }
+                      });
+                    }
+                    setTimeout(renderPreviews, 0);
+                    return { update(){ setTimeout(renderPreviews, 0); } }
+                  }
+                });
+                
                 function setup(initial){
                   editor = Editor.make()
                     .config((ctx)=>{
@@ -2263,6 +2346,15 @@ struct MilkdownWebView: NSViewRepresentable {
                     .use(commonmark)
                     .use(listener)
                     .create();
+                  
+                  // 将 Mermaid 预览插件注入到 ProseMirror
+                  try {
+                    editor.action((ctx)=>{
+                      const view = ctx.get(editorViewCtx);
+                      const newState = view.state.reconfigure({ plugins: view.state.plugins.concat(mermaidPreviewPlugin) });
+                      view.updateState(newState);
+                    });
+                  } catch (_e) {}
                 }
 
                 // 获取当前 EditorView 的辅助函数
@@ -2277,35 +2369,6 @@ struct MilkdownWebView: NSViewRepresentable {
                     return;
                   }
 
-                  // 在段落中输入 ``` 或 ```mermaid + Enter → 自动生成围栏，并把光标放到中间
-                  if (e.key === 'Enter' && !e.shiftKey && !e.altKey) {
-                    withView((view)=>{
-                      const {$from} = view.state.selection;
-                      const inParagraph = $from.parent?.type?.name === 'paragraph';
-                      if (!inParagraph) return;
-                      const text = $from.parent.textContent || '';
-                      const pos = $from.parentOffset;
-                      const lastLine = text.slice(0, pos).split('\n').pop() || '';
-                      const m = lastLine.match(/^```(mermaid)?\s*$/i);
-                      if (m) {
-                        e.preventDefault();
-                        const lang = (m[1] || '').toLowerCase() === 'mermaid' ? 'mermaid' : '';
-                        const start = $from.start();
-                        const lineStart = pos - lastLine.length;
-                        let tr = view.state.tr;
-                        // 删除触发行
-                        tr = tr.delete(start + lineStart, start + pos);
-                        // 插入完整围栏
-                        const fenced = '```' + lang + '\n\n```';
-                        tr = tr.insertText(fenced, start + lineStart);
-                        view.dispatch(tr);
-                        // 将光标移动到围栏中间空行
-                        const between = start + lineStart + 3 + lang.length + 1; // 开头围栏 + 换行
-                        view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, between)));
-                      }
-                    });
-                    return;
-                  }
 
                   // 在代码块中，连续输入 ``` 自动退出
                   if (e.key === '`') {
