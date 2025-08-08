@@ -1309,6 +1309,21 @@ struct WordTaggerApp: App {
             .animation(.easeInOut(duration: 0.2), value: showPalette)
             .animation(.easeInOut(duration: 0.2), value: showQuickSearch)
             .animation(.easeInOut(duration: 0.2), value: showTagManager)
+            .onKeyPress(.escape) {
+                if showTagManager {
+                    showTagManager = false
+                    return .handled
+                }
+                if showPalette {
+                    showPalette = false
+                    return .handled
+                }
+                if showQuickSearch {
+                    showQuickSearch = false
+                    return .handled
+                }
+                return .ignored
+            }
             .sheet(isPresented: $showQuickAdd) {
                 QuickAddSheetView()
                     .environmentObject(store)
@@ -1453,11 +1468,6 @@ struct TagManagerView: View {
                     onDismiss()
                 }
             
-            // 隐藏的ESC按钮
-            Button("", action: onDismiss)
-                .opacity(0)
-                .keyboardShortcut(.escape)
-                .frame(width: 0, height: 0)
             
             VStack(spacing: 0) {
                 // 标题栏
