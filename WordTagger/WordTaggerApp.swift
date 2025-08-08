@@ -1441,7 +1441,6 @@ struct TagManagerView: View {
     @State private var newTypeName: String = ""
     @State private var editingMapping: TagMapping?
     @State private var showSystemTags: Bool = false  // 默认隐藏系统标签
-    @FocusState private var isFocused: Bool
     
     let onDismiss: () -> Void
     
@@ -1453,8 +1452,12 @@ struct TagManagerView: View {
                 .onTapGesture {
                     onDismiss()
                 }
-                .focusable()
-                .focused($isFocused)
+            
+            // 隐藏的ESC按钮
+            Button("", action: onDismiss)
+                .opacity(0)
+                .keyboardShortcut(.escape)
+                .frame(width: 0, height: 0)
             
             VStack(spacing: 0) {
                 // 标题栏
@@ -1586,13 +1589,6 @@ struct TagManagerView: View {
             .shadow(color: Color.black.opacity(0.2), radius: 30, x: 0, y: 10)
             .frame(maxWidth: 700, maxHeight: 600)
             .padding(20)
-        }
-        .onKeyPress(.escape) {
-            onDismiss()
-            return .handled
-        }
-        .onAppear {
-            isFocused = true
         }
     }
     
