@@ -2178,14 +2178,14 @@ struct DebugClickableEditor: View {
     }
     
     private var editingContentView: some View {
-        ZStack {
+        GeometryReader { geometry in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 8) {
+                LazyVStack(alignment: .leading, spacing: 0) { // spacing改为0，我们用padding控制间距
                     ForEach(text.components(separatedBy: .newlines).indices, id: \.self) { index in
-                        lineView(for: index)
+                        smartLineView(for: index, in: geometry)
                     }
                     
-                    // 隐形的添加新行区域
+                    // 底部空白区域 - 点击添加新行
                     Rectangle()
                         .fill(Color.clear)
                         .frame(height: 100)
@@ -2198,16 +2198,30 @@ struct DebugClickableEditor: View {
                 .padding(.vertical, 20)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            
-            // 完全覆盖的透明点击层，确保没有"死角"
-            Color.clear
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .contentShape(Rectangle())
-                .allowsHitTesting(true)
-                .onTapGesture { location in
-                    // 如果点击了空白区域，添加新行
-                    addNewLineInvisibly()
+            .background(Color.clear)
+            .contentShape(Rectangle())
+            .onTapGesture { location in
+                // 智能判断点击位置对应的行
+                handleSmartTap(at: location, in: geometry)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func smartLineView(for index: Int, in geometry: GeometryProxy) -> some View {
+        let line = text.components(separatedBy: .newlines)[index]
+        let allLines = text.components(separatedBy: .newlines)
+        
+        VStack(spacing: 0) {
+            if let editingRange = currentlyEditingLines, editingRange.contains(index) {
+                if index == editingRange.lowerBound {
+                    editingView(for: index, line: line, allLines: allLines, editingRange: editingRange)
+                        .padding(.vertical, 12)
                 }
+            } else {
+                smartRenderEditableLine(line, at: index)
+                    .padding(.vertical, 12) // 每行有足够的垂直空间
+            }
         }
     }
     
@@ -2359,6 +2373,71 @@ struct DebugClickableEditor: View {
         .onTapGesture {
             startEditingInvisibly(at: index, content: line)
         }
+    }
+    
+    // 智能点击处理 - 根据点击位置自动判断行
+    private func handleSmartTap(at location: CGPoint, in geometry: GeometryProxy) {
+        let lines = text.components(separatedBy: .newlines)
+        let lineHeight: CGFloat = 50 + 24 // minHeight + padding
+        let contentStartY: CGFloat = 20 // top padding
+        
+        // 计算点击位置对应的行索引
+        let clickedLineIndex = Int((location.y - contentStartY) / lineHeight)
+        
+        if clickedLineIndex >= 0 && clickedLineIndex < lines.count {
+            // 点击了有效行
+            let line = lines[clickedLineIndex]
+            startEditingInvisibly(at: clickedLineIndex, content: line)
+        } else if clickedLineIndex >= lines.count {
+            // 点击了底部空白区域，添加新行
+            addNewLineInvisibly()
+        }
+    }
+    
+    // 智能行渲染 - 无点击事件冲突的版本
+    @ViewBuilder
+    private func smartRenderEditableLine(_ line: String, at index: Int) -> some View {
+        HStack {
+            Group {
+                if line.hasPrefix("# ") {
+                    Text(String(line.dropFirst(2)))
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                } else if line.hasPrefix("## ") {
+                    Text(String(line.dropFirst(3)))
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                } else if line.hasPrefix("### ") {
+                    Text(String(line.dropFirst(4)))
+                        .font(.title3)
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+                } else if line.hasPrefix("- ") {
+                    HStack(alignment: .top, spacing: 8) {
+                        Text("•")
+                            .font(.body)
+                            .foregroundColor(.blue)
+                        Text(String(line.dropFirst(2)))
+                            .font(.body)
+                            .foregroundColor(.primary)
+                    }
+                } else if line.trimmingCharacters(in: .whitespaces).isEmpty {
+                    Text(" ")
+                        .font(.body)
+                        .frame(height: 24)
+                } else {
+                    Text(line)
+                        .font(.body)
+                        .foregroundColor(.primary)
+                }
+            }
+            
+            Spacer() // 填充整行
+        }
+        .frame(minHeight: 50) // 确保有足够的点击区域
+        .background(Color.clear)
     }
     
     // 检测是否是多行内容（如代码块）
