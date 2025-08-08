@@ -2692,53 +2692,215 @@ struct SimpleTyporaEditor: View {
     @Binding var text: String
     @Binding var isEditing: Bool
     let onTextChange: (String) -> Void
-    
+
     @FocusState private var isTextEditorFocused: Bool
-    
+
     var body: some View {
-        if text.isEmpty {
-            // 空状态 - 点击开始编辑
-            VStack(spacing: 20) {
-                Text("开始编写")
-                    .font(.title2)
-                    .foregroundColor(.secondary)
-                
-                TextEditor(text: $text)
-                    .focused($isTextEditorFocused)
-                    .font(.title3)
-                    .scrollContentBackground(.hidden)
-                    .background(Color.clear)
-                    .onChange(of: text) { _, newValue in
-                        onTextChange(newValue)
+        Group {
+            if isEditing {
+                WebMarkdownEditor(text: $text) { new in
+                    onTextChange(new)
+                }
+                .onAppear { isTextEditorFocused = true }
+                .onExitCommand { isEditing = false }
+            } else if text.isEmpty {
+                ZStack(alignment: .topLeading) {
+                    Color.clear
+                    Text("开始输入…（支持 Markdown，点击或按 ⌘/ 进入编辑）")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.top, 26)
+                        .padding(.leading, 21)
+                }
+                .contentShape(Rectangle())
+                .onTapGesture { isEditing = true }
+                .onKeyPress(.init("/"), phases: .down) { kp in
+                    if kp.modifiers == .command { isEditing = true; return .handled }
+                    return .ignored
+                }
+            } else {
+                MermaidWebView(markdown: text)
+                    .contentShape(Rectangle())
+                    .onTapGesture { isEditing = true }
+                    .onKeyPress(.init("/"), phases: .down) { kp in
+                        if kp.modifiers == .command { isEditing = true; return .handled }
+                        return .ignored
                     }
-                    .onAppear {
-                        isTextEditorFocused = true
+                    .overlay(alignment: .bottomTrailing) {
+                        Text("点击编辑 · ⌘/ 切换")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.black.opacity(0.05))
+                            .cornerRadius(6)
+                            .padding(12)
+                            .opacity(0.8)
                     }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                isTextEditorFocused = true
-            }
-        } else {
-            // 有内容状态 - 就是一个纯粹的TextEditor，像Typora一样
-            TextEditor(text: $text)
-                .focused($isTextEditorFocused)
-                .font(.title3)
-                .scrollContentBackground(.hidden)
-                .background(Color.clear)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 20)
-                .onChange(of: text) { _, newValue in
-                    onTextChange(newValue)
-                }
-                .onChange(of: isTextEditorFocused) { _, focused in
-                    isEditing = focused
-                }
-                .onTapGesture {
-                    isTextEditorFocused = true
-                }
         }
+        .onChange(of: text) { _, newValue in
+            onTextChange(newValue)
+        }
+    }
+}
+
+// MARK: - WebMarkdownEditor using Milkdown
+import WebKit
+
+struct WebMarkdownEditor: NSViewRepresentable {
+    @Binding var text: String
+    var onTextChange: (String) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    func makeNSView(context: Context) -> WKWebView {
+        let webView = WKWebView()
+        webView.navigationDelegate = context.coordinator
+        webView.configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
+        webView.configuration.userContentController.add(context.coordinator, name: "editorChanged")
+        webView.setValue(false, forKey: "drawsBackground")
+        let html = Self.htmlString(with: text)
+        webView.loadHTMLString(html, baseURL: nil)
+        context.coordinator.webView = webView
+        return webView
+    }
+
+    func updateNSView(_ webView: WKWebView, context: Context) {
+        context.coordinator.ignoreNextUpdate = true
+        let js = """
+            if (window.milkdownEditor && window.milkdownEditor.getMarkdown) {
+                window.milkdownEditor.getMarkdown().then(function(current) {
+                    if (current !== \(Self.jsStringLiteral(text))) {
+                        window.milkdownEditor.setMarkdown(\(Self.jsStringLiteral(text)));
+                    }
+                });
+            }
+        """
+        webView.evaluateJavaScript(js, completionHandler: nil)
+    }
+
+    class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+        var parent: WebMarkdownEditor
+        weak var webView: WKWebView?
+        var ignoreNextUpdate = false
+        init(parent: WebMarkdownEditor) { self.parent = parent }
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            if message.name == "editorChanged", let str = message.body as? String {
+                if !ignoreNextUpdate {
+                    DispatchQueue.main.async {
+                        self.parent.text = str
+                        self.parent.onTextChange(str)
+                    }
+                }
+                ignoreNextUpdate = false
+            }
+        }
+    }
+
+    static func jsStringLiteral(_ str: String) -> String {
+        // Properly escape for JS string literal
+        var s = str
+        s = s.replacingOccurrences(of: "\\", with: "\\\\")
+        s = s.replacingOccurrences(of: "\"", with: "\\\"")
+        s = s.replacingOccurrences(of: "\n", with: "\\n")
+        s = s.replacingOccurrences(of: "\r", with: "\\r")
+        s = s.replacingOccurrences(of: "'", with: "\\'")
+        return "\"\(s)\""
+    }
+
+    static func htmlString(with markdown: String) -> String {
+        // Inline HTML for Milkdown editor
+        return """
+        <!DOCTYPE html>
+        <html lang="zh">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Milkdown Editor</title>
+            <style>
+                html, body {
+                    height: 100%;
+                    margin: 0;
+                    padding: 0;
+                    background: transparent;
+                }
+                body {
+                    font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
+                    color: #222;
+                    min-height: 100vh;
+                }
+                #editor {
+                    min-height: 300px;
+                    font-size: 17px;
+                    outline: none;
+                    background: transparent;
+                    color: #222;
+                    border-radius: 8px;
+                    padding: 24px 20px 24px 20px;
+                }
+                .milkdown {
+                    background: transparent;
+                }
+                .editor-prose * {
+                    font-size: 1em !important;
+                }
+                @media (prefers-color-scheme: dark) {
+                    body { color: #eee; background: transparent;}
+                    #editor { color: #eee; background: transparent;}
+                }
+            </style>
+            <script src="https://cdn.jsdelivr.net/npm/@milkdown/core@7.15.4/dist/milkdown.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/@milkdown/preset-gfm@7.15.4/dist/milkdown-preset-gfm.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/@milkdown/plugin-listener@7.15.4/dist/milkdown-plugin-listener.min.js"></script>
+        </head>
+        <body>
+            <div id="editor"></div>
+            <script>
+                const { Editor, rootCtx, defaultValueCtx } = window.Milkdown;
+                const { gfm } = window.MilkdownPresetGfm;
+                const { listener } = window.MilkdownPluginListener;
+                let currentMarkdown = \(jsStringLiteral(markdown));
+                const editor = Editor.make()
+                    .config((ctx) => {
+                        ctx.set(rootCtx, document.getElementById('editor'));
+                        ctx.set(defaultValueCtx, currentMarkdown);
+                    })
+                    .use(gfm)
+                    .use(listener.withConfig((ctx, plugin) => ({
+                        markdownUpdated: (ctx, markdown, prevMarkdown) => {
+                            currentMarkdown = markdown;
+                            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.editorChanged) {
+                                window.webkit.messageHandlers.editorChanged.postMessage(markdown);
+                            }
+                        }
+                    })))
+                    .create();
+                window.milkdownEditor = editor;
+                editor.action((ctx) => {
+                    window.milkdownEditor.getMarkdown = () => Promise.resolve(currentMarkdown);
+                    window.milkdownEditor.setMarkdown = (md) => {
+                        ctx.set(defaultValueCtx, md);
+                        editor.action((ctx) => {
+                            ctx.get(window.Milkdown.EditorState).tr.insertText(md, 0, ctx.get(window.Milkdown.EditorState).doc.content.size);
+                        });
+                    };
+                });
+                // Support Cmd + / to blur/exit
+                document.addEventListener('keydown', function(e) {
+                    if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+                        window.blur();
+                    }
+                    if (e.key === 'Escape') {
+                        window.blur();
+                    }
+                });
+            </script>
+        </body>
+        </html>
+        """
     }
 }
 
