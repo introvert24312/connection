@@ -153,14 +153,17 @@ struct NodeDetailView: View {
             return .ignored
         }
         .onKeyPress(.return, phases: .down) { keyPress in
-            // 回车键添加新行
-            if markdownText.isEmpty {
-                markdownText = "\n"
-            } else {
-                markdownText += "\n"
+            // 只在非编辑状态下，回车键才添加新行
+            if !isEditing {
+                if markdownText.isEmpty {
+                    markdownText = "\n"
+                } else {
+                    markdownText += "\n"
+                }
+                debouncedSave(markdownText)
+                return .handled
             }
-            debouncedSave(markdownText)
-            return .handled
+            return .ignored
         }
         .onDisappear {
             // 清理异步任务
