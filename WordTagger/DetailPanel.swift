@@ -144,7 +144,6 @@ struct NodeDetailView: View {
                 // 静默进入编辑模式
             }
         }
-        .focusable()
         .onKeyPress(.init("/"), phases: .down) { keyPress in
             if keyPress.modifiers == .command {
                 // Command+/: 切换编辑模式
@@ -2134,85 +2133,145 @@ struct DebugClickableEditor: View {
     @Binding var isEditing: Bool
     let onTextChange: (String) -> Void
     
-    @State private var currentlyEditingLine: Int? = nil
+    @State private var currentlyEditingLines: ClosedRange<Int>? = nil  // 支持多行编辑
     @State private var editingText: String = ""
     @FocusState private var isTextFieldFocused: Bool
+    @FocusState private var isTextEditorFocused: Bool
     
     var body: some View {
         if text.isEmpty {
-            // 空状态 - 简洁提示
-            VStack(spacing: 30) {
-                VStack(spacing: 12) {
-                    Text("开始编写")
-                        .font(.title2)
-                        .foregroundColor(.primary)
-                    Text("点击开始，支持 Markdown")
-                        .font(.body)
-                        .foregroundColor(.secondary)
+            emptyStateView
+        } else {
+            editingContentView
+        }
+    }
+    
+    private var emptyStateView: some View {
+        VStack(spacing: 30) {
+            VStack(spacing: 12) {
+                Text("开始编写")
+                    .font(.title2)
+                    .foregroundColor(.primary)
+                Text("点击开始，支持 Markdown")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+            }
+            
+            TextField("", text: $editingText, prompt: Text("开始输入...").foregroundColor(.secondary))
+                .textFieldStyle(.plain)
+                .focused($isTextFieldFocused)
+                .font(.system(.body))
+                .onSubmit {
+                    if !editingText.isEmpty {
+                        text = editingText
+                        onTextChange(editingText)
+                        editingText = ""
+                    }
+                }
+                .frame(maxWidth: 500)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            isTextFieldFocused = true
+        }
+    }
+    
+    private var editingContentView: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 16) {
+                ForEach(text.components(separatedBy: .newlines).indices, id: \.self) { index in
+                    lineView(for: index)
                 }
                 
-                TextField("", text: $editingText, prompt: Text("开始输入...").foregroundColor(.secondary))
-                    .textFieldStyle(.plain)
-                    .focused($isTextFieldFocused)
-                    .font(.system(.body))
-                    .onSubmit {
-                        if !editingText.isEmpty {
-                            text = editingText
-                            onTextChange(editingText)
-                            editingText = ""
-                        }
+                // 隐形的添加新行区域
+                Rectangle()
+                    .fill(Color.clear)
+                    .frame(height: 100)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        addNewLineInvisibly()
                     }
-                    .frame(maxWidth: 500)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                isTextFieldFocused = true
+            .padding(.horizontal, 16)
+            .padding(.vertical, 20)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+    
+    @ViewBuilder
+    private func lineView(for index: Int) -> some View {
+        let line = text.components(separatedBy: .newlines)[index]
+        let allLines = text.components(separatedBy: .newlines)
+        
+        if let editingRange = currentlyEditingLines, editingRange.contains(index) {
+            if index == editingRange.lowerBound {
+                editingView(for: index, line: line, allLines: allLines, editingRange: editingRange)
             }
         } else {
-            // 完全隐形的内联编辑 - 没有任何编辑状态UI
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 16) {
-                    ForEach(text.components(separatedBy: .newlines).indices, id: \.self) { index in
-                        let line = text.components(separatedBy: .newlines)[index]
-                        
-                        if currentlyEditingLine == index {
-                            // 编辑状态 - 完全隐形，看起来就像普通文本但可以输入
-                            TextField("", text: $editingText, prompt: Text(line).foregroundColor(.secondary))
-                                .textFieldStyle(.plain)
-                                .focused($isTextFieldFocused)
-                                .font(fontForLine(line))
-                                .fontWeight(fontWeightForLine(line))
-                                .foregroundColor(.primary)
-                                .onSubmit {
-                                    finishEditingLine(at: index)
-                                }
-                                .onAppear {
-                                    editingText = line
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 4)
-                        } else {
-                            // 显示状态 - 可点击进入编辑
-                            renderInvisibleEditableLine(line, at: index)
-                        }
-                    }
-                    
-                    // 隐形的添加新行区域 - 点击空白区域自动添加
-                    Rectangle()
-                        .fill(Color.clear)
-                        .frame(height: 50)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            addNewLineInvisibly()
-                        }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 20)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            renderInvisibleEditableLine(line, at: index)
         }
+    }
+    
+    @ViewBuilder
+    private func editingView(for index: Int, line: String, allLines: [String], editingRange: ClosedRange<Int>) -> some View {
+        if isMultiLineContent(startingAt: index, in: allLines) {
+            multiLineEditor(allLines: allLines, editingRange: editingRange)
+        } else {
+            singleLineEditor(line: line, index: index)
+        }
+    }
+    
+    private func multiLineEditor(allLines: [String], editingRange: ClosedRange<Int>) -> some View {
+        TextEditor(text: $editingText)
+            .focused($isTextEditorFocused)
+            .font(.system(.body, design: .monospaced))
+            .foregroundColor(.primary)
+            .scrollContentBackground(.hidden)
+            .background(Color.clear)
+            .frame(minHeight: 100, maxHeight: 300)
+            .onAppear {
+                let editingContent = allLines[editingRange].joined(separator: "\n")
+                editingText = editingContent
+            }
+            .onChange(of: isTextEditorFocused) { _, focused in
+                if !focused {
+                    finishMultiLineEditing()
+                }
+            }
+            .onKeyPress(.escape) {
+                finishMultiLineEditing()
+                return .handled
+            }
+            .onKeyPress(.return) {
+                finishMultiLineEditing()
+                return .handled
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.gray.opacity(0.05))
+                    .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+            )
+    }
+    
+    private func singleLineEditor(line: String, index: Int) -> some View {
+        TextField("", text: $editingText, prompt: Text(line).foregroundColor(.secondary))
+            .textFieldStyle(.plain)
+            .focused($isTextFieldFocused)
+            .font(fontForLine(line))
+            .fontWeight(fontWeightForLine(line))
+            .foregroundColor(.primary)
+            .onSubmit {
+                finishEditingSingleLine(at: index)
+            }
+            .onAppear {
+                editingText = line
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 4)
     }
     
     private func fontForLine(_ line: String) -> Font {
@@ -2241,60 +2300,137 @@ struct DebugClickableEditor: View {
     
     @ViewBuilder
     private func renderInvisibleEditableLine(_ line: String, at index: Int) -> some View {
-        Group {
-            if line.hasPrefix("# ") {
-                Text(String(line.dropFirst(2)))
-                    .font(.title)
-                    .fontWeight(.bold)
-                    .foregroundColor(.primary)
-            } else if line.hasPrefix("## ") {
-                Text(String(line.dropFirst(3)))
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.primary)
-            } else if line.hasPrefix("### ") {
-                Text(String(line.dropFirst(4)))
-                    .font(.title3)
-                    .fontWeight(.medium)
-                    .foregroundColor(.primary)
-            } else if line.hasPrefix("- ") {
-                HStack(alignment: .top, spacing: 8) {
-                    Text("•")
-                        .font(.body)
-                        .foregroundColor(.blue)
+        HStack {
+            Group {
+                if line.hasPrefix("# ") {
                     Text(String(line.dropFirst(2)))
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
+                } else if line.hasPrefix("## ") {
+                    Text(String(line.dropFirst(3)))
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                } else if line.hasPrefix("### ") {
+                    Text(String(line.dropFirst(4)))
+                        .font(.title3)
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+                } else if line.hasPrefix("- ") {
+                    HStack(alignment: .top, spacing: 8) {
+                        Text("•")
+                            .font(.body)
+                            .foregroundColor(.blue)
+                        Text(String(line.dropFirst(2)))
+                            .font(.body)
+                            .foregroundColor(.primary)
+                    }
+                } else if line.trimmingCharacters(in: .whitespaces).isEmpty {
+                    Text(" ")
+                        .font(.body)
+                        .frame(height: 24)
+                } else {
+                    Text(line)
                         .font(.body)
                         .foregroundColor(.primary)
                 }
-            } else if line.trimmingCharacters(in: .whitespaces).isEmpty {
-                Text(" ")
-                    .font(.body)
-                    .frame(height: 24)
-            } else {
-                Text(line)
-                    .font(.body)
-                    .foregroundColor(.primary)
             }
+            
+            Spacer() // 填充整行，让整个区域都可以点击
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: 30) // 确保有最小高度
         .padding(.horizontal, 16)
-        .padding(.vertical, 4)
+        .padding(.vertical, 2) // 减小垂直间距，增加点击区域覆盖
         .background(Color.clear)
-        .contentShape(Rectangle())
+        .contentShape(Rectangle()) // 让整个矩形区域都可以点击
         .onTapGesture {
             startEditingInvisibly(at: index, content: line)
         }
     }
     
-    private func startEditingInvisibly(at index: Int, content: String) {
-        // 完全静默开始编辑
-        currentlyEditingLine = index
-        editingText = content
-        isTextFieldFocused = true
+    // 检测是否是多行内容（如代码块）
+    private func isMultiLineContent(startingAt index: Int, in lines: [String]) -> Bool {
+        guard index < lines.count else { return false }
+        let line = lines[index]
+        
+        // 检测代码块开始
+        if line.hasPrefix("```") {
+            return true
+        }
+        
+        // 检测是否在代码块中间
+        for i in (0..<index).reversed() {
+            if lines[i].hasPrefix("```") {
+                // 找到了代码块开始，检查是否已经结束
+                for j in (i+1)..<lines.count {
+                    if lines[j].hasPrefix("```") && j != i {
+                        return j > index // 如果结束标记在当前行之后，说明在代码块内
+                    }
+                }
+                return true // 没找到结束标记，说明在代码块内
+            }
+        }
+        
+        return false
     }
     
-    private func finishEditingLine(at index: Int) {
-        guard currentlyEditingLine == index else { return }
+    // 找到多行内容的范围
+    private func findMultiLineRange(startingAt index: Int, in lines: [String]) -> ClosedRange<Int> {
+        guard index < lines.count else { return index...index }
+        
+        if lines[index].hasPrefix("```") {
+            // 从代码块开始标记找到结束标记
+            for i in (index+1)..<lines.count {
+                if lines[i].hasPrefix("```") {
+                    return index...i
+                }
+            }
+            return index...(lines.count - 1) // 如果没找到结束标记，到文档末尾
+        } else {
+            // 在代码块中间，找到开始和结束
+            var startIndex = index
+            var endIndex = index
+            
+            // 向前找开始标记
+            for i in (0..<index).reversed() {
+                if lines[i].hasPrefix("```") {
+                    startIndex = i
+                    break
+                }
+            }
+            
+            // 向后找结束标记
+            for i in index..<lines.count {
+                if lines[i].hasPrefix("```") && i > startIndex {
+                    endIndex = i
+                    break
+                }
+            }
+            
+            return startIndex...endIndex
+        }
+    }
+    
+    private func startEditingInvisibly(at index: Int, content: String) {
+        let lines = text.components(separatedBy: .newlines)
+        
+        if isMultiLineContent(startingAt: index, in: lines) {
+            // 多行编辑
+            let range = findMultiLineRange(startingAt: index, in: lines)
+            currentlyEditingLines = range
+            editingText = lines[range].joined(separator: "\n")
+            isTextEditorFocused = true
+        } else {
+            // 单行编辑
+            currentlyEditingLines = index...index
+            editingText = content
+            isTextFieldFocused = true
+        }
+    }
+    
+    private func finishEditingSingleLine(at index: Int) {
+        guard let editingRange = currentlyEditingLines, editingRange.contains(index) else { return }
         
         var lines = text.components(separatedBy: .newlines)
         if index < lines.count {
@@ -2305,9 +2441,29 @@ struct DebugClickableEditor: View {
         }
         
         // 静默完成编辑
-        currentlyEditingLine = nil
+        currentlyEditingLines = nil
         editingText = ""
         isTextFieldFocused = false
+    }
+    
+    private func finishMultiLineEditing() {
+        guard let editingRange = currentlyEditingLines else { return }
+        
+        var lines = text.components(separatedBy: .newlines)
+        let newLines = editingText.components(separatedBy: .newlines)
+        
+        // 替换编辑范围内的所有行
+        lines.removeSubrange(editingRange)
+        lines.insert(contentsOf: newLines, at: editingRange.lowerBound)
+        
+        let newText = lines.joined(separator: "\n")
+        text = newText
+        onTextChange(newText)
+        
+        // 静默完成编辑
+        currentlyEditingLines = nil
+        editingText = ""
+        isTextEditorFocused = false
     }
     
     private func addNewLineInvisibly() {
