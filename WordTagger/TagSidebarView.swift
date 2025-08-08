@@ -465,14 +465,14 @@ struct TagGroupView: View {
             // 标签列表（展开时显示）
             if isExpanded {
                 LazyVStack(spacing: 0) {
-                    ForEach(tags, id: \.id) { tag in
+                    ForEach(Array(tags.enumerated()), id: \.0) { index, tag in
                         TagValueRow(
                             tag: tag,
                             isSelected: store.selectedTag?.id == tag.id,
                             onSelect: { onSelectTag(tag) }
                         )
-                        
-                        if tag != tags.last {
+
+                        if index < tags.count - 1 {
                             Divider()
                                 .padding(.leading, 44)
                         }

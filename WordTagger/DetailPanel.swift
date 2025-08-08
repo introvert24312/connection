@@ -1852,7 +1852,7 @@ struct MermaidWebView: NSViewRepresentable {
             }
           });
         </script>
-        
+    
             <style>
                 body {
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
@@ -1901,6 +1901,9 @@ struct MermaidWebView: NSViewRepresentable {
                 .mermaid.rendered {
                     opacity: 1;
                 }
+                #debug-log{ position:fixed; right:8px; bottom:8px; width:320px; max-height:40vh; overflow:auto; font:11px -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial; background:rgba(0,0,0,.6); color:#fff; padding:8px 10px; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,.3); z-index:99999; }
+                #debug-log.hidden{ display:none; }
+                #debug-log div{ margin-bottom:4px; word-break:break-word; white-space:pre-wrap; }
                 
                 #content {
                     opacity: 0;
@@ -1929,8 +1932,29 @@ struct MermaidWebView: NSViewRepresentable {
         </head>
         <body>
             <div id="content"></div>
+            <div id="debug-log" class="hidden"></div>
             
             <script>
+                // ===== Debug helpers =====
+                (function(){
+                  window.__MMD_DEBUG = true;
+                  window.__mmdLog = function(){
+                    try{ console.log('🟣[MermaidWebView]', ...arguments); }catch(_){ }
+                    try{
+                      var box = document.getElementById('debug-log');
+                      if (box){
+                        box.classList.remove('hidden');
+                        var line = document.createElement('div');
+                        line.textContent = Array.from(arguments).map(x => (typeof x==='string'? x : JSON.stringify(x))).join(' ');
+                        box.appendChild(line);
+                        box.scrollTop = box.scrollHeight;
+                      }
+                    }catch(_){ }
+                  };
+                  window.addEventListener('error', function(e){ __mmdLog('window.error', String(e && e.message || e)); });
+                  window.addEventListener('unhandledrejection', function(e){ __mmdLog('unhandledrejection', String(e && (e.reason && e.reason.message) || e && e.reason || e)); });
+                })();
+                __mmdLog('boot');
                 // 主题检测和监听
                 const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
                 let isDarkMode = darkModeQuery.matches;
@@ -1956,10 +1980,11 @@ struct MermaidWebView: NSViewRepresentable {
                 
                 // 初始化Mermaid
                 mermaid.initialize(getCurrentThemeConfig());
+                __mmdLog('mermaid.initialize called', typeof mermaid, (window.mermaid && window.mermaid.version) ? ('v'+window.mermaid.version) : 'no-version');
                 
                 // 监听主题变化
                 darkModeQuery.addListener(function(e) {
-                    console.log('🎨 检测到主题变化:', e.matches ? 'dark' : 'light');
+                    __mmdLog('theme changed', e.matches ? 'dark' : 'light');
                     isDarkMode = e.matches;
                     
                     // 重新配置并重新渲染所有Mermaid图表
@@ -1989,14 +2014,11 @@ struct MermaidWebView: NSViewRepresentable {
                 
                 // 重新渲染Mermaid图表的函数
                 function reRenderMermaidCharts() {
-                    console.log('🔄 开始重新渲染Mermaid图表...');
-                    
+                    __mmdLog('reRenderMermaidCharts()');
                     const contentDiv = document.getElementById('content');
                     const mermaidElements = contentDiv.querySelectorAll('.mermaid');
-                    console.log('找到 ' + mermaidElements.length + ' 个Mermaid图表需要重新渲染');
-                    
+                    __mmdLog('reRender elements', mermaidElements.length);
                     if (mermaidElements.length === 0) {
-                        console.log('没有Mermaid图表需要重新渲染');
                         return;
                     }
                     
@@ -2016,23 +2038,23 @@ struct MermaidWebView: NSViewRepresentable {
                     // 使用setTimeout确保DOM更新完成后再重新渲染
                     setTimeout(() => {
                         (window.mermaid ? mermaid.run() : Promise.reject(new Error('Mermaid not available'))).then(() => {
-                            console.log('✅ Mermaid重新渲染成功');
+                            __mmdLog('mermaid.run success');
                             // 重新添加rendered类，触发淡入动画
                             mermaidElements.forEach(element => {
                                 element.classList.add('rendered');
                             });
                         }).catch(error => {
-                            console.error('❌ Mermaid重新渲染失败:', error);
+                            __mmdLog('mermaid.run failed', String(error && error.message || error));
                         });
                     }, 10);
                 }
                 
                 // 渲染函数
                 function renderContent() {
-                    console.log('开始渲染Markdown内容...');
+                    __mmdLog('renderContent start');
                     
                     let html = marked.parse(markdownContent);
-                    console.log('Marked解析完成');
+                    __mmdLog('marked.parse ok');
                     
                     // 查找并替换Mermaid代码块
                     const parser = new DOMParser();
@@ -2043,8 +2065,7 @@ struct MermaidWebView: NSViewRepresentable {
                     const genericBlocks = Array.from(doc.querySelectorAll('pre code'))
                       .filter(el => !el.className.includes('language-mermaid') && keywordPattern.test((el.textContent || '').trim()));
                     mermaidBlocks = mermaidBlocks.concat(genericBlocks);
-                    
-                    console.log('找到 ' + mermaidBlocks.length + ' 个Mermaid代码块');
+                    __mmdLog('mermaid blocks found', mermaidBlocks.length);
                     
                     mermaidBlocks.forEach((block, index) => {
                         const pre = block.parentElement;
@@ -2056,7 +2077,6 @@ struct MermaidWebView: NSViewRepresentable {
                             // 保存原始代码以便主题切换时重新渲染
                             mermaidDiv.setAttribute('data-original-code', block.textContent);
                             pre.parentNode.replaceChild(mermaidDiv, pre);
-                            console.log('替换Mermaid块 ' + index);
                         }
                     });
                     
@@ -2067,18 +2087,17 @@ struct MermaidWebView: NSViewRepresentable {
                     if (mermaidsInDoc.length > 0) {
                         mermaidsInDoc.forEach((el) => contentDiv.appendChild(el));
                     }
+                    __mmdLog('append to #content', mermaidsInDoc.length);
                     
                     // 渲染Mermaid图表
                     const mermaidElements = document.getElementById('content').querySelectorAll('.mermaid');
-                    console.log('准备渲染 ' + mermaidElements.length + ' 个Mermaid图表');
+                    __mmdLog('about to mermaid.run', (window.mermaid && typeof window.mermaid.run));
                     
                     if (mermaidElements.length > 0) {
                         // 使用最新的Mermaid API渲染
-                        console.log('使用官方Mermaid引擎渲染图表...');
-                        
                         // 使用官方推荐的渲染方式
                         (window.mermaid ? mermaid.run() : Promise.reject(new Error('Mermaid not available'))).then(() => {
-                            console.log('✅ Mermaid渲染成功');
+                            __mmdLog('mermaid.run success');
                             // 添加rendered类，触发淡入动画
                             mermaidElements.forEach(element => {
                                 element.classList.add('rendered');
@@ -2088,7 +2107,7 @@ struct MermaidWebView: NSViewRepresentable {
                                 contentDiv.classList.add('ready');
                             }, 50);
                         }).catch(error => {
-                            console.error('❌ Mermaid渲染失败:', error);
+                            __mmdLog('mermaid.run failed', String(error && error.message || error));
                             // 即使渲染失败也要显示内容
                             contentDiv.classList.add('ready');
                         });
@@ -2105,7 +2124,7 @@ struct MermaidWebView: NSViewRepresentable {
             </script>
         </body>
         </html>
-        """#
+"""#
     }
     
     class Coordinator: NSObject, WKNavigationDelegate {
@@ -2425,7 +2444,7 @@ struct MilkdownWebView: NSViewRepresentable {
               </script>
             </body>
             </html>
-            """#
+"""#
         }
 
         // 工具：转义到 JS 字符串

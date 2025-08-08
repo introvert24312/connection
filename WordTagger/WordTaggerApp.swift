@@ -378,7 +378,7 @@ class TagMappingManager: ObservableObject {
         
         // 外部存储失败，尝试从UserDefaults加载
         print("🏷️ TagMappingManager: 从UserDefaults加载标签映射...")
-        await loadTagMappingsFromUserDefaults()
+        loadTagMappingsFromUserDefaults()
     }
     
     // 从UserDefaults加载（作为fallback）
