@@ -152,19 +152,6 @@ struct NodeDetailView: View {
             }
             return .ignored
         }
-        .onKeyPress(.return, phases: .down) { keyPress in
-            // 只在非编辑状态下，回车键才添加新行
-            if !isEditing {
-                if markdownText.isEmpty {
-                    markdownText = "\n"
-                } else {
-                    markdownText += "\n"
-                }
-                debouncedSave(markdownText)
-                return .handled
-            }
-            return .ignored
-        }
         .onDisappear {
             // 清理异步任务
             debounceTask?.cancel()
@@ -1503,7 +1490,7 @@ struct CodeBlockView: View {
             // 代码内容
             ScrollView(.horizontal, showsIndicators: false) {
                 Text(code)
-                    .font(.system(.body, design: .monospaced))
+                    .font(.system(.title3, design: .monospaced))  // 更大
                     .foregroundColor(.primary)
                     .textSelection(.enabled)
                     .padding(12)
@@ -1611,7 +1598,7 @@ struct MermaidView: View {
                         
                         ScrollView(.horizontal, showsIndicators: false) {
                             Text(diagram)
-                                .font(.system(.body, design: .monospaced))
+                                .font(.system(.title3, design: .monospaced))  // 更大
                                 .foregroundColor(.primary)
                                 .textSelection(.enabled)
                                 .padding(12)
@@ -2255,7 +2242,7 @@ struct DebugClickableEditor: View {
     private func multiLineEditor(allLines: [String], editingRange: ClosedRange<Int>) -> some View {
         TextEditor(text: $editingText)
             .focused($isTextEditorFocused)
-            .font(.system(.body, design: .monospaced))
+            .font(.system(.title3, design: .monospaced))  // 更大
             .foregroundColor(.primary)
             .scrollContentBackground(.hidden)
             .background(Color.clear)
@@ -2302,13 +2289,13 @@ struct DebugClickableEditor: View {
     
     private func fontForLine(_ line: String) -> Font {
         if line.hasPrefix("# ") {
-            return .title
+            return .largeTitle  // 更大
         } else if line.hasPrefix("## ") {
-            return .title2
+            return .title       // 更大
         } else if line.hasPrefix("### ") {
-            return .title3
+            return .title2      // 更大
         } else {
-            return .body
+            return .title3      // 从.body改为.title3，更大
         }
     }
     
@@ -2330,17 +2317,17 @@ struct DebugClickableEditor: View {
             Group {
                 if line.hasPrefix("# ") {
                     Text(String(line.dropFirst(2)))
-                        .font(.title)
+                        .font(.largeTitle)  // 更大
                         .fontWeight(.bold)
                         .foregroundColor(.primary)
                 } else if line.hasPrefix("## ") {
                     Text(String(line.dropFirst(3)))
-                        .font(.title2)
+                        .font(.title)       // 更大
                         .fontWeight(.semibold)
                         .foregroundColor(.primary)
                 } else if line.hasPrefix("### ") {
                     Text(String(line.dropFirst(4)))
-                        .font(.title3)
+                        .font(.title2)      // 更大
                         .fontWeight(.medium)
                         .foregroundColor(.primary)
                 } else if line.hasPrefix("- ") {
@@ -2349,16 +2336,16 @@ struct DebugClickableEditor: View {
                             .font(.body)
                             .foregroundColor(.blue)
                         Text(String(line.dropFirst(2)))
-                            .font(.body)
+                            .font(.title3)  // 更大
                             .foregroundColor(.primary)
                     }
                 } else if line.trimmingCharacters(in: .whitespaces).isEmpty {
                     Text(" ")
-                        .font(.body)
-                        .frame(height: 24)
+                        .font(.title3)  // 更大
+                        .frame(height: 32)  // 也调大高度
                 } else {
                     Text(line)
-                        .font(.body)
+                        .font(.title3)  // 更大
                         .foregroundColor(.primary)
                 }
             }
@@ -2400,17 +2387,17 @@ struct DebugClickableEditor: View {
             Group {
                 if line.hasPrefix("# ") {
                     Text(String(line.dropFirst(2)))
-                        .font(.title)
+                        .font(.largeTitle)  // 更大
                         .fontWeight(.bold)
                         .foregroundColor(.primary)
                 } else if line.hasPrefix("## ") {
                     Text(String(line.dropFirst(3)))
-                        .font(.title2)
+                        .font(.title)       // 更大
                         .fontWeight(.semibold)
                         .foregroundColor(.primary)
                 } else if line.hasPrefix("### ") {
                     Text(String(line.dropFirst(4)))
-                        .font(.title3)
+                        .font(.title2)      // 更大
                         .fontWeight(.medium)
                         .foregroundColor(.primary)
                 } else if line.hasPrefix("- ") {
@@ -2419,16 +2406,16 @@ struct DebugClickableEditor: View {
                             .font(.body)
                             .foregroundColor(.blue)
                         Text(String(line.dropFirst(2)))
-                            .font(.body)
+                            .font(.title3)  // 更大
                             .foregroundColor(.primary)
                     }
                 } else if line.trimmingCharacters(in: .whitespaces).isEmpty {
                     Text(" ")
-                        .font(.body)
-                        .frame(height: 24)
+                        .font(.title3)  // 更大
+                        .frame(height: 32)  // 也调大高度
                 } else {
                     Text(line)
-                        .font(.body)
+                        .font(.title3)  // 更大
                         .foregroundColor(.primary)
                 }
             }
@@ -2607,7 +2594,7 @@ struct TyporaStyleEditor: View {
             } else if showRawSource {
                 // 原始源码编辑模式
                 TextEditor(text: $text)
-                    .font(.system(.body, design: .monospaced))
+                    .font(.system(.title3, design: .monospaced))  // 更大
                     .focused($isTextEditorFocused)
                     .onChange(of: text) { _, newValue in
                         onTextChange(newValue)
