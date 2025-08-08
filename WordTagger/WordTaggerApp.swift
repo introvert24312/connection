@@ -1436,6 +1436,7 @@ struct TagManagerView: View {
     @State private var newKey: String = ""
     @State private var newTypeName: String = ""
     @State private var editingMapping: TagMapping?
+    @State private var showSystemTags: Bool = false  // 默认隐藏系统标签
     
     let onDismiss: () -> Void
     
@@ -1457,6 +1458,20 @@ struct TagManagerView: View {
                     
                     Spacer()
                     
+                    // 显示系统标签开关
+                    Button(action: { showSystemTags.toggle() }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: showSystemTags ? "eye" : "eye.slash")
+                                .font(.system(size: 14))
+                                .foregroundColor(.secondary)
+                            Text("系统标签")
+                                .font(.system(size: 14))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .help(showSystemTags ? "隐藏系统标签" : "显示系统标签")
+                    
                     Button(action: onDismiss) {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundColor(.secondary)
@@ -1473,7 +1488,7 @@ struct TagManagerView: View {
                 // 现有标签列表
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(tagManager.tagMappings.filter { !shouldHideSystemTag($0) }, id: \.id) { mapping in
+                        ForEach(filteredMappings, id: \.id) { mapping in
                             TagMappingRow(
                                 mapping: mapping,
                                 onEdit: {
@@ -1605,8 +1620,18 @@ struct TagManagerView: View {
     // 判断是否应该隐藏系统标签
     private func shouldHideSystemTag(_ mapping: TagMapping) -> Bool {
         // 隐藏这些系统标签以减少认知负荷
-        let systemTagsToHide = ["root", "compound", "child"]
+        // root: 词根标签，虽有图谱连接功能但界面杂乱
+        // loc: 地点标签，虽有地图功能但用户不直接管理
+        // compound: 复合节点标记标签  
+        // child: 子节点引用标签
+        let systemTagsToHide = ["root", "loc", "compound", "child"]
         return systemTagsToHide.contains(mapping.key)
+    }
+    
+    private var filteredMappings: [TagMapping] {
+        return tagManager.tagMappings.filter { mapping in
+            showSystemTags || !shouldHideSystemTag(mapping)
+        }
     }
     
 }
