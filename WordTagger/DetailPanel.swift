@@ -2178,25 +2178,37 @@ struct DebugClickableEditor: View {
     }
     
     private var editingContentView: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 8) {
-                ForEach(text.components(separatedBy: .newlines).indices, id: \.self) { index in
-                    lineView(for: index)
-                }
-                
-                // 隐形的添加新行区域
-                Rectangle()
-                    .fill(Color.clear)
-                    .frame(height: 100)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        addNewLineInvisibly()
+        ZStack {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 8) {
+                    ForEach(text.components(separatedBy: .newlines).indices, id: \.self) { index in
+                        lineView(for: index)
                     }
+                    
+                    // 隐形的添加新行区域
+                    Rectangle()
+                        .fill(Color.clear)
+                        .frame(height: 100)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            addNewLineInvisibly()
+                        }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 20)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 20)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            
+            // 完全覆盖的透明点击层，确保没有"死角"
+            Color.clear
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .allowsHitTesting(true)
+                .onTapGesture { location in
+                    // 如果点击了空白区域，添加新行
+                    addNewLineInvisibly()
+                }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
     
     @ViewBuilder
@@ -2343,6 +2355,7 @@ struct DebugClickableEditor: View {
         .padding(.vertical, 12) // 大幅增加垂直间距，让行间完全可点击
         .background(Color.clear)
         .contentShape(Rectangle()) // 让整个矩形区域都可以点击
+        .allowsHitTesting(true)
         .onTapGesture {
             startEditingInvisibly(at: index, content: line)
         }
