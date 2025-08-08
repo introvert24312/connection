@@ -133,14 +133,70 @@ struct NodeDetailView: View {
             }
             .padding(.horizontal)
             
-            // Typora风格编辑器 - 简单直接
-            SimpleTyporaEditor(
-                text: $markdownText,
-                isEditing: $isEditing,
-                onTextChange: { newValue in
-                    debouncedSave(newValue)
+            // 超简单测试编辑器
+            VStack {
+                if isEditing {
+                    VStack(spacing: 0) {
+                        HStack {
+                            Text("📝 Typora编辑模式")
+                                .font(.caption)
+                                .foregroundColor(.green)
+                            Spacer()
+                            Button("预览") { 
+                                isEditing = false 
+                            }
+                            .font(.caption)
+                        }
+                        .padding(.horizontal)
+                        .padding(.top, 8)
+                        
+                        // 真正的Milkdown编辑器
+                        SimpleMilkdownEditor(
+                            markdown: $markdownText,
+                            onExit: { isEditing = false },
+                            onTextChange: { newText in
+                                debouncedSave(newText)
+                            }
+                        )
+                    }
+                } else if markdownText.isEmpty {
+                    VStack(spacing: 20) {
+                        Text("开始编写")
+                            .font(.title)
+                        Text("点击开始")
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        isEditing = true
+                    }
+                } else {
+                    ZStack {
+                        MermaidWebView(markdown: markdownText)
+                        
+                        // 完全透明的点击层
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                print("🎯 点击了预览区域！")
+                                isEditing = true
+                                print("🎯 isEditing = \(isEditing)")
+                            }
+                    }
+                    .overlay(alignment: .bottomTrailing) {
+                        Text("点击编辑")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.black.opacity(0.05))
+                            .cornerRadius(6)
+                            .padding(12)
+                            .opacity(0.7)
+                    }
                 }
-            )
+            }
         }
         .onAppear {
             loadMarkdown()
@@ -2708,11 +2764,24 @@ struct SimpleTyporaEditor: View {
         let _ = print("🔄 SimpleTyporaEditor body 刷新: isEditing=\(isEditing), text.isEmpty=\(text.isEmpty)")
         return Group {
             if isEditing {
-                WebMarkdownEditor(text: $text) { new in
-                    onTextChange(new)
+                VStack(spacing: 0) {
+                    Text("🚀 WebMarkdownEditor 已激活")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                        .padding(.top, 8)
+                    
+                    WebMarkdownEditor(text: $text) { new in
+                        onTextChange(new)
+                    }
+                    .frame(minHeight: 400)  // 确保有足够高度
+                    .background(Color.red.opacity(0.1))  // 红色背景确认WebView位置
+                    .onAppear { 
+                        print("🚀 WebMarkdownEditor onAppear被调用")
+                        isTextEditorFocused = true 
+                    }
+                    .onExitCommand { isEditing = false }
                 }
-                .onAppear { isTextEditorFocused = true }
-                .onExitCommand { isEditing = false }
+                .background(Color.blue.opacity(0.1))  // 蓝色背景确认整个容器
             } else if text.isEmpty {
                 ZStack(alignment: .topLeading) {
                     Color.clear
@@ -2919,6 +2988,136 @@ struct WebMarkdownEditor: NSViewRepresentable {
         </body>
         </html>
         """
+    }
+}
+
+// MARK: - 简单可靠的Milkdown编辑器
+import WebKit
+
+struct SimpleMilkdownEditor: NSViewRepresentable {
+    @Binding var markdown: String
+    let onExit: () -> Void
+    let onTextChange: (String) -> Void
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+    
+    func makeNSView(context: Context) -> WKWebView {
+        let config = WKWebViewConfiguration()
+        config.preferences.setValue(true, forKey: "developerExtrasEnabled")
+        config.userContentController.add(context.coordinator, name: "textChanged")
+        config.userContentController.add(context.coordinator, name: "exitEditor")
+        
+        let webView = WKWebView(frame: .zero, configuration: config)
+        webView.setValue(false, forKey: "drawsBackground")
+        webView.loadHTMLString(htmlContent(with: markdown), baseURL: nil)
+        
+        return webView
+    }
+    
+    func updateNSView(_ webView: WKWebView, context: Context) {
+        // 当外部文本变化时，更新编辑器内容
+        let js = "updateEditorContent('\(markdown.replacingOccurrences(of: "'", with: "\\'").replacingOccurrences(of: "\n", with: "\\n"))');"
+        webView.evaluateJavaScript(js)
+    }
+    
+    class Coordinator: NSObject, WKScriptMessageHandler {
+        let parent: SimpleMilkdownEditor
+        
+        init(parent: SimpleMilkdownEditor) {
+            self.parent = parent
+        }
+        
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            DispatchQueue.main.async {
+                switch message.name {
+                case "textChanged":
+                    if let text = message.body as? String {
+                        self.parent.markdown = text
+                        self.parent.onTextChange(text)
+                    }
+                case "exitEditor":
+                    self.parent.onExit()
+                default:
+                    break
+                }
+            }
+        }
+    }
+    
+    private func htmlContent(with initialText: String) -> String {
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { 
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                    background: transparent;
+                    color: #333;
+                    padding: 20px;
+                    min-height: 100vh;
+                }
+                #editor {
+                    min-height: 400px;
+                    font-size: 18px;
+                    line-height: 1.6;
+                    outline: none;
+                    background: transparent;
+                    width: 100%;
+                }
+                @media (prefers-color-scheme: dark) {
+                    body { color: #eee; }
+                    #editor { color: #eee; }
+                }
+            </style>
+        </head>
+        <body>
+            <div id="editor" contenteditable="true">\(escapeHtml(initialText))</div>
+            
+            <script>
+                const editor = document.getElementById('editor');
+                
+                // 文本变化时通知Swift
+                editor.addEventListener('input', function() {
+                    const text = editor.innerText;
+                    window.webkit.messageHandlers.textChanged.postMessage(text);
+                });
+                
+                // ESC键退出编辑
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') {
+                        window.webkit.messageHandlers.exitEditor.postMessage('exit');
+                    }
+                });
+                
+                // 更新编辑器内容的函数
+                function updateEditorContent(text) {
+                    if (editor.innerText !== text) {
+                        editor.innerText = text;
+                    }
+                }
+                
+                // 自动聚焦
+                editor.focus();
+            </script>
+        </body>
+        </html>
+        """
+    }
+    
+    private func escapeHtml(_ text: String) -> String {
+        return text
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+            .replacingOccurrences(of: "'", with: "&#x27;")
+            .replacingOccurrences(of: "\n", with: "<br>")
     }
 }
 
