@@ -133,7 +133,7 @@ struct NodeDetailView: View {
             }
             .padding(.horizontal)
             
-            // 🎯 真正的Typora单窗格编辑器 - 无模式切换
+            // 🎯 修复后的真正Typora编辑器
             TrueTyporaEditor(
                 markdown: $markdownText,
                 onTextChange: { newText in
@@ -2934,9 +2934,106 @@ struct WebMarkdownEditor: NSViewRepresentable {
     }
 }
 
-// MARK: - 真正的Typora编辑器 - ProseMirror + Milkdown 单窗格WYSIWYG
+// MARK: - 调试WebView编辑器
 import WebKit
 
+struct DebugWebEditor: NSViewRepresentable {
+    @Binding var markdown: String
+    let onTextChange: (String) -> Void
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+    
+    func makeNSView(context: Context) -> WKWebView {
+        let config = WKWebViewConfiguration()
+        config.preferences.setValue(true, forKey: "developerExtrasEnabled")
+        config.userContentController.add(context.coordinator, name: "textChanged")
+        
+        let webView = WKWebView(frame: .zero, configuration: config)
+        webView.setValue(false, forKey: "drawsBackground")
+        
+        // 超简单的HTML，确保能显示
+        let simpleHTML = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body { 
+                    font-family: system-ui; 
+                    font-size: 18px; 
+                    padding: 20px; 
+                    background: white;
+                    color: black;
+                }
+                #editor {
+                    min-height: 200px;
+                    border: 2px solid red;
+                    padding: 10px;
+                    outline: none;
+                }
+            </style>
+        </head>
+        <body>
+            <h2>🚨 调试WebView</h2>
+            <p>如果你能看到这段文字，WebView工作正常</p>
+            <div id="editor" contenteditable="true">\(markdown.isEmpty ? "开始输入..." : markdown)</div>
+            
+            <script>
+                console.log('🚨 WebView已加载');
+                const editor = document.getElementById('editor');
+                
+                editor.addEventListener('input', function() {
+                    const text = editor.innerText;
+                    console.log('🚨 文本变化:', text);
+                    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.textChanged) {
+                        window.webkit.messageHandlers.textChanged.postMessage(text);
+                    }
+                });
+                
+                // 确保页面显示
+                document.body.style.backgroundColor = '#f0f0f0';
+                console.log('🚨 页面样式已设置');
+            </script>
+        </body>
+        </html>
+        """
+        
+        webView.loadHTMLString(simpleHTML, baseURL: nil)
+        print("🚨 WebView HTML已加载")
+        
+        return webView
+    }
+    
+    func updateNSView(_ webView: WKWebView, context: Context) {
+        // 简单更新
+        if !markdown.isEmpty {
+            let js = "document.getElementById('editor').innerText = '\(markdown.replacingOccurrences(of: "'", with: "\\'"))'"
+            webView.evaluateJavaScript(js)
+        }
+    }
+    
+    class Coordinator: NSObject, WKScriptMessageHandler {
+        let parent: DebugWebEditor
+        
+        init(parent: DebugWebEditor) {
+            self.parent = parent
+        }
+        
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            print("🚨 收到WebView消息: \(message.body)")
+            DispatchQueue.main.async {
+                if message.name == "textChanged", let text = message.body as? String {
+                    self.parent.markdown = text
+                    self.parent.onTextChange(text)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - 真正的Typora编辑器 - ProseMirror + Milkdown 单窗格WYSIWYG
 struct TrueTyporaEditor: NSViewRepresentable {
     @Binding var markdown: String
     let onTextChange: (String) -> Void
@@ -3134,33 +3231,74 @@ struct TrueTyporaEditor: NSViewRepresentable {
                     };
                 }
                 
-                // 创建Milkdown编辑器
-                const { Editor, rootCtx, defaultValueCtx } = window.Milkdown;
-                const { gfm } = window.MilkdownPresetGfm;
-                const { listener } = window.MilkdownPluginListener;
+                // 尝试创建Milkdown编辑器，失败则降级到简单编辑器
+                try {
+                    if (window.Milkdown && window.MilkdownPresetGfm && window.MilkdownPluginListener) {
+                        const { Editor, rootCtx, defaultValueCtx } = window.Milkdown;
+                        const { gfm } = window.MilkdownPresetGfm;
+                        const { listener } = window.MilkdownPluginListener;
+                        
+                        const editor = Editor.make()
+                            .config((ctx) => {
+                                ctx.set(rootCtx, document.getElementById('editor'));
+                                ctx.set(defaultValueCtx, window.currentMarkdown);
+                            })
+                            .use(gfm)
+                            .use(listener.withConfig((ctx, plugin) => ({
+                                markdownUpdated: debounce((ctx, markdown, prevMarkdown) => {
+                                    if (markdown !== window.currentMarkdown) {
+                                        window.currentMarkdown = markdown;
+                                        // 通知Swift
+                                        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.markdownChanged) {
+                                            window.webkit.messageHandlers.markdownChanged.postMessage(markdown);
+                                        }
+                                    }
+                                }, 300)
+                            })))
+                            .create();
+                        
+                        window.milkdownEditor = editor;
+                        console.log('🎯 Milkdown编辑器初始化完成');
+                    } else {
+                        throw new Error('Milkdown libraries not loaded');
+                    }
+                } catch (error) {
+                    console.log('🚨 Milkdown加载失败，使用降级编辑器:', error);
+                    // 降级到简单的contenteditable
+                    setupSimpleEditor();
+                }
                 
-                const editor = Editor.make()
-                    .config((ctx) => {
-                        ctx.set(rootCtx, document.getElementById('editor'));
-                        ctx.set(defaultValueCtx, window.currentMarkdown);
-                    })
-                    .use(gfm)
-                    .use(listener.withConfig((ctx, plugin) => ({
-                        markdownUpdated: debounce((ctx, markdown, prevMarkdown) => {
-                            if (markdown !== window.currentMarkdown) {
-                                window.currentMarkdown = markdown;
-                                // 通知Swift
-                                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.markdownChanged) {
-                                    window.webkit.messageHandlers.markdownChanged.postMessage(markdown);
-                                }
-                            }
-                        }, 300)
-                    })))
-                    .create();
-                
-                window.milkdownEditor = editor;
-                
-                console.log('🎯 Milkdown编辑器初始化完成');
+                function setupSimpleEditor() {
+                    const editor = document.getElementById('editor');
+                    editor.innerHTML = window.currentMarkdown.replace(/\n/g, '<br>');
+                    editor.style.border = '2px solid #007AFF';
+                    editor.style.borderRadius = '8px';
+                    editor.style.padding = '16px';
+                    
+                    // 添加简单的Markdown渲染
+                    editor.addEventListener('input', function() {
+                        const text = editor.innerText;
+                        window.currentMarkdown = text;
+                        
+                        // 简单渲染
+                        let html = text
+                            .replace(/^# (.*)$/gm, '<h1>$1</h1>')
+                            .replace(/^## (.*)$/gm, '<h2>$1</h2>')
+                            .replace(/^### (.*)$/gm, '<h3>$1</h3>')
+                            .replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>')
+                            .replace(/\\*(.*?)\\*/g, '<em>$1</em>')
+                            .replace(/\\n/g, '<br>');
+                            
+                        editor.innerHTML = html;
+                        
+                        // 通知Swift
+                        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.markdownChanged) {
+                            window.webkit.messageHandlers.markdownChanged.postMessage(text);
+                        }
+                    });
+                    
+                    console.log('🎯 简单编辑器已就绪');
+                }
             </script>
         </body>
         </html>
