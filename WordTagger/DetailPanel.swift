@@ -133,13 +133,29 @@ struct NodeDetailView: View {
             }
             .padding(.horizontal)
             
-            // 🎯 修复后的真正Typora编辑器
-            TrueTyporaEditor(
-                markdown: $markdownText,
-                onTextChange: { newText in
-                    debouncedSave(newText)
-                }
-            )
+            // 🚨 回到调试版本 - 一片灰说明WKWebView本身有问题
+            VStack(spacing: 8) {
+                Text("🚨 WKWebView调试")
+                    .font(.caption)
+                    .foregroundColor(.red)
+                
+                Text("如果下面还是灰色，说明WKWebView创建失败")
+                    .font(.caption2)
+                    .foregroundColor(.orange)
+                
+                DebugWebEditor(
+                    markdown: $markdownText,
+                    onTextChange: { newText in
+                        debouncedSave(newText)
+                    }
+                )
+                .frame(minHeight: 200)  // 强制最小高度
+                .background(Color.red.opacity(0.3))  // 红色背景确保容器存在
+                
+                Text("👆 如果上面是红色但没有WebView内容，说明HTML加载失败")
+                    .font(.caption2)
+                    .foregroundColor(.blue)
+            }
         }
         .onAppear {
             loadMarkdown()
@@ -2946,63 +2962,303 @@ struct DebugWebEditor: NSViewRepresentable {
     }
     
     func makeNSView(context: Context) -> WKWebView {
+        print("🚨 开始创建WKWebView")
+        
         let config = WKWebViewConfiguration()
-        config.preferences.setValue(true, forKey: "developerExtrasEnabled")
         config.userContentController.add(context.coordinator, name: "textChanged")
+        config.userContentController.add(context.coordinator, name: "exitEditor")
+        print("🚨 WKWebViewConfiguration创建完成")
         
         let webView = WKWebView(frame: .zero, configuration: config)
-        webView.setValue(false, forKey: "drawsBackground")
+        print("🚨 WKWebView创建完成")
         
-        // 超简单的HTML，确保能显示
-        let simpleHTML = """
+        // 简单可靠的所见即所得编辑器
+        let wysiwygHTML = """
         <!DOCTYPE html>
         <html>
         <head>
             <meta charset="UTF-8">
             <style>
-                body { 
-                    font-family: system-ui; 
-                    font-size: 18px; 
-                    padding: 20px; 
-                    background: white;
-                    color: black;
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                    background: transparent;
+                    color: #333;
+                    padding: 24px;
+                    line-height: 1.6;
                 }
+                
                 #editor {
-                    min-height: 200px;
-                    border: 2px solid red;
-                    padding: 10px;
+                    min-height: 300px;
+                    font-size: 18px;
                     outline: none;
+                    background: transparent;
+                    border-radius: 8px;
+                    padding: 16px;
+                }
+                
+                #editor h1 {
+                    font-size: 2.2em;
+                    font-weight: bold;
+                    margin: 1.2em 0 0.6em 0;
+                    color: #2c3e50;
+                    border-bottom: 2px solid #3498db;
+                    padding-bottom: 0.3em;
+                }
+                
+                #editor h2 {
+                    font-size: 1.8em;
+                    font-weight: 600;
+                    margin: 1em 0 0.5em 0;
+                    color: #34495e;
+                }
+                
+                #editor h3 {
+                    font-size: 1.4em;
+                    font-weight: 500;
+                    margin: 0.8em 0 0.4em 0;
+                    color: #7f8c8d;
+                }
+                
+                #editor p {
+                    margin: 0.3em 0;
+                    min-height: 1.2em;
+                }
+                
+                #editor p:empty::before {
+                    content: '\\200b'; /* 零宽空格，确保空行有高度 */
+                    color: transparent;
+                }
+                
+                #editor strong {
+                    font-weight: 600;
+                    color: #2c3e50;
+                }
+                
+                #editor em {
+                    font-style: italic;
+                    color: #8e44ad;
+                }
+                
+                #editor ul, #editor ol {
+                    margin: 0.8em 0;
+                    padding-left: 2em;
+                }
+                
+                #editor li {
+                    margin: 0.3em 0;
+                }
+                
+                #editor code {
+                    background: #f8f9fa;
+                    border-radius: 4px;
+                    padding: 0.2em 0.4em;
+                    font-family: 'SF Mono', Consolas, monospace;
+                    font-size: 0.9em;
+                    color: #8e44ad;
+                }
+                
+                #editor blockquote {
+                    border-left: 4px solid #3498db;
+                    padding-left: 1em;
+                    margin: 1em 0;
+                    color: #7f8c8d;
+                    font-style: italic;
+                }
+                
+                @media (prefers-color-scheme: dark) {
+                    body { color: #e8e8e8; }
+                    #editor h1 { color: #fff; border-bottom-color: #5dade2; }
+                    #editor h2 { color: #f0f0f0; }
+                    #editor h3 { color: #ccc; }
+                    #editor strong { color: #fff; }
+                    #editor em { color: #ff6b6b; }
+                    #editor code { background: #2c2c2e; color: #ff6b6b; }
+                    #editor blockquote { border-left-color: #5dade2; color: #bbb; }
                 }
             </style>
         </head>
         <body>
-            <h2>🚨 调试WebView</h2>
-            <p>如果你能看到这段文字，WebView工作正常</p>
-            <div id="editor" contenteditable="true">\(markdown.isEmpty ? "开始输入..." : markdown)</div>
+            <div id="editor" contenteditable="true">\(markdown.isEmpty ? "开始输入，支持 Markdown..." : markdown)</div>
             
             <script>
-                console.log('🚨 WebView已加载');
                 const editor = document.getElementById('editor');
+                let isUpdating = false;
                 
-                editor.addEventListener('input', function() {
-                    const text = editor.innerText;
-                    console.log('🚨 文本变化:', text);
-                    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.textChanged) {
-                        window.webkit.messageHandlers.textChanged.postMessage(text);
+                // 获取光标在纯文本中的位置
+                function getCursorPosition() {
+                    const selection = window.getSelection();
+                    if (!selection.rangeCount) return 0;
+                    
+                    const range = selection.getRangeAt(0);
+                    const preCaretRange = range.cloneRange();
+                    preCaretRange.selectNodeContents(editor);
+                    preCaretRange.setEnd(range.startContainer, range.startOffset);
+                    return preCaretRange.toString().length;
+                }
+                
+                // 设置光标到纯文本位置
+                function setCursorPosition(pos) {
+                    const selection = window.getSelection();
+                    const range = document.createRange();
+                    
+                    let charIndex = 0;
+                    let node = editor;
+                    let found = false;
+                    
+                    function traverseNode(node) {
+                        if (found) return;
+                        
+                        if (node.nodeType === Node.TEXT_NODE) {
+                            const nextCharIndex = charIndex + node.textContent.length;
+                            if (pos >= charIndex && pos <= nextCharIndex) {
+                                range.setStart(node, pos - charIndex);
+                                range.collapse(true);
+                                found = true;
+                                return;
+                            }
+                            charIndex = nextCharIndex;
+                        } else {
+                            for (let i = 0; i < node.childNodes.length; i++) {
+                                traverseNode(node.childNodes[i]);
+                                if (found) return;
+                            }
+                        }
+                    }
+                    
+                    traverseNode(editor);
+                    
+                    if (found) {
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                    }
+                }
+                
+                // 实时Markdown渲染
+                function renderMarkdown() {
+                    if (isUpdating) return;
+                    
+                    // 保存光标位置（基于纯文本偏移）
+                    const cursorPos = getCursorPosition();
+                    
+                    let text = editor.innerText || editor.textContent || '';
+                    let html = text;
+                    
+                    // 基本Markdown转换，保持换行
+                    html = html
+                        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+                        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+                        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+                        .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')
+                        .replace(/\\*(.+?)\\*/g, '<em>$1</em>')
+                        .replace(/`(.+?)`/g, '<code>$1</code>')
+                        .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+                        .replace(/^- (.+)$/gm, '<li>$1</li>')
+                        .replace(/(<li>.*?<\\/li>\\s*)+/gs, function(match) {
+                            return '<ul>' + match + '</ul>';
+                        })
+                        .split('\\n').map(line => {
+                            // 如果行已经被包装在标签中，保持原样
+                            if (line.match(/^<(h[1-6]|blockquote|ul|li)/)) {
+                                return line;
+                            }
+                            // 空行或只有空格的行
+                            if (!line.trim()) {
+                                return '<p><br></p>';
+                            }
+                            // 普通行包装在p标签中
+                            return '<p>' + line + '</p>';
+                        }).join('');
+                    
+                    // 避免无限循环
+                    if (editor.innerHTML !== html) {
+                        isUpdating = true;
+                        editor.innerHTML = html;
+                        
+                        // 恢复光标位置
+                        setTimeout(() => {
+                            setCursorPosition(cursorPos);
+                            isUpdating = false;
+                            
+                            // 渲染完成后立即保存
+                            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.textChanged) {
+                                window.webkit.messageHandlers.textChanged.postMessage(text);
+                                console.log('💾 渲染完成，立即保存');
+                            }
+                        }, 0);
+                    }
+                }
+                
+                // 延迟渲染计时器
+                let renderTimer = null;
+                
+                // 只在停止输入后才渲染，避免光标跳跃
+                function delayedRender() {
+                    if (renderTimer) {
+                        clearTimeout(renderTimer);
+                    }
+                    renderTimer = setTimeout(() => {
+                        renderMarkdown();
+                        renderTimer = null;
+                    }, 300); // 300ms后渲染
+                }
+                
+                // 监听输入 - 延迟渲染，渲染后自动保存
+                editor.addEventListener('input', function(e) {
+                    delayedRender(); // 300ms后渲染，渲染完成后自动保存
+                });
+                
+                // 失去焦点时立即渲染并保存
+                editor.addEventListener('blur', function(e) {
+                    if (renderTimer) {
+                        clearTimeout(renderTimer);
+                        renderTimer = null;
+                    }
+                    setTimeout(renderMarkdown, 50); // 渲染完成后会自动保存
+                });
+                
+                // 键盘快捷键监听
+                editor.addEventListener('keydown', function(e) {
+                    // ESC键退出编辑
+                    if (e.key === 'Escape') {
+                        e.preventDefault();
+                        editor.blur(); // 失去焦点
+                        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.exitEditor) {
+                            window.webkit.messageHandlers.exitEditor.postMessage('exit');
+                        }
+                    }
+                    // Cmd+S 手动保存
+                    else if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+                        e.preventDefault();
+                        const text = editor.innerText || editor.textContent || '';
+                        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.textChanged) {
+                            window.webkit.messageHandlers.textChanged.postMessage(text);
+                        }
+                        console.log('✅ 手动保存完成');
                     }
                 });
                 
-                // 确保页面显示
-                document.body.style.backgroundColor = '#f0f0f0';
-                console.log('🚨 页面样式已设置');
+                // 不需要定时自动保存 - 渲染后立即保存
+                
+                // 初始渲染
+                setTimeout(renderMarkdown, 100);
+                
+                console.log('✅ 简单WYSIWYG编辑器已就绪');
             </script>
         </body>
         </html>
         """
         
-        webView.loadHTMLString(simpleHTML, baseURL: nil)
-        print("🚨 WebView HTML已加载")
+        print("🚨 准备加载WYSIWYG HTML...")
+        webView.loadHTMLString(wysiwygHTML, baseURL: nil)
+        print("🚨 HTML加载命令已发送")
         
+        // 设置WebView属性
+        webView.setValue(false, forKey: "drawsBackground")
+        webView.isHidden = false
+        webView.alphaValue = 1.0
+        
+        print("🚨 WebView配置完成，准备返回")
         return webView
     }
     
@@ -3022,11 +3278,14 @@ struct DebugWebEditor: NSViewRepresentable {
         }
         
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-            print("🚨 收到WebView消息: \(message.body)")
+            print("🚨 收到WebView消息: \(message.name) - \(message.body)")
             DispatchQueue.main.async {
                 if message.name == "textChanged", let text = message.body as? String {
                     self.parent.markdown = text
                     self.parent.onTextChange(text)
+                } else if message.name == "exitEditor" {
+                    // 退出编辑模式 - 让WebView失去焦点
+                    NSApp.keyWindow?.makeFirstResponder(nil)
                 }
             }
         }
