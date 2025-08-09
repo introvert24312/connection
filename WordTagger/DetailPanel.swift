@@ -147,6 +147,16 @@ struct NodeDetailView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)   // 让它吃满可用空间
             .background(Color.clear)
             .zIndex(2)
+
+            // TODO: 移除独立预览区域，改为真正的编辑器内联就地渲染
+            // if hasMermaid {
+            //     Divider().opacity(0.15)
+            //     MermaidWebView(markdown: markdownText)
+            //         .frame(height: 220)
+            //         .background(Color.clear)
+            //         .allowsHitTesting(false)
+            //         .zIndex(0)
+            // }
             
         }
         .padding(.horizontal, 16)
@@ -2053,68 +2063,106 @@ struct MermaidWebView: NSViewRepresentable {
                 function renderContent() {
                     __mmdLog('renderContent start');
                     
+                    // 解析 markdown
                     let html = marked.parse(markdownContent);
                     __mmdLog('marked.parse ok');
                     
-                    // 查找并替换Mermaid代码块
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(html, 'text/html');
-                    let mermaidBlocks = Array.from(doc.querySelectorAll('pre code.language-mermaid'));
-                    // 兜底：没有显式语言也识别（以 mermaid 关键字开头）
-                    const keywordPattern = /^(graph|sequenceDiagram|classDiagram|erDiagram|gantt|pie|journey)\b/;
-                    const genericBlocks = Array.from(doc.querySelectorAll('pre code'))
-                      .filter(el => !el.className.includes('language-mermaid') && keywordPattern.test((el.textContent || '').trim()));
-                    mermaidBlocks = mermaidBlocks.concat(genericBlocks);
-                    __mmdLog('mermaid blocks found', mermaidBlocks.length);
-                    
-                    mermaidBlocks.forEach((block, index) => {
-                        const pre = block.parentElement;
-                        if (pre) {
-                            const mermaidDiv = document.createElement('div');
-                            mermaidDiv.className = 'mermaid';
-                            mermaidDiv.id = 'mermaid-' + index;
-                            mermaidDiv.textContent = block.textContent;
-                            // 保存原始代码以便主题切换时重新渲染
-                            mermaidDiv.setAttribute('data-original-code', block.textContent);
-                            pre.parentNode.replaceChild(mermaidDiv, pre);
+
+                    // 找出 mermaid 代码块（显式语言+关键字兜底）
+                    let blocks = Array.from(doc.querySelectorAll('pre code.language-mermaid'));
+                    const kw = /^(graph|sequenceDiagram|classDiagram|erDiagram|gantt|pie|journey)\b/;
+                    blocks = blocks.concat(
+                      Array.from(doc.querySelectorAll('pre code'))
+                        .filter(el => !el.className.includes('language-mermaid') && kw.test((el.textContent || '').trim()))
+                    );
+
+                    __mmdLog('mermaid blocks found', blocks.length);
+
+                    // ✅ 关键：就地替换 <pre> 为 <div class="mermaid">
+                    blocks.forEach((block, index) => {
+                      // --- robust in-place replacement ---
+                      // 1) sanitize text
+                      let code = (block.textContent || '').replace(/\uFEFF/g, '').trim();
+                      const lines = code.split(/\r?\n/);
+                      const kw = /^(graph|sequenceDiagram|classDiagram|erDiagram|gantt|pie|journey)\b/;
+                      const firstDiagramIdx = lines.findIndex(l => kw.test(l.trim()) || /^%%\{/.test(l.trim()));
+                      if (firstDiagramIdx > 0) code = lines.slice(firstDiagramIdx).join('\n');
+
+                      // 2) create mermaid node
+                      const mer = doc.createElement('div');
+                      mer.className = 'mermaid';
+                      mer.id = 'mermaid-' + index;
+                      mer.textContent = code;
+                      mer.setAttribute('data-original-code', code);
+
+                      // 3) find best replacement target in the parsed DOM
+                      let target = block.closest('pre, .code, .code-block, p, div');
+                      if (!target) target = block.parentElement;
+
+                      if (target && target.parentNode) {
+                        target.replaceWith(mer);     // ✅ in-place
+                        __mmdLog('replaceWith ok at', mer.id);
+                      } else if (block && block.parentNode) {
+                        // fallback: insert before then remove original block (still in the same parent)
+                        block.parentNode.insertBefore(mer, block);
+                        block.remove();
+                        __mmdLog('insertBefore fallback at', mer.id);
+                      } else {
+                        // FORBIDDEN: Never append! This would push diagrams to bottom
+                        __mmdLog('CRITICAL: No replacement target found for', mer.id, 'keeping original block position');
+                        // Insert right after the original block to maintain position
+                        if (block.nextSibling) {
+                          block.parentNode.insertBefore(mer, block.nextSibling);
+                          block.remove();
+                          __mmdLog('insertAfter final fallback at', mer.id);
+                        } else {
+                          // Absolute last resort - replace the block directly
+                          block.parentNode.replaceChild(mer, block);
+                          __mmdLog('replaceChild final fallback at', mer.id);
                         }
+                      }
                     });
-                    
+
+                    // 把修改后的文档一次性写回页面
                     const contentDiv = document.getElementById('content');
-                    // 仅渲染 Mermaid 图表，避免与上半部分内容重复
-                    contentDiv.innerHTML = '';
-                    const mermaidsInDoc = doc.querySelectorAll('.mermaid');
-                    if (mermaidsInDoc.length > 0) {
-                        mermaidsInDoc.forEach((el) => contentDiv.appendChild(el));
+                    contentDiv.innerHTML = doc.body.innerHTML;
+                    __mmdLog('wrote HTML back to #content');
+                    
+                    // ✅ 硬断言：确保没有未替换的mermaid代码块
+                    const remainingBlocks = document.querySelectorAll('#content pre code.language-mermaid, #content pre code').length;
+                    if (remainingBlocks > 0) {
+                      __mmdLog('WARNING: Found', remainingBlocks, 'unprocessed code blocks after replacement');
                     }
-                    __mmdLog('append to #content', mermaidsInDoc.length);
-                    
-                    // 渲染Mermaid图表
-                    const mermaidElements = document.getElementById('content').querySelectorAll('.mermaid');
-                    __mmdLog('about to mermaid.run', (window.mermaid && typeof window.mermaid.run));
-                    
-                    if (mermaidElements.length > 0) {
-                        // 使用最新的Mermaid API渲染
-                        // 使用官方推荐的渲染方式
-                        (window.mermaid ? mermaid.run() : Promise.reject(new Error('Mermaid not available'))).then(() => {
+
+                    // 再触发渲染（先写回，再 run）
+                    setTimeout(() => {
+                      const mermaidElements = document.getElementById('content').querySelectorAll('.mermaid');
+                      __mmdLog('about to mermaid.run', mermaidElements.length, (window.mermaid && typeof window.mermaid.run));
+                      
+                      if (mermaidElements.length > 0) {
+                        (window.mermaid ? mermaid.run() : Promise.reject(new Error('Mermaid not available')))
+                          .then(() => {
                             __mmdLog('mermaid.run success');
-                            // 添加rendered类，触发淡入动画
                             mermaidElements.forEach(element => {
-                                element.classList.add('rendered');
+                              element.classList.add('rendered');
                             });
                             // 显示整个内容
                             setTimeout(() => {
-                                contentDiv.classList.add('ready');
+                              contentDiv.classList.add('ready');
                             }, 50);
-                        }).catch(error => {
-                            __mmdLog('mermaid.run failed', String(error && error.message || error));
+                          })
+                          .catch(err => {
+                            __mmdLog('mermaid.run failed', String(err && err.message || err));
                             // 即使渲染失败也要显示内容
                             contentDiv.classList.add('ready');
-                        });
-                    } else {
+                          });
+                      } else {
                         // 如果没有Mermaid图表，直接显示内容
                         contentDiv.classList.add('ready');
-                    }
+                      }
+                    }, 10);
                 }
                 
                 // 确保渲染一定触发；并在文档就绪 / 完全加载后再尝试一次
@@ -2148,6 +2196,7 @@ struct MilkdownWebView: NSViewRepresentable {
         let uc = WKUserContentController()
         uc.add(context.coordinator, name: "bridge")
         config.userContentController = uc
+        config.preferences.setValue(true, forKey: "developerExtrasEnabled") // 可右键 Inspect
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.focusRingType = .none   // ← 关掉 AppKit 焦点环
@@ -2188,6 +2237,14 @@ struct MilkdownWebView: NSViewRepresentable {
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
             guard message.name == "bridge" else { return }
             if let dict = message.body as? [String: Any], let type = dict["type"] as? String {
+                if type == "log" {
+                    if let args = dict["args"] as? [String] {
+                        print("🟣[Milkdown] " + args.joined(separator: " "))
+                    } else {
+                        print("🟣[Milkdown] <log>")
+                    }
+                    return
+                }
                 if type == "markdown", let value = dict["value"] as? String {
                     // 来自编辑器的变更
                     if !isSettingFromSwift {
@@ -2195,6 +2252,8 @@ struct MilkdownWebView: NSViewRepresentable {
                         onChange(value)
                     }
                 }
+            } else {
+                print("🟣[Milkdown] \(message.body)")
             }
         }
 
@@ -2231,6 +2290,12 @@ struct MilkdownWebView: NSViewRepresentable {
                 .ProseMirror{background:transparent !important}
                 /* 在编辑器内联预览 Mermaid（只展示，不拦截编辑） */
                 .pm-mermaid-preview{ margin:12px 0; padding:0; background:transparent; pointer-events:none; opacity:1; }
+                /* 右下角调试面板 */
+                #md-debug{ position:fixed; right:8px; bottom:8px; width:320px; max-height:40vh; overflow:auto;
+                  font:11px -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial; background:rgba(0,0,0,.6); color:#fff;
+                  padding:8px 10px; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,.3); z-index:99999; pointer-events:none; }
+                #md-debug.hidden{ display:none; }
+                #md-debug div{ margin-bottom:4px; white-space:pre-wrap; word-break:break-word; }
                 .milkdown{padding:0 !important;margin:0 !important}
                 .ProseMirror{padding:0 !important;margin:0 !important}
                 /* 移除聚焦蓝框（AppKit & WebKit 双保险） */
@@ -2260,6 +2325,38 @@ struct MilkdownWebView: NSViewRepresentable {
                 /* HR */
                 .milkdown hr{border:0;border-top:1px solid rgba(0,0,0,.12);margin:2em 0}
                 @media (prefers-color-scheme: dark){ .milkdown hr{border-top-color: rgba(255,255,255,.15)} }
+
+                /* 内联 Mermaid 预览样式 - 允许显示但不拦截编辑 */
+                .pm-mermaid-preview {
+                  margin: 12px 0;
+                  padding: 0;
+                  background: transparent;
+                  pointer-events: none !important;  /* 关键：不拦截编辑器交互 */
+                  opacity: 1;
+                  max-width: 100%;
+                  overflow-x: auto;
+                }
+
+                .pm-mermaid-preview svg {
+                  max-width: 100%;
+                  height: auto;
+                }
+
+                /* 隐藏被 Mermaid 图表替换的代码块 */
+                .mermaid-hidden-code {
+                  display: none !important;
+                  height: 0 !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  overflow: hidden !important;
+                }
+
+                /* Debug 浮窗不拦截事件 */
+                #debug-log { pointer-events: none !important; }
+
+                /* 确保编辑器区域可滚动并撑满高度 */
+                html, body { height: 100%; }
+                #app, #root, .milkdown, .ProseMirror { min-height: 100%; }
               </style>
               <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
               <script>
@@ -2277,80 +2374,152 @@ struct MilkdownWebView: NSViewRepresentable {
               <div class="container">
                 <div id="app"></div>
               </div>
+              <div id="md-debug" class="hidden"></div>
               <script type="module">
-                import { Editor, rootCtx, defaultValueCtx } from 'https://esm.sh/@milkdown/core@7';
+                (function(){
+                  window.__MMD_DEBUG = true;
+                  window.__mmdLog = function(){
+                    try{ console.log('🟣[Milkdown]', ...arguments); }catch(_){}
+                    try{
+                      const args = Array.from(arguments).map(x => (typeof x === 'string' ? x : JSON.stringify(x)));
+                      window.webkit?.messageHandlers?.bridge?.postMessage({ type:'log', args });
+                    }catch(_){}
+                    try{
+                      const box = document.getElementById('md-debug');
+                      if (box){
+                        box.classList.remove('hidden');
+                        const line = document.createElement('div');
+                        line.textContent = (Array.from(arguments).map(x => (typeof x==='string'? x : JSON.stringify(x))).join(' '));
+                        box.appendChild(line);
+                        box.scrollTop = box.scrollHeight;
+                      }
+                    }catch(_){}
+                  };
+                })();
+                __mmdLog('milkdown boot');
+                
+                import { Editor, rootCtx, defaultValueCtx, editorViewCtx } from 'https://esm.sh/@milkdown/core@7';
                 import { commonmark } from 'https://esm.sh/@milkdown/preset-commonmark@7';
                 import { listener, listenerCtx } from 'https://esm.sh/@milkdown/plugin-listener@7';
                 import { exitCode } from 'https://esm.sh/prosemirror-commands@1';
-                import { editorViewCtx } from 'https://esm.sh/@milkdown/core@7';
                 import { TextSelection } from 'https://esm.sh/prosemirror-state@1';
                 import { Plugin, PluginKey } from 'https://esm.sh/prosemirror-state@1';
                 import { Decoration, DecorationSet } from 'https://esm.sh/prosemirror-view@1';
 
                 let editor; let debouncing;
                 
-                // === ProseMirror 插件：在代码块下方内联预览 Mermaid ===
-                function buildMermaidDecorations(state){
+                // === 安全的 Mermaid 内联预览插件 ===
+                const mermaidPreviewKey = new PluginKey('safe-mermaid-preview');
+                
+                function buildMermaidDecorations(state) {
                   const decos = [];
-                  const {doc} = state;
+                  const { doc } = state;
                   const mermaidStart = /^(graph|sequenceDiagram|classDiagram|erDiagram|gantt|pie|journey)\b/i;
-                  doc.descendants((node, pos)=>{
-                    if (node.type && node.type.name === 'code_block'){
+                  
+                  doc.descendants((node, pos) => {
+                    if (node.type && node.type.name === 'code_block') {
                       const lang = (node.attrs && (node.attrs.language || node.attrs.params || node.attrs.lang) || '').toString().toLowerCase();
                       const text = (node.textContent || '').trim();
-                      const isMermaid = lang.includes('mermaid') || mermaidStart.test(text);
-                      if (isMermaid){
+                      
+                      // Mermaid 检测：有语言标识 或 有实际图表内容
+                      const hasLanguage = lang.includes('mermaid');
+                      const hasValidContent = text && text.length > 0 && mermaidStart.test(text);
+                      
+                      // 只有在有语言标识且有内容，或者有有效图表内容时才处理
+                      if ((hasLanguage && text.length > 0) || hasValidContent) {
+                        // 清理代码（移除无关首行）
+                        let cleanCode = text.replace(/\uFEFF/g, '').trim();
+                        
+                        const lines = cleanCode.split(/\r?\n/);
+                        const firstDiagramIdx = lines.findIndex(l => mermaidStart.test(l.trim()) || /^%%\{/.test(l.trim()));
+                        if (firstDiagramIdx > 0) cleanCode = lines.slice(firstDiagramIdx).join('\n');
+                        
+                        // 再次检查清理后的代码是否为空
+                        if (!cleanCode || cleanCode.trim().length === 0) {
+                          return; // 跳过清理后为空的代码块
+                        }
+                        
                         const dom = document.createElement('div');
-                        dom.className = 'mermaid pm-mermaid-preview';
-                        dom.setAttribute('data-source', text);
-                        dom.textContent = text; // 先放原始代码，稍后由 mermaid 渲染
-                        // 作为 widget decoration 插入到代码块之后（不影响编辑）
-                        decos.push(Decoration.widget(pos + node.nodeSize, dom, {side: 1, ignoreSelection: true}));
+                        dom.className = 'pm-mermaid-preview';
+                        dom.setAttribute('data-source', cleanCode);
+                        dom.textContent = cleanCode; // 先显示原始代码，稍后渲染
+                        
+                        // 关键：用隐藏代码块 + widget 图表的方式实现"替换"效果
+                        // 1. 隐藏原代码块
+                        decos.push(Decoration.node(pos, pos + node.nodeSize, {
+                          'class': 'mermaid-hidden-code'
+                        }));
+                        
+                        // 2. 在同位置显示图表
+                        decos.push(Decoration.widget(pos, dom, { 
+                          side: 0, 
+                          ignoreSelection: true,  // 不影响光标选择
+                          stopEvent: () => true   // 阻止事件冒泡到编辑器
+                        }));
                       }
                     }
                   });
+                  
                   return DecorationSet.create(doc, decos);
                 }
-
-                const mermaidPreviewKey = new PluginKey('mermaid-preview');
-                const mermaidPreviewPlugin = new Plugin({
+                
+                const safeMermaidPlugin = new Plugin({
                   key: mermaidPreviewKey,
                   state: {
-                    init(){ return DecorationSet.empty; },
-                    apply(tr, old, _oldState, newState){
-                      if (tr.docChanged || tr.getMeta('forceMermaidPreview')) return buildMermaidDecorations(newState);
+                    init() { return DecorationSet.empty; },
+                    apply(tr, old, _oldState, newState) {
+                      if (tr.docChanged) return buildMermaidDecorations(newState);
                       return old.map(tr.mapping, tr.doc);
                     }
                   },
                   props: {
-                    decorations(state){ return this.getState(state); }
+                    decorations(state) { return this.getState(state); }
                   },
-                  view(view){
-                    function renderPreviews(){
-                      const nodes = view.dom.querySelectorAll('.pm-mermaid-preview');
-                      if (!nodes || nodes.length === 0) return;
-                      nodes.forEach((el)=>{
+                  view(view) {
+                    function renderPreviews() {
+                      const nodes = view.dom.querySelectorAll('.pm-mermaid-preview:not(.rendered)');
+                      if (!nodes.length) return;
+                      
+                      nodes.forEach(el => {
                         const src = el.getAttribute('data-source') || el.textContent || '';
                         el.innerHTML = '';
-                        try{
-                          const id = 'm-' + Math.random().toString(36).slice(2);
-                          if (window.mermaid && window.mermaid.render){
-                            window.mermaid.render(id, src).then(({svg})=>{
-                              el.innerHTML = svg; el.classList.add('rendered');
-                            }).catch(()=>{});
-                          } else if (window.mermaid && window.mermaid.run){
-                            el.textContent = src; window.mermaid.run();
+                        
+                        try {
+                          if (window.mermaid && window.mermaid.render) {
+                            const id = 'mmd-' + Math.random().toString(36).slice(2);
+                            window.mermaid.render(id, src).then(({ svg }) => {
+                              el.innerHTML = svg;
+                              el.classList.add('rendered', 'success');
+                              __mmdLog('Inline mermaid rendered:', id);
+                            }).catch(e => {
+                              __mmdLog('Inline mermaid render failed:', String(e?.message || e));
+                              // 渲染失败时显示错误信息而不是原始代码
+                              el.innerHTML = `<div style="color: #ef4444; font-size: 12px; padding: 8px; background: rgba(239, 68, 68, 0.1); border-radius: 4px; border: 1px solid rgba(239, 68, 68, 0.2);">
+                                ⚠️ Mermaid 渲染失败: ${String(e?.message || e)}
+                                <details style="margin-top: 4px;">
+                                  <summary style="cursor: pointer; user-select: none;">查看原始代码</summary>
+                                  <pre style="white-space: pre-wrap; font-family: monospace; font-size: 11px; margin: 4px 0 0 0;">${src}</pre>
+                                </details>
+                              </div>`;
+                              el.classList.add('rendered', 'error');
+                            });
                           }
-                        }catch(_e){ /* 忽略单个失败 */ }
+                        } catch (e) {
+                          __mmdLog('Inline mermaid error:', String(e?.message || e));
+                          el.innerHTML = `<div style="color: #ef4444; font-size: 12px; padding: 8px;">⚠️ Mermaid 初始化失败</div>`;
+                          el.classList.add('rendered', 'error');
+                        }
                       });
                     }
-                    setTimeout(renderPreviews, 0);
-                    return { update(){ setTimeout(renderPreviews, 0); } }
+                    
+                    // 延迟渲染以确保DOM就绪
+                    setTimeout(renderPreviews, 100);
+                    return { update: () => setTimeout(renderPreviews, 100) };
                   }
                 });
                 
-                function setup(initial){
-                  editor = Editor.make()
+                async function setup(initial){
+                  editor = await Editor.make()
                     .config((ctx)=>{
                       ctx.set(rootCtx, document.getElementById('app'));
                       ctx.set(defaultValueCtx, initial);
@@ -2365,15 +2534,21 @@ struct MilkdownWebView: NSViewRepresentable {
                     .use(commonmark)
                     .use(listener)
                     .create();
-                  
-                  // 将 Mermaid 预览插件注入到 ProseMirror
-                  try {
-                    editor.action((ctx)=>{
-                      const view = ctx.get(editorViewCtx);
-                      const newState = view.state.reconfigure({ plugins: view.state.plugins.concat(mermaidPreviewPlugin) });
-                      view.updateState(newState);
-                    });
-                  } catch (_e) {}
+                    __mmdLog('editor ready');
+                    
+                    // 注入安全的内联 Mermaid 预览插件
+                    try {
+                      editor.action((ctx) => {
+                        const view = ctx.get(editorViewCtx);
+                        const newState = view.state.reconfigure({
+                          plugins: view.state.plugins.concat(safeMermaidPlugin)
+                        });
+                        view.updateState(newState);
+                        __mmdLog('Safe mermaid plugin injected');
+                      });
+                    } catch (e) {
+                      __mmdLog('Plugin injection failed:', String(e?.message || e));
+                    }
                 }
 
                 // 获取当前 EditorView 的辅助函数
@@ -2441,6 +2616,29 @@ struct MilkdownWebView: NSViewRepresentable {
 
                 // 将 Swift 传入的 Markdown 注入到 JS（Swift 侧已完成转义）
                 setup(`\#(md)`);
+                
+                // 确保设置完成后再次检查 Mermaid
+                setTimeout(checkMermaidAndForce, 100);
+
+                // 确保 Mermaid 就绪后触发内联预览渲染
+                (function ensureMermaidReady() {
+                  function checkAndRender() {
+                    if (window.mermaid && window.mermaid.render && editor) {
+                      __mmdLog('Triggering mermaid inline preview update');
+                      try {
+                        editor.action((ctx) => {
+                          const view = ctx.get(editorViewCtx);
+                          view.dispatch(view.state.tr.setMeta('forceMermaidUpdate', true));
+                        });
+                      } catch (e) {
+                        __mmdLog('Force update failed:', String(e?.message || e));
+                      }
+                    } else {
+                      setTimeout(checkAndRender, 500);
+                    }
+                  }
+                  setTimeout(checkAndRender, 100);
+                })();
               </script>
             </body>
             </html>
