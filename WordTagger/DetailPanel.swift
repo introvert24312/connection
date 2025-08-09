@@ -2000,7 +2000,7 @@ struct MermaidWebView: NSViewRepresentable {
           <title>Mermaid Preview</title>
 
           <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-          <script src="Resources/mermaid/mermaid.min.js"></script>
+          <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
 
           <style>
             :root{ --bg:transparent; --fg:#1f2328; --muted:#6e7781; --code-bg:#f6f8fa; --code-fg:#1f2328; --s1:4px; --s2:8px; --s3:12px; --s4:16px; }
@@ -2313,7 +2313,7 @@ struct VditorWebView: NSViewRepresentable {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <link rel="stylesheet" href="Resources/vditor/index.css">
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vditor@3.10.4/dist/index.css">
             <style>
                 /* 移除Tanda主题加载 */
             </style>
@@ -2800,8 +2800,8 @@ struct VditorWebView: NSViewRepresentable {
         <body>
             <div id="vditor"></div>
             
-            <script src="Resources/mermaid/mermaid.min.js"></script>
-            <script src="Resources/vditor/index.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/vditor@3.10.4/dist/index.min.js"></script>
             <script>
                 let vditor;
                 
@@ -2873,6 +2873,9 @@ struct VditorWebView: NSViewRepresentable {
                             enable: true,
                             style: isDark ? 'github-dark' : 'github'
                         },
+                        mermaid: {
+                            enable: false  // 禁用Vditor内置的Mermaid支持
+                        }
                     },
                     toolbar: ['outline'], // 只保留大纲展示按钮
                     after() {
@@ -3038,6 +3041,105 @@ struct VditorWebView: NSViewRepresentable {
                                 console.log('🎨 DEBUG: CSS fallback theme applied');
                             }
                         }, 1000);
+                        
+                        // 添加独立的Mermaid渲染系统
+                        window.renderMermaidManually = function() {
+                            console.log('🎨 MANUAL: Starting manual Mermaid rendering...');
+                            
+                            if (!window.mermaid) {
+                                console.log('🎨 MANUAL: Mermaid not available');
+                                return;
+                            }
+                            
+                            // 配置我们的自定义主题
+                            const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                            const config = {
+                                theme: isDarkMode ? 'dark' : 'default',
+                                startOnLoad: false,
+                                securityLevel: 'loose',
+                                themeVariables: isDarkMode ? {
+                                    background: '#0d1117',
+                                    primaryColor: '#1f2937',
+                                    primaryTextColor: '#e5e7eb',
+                                    primaryBorderColor: '#374151',
+                                    secondaryColor: '#374151',
+                                    lineColor: '#60a5fa',
+                                    mainBkg: '#1f2937',
+                                    nodeBkg: '#1f2937',
+                                    nodeTextColor: '#e5e7eb',
+                                    textColor: '#e5e7eb',
+                                    labelTextColor: '#e5e7eb',
+                                    fillType0: '#3b82f6',
+                                    fillType1: '#10b981',
+                                    fillType2: '#f59e0b',
+                                    fillType3: '#ef4444',
+                                    fontSize: '16px'
+                                } : {
+                                    primaryColor: '#ffffff',
+                                    primaryTextColor: '#24292f',
+                                    primaryBorderColor: '#d0d7de',
+                                    lineColor: '#0969da',
+                                    tertiaryColor: '#f6f8fa',
+                                    background: '#ffffff',
+                                    fontSize: '16px'
+                                }
+                            };
+                            
+                            window.mermaid.initialize(config);
+                            console.log('🎨 MANUAL: Mermaid configured with theme:', isDarkMode ? 'dark' : 'light');
+                            
+                            // 查找所有代码块中的mermaid图表
+                            const codeBlocks = document.querySelectorAll('code.language-mermaid, pre code[class*="language-mermaid"]');
+                            console.log('🎨 MANUAL: Found', codeBlocks.length, 'mermaid code blocks');
+                            
+                            codeBlocks.forEach((codeBlock, index) => {
+                                const content = codeBlock.textContent.trim();
+                                if (content) {
+                                    console.log('🎨 MANUAL: Processing mermaid block', index, ':', content.substring(0, 50));
+                                    
+                                    // 创建一个div来替换代码块
+                                    const mermaidDiv = document.createElement('div');
+                                    mermaidDiv.className = 'mermaid';
+                                    mermaidDiv.textContent = content;
+                                    
+                                    // 替换代码块
+                                    const pre = codeBlock.closest('pre');
+                                    if (pre) {
+                                        pre.parentNode.replaceChild(mermaidDiv, pre);
+                                    }
+                                }
+                            });
+                            
+                            // 渲染所有mermaid图表
+                            const mermaidDivs = document.querySelectorAll('.mermaid');
+                            if (mermaidDivs.length > 0) {
+                                console.log('🎨 MANUAL: Rendering', mermaidDivs.length, 'mermaid diagrams');
+                                try {
+                                    window.mermaid.init(undefined, mermaidDivs);
+                                    console.log('🎨 MANUAL: Mermaid rendering complete!');
+                                } catch (e) {
+                                    console.error('🎨 MANUAL: Mermaid rendering failed:', e);
+                                }
+                            }
+                        };
+                        
+                        // 启动手动渲染
+                        setTimeout(() => {
+                            window.renderMermaidManually();
+                        }, 500);
+                        
+                        // 监听内容变化，重新渲染Mermaid
+                        const observer = new MutationObserver(() => {
+                            setTimeout(() => {
+                                window.renderMermaidManually();
+                            }, 200);
+                        });
+                        
+                        observer.observe(document.body, {
+                            childList: true,
+                            subtree: true,
+                            characterData: true
+                        });
                         
                         window.webkit?.messageHandlers?.bridge?.postMessage({
                             type: 'ready'
@@ -3224,50 +3326,12 @@ struct VditorWebView: NSViewRepresentable {
                             }
                         };
                         
-                        // Re-initialize Mermaid with new configuration
-                        if (window.mermaid && window.mermaid.initialize) {
-                            console.log('🎨 DEBUG: Re-initializing Mermaid with config:', JSON.stringify(mermaidConfig, null, 2));
-                            window.mermaid.initialize(mermaidConfig);
-                            console.log('🎨 DEBUG: Mermaid re-initialized');
-                            
-                            // Force complete re-render by clearing and recreating all diagrams
+                        // 使用我们的手动渲染系统重新渲染Mermaid
+                        console.log('🎨 THEME: Calling manual Mermaid rendering for theme change');
+                        if (window.renderMermaidManually) {
                             setTimeout(() => {
-                                const mermaidElements = document.querySelectorAll('.mermaid');
-                                console.log('🎨 DEBUG: Force re-rendering', mermaidElements.length, 'diagrams');
-                                window.webkit?.messageHandlers?.bridge?.postMessage({
-                                    type: 'debug',
-                                    message: `Force re-rendering ${mermaidElements.length} diagrams`
-                                });
-                                
-                                mermaidElements.forEach((element, index) => {
-                                    console.log('🎨 DEBUG: Processing diagram', index + 1);
-                                    
-                                    // Store original content
-                                    const originalContent = element.textContent || element.innerHTML;
-                                    
-                                    // Clear the element
-                                    element.innerHTML = originalContent;
-                                    element.removeAttribute('data-processed');
-                                    element.classList.add('mermaid');
-                                    
-                                    // Force re-render
-                                    if (window.mermaid.init) {
-                                        try {
-                                            window.mermaid.init(undefined, element);
-                                            console.log('🎨 DEBUG: Re-rendered diagram', index + 1);
-                                        } catch (e) {
-                                            console.log('🎨 DEBUG: Failed to re-render diagram', index + 1, ':', e);
-                                        }
-                                    }
-                                });
-                                
-                                window.webkit?.messageHandlers?.bridge?.postMessage({
-                                    type: 'debug',
-                                    message: 'Completed force re-rendering of all diagrams'
-                                });
-                            }, 200);
-                        } else {
-                            console.log('🎨 DEBUG: Mermaid.initialize not available');
+                                window.renderMermaidManually();
+                            }, 300);
                         }
                         
                         // Force re-render of current content to apply new theme
@@ -3682,7 +3746,7 @@ struct MilkdownWebView: NSViewRepresentable {
                     width: 100% !important;
                 }
               </style>
-              <script src="Resources/mermaid/mermaid.min.js">
+              <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
               <script>
                 (function(){
                   try{
