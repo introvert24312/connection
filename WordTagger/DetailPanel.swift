@@ -2092,7 +2092,18 @@ struct MermaidWebView: NSViewRepresentable {
                     m.className = 'mermaid';
                     m.textContent = raw;                  // 原始 mermaid 源码
                     m.setAttribute('data-original-code', raw); // 给二次渲染用
-                    pre.replaceWith(m);                   // 就地替换，不破坏其它内容结构
+
+                    // 用容器包装，添加标题和展开按钮
+                    const wrapper = doc.createElement('figure');
+                    wrapper.className = 'mmd-block';
+
+                    const caption = doc.createElement('div');
+                    caption.className = 'mmd-caption';
+                    caption.innerHTML = '<span>Mermaid 图表</span><button type="button" class="mmd-toggle" aria-expanded="false">展开</button>';
+
+                    wrapper.appendChild(m);        // m 就是 <div class="mermaid">
+                    wrapper.appendChild(caption);
+                    pre.replaceWith(wrapper);      // 就地替换，不破坏其它内容结构
                   });
 
                   // 3) 把"整份处理后的 HTML"写回页面，而不是只 append 图表
@@ -2107,11 +2118,53 @@ struct MermaidWebView: NSViewRepresentable {
                     .then(() => {
                       __mmdLog('mermaid.run success');
                       mermaidEls.forEach(el => el.classList.add('rendered'));
+                      
+                      // 渲染成功后检测大图并绑定事件
+                      clampOversizeDiagrams();
+                      if (!window.__mmdClampBound) {
+                        window.__mmdClampBound = true;
+                        window.addEventListener('resize', debounce(clampOversizeDiagrams, 150));
+                      }
                     })
                     .catch(err => {
                       __mmdLog('mermaid.run failed', String(err && err.message || err));
                     });
                 }
+
+                // 根据实际大小给"大图"加上 is-clamped，从而显示滚动/按钮
+                function clampOversizeDiagrams() {
+                  const blocks = document.querySelectorAll('.mmd-block');
+                  blocks.forEach(block => {
+                    const box = block.querySelector('.mermaid');
+                    const svg = box && box.querySelector('svg');
+                    if (!svg) return;
+                    const rect = svg.getBoundingClientRect();
+                    const containerWidth = block.getBoundingClientRect().width;
+                    const tooTall = rect.height > 480;           // 对应上面的 max-height
+                    const tooWide = rect.width > containerWidth; // 超宽也视为超限
+                    block.classList.toggle('is-clamped', (tooTall || tooWide));
+                  });
+                }
+
+                // 简易防抖
+                function debounce(fn, wait) { 
+                  let t; 
+                  return (...a) => { 
+                    clearTimeout(t); 
+                    t = setTimeout(() => fn(...a), wait); 
+                  }; 
+                }
+
+                // 点击"展开/收起"
+                document.addEventListener('click', e => {
+                  const btn = e.target.closest('.mmd-toggle');
+                  if (!btn) return;
+                  const block = btn.closest('.mmd-block');
+                  block.classList.toggle('is-expanded');
+                  const expanded = block.classList.contains('is-expanded');
+                  btn.textContent = expanded ? '收起' : '展开';
+                  btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+                });
                 
                 // 确保渲染一定触发；并在文档就绪 / 完全加载后再尝试一次
                 try { renderContent(); } catch (e) { console.error(e); }
@@ -2376,6 +2429,64 @@ struct MilkdownWebView: NSViewRepresentable {
                 /* 确保编辑器区域可滚动并撑满高度 */
                 html, body { height: 100%; }
                 #app, #root, .milkdown, .ProseMirror { min-height: 100%; }
+
+                /* ===== Mermaid 护栏 ===== */
+                .mmd-block { 
+                  margin: 16px 0; 
+                  clear: both;
+                }
+                .mmd-block .mermaid {
+                  display: block;
+                  max-width: 100%;
+                  /* 默认限制高度，避免吞版心；超过就滚动 */
+                  max-height: 480px;
+                  overflow: auto;
+                  padding: 8px;
+                  border: 1px solid rgba(125,125,125,.24);
+                  border-radius: 8px;
+                  background: rgba(125,125,125,.06);
+                }
+                .mmd-block .mermaid svg {
+                  /* 关键：让 svg 服从容器宽度，而不是用自己的宽高撑爆布局 */
+                  display: block;
+                  width: 100% !important;
+                  height: auto !important;
+                }
+
+                /* 展开时解除高度限制 */
+                .mmd-block.is-expanded .mermaid { max-height: none; }
+
+                /* 顶部说明 + 展开按钮 */
+                .mmd-caption{
+                  margin-top: 6px;
+                  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+                  font: 12px -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial;
+                  color: #666;
+                }
+                .mmd-toggle{
+                  appearance: none;
+                  border: 1px solid rgba(0,0,0,.2);
+                  border-radius: 6px;
+                  padding: 2px 8px;
+                  background: transparent;
+                  cursor: pointer;
+                  font: 12px -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial;
+                }
+                /* 如果没有超限，就不显示"展开"按钮 */
+                .mmd-block:not(.is-clamped) .mmd-toggle { display: none; }
+
+                @media (prefers-color-scheme: dark){
+                  .mmd-block .mermaid {
+                    background: rgba(255,255,255,.04);
+                    border-color: rgba(255,255,255,.18);
+                  }
+                  .mmd-caption {
+                    color: #999;
+                  }
+                  .mmd-toggle {
+                    border-color: rgba(255,255,255,.2);
+                  }
+                }
               </style>
               <script src="https://cdn.jsdelivr.net/npm/mermaid@11.9.0/dist/mermaid.min.js">
               <script>
