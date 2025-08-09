@@ -2344,11 +2344,11 @@ struct VditorWebView: NSViewRepresentable {
                     height: 100vh;
                 }
                 
-                /* 透明背景样式定制 */
+                /* Github官方浅色主题 */
                 .vditor {
-                    --panel-background-color: transparent;
-                    --textarea-background-color: transparent;
-                    --toolbar-background-color: rgba(246, 248, 250, 0.8);
+                    --panel-background-color: #ffffff;
+                    --textarea-background-color: #ffffff;
+                    --toolbar-background-color: #f6f8fa;
                     --border-color: #d1d9e0;
                     --text-color: #24292f;
                     --second-color: #656d76;
@@ -2356,45 +2356,42 @@ struct VditorWebView: NSViewRepresentable {
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
                 }
                 
-                /* 透明工具栏 */
+                /* Github官方工具栏 */
                 .vditor-toolbar {
                     border-bottom: 1px solid #d1d9e0 !important;
-                    background-color: rgba(246, 248, 250, 0.8) !important;
-                    backdrop-filter: blur(10px);
+                    background-color: #f6f8fa !important;
                     padding: 8px 16px !important;
                 }
                 
-                /* 透明编辑区域 */
+                /* Github官方编辑区域 */
                 .vditor-ir {
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif !important;
                     font-size: 14px !important;
                     line-height: 1.5 !important;
                     color: #24292f !important;
-                    background-color: transparent !important;
+                    background-color: #ffffff !important;
                 }
                 
-                /* GitHub暗色主题优化 - 使用更柔和的灰色背景 */
+                /* GitHub官方暗色主题 */
                 @media (prefers-color-scheme: dark) {
-                    /* 透明背景主题 - 融合现有UI */
                     .vditor {
-                        --panel-background-color: transparent;
-                        --textarea-background-color: transparent;
-                        --toolbar-background-color: rgba(45, 49, 59, 0.8);
-                        --border-color: #3e4451;
-                        --text-color: #abb2bf;
-                        --second-color: #5c6370;
-                        --count-color: #abb2bf;
+                        --panel-background-color: #0d1117;
+                        --textarea-background-color: #0d1117;
+                        --toolbar-background-color: #21262d;
+                        --border-color: #30363d;
+                        --text-color: #f0f6fc;
+                        --second-color: #8b949e;
+                        --count-color: #f0f6fc;
                     }
                     
                     .vditor-toolbar {
-                        border-bottom-color: #3e4451 !important;
-                        background-color: rgba(45, 49, 59, 0.8) !important;
-                        backdrop-filter: blur(10px);
+                        border-bottom-color: #30363d !important;
+                        background-color: #21262d !important;
                     }
                     
                     .vditor-ir {
-                        color: #abb2bf !important;
-                        background-color: transparent !important;
+                        color: #f0f6fc !important;
+                        background-color: #0d1117 !important;
                     }
                     
                     /* 优化Markdown元素显示 */
