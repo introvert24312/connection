@@ -39,7 +39,8 @@
       "WebFetch(domain:prosemirror.net)",
       "Bash(pkill:*)",
       "Bash(log stream:*)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(defaults write:*)"
     ],
     "deny": []
   }
