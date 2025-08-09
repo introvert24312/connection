@@ -2372,26 +2372,27 @@ struct VditorWebView: NSViewRepresentable {
                     background-color: #ffffff !important;
                 }
                 
-                /* GitHub官方暗色主题 */
+                /* SwiftUI原生暗色主题适配 */
                 @media (prefers-color-scheme: dark) {
                     .vditor {
-                        --panel-background-color: #0d1117;
-                        --textarea-background-color: #0d1117;
-                        --toolbar-background-color: #21262d;
-                        --border-color: #30363d;
-                        --text-color: #f0f6fc;
-                        --second-color: #8b949e;
-                        --count-color: #f0f6fc;
+                        --panel-background-color: transparent;
+                        --textarea-background-color: transparent;
+                        --toolbar-background-color: rgba(58, 58, 60, 0.8);
+                        --border-color: rgba(99, 99, 102, 0.6);
+                        --text-color: #ffffff;
+                        --second-color: rgba(235, 235, 245, 0.6);
+                        --count-color: #ffffff;
                     }
                     
                     .vditor-toolbar {
-                        border-bottom-color: #30363d !important;
-                        background-color: #21262d !important;
+                        border-bottom-color: rgba(99, 99, 102, 0.6) !important;
+                        background-color: rgba(58, 58, 60, 0.8) !important;
+                        backdrop-filter: blur(20px);
                     }
                     
                     .vditor-ir {
-                        color: #f0f6fc !important;
-                        background-color: #0d1117 !important;
+                        color: #ffffff !important;
+                        background-color: transparent !important;
                     }
                     
                     /* 优化Markdown元素显示 */
