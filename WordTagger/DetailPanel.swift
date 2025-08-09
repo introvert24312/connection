@@ -2326,13 +2326,17 @@ struct MilkdownWebView: NSViewRepresentable {
                 .milkdown hr{border:0;border-top:1px solid rgba(0,0,0,.12);margin:2em 0}
                 @media (prefers-color-scheme: dark){ .milkdown hr{border-top-color: rgba(255,255,255,.15)} }
 
-                /* 内联 Mermaid 预览样式 - 居中显示并添加边框 */
+                /* 内联 Mermaid 预览样式 - 绝对定位覆盖 */
                 .pm-mermaid-preview {
-                  position: relative;  /* 为右上角按钮提供定位基准 */
-                  margin: 16px 0;
+                  position: absolute;  /* 绝对定位覆盖在代码块上 */
+                  top: 0;
+                  left: 0;
+                  right: 0;
+                  z-index: 1;  /* 确保在代码块之上 */
+                  margin: 0;  /* 移除外边距避免位置偏移 */
                   padding: 16px;
-                  background: transparent;
-                  pointer-events: none !important;  /* 关键：不拦截编辑器交互 */
+                  background: white;  /* 给背景色避免透明 */
+                  pointer-events: all !important;  /* 允许交互 */
                   opacity: 1;
                   max-width: 100%;
                   overflow-x: auto;
@@ -2340,10 +2344,12 @@ struct MilkdownWebView: NSViewRepresentable {
                   border: 1px solid rgba(0,0,0,.12);  /* 添加边框 */
                   border-radius: 8px;  /* 圆角 */
                   box-shadow: 0 1px 3px rgba(0,0,0,.05);  /* 轻微阴影 */
+                  min-height: 60px;  /* 确保有足够高度 */
                 }
 
                 @media (prefers-color-scheme: dark) {
                   .pm-mermaid-preview {
+                    background: #1a1a1a;  /* 深色模式背景 */
                     border-color: rgba(255,255,255,.15);  /* 深色模式下的边框 */
                     box-shadow: 0 1px 3px rgba(0,0,0,.2);
                   }
@@ -2364,13 +2370,14 @@ struct MilkdownWebView: NSViewRepresentable {
                   overflow: hidden !important;
                 }
 
-                /* Mermaid代码块视觉隐藏但保持功能 */
-                .mermaid-code-visual-hidden {
+                /* Mermaid代码块透明化 - 保持结构但不可见 */
+                .mermaid-code-transparent {
                   color: transparent !important;
                   background: transparent !important;
                   border: none !important;
                   outline: none !important;
-                  /* 代码块依然存在，只是看不见，光标可以进入 */
+                  position: relative !important;
+                  /* 保持原有高度和布局，但内容透明 */
                 }
 
                 /* Debug 浮窗不拦截事件 */
@@ -2552,16 +2559,21 @@ struct MilkdownWebView: NSViewRepresentable {
                         
                         dom.appendChild(editBtn);
                         
-                        // 1. 让原代码块在视觉上隐藏但保持功能
+                        // 简化策略：直接在原代码块位置显示图表
+                        // 1. 将原代码块设为透明但保持结构
                         decos.push(Decoration.node(pos, pos + node.nodeSize, {
-                          'class': 'mermaid-code-visual-hidden'
+                          'class': 'mermaid-code-transparent',
+                          'style': 'position: relative; background: transparent; border: none; color: transparent;'
                         }));
                         
-                        // 2. 在代码块后面添加图表widget
-                        decos.push(Decoration.widget(pos + node.nodeSize, dom, { 
-                          side: -1,  // 放在代码块结束位置的前面
-                          ignoreSelection: true,  // 不影响选择逻辑
-                          stopEvent: () => false  // 不阻止任何事件
+                        // 2. 在代码块开始位置添加图表作为绝对定位覆盖
+                        decos.push(Decoration.widget(pos, dom, { 
+                          side: 0,  // 在代码块开始位置
+                          ignoreSelection: false,  // 允许选择交互
+                          stopEvent: (e) => {
+                            // 只允许点击事件通过，阻止其他会干扰编辑的事件
+                            return e.type !== 'click' && e.type !== 'mousedown' && e.type !== 'mouseup';
+                          }
                         }));
                         
                         // 现在单击Mermaid图表就可以越过代码块了，不需要额外的间隔区域
