@@ -2817,63 +2817,38 @@ struct VditorWebView: NSViewRepresentable {
                             enable: true,
                             style: isDark ? 'github-dark' : 'github'
                         },
-                        mermaid: {
-                            theme: isDark ? 'dark' : 'default',
+                        mermaid: isDark ? {
+                            theme: 'dark',
                             startOnLoad: false,
                             securityLevel: 'loose',
-                            fontFamily: "-apple-system, 'SF Pro Text', 'Segoe UI', Arial, sans-serif",
-                            flowchart: { 
-                                useMaxWidth: true, 
-                                htmlLabels: true, 
-                                curve: 'basis', 
-                                padding: 12, 
-                                nodeSpacing: 50, 
-                                rankSpacing: 60,
-                                diagramPadding: 8
-                            },
-                            themeVariables: isDark ? {
-                                // 主要背景和颜色
+                            themeVariables: {
                                 background: '#0d1117',
                                 primaryColor: '#1f2937',
                                 primaryTextColor: '#e5e7eb',
                                 primaryBorderColor: '#374151',
-                                
-                                // 次要颜色
                                 secondaryColor: '#374151',
                                 tertiaryColor: '#4b5563',
-                                
-                                // 线条和连接
                                 lineColor: '#60a5fa',
                                 edgeLabelBackground: '#1f2937',
-                                
-                                // 节点背景
                                 mainBkg: '#1f2937',
                                 nodeBkg: '#1f2937',
                                 clusterBkg: '#374151',
-                                
-                                // 文本
                                 nodeTextColor: '#e5e7eb',
                                 textColor: '#e5e7eb',
                                 labelTextColor: '#e5e7eb',
-                                loopTextColor: '#e5e7eb',
-                                noteTextColor: '#e5e7eb',
-                                activationTextColor: '#e5e7eb',
-                                
-                                // 高对比度的活跃元素
                                 fillType0: '#3b82f6',
                                 fillType1: '#10b981',
                                 fillType2: '#f59e0b',
                                 fillType3: '#ef4444',
                                 fillType4: '#8b5cf6',
-                                fillType5: '#06b6d4',
-                                fillType6: '#84cc16',
-                                fillType7: '#f97316',
-                                
-                                // 字体设置
                                 fontSize: '16px',
-                                fontFamily: "-apple-system, 'SF Pro Text', 'Segoe UI', Arial, sans-serif",
-                                lineHeight: '1.5'
-                            } : {
+                                fontFamily: "-apple-system, 'SF Pro Text', 'Segoe UI', Arial, sans-serif"
+                            }
+                        } : {
+                            theme: 'default',
+                            startOnLoad: false,
+                            securityLevel: 'loose',
+                            themeVariables: {
                                 primaryColor: '#ffffff',
                                 primaryTextColor: '#24292f',
                                 primaryBorderColor: '#d0d7de',
@@ -2883,8 +2858,7 @@ struct VditorWebView: NSViewRepresentable {
                                 mainBkg: '#ffffff',
                                 secondaryColor: '#f6f8fa',
                                 fontSize: '16px',
-                                fontFamily: "-apple-system, 'SF Pro Text', 'Segoe UI', Arial, sans-serif",
-                                lineHeight: '1.5'
+                                fontFamily: "-apple-system, 'SF Pro Text', 'Segoe UI', Arial, sans-serif"
                             }
                         }
                     },
@@ -2960,6 +2934,51 @@ struct VditorWebView: NSViewRepresentable {
                             if (window.mermaid && window.mermaid.initialize) {
                                 window.mermaid.initialize(customConfig);
                                 console.log('🎨 DEBUG: Custom Mermaid initialization complete');
+                                
+                                // Also try to override Vditor's internal mermaid config
+                                try {
+                                    if (vditor && vditor.vditor && vditor.vditor.preview && vditor.vditor.preview.element) {
+                                        console.log('🎨 DEBUG: Attempting to override Vditor internal mermaid...');
+                                        const previewElement = vditor.vditor.preview.element;
+                                        if (previewElement.vditorPreviewElement && previewElement.vditorPreviewElement.mermaid) {
+                                            previewElement.vditorPreviewElement.mermaid.initialize(customConfig);
+                                            console.log('🎨 DEBUG: Vditor internal mermaid overridden');
+                                        }
+                                    }
+                                } catch (e) {
+                                    console.log('🎨 DEBUG: Failed to override Vditor internal mermaid:', e);
+                                }
+                                
+                                // Set up mutation observer to catch dynamically created mermaid diagrams
+                                const observer = new MutationObserver((mutations) => {
+                                    mutations.forEach((mutation) => {
+                                        if (mutation.type === 'childList') {
+                                            mutation.addedNodes.forEach((node) => {
+                                                if (node.nodeType === 1) { // Element node
+                                                    const mermaidElements = node.classList && node.classList.contains('mermaid') 
+                                                        ? [node] 
+                                                        : node.querySelectorAll ? node.querySelectorAll('.mermaid') : [];
+                                                    
+                                                    if (mermaidElements.length > 0) {
+                                                        console.log('🎨 DEBUG: Found new mermaid elements:', mermaidElements.length);
+                                                        // Re-initialize mermaid for new elements
+                                                        if (window.mermaid && window.mermaid.init) {
+                                                            window.mermaid.init(undefined, mermaidElements);
+                                                        }
+                                                    }
+                                                }
+                                            });
+                                        }
+                                    });
+                                });
+                                
+                                // Start observing
+                                observer.observe(document.body, {
+                                    childList: true,
+                                    subtree: true
+                                });
+                                
+                                console.log('🎨 DEBUG: Mermaid mutation observer started');
                             }
                         }, 500);
                         
