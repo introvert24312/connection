@@ -2338,19 +2338,58 @@ struct VditorWebView: NSViewRepresentable {
                     margin: 0;
                     padding: 0;
                     background: transparent;
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
                 }
                 #vditor {
                     height: 100vh;
                 }
+                
+                /* Github风格样式定制 */
+                .vditor {
+                    --panel-background-color: #ffffff;
+                    --textarea-background-color: #ffffff;
+                    --toolbar-background-color: #f6f8fa;
+                    --border-color: #d1d9e0;
+                    --text-color: #24292f;
+                    --second-color: #656d76;
+                    --count-color: #24292f;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+                }
+                
+                /* Github风格工具栏 */
+                .vditor-toolbar {
+                    border-bottom: 1px solid #d1d9e0 !important;
+                    background-color: #f6f8fa !important;
+                    padding: 8px 16px !important;
+                }
+                
+                /* Github风格编辑区域 */
+                .vditor-ir {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif !important;
+                    font-size: 14px !important;
+                    line-height: 1.5 !important;
+                    color: #24292f !important;
+                }
+                
                 /* 适配系统主题 */
                 @media (prefers-color-scheme: dark) {
                     .vditor {
-                        --panel-background-color: #1e1e1e;
-                        --textarea-background-color: #1e1e1e;
-                        --toolbar-background-color: #2d2d2d;
-                        --border-color: #444;
-                        --text-color: #d4d4d4;
+                        --panel-background-color: #0d1117;
+                        --textarea-background-color: #0d1117;
+                        --toolbar-background-color: #161b22;
+                        --border-color: #30363d;
+                        --text-color: #e6edf3;
+                        --second-color: #8b949e;
+                        --count-color: #e6edf3;
+                    }
+                    
+                    .vditor-toolbar {
+                        border-bottom-color: #30363d !important;
+                        background-color: #161b22 !important;
+                    }
+                    
+                    .vditor-ir {
+                        color: #e6edf3 !important;
                     }
                 }
             </style>
@@ -2368,11 +2407,24 @@ struct VditorWebView: NSViewRepresentable {
                 // 初始化 Vditor (IR 模式 = 即时渲染)
                 vditor = new Vditor('vditor', {
                     mode: 'ir', // 关键：即时渲染模式，类似 Typora
-                    theme: isDark ? 'dark' : 'classic',
+                    theme: 'classic', // 使用经典主题
                     value: '',
                     width: '100%',
                     height: '100vh',
                     cache: { enable: false },
+                    preview: {
+                        theme: {
+                            current: 'github', // Github风格预览主题
+                            list: {
+                                'github': 'Github',
+                            }
+                        },
+                        hljs: {
+                            enable: true,
+                            style: isDark ? 'github-dark' : 'github'
+                        }
+                    },
+                    toolbar: ['outline'], // 只保留大纲展示按钮
                     after() {
                         // 编辑器初始化完成
                         window.webkit?.messageHandlers?.bridge?.postMessage({
