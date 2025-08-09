@@ -2371,25 +2371,48 @@ struct VditorWebView: NSViewRepresentable {
                     color: #24292f !important;
                 }
                 
-                /* 适配系统主题 */
+                /* GitHub暗色主题优化 - 使用更柔和的灰色背景 */
                 @media (prefers-color-scheme: dark) {
                     .vditor {
-                        --panel-background-color: #0d1117;
-                        --textarea-background-color: #0d1117;
-                        --toolbar-background-color: #161b22;
-                        --border-color: #30363d;
-                        --text-color: #e6edf3;
-                        --second-color: #8b949e;
-                        --count-color: #e6edf3;
+                        --panel-background-color: #21262d;
+                        --textarea-background-color: #21262d;
+                        --toolbar-background-color: #2d333b;
+                        --border-color: #444c56;
+                        --text-color: #f0f6fc;
+                        --second-color: #9198a1;
+                        --count-color: #f0f6fc;
                     }
                     
                     .vditor-toolbar {
-                        border-bottom-color: #30363d !important;
-                        background-color: #161b22 !important;
+                        border-bottom-color: #444c56 !important;
+                        background-color: #2d333b !important;
                     }
                     
                     .vditor-ir {
-                        color: #e6edf3 !important;
+                        color: #f0f6fc !important;
+                        background-color: #21262d !important;
+                    }
+                    
+                    /* 暗色模式下的Markdown渲染元素优化 */
+                    .vditor-ir h1, .vditor-ir h2, .vditor-ir h3, 
+                    .vditor-ir h4, .vditor-ir h5, .vditor-ir h6 {
+                        color: #f0f6fc !important;
+                        border-color: #444c56 !important;
+                    }
+                    
+                    .vditor-ir blockquote {
+                        border-left-color: #444c56 !important;
+                        color: #9198a1 !important;
+                    }
+                    
+                    .vditor-ir code {
+                        background-color: #373e47 !important;
+                        color: #f0f6fc !important;
+                    }
+                    
+                    .vditor-ir pre {
+                        background-color: #161b22 !important;
+                        border-color: #30363d !important;
                     }
                 }
             </style>
@@ -2414,9 +2437,10 @@ struct VditorWebView: NSViewRepresentable {
                     cache: { enable: false },
                     preview: {
                         theme: {
-                            current: 'github', // Github风格预览主题
+                            current: isDark ? 'dark' : 'github', // 暗色模式使用dark主题
                             list: {
                                 'github': 'Github',
+                                'dark': 'GitHub Dark'
                             }
                         },
                         hljs: {
