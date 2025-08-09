@@ -2989,6 +2989,22 @@ struct VditorWebView: NSViewRepresentable {
                                         type: 'debug',
                                         message: 'Mermaid successfully initialized with custom dark theme!'
                                     });
+                                    
+                                    // Force re-render existing Mermaid diagrams
+                                    const existingMermaid = document.querySelectorAll('.mermaid');
+                                    console.log('🎨 DEBUG: Found existing Mermaid diagrams:', existingMermaid.length);
+                                    if (existingMermaid.length > 0 && mermaidInstance.init) {
+                                        try {
+                                            mermaidInstance.init(undefined, Array.from(existingMermaid));
+                                            console.log('🎨 DEBUG: Re-initialized existing Mermaid diagrams');
+                                            window.webkit?.messageHandlers?.bridge?.postMessage({
+                                                type: 'debug',
+                                                message: `Re-rendered ${existingMermaid.length} existing Mermaid diagrams with new theme`
+                                            });
+                                        } catch (e) {
+                                            console.log('🎨 DEBUG: Failed to re-render existing diagrams:', e);
+                                        }
+                                    }
                                 } catch (e) {
                                     console.log('🎨 DEBUG: Failed to initialize Mermaid:', e);
                                     window.webkit?.messageHandlers?.bridge?.postMessage({
