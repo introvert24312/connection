@@ -2892,6 +2892,77 @@ struct VditorWebView: NSViewRepresentable {
                     after() {
                         // 编辑器初始化完成
                         console.log('🚨🚨🚨 VDITOR INITIALIZATION COMPLETE');
+                        
+                        // Debug: Check if Mermaid config was applied
+                        console.log('🎨 DEBUG: Checking Mermaid configuration...');
+                        if (window.mermaid) {
+                            console.log('🎨 DEBUG: Mermaid exists:', !!window.mermaid);
+                            console.log('🎨 DEBUG: Mermaid version:', window.mermaid.version || 'unknown');
+                            try {
+                                const config = window.mermaid.getConfig && window.mermaid.getConfig();
+                                console.log('🎨 DEBUG: Current Mermaid config:', JSON.stringify(config, null, 2));
+                            } catch(e) {
+                                console.log('🎨 DEBUG: Could not get Mermaid config:', e);
+                            }
+                        } else {
+                            console.log('🎨 DEBUG: Mermaid not found on window object');
+                        }
+                        
+                        // Debug: Check Vditor's preview options
+                        console.log('🎨 DEBUG: Vditor preview options:', JSON.stringify(vditor.vditor.options?.preview, null, 2));
+                        
+                        // Force initialize Mermaid with our theme immediately
+                        setTimeout(() => {
+                            console.log('🎨 DEBUG: Force initializing Mermaid with custom theme...');
+                            const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                            const customConfig = {
+                                theme: isDark ? 'dark' : 'default',
+                                startOnLoad: false,
+                                securityLevel: 'loose',
+                                fontFamily: "-apple-system, 'SF Pro Text', 'Segoe UI', Arial, sans-serif",
+                                flowchart: { 
+                                    useMaxWidth: true, 
+                                    htmlLabels: true, 
+                                    curve: 'basis', 
+                                    padding: 12, 
+                                    nodeSpacing: 50, 
+                                    rankSpacing: 60
+                                },
+                                themeVariables: isDark ? {
+                                    background: '#0d1117',
+                                    primaryColor: '#1f2937',
+                                    primaryTextColor: '#e5e7eb',
+                                    primaryBorderColor: '#374151',
+                                    secondaryColor: '#374151',
+                                    tertiaryColor: '#4b5563',
+                                    lineColor: '#60a5fa',
+                                    mainBkg: '#1f2937',
+                                    nodeBkg: '#1f2937',
+                                    nodeTextColor: '#e5e7eb',
+                                    textColor: '#e5e7eb',
+                                    labelTextColor: '#e5e7eb',
+                                    fillType0: '#3b82f6',
+                                    fillType1: '#10b981',
+                                    fillType2: '#f59e0b',
+                                    fillType3: '#ef4444',
+                                    fontSize: '16px'
+                                } : {
+                                    primaryColor: '#ffffff',
+                                    primaryTextColor: '#24292f',
+                                    primaryBorderColor: '#d0d7de',
+                                    lineColor: '#0969da',
+                                    tertiaryColor: '#f6f8fa',
+                                    background: '#ffffff',
+                                    fontSize: '16px'
+                                }
+                            };
+                            
+                            if (window.mermaid && window.mermaid.initialize) {
+                                window.mermaid.initialize(customConfig);
+                                console.log('🎨 DEBUG: Custom Mermaid initialization complete');
+                            }
+                        }, 500);
+                        
                         window.webkit?.messageHandlers?.bridge?.postMessage({
                             type: 'ready'
                         });
@@ -3079,7 +3150,11 @@ struct VditorWebView: NSViewRepresentable {
                         
                         // Re-initialize Mermaid with new configuration
                         if (window.mermaid && window.mermaid.initialize) {
+                            console.log('🎨 DEBUG: Re-initializing Mermaid with config:', JSON.stringify(mermaidConfig, null, 2));
                             window.mermaid.initialize(mermaidConfig);
+                            console.log('🎨 DEBUG: Mermaid re-initialized');
+                        } else {
+                            console.log('🎨 DEBUG: Mermaid.initialize not available');
                         }
                         
                         // Force re-render of current content to apply new theme

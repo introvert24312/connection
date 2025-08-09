@@ -38,7 +38,8 @@
       "WebFetch(domain:discuss.prosemirror.net)",
       "WebFetch(domain:prosemirror.net)",
       "Bash(pkill:*)",
-      "Bash(log stream:*)"
+      "Bash(log stream:*)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": []
   }
