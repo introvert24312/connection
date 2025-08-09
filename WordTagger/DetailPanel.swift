@@ -2328,6 +2328,7 @@ struct MilkdownWebView: NSViewRepresentable {
 
                 /* 内联 Mermaid 预览样式 - 居中显示并添加边框 */
                 .pm-mermaid-preview {
+                  position: relative;  /* 为右上角按钮提供定位基准 */
                   margin: 16px 0;
                   padding: 16px;
                   background: transparent;
@@ -2363,28 +2364,57 @@ struct MilkdownWebView: NSViewRepresentable {
                   overflow: hidden !important;
                 }
 
+                /* Mermaid代码块视觉隐藏但保持功能 */
+                .mermaid-code-visual-hidden {
+                  color: transparent !important;
+                  background: transparent !important;
+                  border: none !important;
+                  outline: none !important;
+                  /* 代码块依然存在，只是看不见，光标可以进入 */
+                }
+
                 /* Debug 浮窗不拦截事件 */
                 #debug-log { pointer-events: none !important; }
 
-                /* Mermaid 间隔区域样式 */
-                .mermaid-spacer {
-                  height: 20px;
-                  width: 100%;
-                  cursor: text;
-                  background: transparent;
+                /* Mermaid 右上角编辑按钮样式 */
+                .mermaid-edit-btn {
+                  position: absolute;
+                  top: 8px;
+                  right: 8px;
+                  width: 24px;
+                  height: 24px;
+                  background: rgba(0, 0, 0, 0.6);
+                  color: white;
                   border: none;
-                  outline: none;
-                  position: relative;
+                  border-radius: 4px;
+                  cursor: pointer;
+                  font-size: 12px;
+                  font-weight: bold;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  z-index: 10;
+                  opacity: 0;
+                  transition: opacity 0.2s ease;
+                  pointer-events: all !important;
                 }
 
-                .mermaid-spacer:hover {
-                  background: rgba(0, 0, 0, 0.02);
-                  border-radius: 4px;
+                .pm-mermaid-preview:hover .mermaid-edit-btn {
+                  opacity: 1;
+                }
+
+                .mermaid-edit-btn:hover {
+                  background: rgba(0, 0, 0, 0.8);
+                  transform: scale(1.1);
                 }
 
                 @media (prefers-color-scheme: dark) {
-                  .mermaid-spacer:hover {
-                    background: rgba(255, 255, 255, 0.05);
+                  .mermaid-edit-btn {
+                    background: rgba(255, 255, 255, 0.15);
+                    color: white;
+                  }
+                  .mermaid-edit-btn:hover {
+                    background: rgba(255, 255, 255, 0.25);
                   }
                 }
 
@@ -2482,19 +2512,18 @@ struct MilkdownWebView: NSViewRepresentable {
                         dom.setAttribute('data-source', cleanCode);
                         dom.textContent = cleanCode; // 先显示原始代码，稍后渲染
                         
-                        // 关键：用隐藏代码块 + widget 图表的方式实现"替换"效果
-                        // 1. 隐藏原代码块
-                        decos.push(Decoration.node(pos, pos + node.nodeSize, {
-                          'class': 'mermaid-hidden-code'
-                        }));
+                        // 添加右上角编辑按钮
+                        const editBtn = document.createElement('button');
+                        editBtn.className = 'mermaid-edit-btn';
+                        editBtn.innerHTML = '✎';  // 编辑图标
+                        editBtn.title = '点击编辑Mermaid代码';
+                        editBtn.style.pointerEvents = 'all'; // 确保按钮可点击
                         
-                        // 添加双击事件监听器用于编辑原码（避免与单击越过冲突）
-                        dom.addEventListener('dblclick', (e) => {
+                        editBtn.addEventListener('click', (e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          __mmdLog('Mermaid double-clicked, switching to edit mode');
+                          __mmdLog('Edit button clicked, switching to edit mode');
                           
-                          // 直接通过全局访问editor
                           if (!window.milkdownEditor) {
                             __mmdLog('Editor not available');
                             return;
@@ -2521,47 +2550,18 @@ struct MilkdownWebView: NSViewRepresentable {
                           }
                         });
                         
-                        // 添加提示文本
-                        dom.title = '单击越过代码块 | 双击编辑原码';
+                        dom.appendChild(editBtn);
                         
-                        // 添加单击事件用于光标定位到代码块之后
-                        dom.addEventListener('click', (e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          __mmdLog('Mermaid single-clicked, positioning cursor after block');
-                          
-                          if (!window.milkdownEditor) {
-                            __mmdLog('Editor not available for single click');
-                            return;
-                          }
-                          
-                          try {
-                            window.milkdownEditor.action((ctx) => {
-                              const view = ctx.get(editorViewCtx);
-                              
-                              // 将光标定位到代码块结束位置
-                              const endPos = pos + node.nodeSize;
-                              const selection = TextSelection.create(view.state.doc, endPos, endPos);
-                              const tr = view.state.tr.setSelection(selection);
-                              
-                              view.dispatch(tr);
-                              view.focus();
-                              
-                              __mmdLog('Cursor positioned after Mermaid block at pos:', endPos);
-                            });
-                          } catch (e) {
-                            __mmdLog('Error positioning cursor:', String(e?.message || e));
-                          }
-                        });
-
-                        // 2. 在同位置显示图表
-                        decos.push(Decoration.widget(pos, dom, { 
-                          side: 0, 
-                          ignoreSelection: false,  // 允许选择，这样可以点击
-                          stopEvent: (e) => {
-                            // 允许点击和双击事件通过
-                            return e.type !== 'click' && e.type !== 'dblclick' && e.type !== 'mousedown' && e.type !== 'mouseup';
-                          }
+                        // 1. 让原代码块在视觉上隐藏但保持功能
+                        decos.push(Decoration.node(pos, pos + node.nodeSize, {
+                          'class': 'mermaid-code-visual-hidden'
+                        }));
+                        
+                        // 2. 在代码块后面添加图表widget
+                        decos.push(Decoration.widget(pos + node.nodeSize, dom, { 
+                          side: -1,  // 放在代码块结束位置的前面
+                          ignoreSelection: true,  // 不影响选择逻辑
+                          stopEvent: () => false  // 不阻止任何事件
                         }));
                         
                         // 现在单击Mermaid图表就可以越过代码块了，不需要额外的间隔区域
