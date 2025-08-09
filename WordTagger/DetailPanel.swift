@@ -2344,11 +2344,11 @@ struct VditorWebView: NSViewRepresentable {
                     height: 100vh;
                 }
                 
-                /* Github风格样式定制 */
+                /* 透明背景样式定制 */
                 .vditor {
-                    --panel-background-color: #ffffff;
-                    --textarea-background-color: #ffffff;
-                    --toolbar-background-color: #f6f8fa;
+                    --panel-background-color: transparent;
+                    --textarea-background-color: transparent;
+                    --toolbar-background-color: rgba(246, 248, 250, 0.8);
                     --border-color: #d1d9e0;
                     --text-color: #24292f;
                     --second-color: #656d76;
@@ -2356,19 +2356,21 @@ struct VditorWebView: NSViewRepresentable {
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
                 }
                 
-                /* Github风格工具栏 */
+                /* 透明工具栏 */
                 .vditor-toolbar {
                     border-bottom: 1px solid #d1d9e0 !important;
-                    background-color: #f6f8fa !important;
+                    background-color: rgba(246, 248, 250, 0.8) !important;
+                    backdrop-filter: blur(10px);
                     padding: 8px 16px !important;
                 }
                 
-                /* Github风格编辑区域 */
+                /* 透明编辑区域 */
                 .vditor-ir {
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif !important;
                     font-size: 14px !important;
                     line-height: 1.5 !important;
                     color: #24292f !important;
+                    background-color: transparent !important;
                 }
                 
                 /* GitHub暗色主题优化 - 使用更柔和的灰色背景 */
