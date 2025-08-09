@@ -2154,10 +2154,6 @@ struct VditorWebView: NSViewRepresentable {
         
         // Enable debugging for Safari Web Inspector
         config.preferences.setValue(true, forKey: "developerExtrasEnabled")
-        if #available(macOS 13.3, *) {
-            config.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
-            config.preferences.setValue(true, forKey: "allowUniversalAccessFromFileURLs")
-        }
         
         let uc = WKUserContentController()
         uc.add(context.coordinator, name: "bridge")
