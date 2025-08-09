@@ -348,25 +348,140 @@ struct MarkdownVditorWebView: NSViewRepresentable {
               const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
               const shared = {
                 startOnLoad: false,
-                securityLevel: 'loose', // allow htmlLabels/foreignObject
+                securityLevel: 'loose',
                 fontFamily: "-apple-system, 'SF Pro Text', 'Segoe UI', Arial, sans-serif",
-                flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis', padding: 8, nodeSpacing: 40, rankSpacing: 40 }
+                flowchart: { 
+                  useMaxWidth: true, 
+                  htmlLabels: true, 
+                  curve: 'basis', 
+                  padding: 12, 
+                  nodeSpacing: 50, 
+                  rankSpacing: 60,
+                  diagramPadding: 8
+                },
+                sequence: {
+                  diagramMarginX: 50,
+                  diagramMarginY: 10,
+                  actorMargin: 50,
+                  width: 150,
+                  height: 65,
+                  boxMargin: 10,
+                  boxTextMargin: 5,
+                  noteMargin: 10,
+                  messageMargin: 35,
+                  mirrorActors: true,
+                  bottomMarginAdj: 1,
+                  useMaxWidth: true
+                },
+                gantt: {
+                  leftPadding: 75,
+                  gridLineStartPadding: 35,
+                  fontSize: 14,
+                  fontFamily: "-apple-system, 'SF Pro Text', 'Segoe UI', Arial, sans-serif",
+                  sectionFontSize: 16,
+                  numberSectionStyles: 4
+                }
               };
               return isDark ? {
                 ...shared,
                 theme: 'dark',
                 themeVariables: {
-                  primaryColor: '#161b22', primaryTextColor: '#c9d1d9', primaryBorderColor: '#30363d',
-                  lineColor: '#58a6ff', background:'#0d1117', mainBkg:'#161b22', secondaryColor:'#21262d',
-                  fontSize:'16px', lineHeight:'1.4'
+                  // 主要背景和颜色
+                  background: '#0d1117',
+                  primaryColor: '#1f2937',
+                  primaryTextColor: '#e5e7eb',
+                  primaryBorderColor: '#374151',
+                  
+                  // 次要颜色
+                  secondaryColor: '#374151',
+                  tertiaryColor: '#4b5563',
+                  
+                  // 线条和连接
+                  lineColor: '#60a5fa',
+                  edgeLabelBackground: '#1f2937',
+                  
+                  // 节点背景
+                  mainBkg: '#1f2937',
+                  nodeBkg: '#1f2937',
+                  clusterBkg: '#374151',
+                  
+                  // 文本
+                  nodeTextColor: '#e5e7eb',
+                  textColor: '#e5e7eb',
+                  labelTextColor: '#e5e7eb',
+                  loopTextColor: '#e5e7eb',
+                  noteTextColor: '#e5e7eb',
+                  activationTextColor: '#e5e7eb',
+                  
+                  // 特殊节点
+                  activeTaskBkgColor: '#3b82f6',
+                  activeTaskBorderColor: '#60a5fa',
+                  gridColor: '#374151',
+                  section0: '#1f2937',
+                  section1: '#374151',
+                  section2: '#4b5563',
+                  section3: '#6b7280',
+                  
+                  // 高对比度的活跃元素
+                  fillType0: '#3b82f6',
+                  fillType1: '#10b981',
+                  fillType2: '#f59e0b',
+                  fillType3: '#ef4444',
+                  fillType4: '#8b5cf6',
+                  fillType5: '#06b6d4',
+                  fillType6: '#84cc16',
+                  fillType7: '#f97316',
+                  
+                  // 字体设置
+                  fontSize: '16px',
+                  fontFamily: "-apple-system, 'SF Pro Text', 'Segoe UI', Arial, sans-serif",
+                  lineHeight: '1.5',
+                  
+                  // 序列图专用
+                  actorBkg: '#1f2937',
+                  actorBorder: '#374151',
+                  actorTextColor: '#e5e7eb',
+                  actorLineColor: '#60a5fa',
+                  signalColor: '#e5e7eb',
+                  signalTextColor: '#e5e7eb',
+                  labelBoxBkgColor: '#374151',
+                  labelBoxBorderColor: '#4b5563',
+                  noteBkgColor: '#374151',
+                  noteBorderColor: '#4b5563',
+                  
+                  // Git图专用
+                  git0: '#3b82f6',
+                  git1: '#10b981',
+                  git2: '#f59e0b',
+                  git3: '#ef4444',
+                  git4: '#8b5cf6',
+                  git5: '#06b6d4',
+                  git6: '#84cc16',
+                  git7: '#f97316',
+                  gitBranchLabel0: '#e5e7eb',
+                  gitBranchLabel1: '#e5e7eb',
+                  gitBranchLabel2: '#e5e7eb',
+                  gitBranchLabel3: '#e5e7eb',
+                  gitBranchLabel4: '#e5e7eb',
+                  gitBranchLabel5: '#e5e7eb',
+                  gitBranchLabel6: '#e5e7eb',
+                  gitBranchLabel7: '#e5e7eb'
                 }
               } : {
                 ...shared,
                 theme: 'default',
                 themeVariables: {
-                  primaryColor:'#ffffff', primaryTextColor:'#24292f', primaryBorderColor:'#d0d7de',
-                  lineColor:'#0969da', tertiaryColor:'#f6f8fa', background:'#ffffff',
-                  fontSize:'16px', lineHeight:'1.4'
+                  primaryColor: '#ffffff',
+                  primaryTextColor: '#24292f',
+                  primaryBorderColor: '#d0d7de',
+                  lineColor: '#0969da',
+                  tertiaryColor: '#f6f8fa',
+                  background: '#ffffff',
+                  mainBkg: '#ffffff',
+                  secondaryColor: '#f6f8fa',
+                  fontSize: '16px',
+                  fontFamily: "-apple-system, 'SF Pro Text', 'Segoe UI', Arial, sans-serif",
+                  lineHeight: '1.5'
                 }
               }
             }

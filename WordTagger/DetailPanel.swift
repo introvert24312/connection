@@ -89,13 +89,13 @@ struct DetailPanel: View {
 struct NodeDetailView: View {
     let node: Node
     @EnvironmentObject private var store: NodeStore
+    @Environment(\.colorScheme) private var colorScheme
     @State private var markdownText: String = ""
     @StateObject private var imageManager = NodeImageManager.shared
     @State private var saveTask: Task<Void, Never>?
     @State private var isEditing: Bool = false
     @State private var vditorCoordinator: VditorWebView.Coordinator?
     @FocusState private var isTextEditorFocused: Bool
-    @Environment(\.colorScheme) private var colorScheme
     
     // 从store中获取最新的节点数据
     private var currentNode: Node {
@@ -152,7 +152,7 @@ struct NodeDetailView: View {
                 },
                 coordinatorBinding: $vditorCoordinator
             )
-            .id("vditor-\(currentNode.id.uuidString)-\(colorScheme == .dark ? "dark" : "light")")
+            .id("vditor-\(currentNode.id)-\(colorScheme)")
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.clear)
             .zIndex(2)
@@ -207,17 +207,16 @@ struct NodeDetailView: View {
                 vditorCoordinator?.setMarkdown(markdownText, forceUpdate: true)
             }
         }
-        .onChange(of: colorScheme) { _, newValue in
-            let mode = (newValue == .dark) ? "dark" : "light"
-            print("🌓 colorScheme changed -> \(mode). Forcing VditorWebView rebuild with .id and refreshing content.")
-            // Best-effort refresh in case the editor survives .id recreation
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                vditorCoordinator?.setMarkdown(markdownText, forceUpdate: true)
-            }
-        }
         .onChange(of: isEditing) { _, newValue in
             if newValue {
                 // 静默进入编辑模式
+            }
+        }
+        .onChange(of: colorScheme) { _, newValue in
+            print("🎨 主题变化: \(newValue == .dark ? "dark" : "light")")
+            // 主题变化时强制刷新 Vditor 内容以应用新主题
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                vditorCoordinator?.setMarkdown(markdownText, forceUpdate: true)
             }
         }
         .onKeyPress(.init("/"), phases: .down) { keyPress in
