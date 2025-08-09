@@ -156,6 +156,9 @@ struct NodeDetailView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.clear)
             .zIndex(2)
+            .onAppear {
+                print("🚨🚨🚨 VditorWebView onAppear CALLED for node: \(currentNode.text)")
+            }
 
             // TODO: 移除独立预览区域，改为真正的编辑器内联就地渲染
             // if hasMermaid {
