@@ -2061,108 +2061,56 @@ struct MermaidWebView: NSViewRepresentable {
                 
                 // 渲染函数
                 function renderContent() {
-                    __mmdLog('renderContent start');
-                    
-                    // 解析 markdown
-                    let html = marked.parse(markdownContent);
-                    __mmdLog('marked.parse ok');
-                    
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(html, 'text/html');
+                  __mmdLog('renderContent start');
 
-                    // 找出 mermaid 代码块（显式语言+关键字兜底）
-                    let blocks = Array.from(doc.querySelectorAll('pre code.language-mermaid'));
-                    const kw = /^(graph|sequenceDiagram|classDiagram|erDiagram|gantt|pie|journey)\b/;
-                    blocks = blocks.concat(
-                      Array.from(doc.querySelectorAll('pre code'))
-                        .filter(el => !el.className.includes('language-mermaid') && kw.test((el.textContent || '').trim()))
-                    );
+                  const contentDiv = document.getElementById('content');
 
-                    __mmdLog('mermaid blocks found', blocks.length);
+                  // 1) Markdown -> HTML
+                  let html = marked.parse(markdownContent);
+                  __mmdLog('marked.parse ok');
 
-                    // ✅ 关键：就地替换 <pre> 为 <div class="mermaid">
-                    blocks.forEach((block, index) => {
-                      // --- robust in-place replacement ---
-                      // 1) sanitize text
-                      let code = (block.textContent || '').replace(/\uFEFF/g, '').trim();
-                      const lines = code.split(/\r?\n/);
-                      const kw = /^(graph|sequenceDiagram|classDiagram|erDiagram|gantt|pie|journey)\b/;
-                      const firstDiagramIdx = lines.findIndex(l => kw.test(l.trim()) || /^%%\{/.test(l.trim()));
-                      if (firstDiagramIdx > 0) code = lines.slice(firstDiagramIdx).join('\n');
+                  const parser = new DOMParser();
+                  const doc = parser.parseFromString(html, 'text/html');
 
-                      // 2) create mermaid node
-                      const mer = doc.createElement('div');
-                      mer.className = 'mermaid';
-                      mer.id = 'mermaid-' + index;
-                      mer.textContent = code;
-                      mer.setAttribute('data-original-code', code);
+                  // 2) 在离屏 doc 里就地把 mermaid 代码块替换为 <div class="mermaid">
+                  const isMermaidKw = /^(graph|sequenceDiagram|classDiagram|erDiagram|gantt|pie|journey)\b/;
 
-                      // 3) find best replacement target in the parsed DOM
-                      let target = block.closest('pre, .code, .code-block, p, div');
-                      if (!target) target = block.parentElement;
+                  let blocks = Array.from(doc.querySelectorAll('pre code.language-mermaid'));
+                  blocks = blocks.concat(
+                    Array.from(doc.querySelectorAll('pre code'))
+                      .filter(el => !el.className.includes('language-mermaid') && isMermaidKw.test((el.textContent || '').trim()))
+                  );
 
-                      if (target && target.parentNode) {
-                        target.replaceWith(mer);     // ✅ in-place
-                        __mmdLog('replaceWith ok at', mer.id);
-                      } else if (block && block.parentNode) {
-                        // fallback: insert before then remove original block (still in the same parent)
-                        block.parentNode.insertBefore(mer, block);
-                        block.remove();
-                        __mmdLog('insertBefore fallback at', mer.id);
-                      } else {
-                        // FORBIDDEN: Never append! This would push diagrams to bottom
-                        __mmdLog('CRITICAL: No replacement target found for', mer.id, 'keeping original block position');
-                        // Insert right after the original block to maintain position
-                        if (block.nextSibling) {
-                          block.parentNode.insertBefore(mer, block.nextSibling);
-                          block.remove();
-                          __mmdLog('insertAfter final fallback at', mer.id);
-                        } else {
-                          // Absolute last resort - replace the block directly
-                          block.parentNode.replaceChild(mer, block);
-                          __mmdLog('replaceChild final fallback at', mer.id);
-                        }
-                      }
+                  __mmdLog('mermaid blocks found', blocks.length);
+
+                  blocks.forEach((codeEl, idx) => {
+                    const raw = (codeEl.textContent || '').replace(/\uFEFF/g, '').trim();
+                    const pre = codeEl.closest('pre');
+                    if (!pre) return;
+
+                    const m = doc.createElement('div');
+                    m.className = 'mermaid';
+                    m.textContent = raw;                  // 原始 mermaid 源码
+                    m.setAttribute('data-original-code', raw); // 给二次渲染用
+                    pre.replaceWith(m);                   // 就地替换，不破坏其它内容结构
+                  });
+
+                  // 3) 把"整份处理后的 HTML"写回页面，而不是只 append 图表
+                  contentDiv.innerHTML = doc.body.innerHTML;
+                  contentDiv.classList.add('ready');
+
+                  // 4) 触发渲染
+                  const mermaidEls = contentDiv.querySelectorAll('.mermaid');
+                  if (mermaidEls.length === 0) return;
+
+                  (window.mermaid ? mermaid.run() : Promise.reject(new Error('Mermaid not available')))
+                    .then(() => {
+                      __mmdLog('mermaid.run success');
+                      mermaidEls.forEach(el => el.classList.add('rendered'));
+                    })
+                    .catch(err => {
+                      __mmdLog('mermaid.run failed', String(err && err.message || err));
                     });
-
-                    // 把修改后的文档一次性写回页面
-                    const contentDiv = document.getElementById('content');
-                    contentDiv.innerHTML = doc.body.innerHTML;
-                    __mmdLog('wrote HTML back to #content');
-                    
-                    // ✅ 硬断言：确保没有未替换的mermaid代码块
-                    const remainingBlocks = document.querySelectorAll('#content pre code.language-mermaid, #content pre code').length;
-                    if (remainingBlocks > 0) {
-                      __mmdLog('WARNING: Found', remainingBlocks, 'unprocessed code blocks after replacement');
-                    }
-
-                    // 再触发渲染（先写回，再 run）
-                    setTimeout(() => {
-                      const mermaidElements = document.getElementById('content').querySelectorAll('.mermaid');
-                      __mmdLog('about to mermaid.run', mermaidElements.length, (window.mermaid && typeof window.mermaid.run));
-                      
-                      if (mermaidElements.length > 0) {
-                        (window.mermaid ? mermaid.run() : Promise.reject(new Error('Mermaid not available')))
-                          .then(() => {
-                            __mmdLog('mermaid.run success');
-                            mermaidElements.forEach(element => {
-                              element.classList.add('rendered');
-                            });
-                            // 显示整个内容
-                            setTimeout(() => {
-                              contentDiv.classList.add('ready');
-                            }, 50);
-                          })
-                          .catch(err => {
-                            __mmdLog('mermaid.run failed', String(err && err.message || err));
-                            // 即使渲染失败也要显示内容
-                            contentDiv.classList.add('ready');
-                          });
-                      } else {
-                        // 如果没有Mermaid图表，直接显示内容
-                        contentDiv.classList.add('ready');
-                      }
-                    }, 10);
                 }
                 
                 // 确保渲染一定触发；并在文档就绪 / 完全加载后再尝试一次
