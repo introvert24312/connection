@@ -2373,11 +2373,11 @@ struct VditorWebView: NSViewRepresentable {
                 
                 /* GitHub暗色主题优化 - 使用更柔和的灰色背景 */
                 @media (prefers-color-scheme: dark) {
-                    /* One Dark Pro 风格暗色主题 - 温和且专业 */
+                    /* 透明背景主题 - 融合现有UI */
                     .vditor {
-                        --panel-background-color: #282c34;
-                        --textarea-background-color: #282c34;
-                        --toolbar-background-color: #2d313b;
+                        --panel-background-color: transparent;
+                        --textarea-background-color: transparent;
+                        --toolbar-background-color: rgba(45, 49, 59, 0.8);
                         --border-color: #3e4451;
                         --text-color: #abb2bf;
                         --second-color: #5c6370;
@@ -2386,12 +2386,13 @@ struct VditorWebView: NSViewRepresentable {
                     
                     .vditor-toolbar {
                         border-bottom-color: #3e4451 !important;
-                        background-color: #2d313b !important;
+                        background-color: rgba(45, 49, 59, 0.8) !important;
+                        backdrop-filter: blur(10px);
                     }
                     
                     .vditor-ir {
                         color: #abb2bf !important;
-                        background-color: #282c34 !important;
+                        background-color: transparent !important;
                     }
                     
                     /* 优化Markdown元素显示 */
