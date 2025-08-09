@@ -449,6 +449,7 @@ public final class NodeStore: ObservableObject {
             
             // 手动触发objectWillChange以确保UI更新
             objectWillChange.send()
+            print("✅ Node markdown updated in memory")
         }
     }
     

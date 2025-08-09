@@ -90,14 +90,16 @@ struct NodeDetailView: View {
     @EnvironmentObject private var store: NodeStore
     @State private var markdownText: String = ""
     @StateObject private var imageManager = NodeImageManager.shared
-    @State private var debounceTask: Task<Void, Never>?
+    @State private var saveTask: Task<Void, Never>?
     @State private var isEditing: Bool = false
+    @State private var vditorCoordinator: VditorWebView.Coordinator?
     @FocusState private var isTextEditorFocused: Bool
     
     // 从store中获取最新的节点数据
     private var currentNode: Node {
         return store.nodes.first { $0.id == node.id } ?? node
     }
+    
 
     private var hasMermaid: Bool {
         // 检测是否包含 mermaid 代码块或常见的 mermaid 关键字
@@ -106,11 +108,14 @@ struct NodeDetailView: View {
     }
     
     var body: some View {
+        let _ = print("🚨🚨🚨 NodeDetailView RENDERING - Node: \(currentNode.text)")
+        
         VStack(alignment: .leading, spacing: 8) {
             // 简洁的标题栏
             HStack {
                 Text(currentNode.text)
-                    .font(.headline)
+                    .font(.title2)
+                    .fontWeight(.semibold)
                 Spacer()
                 
                 // 状态指示器 - 仅显示编辑状态
@@ -128,21 +133,22 @@ struct NodeDetailView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-                
-                // 编辑按钮
-                Button("编辑") {
-                    isEditing.toggle()
-                }
             }
             .padding(.horizontal)
+
 
             // Vditor 即时渲染编辑器（Typora 体验）
             VditorWebView(
                 markdown: markdownText,
+                nodeId: currentNode.id.uuidString,
                 onChange: { newValue in
-                    debouncedSave(newValue)
+                    print("🚨🚨🚨 VDITOR ONCHANGE CALLED - length: \(newValue.count)")
+                    print("🚨🚨🚨 CONTENT PREVIEW: \(newValue.prefix(200))")
+                    print("🚨🚨🚨 CURRENT NODE: \(currentNode.text) (\(currentNode.id))")
+                    instantSave(newValue)
                     markdownText = newValue
-                }
+                },
+                coordinatorBinding: $vditorCoordinator
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.clear)
@@ -166,8 +172,37 @@ struct NodeDetailView: View {
         .onAppear {
             loadMarkdown()
         }
-        .onChange(of: currentNode.id) { _, _ in
+        .onChange(of: currentNode.id) { oldId, newId in
+            print("🔄 节点ID发生变化: \(oldId) -> \(newId)")
+            
+            // 等待当前保存任务完成，避免切换时保存被掐断
+            if let currentSaveTask = saveTask {
+                Task {
+                    await currentSaveTask.value
+                    print("✅ 等待之前的保存任务完成")
+                    await MainActor.run {
+                        loadMarkdown()
+                        // 确保编辑器内容也重新加载
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            vditorCoordinator?.setMarkdown(markdownText, forceUpdate: true)
+                        }
+                    }
+                }
+            } else {
+                loadMarkdown()
+                // 确保编辑器内容也重新加载
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    vditorCoordinator?.setMarkdown(markdownText, forceUpdate: true)
+                }
+            }
+        }
+        .onChange(of: node.id) { oldId, newId in
+            print("🔄 传入节点ID发生变化: \(oldId) -> \(newId)")
+            // 当传入的node发生变化时，也要重新加载内容
             loadMarkdown()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                vditorCoordinator?.setMarkdown(markdownText, forceUpdate: true)
+            }
         }
         .onChange(of: isEditing) { _, newValue in
             if newValue {
@@ -176,20 +211,21 @@ struct NodeDetailView: View {
         }
         .onKeyPress(.init("/"), phases: .down) { keyPress in
             if keyPress.modifiers == .command {
-                // Command+/: 切换编辑模式
-                isEditing.toggle()
+                // Command+/: 切换Vditor编辑模式
+                print("🎯 Command+/ pressed - toggling Vditor mode")
+                vditorCoordinator?.toggleMode()
                 return .handled
             }
             return .ignored
         }
         .onDisappear {
             // 清理异步任务
-            debounceTask?.cancel()
+            saveTask?.cancel()
         }
     }
     
     private func loadMarkdown() {
-        markdownText = currentNode.markdown
+        loadMarkdownFromFile()
     }
     
     private func saveMarkdown() {
@@ -198,16 +234,104 @@ struct NodeDetailView: View {
         }
     }
     
-    private func debouncedSave(_ newValue: String) {
-        // 取消之前的任务
-        debounceTask?.cancel()
+    private func instantSave(_ newValue: String) {
+        print("🚨🚨🚨 INSTANT SAVE CALLED!")
+        print("🚨🚨🚨 NODE: \(currentNode.text)")
+        print("🚨🚨🚨 CONTENT LENGTH: \(newValue.count)")
         
-        // 创建新的防抖任务
-        debounceTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5秒延迟
+        // 取消之前的任务避免重复保存
+        saveTask?.cancel()
+        
+        // 立即更新内存中的数据
+        store.updateNodeMarkdown(currentNode.id, markdown: newValue)
+        
+        // 立即异步保存到文件
+        saveTask = Task {
+            await saveMarkdownToFile(newValue)
+        }
+    }
+    
+    private func saveMarkdownToFile(_ content: String) async {
+        print("🚨🚨🚨 SAVING MARKDOWN FILE...")
+        
+        guard let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            print("❌ 无法获取Documents目录")
+            return
+        }
+        
+        // 创建WordTagger文件夹
+        let wordTaggerURL = documentsURL.appendingPathComponent("WordTagger")
+        let markdownURL = wordTaggerURL.appendingPathComponent("Markdown")
+        
+        do {
+            try FileManager.default.createDirectory(at: markdownURL, withIntermediateDirectories: true)
             
-            if !Task.isCancelled {
-                store.updateNodeMarkdown(currentNode.id, markdown: newValue)
+            // 创建安全的文件名（移除特殊字符）
+            let safeFileName = currentNode.text
+                .replacingOccurrences(of: "/", with: "_")
+                .replacingOccurrences(of: ":", with: "_")
+                .replacingOccurrences(of: "?", with: "_")
+                .replacingOccurrences(of: "*", with: "_")
+                .replacingOccurrences(of: "\"", with: "_")
+                .replacingOccurrences(of: "<", with: "_")
+                .replacingOccurrences(of: ">", with: "_")
+                .replacingOccurrences(of: "|", with: "_")
+            
+            let fileURL = markdownURL.appendingPathComponent("\(safeFileName).md")
+            
+            try content.write(to: fileURL, atomically: true, encoding: .utf8)
+            
+            print("✅ Markdown文件已保存: \(fileURL.path)")
+            
+        } catch {
+            print("❌ 保存Markdown文件失败: \(error)")
+        }
+    }
+    
+    private func loadMarkdownFromFile() {
+        print("🚨🚨🚨 LOADING MARKDOWN FILE...")
+        
+        guard let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            print("❌ 无法获取Documents目录")
+            return
+        }
+        
+        let wordTaggerURL = documentsURL.appendingPathComponent("WordTagger")
+        let markdownURL = wordTaggerURL.appendingPathComponent("Markdown")
+        
+        // 创建安全的文件名
+        let safeFileName = currentNode.text
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: ":", with: "_")
+            .replacingOccurrences(of: "?", with: "_")
+            .replacingOccurrences(of: "*", with: "_")
+            .replacingOccurrences(of: "\"", with: "_")
+            .replacingOccurrences(of: "<", with: "_")
+            .replacingOccurrences(of: ">", with: "_")
+            .replacingOccurrences(of: "|", with: "_")
+        
+        let fileURL = markdownURL.appendingPathComponent("\(safeFileName).md")
+        
+        do {
+            let content = try String(contentsOf: fileURL, encoding: .utf8)
+            markdownText = content
+            print("✅ 从文件加载Markdown内容: \(content.count)字符")
+            
+            // 确保编辑器也更新内容
+            DispatchQueue.main.async {
+                print("📝 loadMarkdownFromFile: 设置编辑器内容")
+                vditorCoordinator?.setMarkdown(content, forceUpdate: true)
+            }
+        } catch {
+            print("📄 文件不存在或无法读取，使用默认内容: \(error)")
+            // 文件不存在时使用Node的默认markdown内容
+            let defaultContent = currentNode.markdown
+            markdownText = defaultContent
+            
+            // 确保编辑器也更新默认内容
+            DispatchQueue.main.async {
+                print("📝 loadMarkdownFromFile: 设置默认内容到编辑器")
+                vditorCoordinator?.setMarkdown(defaultContent, forceUpdate: true)
             }
         }
     }
@@ -1923,7 +2047,9 @@ struct MermaidWebView: NSViewRepresentable {
                   display: block !important;
                   width: 100% !important;
                   height: auto !important;
-                  max-width: 100% !important;
+                  max-width: none !important;
+                  min-width: 800px !important;
+                  min-height: 600px !important;
                 }
                 #debug-log{ position:fixed; right:8px; bottom:8px; width:320px; max-height:40vh; overflow:auto; font:11px -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial; background:rgba(0,0,0,.6); color:#fff; padding:8px 10px; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,.3); z-index:99999; }
                 #debug-log.hidden{ display:none; }
@@ -1987,33 +2113,115 @@ struct MermaidWebView: NSViewRepresentable {
                 function getCurrentThemeConfig() {
                     return {
                         startOnLoad: false,
-                        theme: isDarkMode ? 'dark' : 'base',
+                        theme: isDarkMode ? 'dark' : 'default',
                         securityLevel: 'loose',
-                        fontFamily: 'system-ui, -apple-system, sans-serif',
+                        fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
+                        fontSize: 14,
+                        darkMode: isDarkMode,
                         flowchart: { 
                             useMaxWidth: true, 
                             htmlLabels: true,
-                            curve: 'basis'
+                            curve: 'basis',
+                            nodeSpacing: 50,
+                            rankSpacing: 50,
+                            padding: 10
                         },
-                        sequence: { useMaxWidth: true },
-                        gantt: { useMaxWidth: true },
-                        journey: { useMaxWidth: true },
-                        pie: { useMaxWidth: true }
+                        sequence: { 
+                            useMaxWidth: true,
+                            showSequenceNumbers: true
+                        },
+                        gantt: { 
+                            useMaxWidth: true,
+                            fontSize: 16
+                        },
+                        journey: { 
+                            useMaxWidth: true 
+                        },
+                        pie: { 
+                            useMaxWidth: true,
+                            textPosition: 0.75
+                        },
+                        // 暗色主题特定配置 - 使用Dark主题
+                        themeVariables: isDarkMode ? {
+                            // Dark主题配色 - 高对比度设计
+                            primaryColor: '#58A6FF',          // 明亮蓝色
+                            primaryTextColor: '#F0F6FC',      // 白色文字
+                            primaryBorderColor: '#30363D',    // 深灰边框
+                            
+                            // 次要颜色
+                            secondaryColor: '#7C3AED',        // 紫色
+                            tertiaryColor: '#F59E0B',         // 黄色
+                            
+                            // 线条和边框
+                            lineColor: '#30363D',             // 深灰线条
+                            gridColor: '#21262D',             // 更深的网格
+                            
+                            // 背景色 - 深色系
+                            background: '#0D1117',            // GitHub深色背景
+                            mainBkg: '#0D1117',               // 主要背景
+                            secondBkg: '#0D1117',             // 次要背景
+                            altSectionBkColor: '#0D1117',     // 统一深色背景
+                            sectionBkColor: '#0D1117',
+                            clusterBkg: '#0D1117',            // 集群背景
+                            defaultLinkColor: '#58A6FF',      // 连线颜色
+                            
+                            // 文字颜色
+                            tertiaryTextColor: '#F0F6FC',     // 白色文字
+                            taskTextColor: '#F0F6FC',         // 任务文字
+                            activeTaskBkgColor: 'rgba(88, 166, 255, 0.15)', // 活动任务背景
+                            activeTaskBorderColor: '#58A6FF', // 活动任务边框
+                            
+                            // 节点和形状颜色
+                            nodeBkg: '#21262D',               // 深灰背景
+                            nodeTextColor: '#F0F6FC',         // 白色文字
+                            
+                            // 额外配色 - 多彩调色板
+                            cScale0: '#58A6FF',               // 蓝色
+                            cScale1: '#7C3AED',               // 紫色  
+                            cScale2: '#10B981',               // 绿色
+                            cScale3: '#F59E0B',               // 黄色
+                            cScale4: '#EF4444',               // 红色
+                            cScale5: '#EC4899',               // 粉色
+                            cScale6: '#06B6D4',               // 青色
+                            cScale7: '#84CC16',               // 亮绿
+                            cScale8: '#F97316',               // 橙色
+                            cScale9: '#8B5CF6'                // 靛蓝
+                        } : undefined
                     };
                 }
                 
                 // 初始化Mermaid
-                mermaid.initialize(getCurrentThemeConfig());
+                const config = getCurrentThemeConfig();
+                console.log('🚨🚨🚨 MERMAID CONFIG:', config);
+                console.log('🚨🚨🚨 IS DARK MODE:', isDarkMode);
+                mermaid.initialize(config);
                 __mmdLog('mermaid.initialize called', typeof mermaid, (window.mermaid && window.mermaid.version) ? ('v'+window.mermaid.version) : 'no-version');
+                
+                // 强制重新渲染现有的Mermaid图表以应用forest主题
+                setTimeout(function() {
+                    reRenderMermaidCharts();
+                }, 100);
                 
                 // 监听主题变化
                 darkModeQuery.addListener(function(e) {
                     __mmdLog('theme changed', e.matches ? 'dark' : 'light');
                     isDarkMode = e.matches;
                     
-                    // 重新配置并重新渲染所有Mermaid图表
+                    // 完全重新初始化Mermaid以应用新主题
+                    console.log('🎨 Reinitializing Mermaid with theme:', isDarkMode ? 'dark' : 'default');
+                    
+                    // 清除mermaid内部状态
+                    if (window.mermaid && window.mermaid.mermaidAPI) {
+                        window.mermaid.mermaidAPI.reset();
+                    }
+                    
+                    // 重新配置
                     mermaid.initialize(getCurrentThemeConfig());
-                    reRenderMermaidCharts();
+                    
+                    // 强制重新渲染
+                    setTimeout(() => {
+                        reRenderMermaidCharts();
+                    }, 50);
                 });
                 
                 // 配置Marked
@@ -2058,26 +2266,88 @@ struct MermaidWebView: NSViewRepresentable {
                         return;
                     }
                     
-                    // 清理现有的渲染内容，保留原始文本
+                    // 强制清除所有mermaid渲染缓存和SVG
                     mermaidElements.forEach((element, index) => {
-                        // 重置元素内容为原始Mermaid代码
-                        const originalCode = element.getAttribute('data-original-code');
-                        if (originalCode) {
-                            element.innerHTML = originalCode;
-                            element.removeAttribute('data-processed');
-                        }
+                        // 获取原始代码
+                        const originalCode = element.getAttribute('data-original-code') || element.textContent;
                         
-                        // 移除rendered类以重新触发动画
-                        element.classList.remove('rendered');
+                        // 完全清除所有渲染状态
+                        element.innerHTML = originalCode;
+                        element.removeAttribute('data-processed');
+                        element.classList.remove('rendered', 'success', 'error');
+                        
+                        // 保存原始代码以备后用
+                        element.setAttribute('data-original-code', originalCode);
+                        
+                        console.log('🔄 Clearing mermaid element:', index, originalCode.substring(0, 50) + '...');
                     });
                     
                     // 使用setTimeout确保DOM更新完成后再重新渲染
                     setTimeout(() => {
+                        console.log('🎨 Re-applying theme config:', getCurrentThemeConfig());
+                        
+                        // 强制重新初始化以确保主题生效
+                        mermaid.initialize(getCurrentThemeConfig());
+                        
                         (window.mermaid ? mermaid.run() : Promise.reject(new Error('Mermaid not available'))).then(() => {
-                            __mmdLog('mermaid.run success');
+                            __mmdLog('mermaid.run success with theme:', isDarkMode ? 'dark' : 'default');
                             // 重新添加rendered类，触发淡入动画
                             mermaidElements.forEach(element => {
                                 element.classList.add('rendered');
+                                // 确保SVG适应容器
+                                const svg = element.querySelector('svg');
+                                if (svg) {
+                                    svg.style.width = 'auto';
+                                    svg.style.height = 'auto';
+                                    svg.style.maxWidth = '100%';
+                                    svg.setAttribute('viewBox', svg.getAttribute('viewBox')); // 触发重新布局
+                                    
+                                    // 在暗色主题下强制设置背景和文字
+                                    if (isDarkMode) {
+                                        // 强制设置容器背景 - 与CSS一致
+                                        element.style.background = 'rgba(28, 28, 30, 0.95)';
+                                        element.style.backgroundColor = 'rgba(28, 28, 30, 0.95)';
+                                        element.style.borderRadius = '8px';
+                                        element.style.padding = '16px';
+                                        
+                                        // 强制设置SVG背景
+                                        svg.style.background = 'rgba(28, 28, 30, 0.95)';
+                                        svg.style.backgroundColor = 'rgba(28, 28, 30, 0.95)';
+                                        
+                                        // 强制所有图形元素使用深色背景
+                                        const shapeElements = svg.querySelectorAll('rect, circle, ellipse, polygon');
+                                        shapeElements.forEach(shape => {
+                                            if (shape.getAttribute('fill') !== 'none') {
+                                                shape.setAttribute('fill', 'rgba(58, 58, 60, 1)');
+                                                shape.style.fill = 'rgba(58, 58, 60, 1)';
+                                                shape.setAttribute('stroke', 'rgba(142, 142, 147, 1)');
+                                                shape.style.stroke = 'rgba(142, 142, 147, 1)';
+                                                shape.style.strokeWidth = '1.5px';
+                                            }
+                                        });
+                                        
+                                        // 强制所有文字使用白色
+                                        const textElements = svg.querySelectorAll('text, tspan, .label, .nodeLabel, .edgeLabel');
+                                        textElements.forEach(textEl => {
+                                            textEl.setAttribute('fill', 'rgba(235, 235, 245, 1)');
+                                            textEl.style.fill = 'rgba(235, 235, 245, 1)';
+                                            textEl.style.color = 'rgba(235, 235, 245, 1)';
+                                            textEl.style.fontWeight = '500';
+                                        });
+                                        
+                                        // 强制连线颜色
+                                        const lineElements = svg.querySelectorAll('path, line, polyline');
+                                        lineElements.forEach(line => {
+                                            if (line.getAttribute('fill') === 'none' || !line.getAttribute('fill')) {
+                                                line.setAttribute('stroke', 'rgba(142, 142, 147, 1)');
+                                                line.style.stroke = 'rgba(142, 142, 147, 1)';
+                                                line.style.strokeWidth = '2px';
+                                            }
+                                        });
+                                        
+                                        console.log('🌙 强制设置Dark主题背景和文字颜色完成');
+                                    }
+                                }
                             });
                             
                             // 渲染成功后检测大图并绑定事件
@@ -2085,6 +2355,30 @@ struct MermaidWebView: NSViewRepresentable {
                             if (!window.__mmdClampBound) {
                               window.__mmdClampBound = true;
                               window.addEventListener('resize', debounce(clampOversizeDiagrams, 150));
+                            }
+                            
+                            // 设置观察器，监控任何新的文字元素
+                            if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                                mermaidElements.forEach(element => {
+                                    const observer = new MutationObserver(function(mutations) {
+                                        mutations.forEach(function(mutation) {
+                                            if (mutation.type === 'childList') {
+                                                const svg = element.querySelector('svg');
+                                                if (svg) {
+                                                    const textElements = svg.querySelectorAll('text, tspan');
+                                                    textElements.forEach(textEl => {
+                                                        if (textEl.style.fill !== '#F0F6FC') {
+                                                            textEl.style.fill = '#F0F6FC';
+                                                            textEl.style.color = '#F0F6FC';
+                                                            textEl.setAttribute('fill', '#F0F6FC');
+                                                        }
+                                                    });
+                                                }
+                                            }
+                                        });
+                                    });
+                                    observer.observe(element, { childList: true, subtree: true });
+                                });
                             }
                         }).catch(error => {
                             __mmdLog('mermaid.run failed', String(error && error.message || error));
@@ -2246,13 +2540,37 @@ import WebKit
 
 struct VditorWebView: NSViewRepresentable {
     var markdown: String
+    var nodeId: String
     var onChange: (String) -> Void
+    @Binding var coordinatorBinding: Coordinator?
     
     func makeCoordinator() -> Coordinator { 
-        Coordinator(onChange: onChange) 
+        let coordinator = Coordinator(onChange: onChange)
+        DispatchQueue.main.async {
+            coordinatorBinding = coordinator
+        }
+        return coordinator
+    }
+    
+    class VditorCoordinator {
+        weak var coordinator: Coordinator?
+        
+        init(_ coordinator: Coordinator) {
+            self.coordinator = coordinator
+        }
+        
+        func toggleMode() {
+            coordinator?.toggleMode()
+        }
+        
+        func updateContent(_ content: String) {
+            coordinator?.setMarkdown(content)
+        }
     }
     
     func makeNSView(context: Context) -> WKWebView {
+        print("🚨🚨🚨 VditorWebView makeNSView CALLED")
+        
         let config = WKWebViewConfiguration()
         let uc = WKUserContentController()
         uc.add(context.coordinator, name: "bridge")
@@ -2264,12 +2582,14 @@ struct VditorWebView: NSViewRepresentable {
         webView.layer?.backgroundColor = NSColor.clear.cgColor
         
         let html = generateVditorHTML()
+        print("🚨🚨🚨 Loading Vditor HTML, length: \(html.count)")
         webView.loadHTMLString(html, baseURL: Bundle.main.bundleURL)
         context.coordinator.webView = webView
         return webView
     }
     
     func updateNSView(_ webView: WKWebView, context: Context) {
+        context.coordinator.currentNodeId = nodeId
         context.coordinator.setMarkdown(markdown)
     }
     
@@ -2278,36 +2598,62 @@ struct VditorWebView: NSViewRepresentable {
         private let onChange: (String) -> Void
         private var lastSyncedValue: String = ""
         private var isUpdatingFromSwift = false
+        var currentNodeId: String = ""
         
         init(onChange: @escaping (String) -> Void) {
             self.onChange = onChange
         }
         
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            print("🔍 Received message: \(message.body)")
+            
             guard let dict = message.body as? [String: Any],
-                  let type = dict["type"] as? String else { return }
+                  let type = dict["type"] as? String else { 
+                print("❌ Invalid message format: \(message.body)")
+                return 
+            }
             
             switch type {
             case "change":
                 if !isUpdatingFromSwift,
-                   let value = dict["value"] as? String,
-                   value != lastSyncedValue {
+                   let value = dict["value"] as? String {
+                    print("📝 Vditor content changed - length: \(value.count), preview: \(value.prefix(50))...")
+                    print("📝 Calling onChange callback...")
                     lastSyncedValue = value
                     onChange(value)
+                    print("📝 onChange callback completed")
+                } else {
+                    print("⚠️ Skipping change - isUpdatingFromSwift: \(isUpdatingFromSwift)")
                 }
             case "ready":
                 print("✅ Vditor ready in DetailPanel")
                 // 编辑器准备好后，同步当前值
                 if !lastSyncedValue.isEmpty {
+                    print("📥 Syncing existing value to editor: \(lastSyncedValue.prefix(50))...")
                     setMarkdown(lastSyncedValue)
+                } else {
+                    print("📄 No existing value to sync")
+                }
+            case "modeChanged":
+                if let mode = dict["mode"] as? String {
+                    print("🔄 Vditor mode changed to: \(mode)")
+                    DispatchQueue.main.async {
+                        // 这里可以更新UI状态，比如更新编辑状态指示
+                    }
                 }
             default:
+                print("❓ Unknown message type: \(type)")
                 break
             }
         }
         
-        func setMarkdown(_ markdown: String) {
-            guard markdown != lastSyncedValue else { return }
+        func setMarkdown(_ markdown: String, forceUpdate: Bool = false) {
+            if !forceUpdate && markdown == lastSyncedValue { 
+                print("📝 Skipping markdown update - same content: \(markdown.prefix(50))")
+                return 
+            }
+            
+            print("📝 Setting markdown - length: \(markdown.count), preview: \(markdown.prefix(50))")
             
             isUpdatingFromSwift = true
             lastSyncedValue = markdown
@@ -2317,9 +2663,39 @@ struct VditorWebView: NSViewRepresentable {
                 .replacingOccurrences(of: "\"", with: "\\\"")
                 .replacingOccurrences(of: "\n", with: "\\n")
             let js = "window.vditor?.setValue(\"\(escaped)\");"
-            webView?.evaluateJavaScript(js) { _, _ in
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.isUpdatingFromSwift = false
+            
+            // 确保编辑器已经准备好
+            webView?.evaluateJavaScript("window.vditor !== undefined") { result, error in
+                if let isReady = result as? Bool, isReady {
+                    self.webView?.evaluateJavaScript(js) { _, evalError in
+                        if let evalError = evalError {
+                            print("❌ Failed to set markdown: \(evalError)")
+                        } else {
+                            print("✅ Successfully set markdown")
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            self.isUpdatingFromSwift = false
+                        }
+                    }
+                } else {
+                    print("⚠️ Vditor not ready, retrying in 0.2s...")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        self.webView?.evaluateJavaScript(js) { _, _ in
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                self.isUpdatingFromSwift = false
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        func toggleMode() {
+            webView?.evaluateJavaScript("window.toggleVditorMode && window.toggleVditorMode();") { _, error in
+                if let error = error {
+                    print("❌ Failed to toggle Vditor mode: \(error)")
+                } else {
+                    print("✅ Vditor mode toggle called")
                 }
             }
         }
@@ -2334,6 +2710,9 @@ struct VditorWebView: NSViewRepresentable {
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vditor@3.10.4/dist/index.css">
             <style>
+                /* 移除Tanda主题加载 */
+            </style>
+            <style>
                 body {
                     margin: 0;
                     padding: 0;
@@ -2342,88 +2721,485 @@ struct VditorWebView: NSViewRepresentable {
                 }
                 #vditor {
                     height: 100vh;
+                    border: none !important;
                 }
                 
-                /* Github官方浅色主题 */
+                /* 全局移除所有Vditor相关边框 */
+                .vditor, .vditor * {
+                    border: none !important;
+                    outline: none !important;
+                    box-shadow: none !important;
+                }
+                
+                /* Github官方浅色主题 - 移除边框 */
                 .vditor {
                     --panel-background-color: #ffffff;
                     --textarea-background-color: #ffffff;
                     --toolbar-background-color: #f6f8fa;
-                    --border-color: #d1d9e0;
-                    --text-color: #24292f;
-                    --second-color: #656d76;
-                    --count-color: #24292f;
+                    --border-color: transparent;
+                    --text-color: #24292f !important;
+                    --second-color: #24292f !important;
+                    --count-color: #24292f !important;
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+                    border: none !important;
                 }
                 
-                /* Github官方工具栏 */
+                /* 强制浅色主题文字为深色 - 只在浅色模式下生效 */
+                @media (prefers-color-scheme: light) {
+                    .vditor .vditor-ir {
+                        color: #24292f !important;
+                    }
+                    
+                    .vditor .vditor-ir * {
+                        color: #24292f !important;
+                    }
+                }
+                
+                /* Github官方工具栏 - 移除边框 */
                 .vditor-toolbar {
-                    border-bottom: 1px solid #d1d9e0 !important;
+                    border: none !important;
                     background-color: #f6f8fa !important;
                     padding: 8px 16px !important;
                 }
                 
-                /* Github官方编辑区域 */
+                /* Github官方编辑区域 - 透明背景 */
                 .vditor-ir {
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif !important;
-                    font-size: 14px !important;
-                    line-height: 1.5 !important;
+                    font-size: 18px !important;
+                    line-height: 1.7 !important;
                     color: #24292f !important;
-                    background-color: #ffffff !important;
+                    background-color: transparent !important;
                 }
                 
-                /* SwiftUI原生暗色主题适配 */
+                /* 浅色主题全局字体大小强制设置 - 只在浅色模式下生效 */
+                @media (prefers-color-scheme: light) {
+                    .vditor-ir *, .vditor-ir p, .vditor-ir div, .vditor-ir span {
+                        font-size: 18px !important;
+                        color: #24292f !important;
+                    }
+                    
+                    /* 浅色主题标题字体大小 */
+                    .vditor-ir h1 {
+                        font-size: 32px !important;
+                        font-weight: 700 !important;
+                        color: #24292f !important;
+                    }
+                    
+                    .vditor-ir h2 {
+                        font-size: 28px !important;
+                        font-weight: 600 !important;
+                        color: #24292f !important;
+                    }
+                    
+                    .vditor-ir h3 {
+                        font-size: 24px !important;
+                        font-weight: 600 !important;
+                        color: #24292f !important;
+                    }
+                    
+                    .vditor-ir h4, .vditor-ir h5, .vditor-ir h6 {
+                        font-size: 20px !important;
+                        font-weight: 600 !important;
+                        color: #24292f !important;
+                    }
+                    
+                    /* 浅色主题 - Mermaid节点强制放大 - 超高优先级 */
+                    html body div .vditor-ir .mermaid svg rect,
+                    html body div .vditor-ir .mermaid svg circle,
+                    html body div .vditor-ir .mermaid svg ellipse,
+                    html body div .vditor-ir .mermaid svg polygon,
+                    html body div .vditor-ir .mermaid rect,
+                    html body div .vditor-ir .mermaid circle,
+                    html body div .vditor-ir .mermaid ellipse,
+                    html body div .vditor-ir .mermaid polygon,
+                    html body div .mermaid svg rect,
+                    html body div .mermaid svg circle,
+                    html body div .mermaid svg ellipse,
+                    html body div .mermaid svg polygon,
+                    html body div .mermaid rect,
+                    html body div .mermaid circle,
+                    html body div .mermaid ellipse,
+                    html body div .mermaid polygon,
+                    html body .mermaid svg rect,
+                    html body .mermaid svg circle,
+                    html body .mermaid svg ellipse,
+                    html body .mermaid svg polygon,
+                    html body .mermaid rect,
+                    html body .mermaid circle,
+                    html body .mermaid ellipse,
+                    html body .mermaid polygon {
+                        transform: scale(1.4) !important;
+                        transform-origin: center !important;
+                        stroke-width: 4px !important;
+                        stroke: #333 !important;
+                    }
+                    
+                    html body div .vditor-ir .mermaid,
+                    html body div .mermaid,
+                    html body .mermaid {
+                        transform: scale(1.5) !important;
+                        transform-origin: center !important;
+                        min-width: 800px !important;
+                        min-height: 600px !important;
+                        margin: 40px auto !important;
+                        padding: 50px !important;
+                    }
+                }
+                
+                /* Blackout暗色主题 - 使用指定CSS */
                 @media (prefers-color-scheme: dark) {
+                    /* 根CSS变量 */
+                    :root {
+                        --of-theme-color: #ff9100;
+                        --of-theme-color-dark: #4b4b46;
+                        --of-darkest-color: #2d2d2d;
+                        --of-darker-color: #1e1e1e;
+                        --of-dark-color: #292929;
+                        --of-dark-color2: #202020;
+                        --of-dark-color3: #404040;
+                        --of-dark-color4: #232323;
+                        --of-dark-color5: #222222;
+                        --of-dark-color6: #1b1b1b;
+                        --of-strong: white;
+                        --of-strong-code: #00ffa6;
+                        --of-font-size: 15px;
+                        --of-selection: #4a89dc;
+                        --of-selection-text: white;
+                        --of-text-color: #c6c5b8;
+                        --bg-color: var(--of-darker-color);
+                        --text-color: var(--of-text-color);
+                        --text-color-main: var(--of-text-color);
+                    }
+                    
                     .vditor {
-                        --panel-background-color: transparent;
-                        --textarea-background-color: transparent;
-                        --toolbar-background-color: rgba(58, 58, 60, 0.8);
-                        --border-color: rgba(99, 99, 102, 0.6);
-                        --text-color: #ffffff;
-                        --second-color: rgba(235, 235, 245, 0.6);
-                        --count-color: #ffffff;
+                        --panel-background-color: var(--of-darker-color);
+                        --textarea-background-color: var(--of-darker-color);
+                        --toolbar-background-color: var(--of-darkest-color);
+                        --border-color: transparent;
+                        --text-color: var(--of-text-color);
+                        --second-color: var(--of-text-color);
+                        --count-color: var(--of-text-color);
+                        border: none !important;
+                        color: var(--of-text-color);
+                        background: var(--of-darker-color);
                     }
                     
                     .vditor-toolbar {
-                        border-bottom-color: rgba(99, 99, 102, 0.6) !important;
-                        background-color: rgba(58, 58, 60, 0.8) !important;
-                        backdrop-filter: blur(20px);
+                        border: none !important;
+                        background-color: var(--of-darkest-color) !important;
+                        color: var(--of-text-color);
                     }
                     
                     .vditor-ir {
-                        color: #ffffff !important;
+                        color: var(--of-text-color) !important;
                         background-color: transparent !important;
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+                        line-height: 1.7;
                     }
                     
-                    /* 优化Markdown元素显示 */
-                    .vditor-ir h1, .vditor-ir h2, .vditor-ir h3, 
-                    .vditor-ir h4, .vditor-ir h5, .vditor-ir h6 {
-                        color: #e06c75 !important;
-                        border-color: #3e4451 !important;
+                    /* 暗色主题文字样式 */
+                    .vditor-ir *, 
+                    .vditor-ir p, 
+                    .vditor-ir div:not(.mermaid):not([class*="mermaid"]), 
+                    .vditor-ir span:not(.mermaid *),
+                    .vditor-ir li, 
+                    .vditor-ir blockquote, 
+                    .vditor-ir code:not(.mermaid *),
+                    .vditor-ir table,
+                    .vditor-ir td,
+                    .vditor-ir th {
+                        color: var(--of-text-color) !important;
                     }
                     
-                    .vditor-ir blockquote {
-                        border-left-color: #98c379 !important;
-                        color: #5c6370 !important;
+                    /* 标题样式 */
+                    .vditor-ir h1,
+                    .vditor-ir h2,
+                    .vditor-ir h3,
+                    .vditor-ir h4,
+                    .vditor-ir h5,
+                    .vditor-ir h6 {
+                        color: var(--of-strong) !important;
+                        font-weight: bold;
                     }
                     
+                    .vditor-ir h1 {
+                        font-size: 2.5rem !important;
+                        border-bottom: 1px solid #383838;
+                    }
+                    
+                    .vditor-ir h2 {
+                        font-size: 1.63rem !important;
+                    }
+                    
+                    .vditor-ir h3 {
+                        font-size: 1.6rem !important;
+                    }
+                    
+                    .vditor-ir h4 {
+                        font-size: 1.12rem !important;
+                    }
+                    
+                    .vditor-ir h5 {
+                        font-size: 0.97rem !important;
+                    }
+                    
+                    .vditor-ir h6 {
+                        font-size: 0.93rem !important;
+                        color: #d3d3d3 !important;
+                    }
+                    
+                    /* 强调文字 */
+                    .vditor-ir strong,
+                    .vditor-ir b {
+                        color: var(--of-strong) !important;
+                    }
+                    
+                    /* 代码样式 */
                     .vditor-ir code {
-                        background-color: #3e4451 !important;
-                        color: #e5c07b !important;
+                        background: rgba(255, 255, 255, 0.05) !important;
+                        color: var(--of-strong-code) !important;
+                        border-radius: 0.2rem;
                     }
                     
-                    .vditor-ir pre {
-                        background-color: #2d313b !important;
-                        border-color: #3e4451 !important;
+                    /* 引用样式 */
+                    .vditor-ir blockquote {
+                        border: 1px solid var(--of-theme-color);
+                        background-color: var(--of-dark-color);
+                        border-radius: 8px;
+                        padding: 20px;
+                        color: white !important;
                     }
                     
+                    /* 链接样式 */
                     .vditor-ir a {
-                        color: #61afef !important;
+                        color: var(--of-theme-color) !important;
+                        text-decoration: underline;
                     }
                     
-                    .vditor-ir strong {
-                        color: #e06c75 !important;
+                    .vditor-ir a:hover {
+                        color: white !important;
                     }
+                    
+                    /* Mermaid图表暗色主题强制覆盖 - 使用最高优先级 */
+                    
+                    /* 1. Mermaid容器整体背景和尺寸 - 超级强制 */
+                    .vditor-ir .mermaid,
+                    .vditor-ir .mermaid > svg,
+                    .vditor-ir div[data-processed-by="mermaid"],
+                    div.mermaid,
+                    .mermaid {
+                        background: var(--of-darker-color) !important;
+                        background-color: var(--of-darker-color) !important;
+                        border-radius: 12px !important;
+                        padding: 50px !important;
+                        margin: 40px 0 !important;
+                        width: 100% !important;
+                        min-width: 800px !important;
+                        min-height: 600px !important;
+                        height: auto !important;
+                        max-width: none !important;
+                        display: block !important;
+                        overflow: visible !important;
+                        transform: scale(1.5) !important;
+                        transform-origin: center !important;
+                    }
+                    
+                    /* 1.1 SVG内部容器尺寸强制放大 */
+                    .vditor-ir .mermaid svg,
+                    .mermaid svg {
+                        width: 100% !important;
+                        height: auto !important;
+                        min-width: 500px !important;
+                        min-height: 400px !important;
+                        background: rgba(28, 28, 30, 0.95) !important;
+                        background-color: rgba(28, 28, 30, 0.95) !important;
+                        transform: scale(1.1) !important;
+                    }
+                    
+                    /* 2. 暗色Mermaid节点 - 直接覆盖所有可能的选择器 */
+                    .mermaid * {
+                        color: var(--of-text-color) !important;
+                    }
+                    
+                    .mermaid rect,
+                    .mermaid circle,
+                    .mermaid ellipse,
+                    .mermaid polygon {
+                        fill: var(--of-dark-color) !important;
+                        stroke: var(--of-theme-color) !important;
+                        stroke-width: 3px !important;
+                        transform: scale(1.3) !important;
+                        transform-origin: center !important;
+                    }
+                    
+                    .mermaid text {
+                        fill: var(--of-text-color) !important;
+                        color: var(--of-text-color) !important;
+                        font-size: 16px !important;
+                        font-weight: 600 !important;
+                    }
+                    
+                    /* 3. 所有文字元素 - 强制黑色 - 超高优先级 */
+                    html body .vditor-ir .mermaid svg text,
+                    html body .vditor-ir .mermaid svg .label,
+                    html body .vditor-ir .mermaid svg .node .label,
+                    html body .vditor-ir .mermaid svg g text,
+                    html body .vditor-ir .mermaid svg g .label,
+                    html body .vditor-ir .mermaid text,
+                    html body .vditor-ir .mermaid .label,
+                    html body .vditor-ir .mermaid .node .label,
+                    html body .vditor-ir .mermaid .nodeLabel,
+                    html body .vditor-ir .mermaid .edgeLabel,
+                    html body .vditor-ir .mermaid .cluster-label,
+                    html body .vditor-ir .mermaid .titleText,
+                    html body .mermaid svg text,
+                    html body .mermaid text,
+                    html body .mermaid .label,
+                    html body .mermaid .nodeLabel,
+                    html body .mermaid .edgeLabel {
+                        fill: var(--of-text-color) !important;
+                        color: var(--of-text-color) !important;
+                        font-weight: 600 !important;
+                        font-size: 16px !important;
+                    }
+                    
+                    /* 4. 连接线和边框 */
+                    .vditor-ir .mermaid svg .edgePath path,
+                    .vditor-ir .mermaid svg .flowchart-link,
+                    .vditor-ir .mermaid svg .edge-pattern-solid,
+                    .vditor-ir .mermaid .edgePath .path,
+                    .vditor-ir .mermaid .flowchart-link,
+                    .vditor-ir .mermaid .edge-pattern-solid,
+                    .vditor-ir .mermaid path.link,
+                    .vditor-ir .mermaid line {
+                        stroke: rgba(142, 142, 147, 1) !important;
+                        stroke-width: 2px !important;
+                        fill: none !important;
+                    }
+                    
+                    /* 5. 箭头标记 */
+                    .vditor-ir .mermaid svg marker polygon,
+                    .vditor-ir .mermaid svg marker path,
+                    .vditor-ir .mermaid marker polygon,
+                    .vditor-ir .mermaid marker path {
+                        fill: rgba(142, 142, 147, 1) !important;
+                        stroke: rgba(142, 142, 147, 1) !important;
+                    }
+                    
+                    /* 6. 特殊图表类型优化 */
+                    /* 时序图 */
+                    .vditor-ir .mermaid .actor,
+                    .vditor-ir .mermaid .activation {
+                        fill: rgba(58, 58, 60, 1) !important;
+                        stroke: rgba(142, 142, 147, 1) !important;
+                    }
+                    
+                    .vditor-ir .mermaid .actor-line,
+                    .vditor-ir .mermaid .messageLine0,
+                    .vditor-ir .mermaid .messageLine1 {
+                        stroke: rgba(142, 142, 147, 1) !important;
+                    }
+                    
+                    /* 甘特图 */
+                    .vditor-ir .mermaid .section0,
+                    .vditor-ir .mermaid .section1,
+                    .vditor-ir .mermaid .section2,
+                    .vditor-ir .mermaid .section3,
+                    .vditor-ir .mermaid .task0,
+                    .vditor-ir .mermaid .task1,
+                    .vditor-ir .mermaid .task2,
+                    .vditor-ir .mermaid .task3 {
+                        fill: rgba(58, 58, 60, 1) !important;
+                        stroke: rgba(142, 142, 147, 1) !important;
+                    }
+                    
+                    /* 7. 强制覆盖任何内联样式 - 最高优先级 */
+                    .vditor-ir .mermaid svg[style*="background"],
+                    .vditor-ir .mermaid svg[style*="background-color"] {
+                        background: rgba(28, 28, 30, 0.95) !important;
+                        background-color: rgba(28, 28, 30, 0.95) !important;
+                    }
+                    
+                    /* 8. 运行时动态样式覆盖 - 针对Mermaid生成的具体class */
+                    .vditor-ir .mermaid .nodeLabel,
+                    .vditor-ir .mermaid .cluster .nodeLabel,
+                    .vditor-ir .mermaid g.label text,
+                    .vditor-ir .mermaid g.node text,
+                    .vditor-ir .mermaid g.cluster text,
+                    .vditor-ir .mermaid .edgeLabels .edgeLabel text,
+                    .vditor-ir .mermaid .edgeLabel text {
+                        fill: rgba(235, 235, 245, 1) !important;
+                        color: rgba(235, 235, 245, 1) !important;
+                    }
+                    
+                    /* 9. JavaScript运行时强制覆盖 */
+                    .mermaid-override-styles rect { fill: var(--of-dark-color) !important; }
+                    .mermaid-override-styles circle { fill: var(--of-dark-color) !important; }
+                    .mermaid-override-styles ellipse { fill: var(--of-dark-color) !important; }
+                    .mermaid-override-styles polygon { fill: var(--of-dark-color) !important; }
+                }
+                
+                /* === 终极强制覆盖规则 - 最高优先级 === */
+                
+                /* 浅色模式：超高优先级强制放大 */
+                html body div.vditor div.vditor-ir div.mermaid svg rect,
+                html body div.vditor div.vditor-ir div.mermaid svg circle,
+                html body div.vditor div.vditor-ir div.mermaid svg ellipse,
+                html body div.vditor div.vditor-ir div.mermaid svg polygon,
+                html body div.vditor div.vditor-ir div.mermaid rect[style],
+                html body div.vditor div.vditor-ir div.mermaid circle[style],
+                html body div.vditor div.vditor-ir div.mermaid ellipse[style],
+                html body div.vditor div.vditor-ir div.mermaid polygon[style] {
+                    transform: scale(1.6) !important;
+                    transform-origin: center !important;
+                    stroke-width: 4px !important;
+                    stroke: #333333 !important;
+                }
+                
+                /* 浅色模式：整体容器强制放大 */
+                html body div.vditor div.vditor-ir div.mermaid {
+                    transform: scale(1.8) !important;
+                    transform-origin: center !important;
+                    min-width: 900px !important;
+                    min-height: 700px !important;
+                    padding: 60px !important;
+                    margin: 50px auto !important;
+                }
+                
+                /* 暗色模式：超高优先级强制颜色 */
+                @media (prefers-color-scheme: dark) {
+                    html body div.vditor div.vditor-ir div.mermaid svg rect[style],
+                    html body div.vditor div.vditor-ir div.mermaid svg circle[style],
+                    html body div.vditor div.vditor-ir div.mermaid svg ellipse[style],
+                    html body div.vditor div.vditor-ir div.mermaid svg polygon[style],
+                    html body div.vditor div.vditor-ir div.mermaid rect,
+                    html body div.vditor div.vditor-ir div.mermaid circle,
+                    html body div.vditor div.vditor-ir div.mermaid ellipse,
+                    html body div.vditor div.vditor-ir div.mermaid polygon {
+                        fill: #292929 !important;
+                        stroke: #ff9100 !important;
+                        stroke-width: 3px !important;
+                        transform: scale(1.4) !important;
+                        transform-origin: center !important;
+                    }
+                    
+                    html body div.vditor div.vditor-ir div.mermaid svg text[style],
+                    html body div.vditor div.vditor-ir div.mermaid text {
+                        fill: #c6c5b8 !important;
+                        color: #c6c5b8 !important;
+                        font-size: 16px !important;
+                        font-weight: 600 !important;
+                    }
+                }
+                
+                /* SVG容器最高优先级覆盖 */
+                html body div.vditor div.vditor-ir div.mermaid > svg {
+                    width: 100% !important;
+                    height: auto !important;
+                    max-width: none !important;
+                    min-width: 800px !important;
+                    min-height: 600px !important;
+                    transform: scale(1.2) !important;
                 }
             </style>
         </head>
@@ -2437,9 +3213,10 @@ struct VditorWebView: NSViewRepresentable {
                 // 检测主题
                 const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
                 
-                // 初始化 Vditor (IR 模式 = 即时渲染)
+                // 初始化 Vditor (IR 模式 = 即时渲染，SV 模式 = 源码分栏)
+                let currentMode = 'ir'; // 默认即时渲染模式
                 vditor = new Vditor('vditor', {
-                    mode: 'ir', // 关键：即时渲染模式，类似 Typora
+                    mode: currentMode, // 关键：即时渲染模式，类似 Typora
                     theme: 'classic', // 使用经典主题
                     value: '',
                     width: '100%',
@@ -2447,9 +3224,9 @@ struct VditorWebView: NSViewRepresentable {
                     cache: { enable: false },
                     preview: {
                         theme: {
-                            current: isDark ? 'dark' : 'github', // 暗色模式使用dark主题
+                            current: isDark ? 'dark' : 'github', // GitHub风格主题
                             list: {
-                                'github': 'Github',
+                                'github': 'GitHub',
                                 'dark': 'GitHub Dark'
                             }
                         },
@@ -2461,14 +3238,17 @@ struct VditorWebView: NSViewRepresentable {
                     toolbar: ['outline'], // 只保留大纲展示按钮
                     after() {
                         // 编辑器初始化完成
+                        console.log('🚨🚨🚨 VDITOR INITIALIZATION COMPLETE');
                         window.webkit?.messageHandlers?.bridge?.postMessage({
                             type: 'ready'
                         });
                     },
                     input(value) {
                         // 内容变化回调 - 添加防抖以提高性能
+                        console.log('🚨🚨🚨 VDITOR INPUT CALLBACK CALLED, value length:', value.length);
                         clearTimeout(window.inputTimeout);
                         window.inputTimeout = setTimeout(() => {
+                            console.log('🚨🚨🚨 SENDING MESSAGE TO SWIFT');
                             window.webkit?.messageHandlers?.bridge?.postMessage({
                                 type: 'change',
                                 value: value
@@ -2480,12 +3260,256 @@ struct VditorWebView: NSViewRepresentable {
                 // 暴露到全局，供 Swift 调用
                 window.vditor = vditor;
                 
+                // 添加模式切换功能
+                window.toggleVditorMode = function() {
+                    if (vditor) {
+                        const currentValue = vditor.getValue();
+                        currentMode = currentMode === 'ir' ? 'sv' : 'ir';
+                        
+                        console.log('🔄 Switching Vditor mode to:', currentMode);
+                        
+                        // 销毁当前编辑器
+                        vditor.destroy();
+                        
+                        // 重新创建编辑器
+                        setTimeout(() => {
+                            vditor = new Vditor('vditor', {
+                                mode: currentMode,
+                                theme: isDark ? 'dark' : 'classic',
+                                value: currentValue,
+                                width: '100%',
+                                height: '100vh',
+                                cache: { enable: false },
+                                preview: {
+                                    theme: {
+                                        current: isDark ? 'dark' : 'github',
+                                        path: 'https://fastly.jsdelivr.net/npm/vditor@3.10.4/dist/css/content-theme'
+                                    }
+                                },
+                                input(value) {
+                                    clearTimeout(window.inputTimeout);
+                                    window.inputTimeout = setTimeout(() => {
+                                        window.webkit?.messageHandlers?.bridge?.postMessage({
+                                            type: 'change',
+                                            value: value
+                                        });
+                                    }, 300);
+                                }
+                            });
+                            
+                            window.vditor = vditor;
+                            
+                            window.webkit?.messageHandlers?.bridge?.postMessage({
+                                type: 'modeChanged',
+                                mode: currentMode
+                            });
+                        }, 100);
+                    }
+                };
+                
                 // 主题切换监听
                 window.matchMedia('(prefers-color-scheme: dark)').addListener((e) => {
                     if (vditor) {
                         vditor.setTheme(e.matches ? 'dark' : 'classic');
+                        // 主题切换后重新应用Mermaid样式
+                        setTimeout(() => forceMermaidTheme(), 500);
+                        setTimeout(forceMermaidDarkTheme, 500);
                     }
                 });
+                
+                // 强制Mermaid主题函数
+                function forceMermaidTheme() {
+                    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    
+                    // 查找所有Mermaid图表
+                    const mermaids = document.querySelectorAll('.mermaid');
+                    mermaids.forEach(mermaid => {
+                        // 添加样式覆盖class
+                        mermaid.classList.add('mermaid-override-styles');
+                        
+                        if (isDark) {
+                            // 暗色模式 - 强制所有节点使用暗色背景
+                            const shapes = mermaid.querySelectorAll('rect, circle, ellipse, polygon');
+                            shapes.forEach(shape => {
+                                shape.setAttribute('fill', '#292929');
+                                shape.setAttribute('stroke', '#ff9100');
+                                shape.setAttribute('stroke-width', '3');
+                                shape.style.transform = 'scale(1.3)';
+                                shape.style.transformOrigin = 'center';
+                            });
+                            
+                            // 强制文字颜色
+                            const texts = mermaid.querySelectorAll('text');
+                            texts.forEach(text => {
+                                text.setAttribute('fill', '#c6c5b8');
+                                text.style.color = '#c6c5b8';
+                                text.style.fontSize = '16px';
+                                text.style.fontWeight = '600';
+                            });
+                        } else {
+                            // 浅色模式 - 强制节点放大
+                            const shapes = mermaid.querySelectorAll('rect, circle, ellipse, polygon');
+                            shapes.forEach(shape => {
+                                shape.style.transform = 'scale(1.4)';
+                                shape.style.transformOrigin = 'center';
+                                shape.setAttribute('stroke-width', '4');
+                                shape.setAttribute('stroke', '#333');
+                            });
+                            
+                            // 整体放大
+                            mermaid.style.transform = 'scale(1.5)';
+                            mermaid.style.transformOrigin = 'center';
+                            mermaid.style.minWidth = '800px';
+                            mermaid.style.minHeight = '600px';
+                        }
+                    });
+                }
+                
+                // 强制Mermaid图表使用暗色主题的JavaScript函数
+                function forceMermaidDarkTheme() {
+                    if (!window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                        return; // 只在暗色模式下执行
+                    }
+                    
+                    console.log('🎨 正在强制应用Mermaid暗色主题...');
+                    
+                    // 查找所有Mermaid图表
+                    const mermaidContainers = document.querySelectorAll('.vditor-ir .mermaid');
+                    console.log('🎨 找到', mermaidContainers.length, '个Mermaid容器');
+                    
+                    mermaidContainers.forEach((container, index) => {
+                        console.log('🎨 处理Mermaid容器', index + 1);
+                        
+                        // 设置容器背景和尺寸 - 超级强制覆盖
+                        container.style.setProperty('background', 'rgba(28, 28, 30, 0.95)', 'important');
+                        container.style.setProperty('background-color', 'rgba(28, 28, 30, 0.95)', 'important');
+                        container.style.setProperty('border-radius', '12px', 'important');
+                        container.style.setProperty('padding', '40px', 'important');
+                        container.style.setProperty('margin', '30px 0', 'important');
+                        container.style.setProperty('width', '100%', 'important');
+                        container.style.setProperty('min-width', '600px', 'important');
+                        container.style.setProperty('min-height', '500px', 'important');
+                        container.style.setProperty('height', 'auto', 'important');
+                        container.style.setProperty('display', 'block', 'important');
+                        container.style.setProperty('transform', 'scale(1.2)', 'important');
+                        container.style.setProperty('transform-origin', 'center', 'important');
+                        
+                        // 查找SVG元素
+                        const svg = container.querySelector('svg');
+                        if (!svg) {
+                            console.log('🎨 容器', index + 1, '中未找到SVG');
+                            return;
+                        }
+                        
+                        console.log('🎨 处理SVG元素');
+                        
+                        // 设置SVG背景和尺寸 - 强制放大
+                        svg.style.setProperty('background', 'rgba(28, 28, 30, 0.95)', 'important');
+                        svg.style.setProperty('background-color', 'rgba(28, 28, 30, 0.95)', 'important');
+                        svg.style.setProperty('width', '100%', 'important');
+                        svg.style.setProperty('height', 'auto', 'important');
+                        svg.style.setProperty('min-width', '500px', 'important');
+                        svg.style.setProperty('min-height', '400px', 'important');
+                        svg.style.setProperty('transform', 'scale(1.1)', 'important');
+                        
+                        // 强制所有文字元素使用黑色
+                        const textElements = svg.querySelectorAll('text, .label, .nodeLabel, .edgeLabel, .cluster-label, .titleText');
+                        console.log('🎨 找到', textElements.length, '个文字元素');
+                        textElements.forEach(text => {
+                            // 多重设置确保黑色文字生效
+                            text.style.setProperty('fill', 'rgba(0, 0, 0, 1)', 'important');
+                            text.style.setProperty('color', 'rgba(0, 0, 0, 1)', 'important');
+                            text.style.setProperty('font-weight', '600', 'important');
+                            text.style.setProperty('font-size', '16px', 'important');
+                            text.setAttribute('fill', 'rgba(0, 0, 0, 1)');
+                            text.setAttribute('color', 'rgba(0, 0, 0, 1)');
+                            // 移除任何内联样式覆盖，强制黑色
+                            if (text.hasAttribute('style')) {
+                                const currentStyle = text.getAttribute('style');
+                                const newStyle = currentStyle.replace(/fill:[^;]*/g, 'fill: rgba(0, 0, 0, 1)')
+                                                               .replace(/color:[^;]*/g, 'color: rgba(0, 0, 0, 1)');
+                                text.setAttribute('style', newStyle + '; fill: rgba(0, 0, 0, 1) !important; color: rgba(0, 0, 0, 1) !important;');
+                            } else {
+                                text.setAttribute('style', 'fill: rgba(0, 0, 0, 1) !important; color: rgba(0, 0, 0, 1) !important; font-weight: 600 !important; font-size: 16px !important;');
+                            }
+                        });
+                        
+                        // 强制所有图形元素使用深色背景
+                        const shapeElements = svg.querySelectorAll('rect, circle, ellipse, polygon, path[fill]:not([fill="none"])');
+                        console.log('🎨 找到', shapeElements.length, '个图形元素');
+                        shapeElements.forEach(shape => {
+                            if (shape.getAttribute('fill') !== 'none') {
+                                // 多重设置确保浅色背景配合黑色文字
+                                shape.setAttribute('fill', 'rgba(240, 240, 240, 1)');
+                                shape.style.setProperty('fill', 'rgba(240, 240, 240, 1)', 'important');
+                                shape.setAttribute('stroke', 'rgba(100, 100, 100, 1)');
+                                shape.style.setProperty('stroke', 'rgba(100, 100, 100, 1)', 'important');
+                                shape.style.setProperty('stroke-width', '2px', 'important');
+                                // 强制覆盖内联样式
+                                if (shape.hasAttribute('style')) {
+                                    const currentStyle = shape.getAttribute('style');
+                                    const newStyle = currentStyle.replace(/fill:[^;]*/g, 'fill: rgba(240, 240, 240, 1)')
+                                                                   .replace(/stroke:[^;]*/g, 'stroke: rgba(100, 100, 100, 1)');
+                                    shape.setAttribute('style', newStyle + '; fill: rgba(240, 240, 240, 1) !important; stroke: rgba(100, 100, 100, 1) !important;');
+                                } else {
+                                    shape.setAttribute('style', 'fill: rgba(240, 240, 240, 1) !important; stroke: rgba(100, 100, 100, 1) !important; stroke-width: 2px !important;');
+                                }
+                            }
+                        });
+                        
+                        // 强制连接线使用合适颜色
+                        const lineElements = svg.querySelectorAll('path[stroke], line, .edgePath path, .flowchart-link');
+                        console.log('🎨 找到', lineElements.length, '个线条元素');
+                        lineElements.forEach(line => {
+                            line.setAttribute('stroke', 'rgba(142, 142, 147, 1)');
+                            line.style.setProperty('stroke', 'rgba(142, 142, 147, 1)', 'important');
+                            line.style.setProperty('stroke-width', '2px', 'important');
+                        });
+                        
+                        // 强制箭头标记使用合适颜色
+                        const markerElements = svg.querySelectorAll('marker polygon, marker path, defs marker *');
+                        console.log('🎨 找到', markerElements.length, '个标记元素');
+                        markerElements.forEach(marker => {
+                            marker.setAttribute('fill', 'rgba(142, 142, 147, 1)');
+                            marker.style.setProperty('fill', 'rgba(142, 142, 147, 1)', 'important');
+                            marker.setAttribute('stroke', 'rgba(142, 142, 147, 1)');
+                            marker.style.setProperty('stroke', 'rgba(142, 142, 147, 1)', 'important');
+                        });
+                    });
+                    
+                    console.log('🎨 Mermaid暗色主题强制应用完成');
+                }
+                
+                // 定期检查并应用Mermaid样式（处理动态生成的图表）
+                let mermaidStyleTimer;
+                
+                function startMermaidStyleWatcher() {
+                    if (mermaidStyleTimer) clearInterval(mermaidStyleTimer);
+                    
+                    mermaidStyleTimer = setInterval(() => {
+                        forceMermaidTheme();
+                        
+                        // 额外的暗色模式检查
+                        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                            const unstyledMermaid = document.querySelectorAll('.vditor-ir .mermaid svg:not([data-dark-styled])');
+                            if (unstyledMermaid.length > 0) {
+                                console.log('🎨 检测到', unstyledMermaid.length, '个新的Mermaid图表，应用暗色样式');
+                                forceMermaidDarkTheme();
+                                unstyledMermaid.forEach(svg => {
+                                    svg.setAttribute('data-dark-styled', 'true');
+                                });
+                            }
+                        }
+                    }, 1000);
+                }
+                
+                // 启动样式监视器
+                startMermaidStyleWatcher();
+                
+                // 在编辑器准备好后立即应用Mermaid样式
+                setTimeout(() => {
+                    forceMermaidDarkTheme();
+                }, 1000);
             </script>
         </body>
         </html>
@@ -2812,17 +3836,137 @@ struct MilkdownWebView: NSViewRepresentable {
                 }
 
                 /* 双保险：所有 mermaid svg 横向不可溢出 */
-                .mermaid svg { max-width: 100%; height: auto; }
+                .mermaid svg { 
+                    max-width: 100%; 
+                    height: auto; 
+                    width: 100% !important;
+                }
+                
+                /* Mermaid容器自适应大小 */
+                .mermaid {
+                    overflow: visible !important;
+                    min-height: auto !important;
+                    width: 100% !important;
+                }
+                
+                /* 暗色模式下设置Mermaid背景，但让主题系统控制文字和颜色 */
+                @media (prefers-color-scheme: dark) {
+                    /* 只设置Mermaid容器背景，不强制文字颜色 */
+                    .mermaid,
+                    .pm-mermaid-preview,
+                    .mmd-block {
+                        background: transparent;
+                        background-color: transparent;
+                    }
+                    
+                    /* 仅在主题无法正常工作时的最后备选方案 */
+                    .mermaid svg[style*="background-color: white"],
+                    .mermaid svg[style*="background: white"] {
+                        background: #0D1117 !important;
+                        background-color: #0D1117 !important;
+                    }
+                }
+                
+                /* 浅色模式下保持透明背景 */
+                @media (prefers-color-scheme: light) {
+                    .mermaid,
+                    .pm-mermaid-preview,
+                    .mmd-block {
+                        background: transparent !important;
+                        background-color: transparent !important;
+                    }
+                }
+                
+                /* 确保Mermaid图表完整显示 */
+                .mermaid svg {
+                    overflow: visible !important;
+                    max-width: none !important;
+                    width: auto !important;
+                    height: auto !important;
+                }
+                
+                /* Mermaid文本大小适配 - 使用更合适的优先级 */
+                .mermaid svg text,
+                .mermaid svg tspan,
+                .mermaid .nodeLabel,
+                .mermaid .edgeLabel,
+                .pm-mermaid-preview svg text,
+                .pm-mermaid-preview svg tspan {
+                    font-size: 13px;  /* 移除!important，让Mermaid有控制权 */
+                    font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+                }
+                
+                /* 让Mermaid节点能够根据文本内容自动调整大小 */
+                .mermaid .node rect,
+                .mermaid rect,
+                .pm-mermaid-preview .node rect,
+                .pm-mermaid-preview rect {
+                    /* 允许自动调整宽高，不强制固定 */
+                    width: auto;
+                    height: auto;
+                }
+                
+                /* 确保Mermaid图表容器不被截断 */
+                .pm-mermaid-preview,
+                .mmd-block {
+                    overflow: visible !important;
+                    width: 100% !important;
+                }
               </style>
               <script src="Resources/mermaid/mermaid.min.js">
               <script>
                 (function(){
                   try{
-                    const dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-                    if (window.mermaid && window.mermaid.initialize){
-                      window.mermaid.initialize({ startOnLoad:false, securityLevel:'loose', theme: dark ? 'dark' : 'base' });
+                    let isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    
+                    function initializeMermaidWithTheme() {
+                      const config = { 
+                        startOnLoad: false, 
+                        securityLevel: 'loose', 
+                        theme: isDark ? 'dark' : 'default',
+                        fontFamily: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif',
+                        darkMode: isDark,
+                        themeVariables: isDark ? {
+                          // Dark主题配色，与主要初始化保持一致
+                          primaryColor: '#58A6FF',
+                          primaryTextColor: '#F0F6FC',
+                          primaryBorderColor: '#30363D',
+                          secondaryColor: '#7C3AED',
+                          tertiaryColor: '#F59E0B',
+                          lineColor: '#30363D',
+                          gridColor: '#21262D',
+                          background: '#0D1117',
+                          mainBkg: '#0D1117',
+                          secondBkg: '#0D1117',
+                          clusterBkg: '#0D1117',
+                          defaultLinkColor: '#58A6FF',
+                          nodeBkg: '#21262D',
+                          nodeTextColor: '#F0F6FC',
+                          tertiaryTextColor: '#F0F6FC',
+                          taskTextColor: '#F0F6FC',
+                          cScale0: '#58A6FF', cScale1: '#7C3AED', cScale2: '#10B981',
+                          cScale3: '#F59E0B', cScale4: '#EF4444', cScale5: '#EC4899'
+                        } : undefined
+                      };
+                      
+                      console.log('🌙 Mermaid backup init with theme:', isDark ? 'dark' : 'default', config);
+                      if (window.mermaid && window.mermaid.initialize) {
+                        window.mermaid.initialize(config);
+                      }
                     }
-                  }catch(e){ console.warn('Mermaid init failed', e); }
+                    
+                    // 初次初始化
+                    initializeMermaidWithTheme();
+                    
+                    // 监听主题变化
+                    const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+                    darkModeQuery.addListener(function(e) {
+                      isDark = e.matches;
+                      console.log('🎨 Backup Mermaid theme changed to:', isDark ? 'dark' : 'default');
+                      initializeMermaidWithTheme();
+                    });
+                    
+                  }catch(e){ console.warn('Mermaid backup init failed', e); }
                 })();
               </script>
             </head>
@@ -3050,6 +4194,55 @@ struct MilkdownWebView: NSViewRepresentable {
                               el.innerHTML = svg;
                               el.classList.add('rendered', 'success');
                               __mmdLog('Inline mermaid rendered:', id);
+                              
+                              // 在暗色主题下强制设置背景和文字颜色 - 与主函数保持一致
+                              if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                                // 强制设置容器背景
+                                el.style.background = 'rgba(28, 28, 30, 0.95)';
+                                el.style.backgroundColor = 'rgba(28, 28, 30, 0.95)';
+                                el.style.borderRadius = '8px';
+                                el.style.padding = '16px';
+                                
+                                // 查找SVG并设置样式
+                                const svgEl = el.querySelector('svg');
+                                if (svgEl) {
+                                  svgEl.style.background = 'rgba(28, 28, 30, 0.95)';
+                                  svgEl.style.backgroundColor = 'rgba(28, 28, 30, 0.95)';
+                                  
+                                  // 强制所有图形元素使用深色背景
+                                  const shapeElements = svgEl.querySelectorAll('rect, circle, ellipse, polygon');
+                                  shapeElements.forEach(shape => {
+                                    if (shape.getAttribute('fill') !== 'none') {
+                                      shape.setAttribute('fill', 'rgba(58, 58, 60, 1)');
+                                      shape.style.fill = 'rgba(58, 58, 60, 1)';
+                                      shape.setAttribute('stroke', 'rgba(142, 142, 147, 1)');
+                                      shape.style.stroke = 'rgba(142, 142, 147, 1)';
+                                      shape.style.strokeWidth = '1.5px';
+                                    }
+                                  });
+                                  
+                                  // 强制所有文字使用白色
+                                  const textElements = svgEl.querySelectorAll('text, tspan, .label, .nodeLabel, .edgeLabel');
+                                  textElements.forEach(textEl => {
+                                    textEl.setAttribute('fill', 'rgba(235, 235, 245, 1)');
+                                    textEl.style.fill = 'rgba(235, 235, 245, 1)';
+                                    textEl.style.color = 'rgba(235, 235, 245, 1)';
+                                    textEl.style.fontWeight = '500';
+                                  });
+                                  
+                                  // 强制连线颜色
+                                  const lineElements = svgEl.querySelectorAll('path, line, polyline');
+                                  lineElements.forEach(line => {
+                                    if (line.getAttribute('fill') === 'none' || !line.getAttribute('fill')) {
+                                      line.setAttribute('stroke', 'rgba(142, 142, 147, 1)');
+                                      line.style.stroke = 'rgba(142, 142, 147, 1)';
+                                      line.style.strokeWidth = '2px';
+                                    }
+                                  });
+                                }
+                                
+                                console.log('🌙 内联Dark主题背景和文字设置完成');
+                              }
                             }).catch(e => {
                               __mmdLog('Inline mermaid render failed:', String(e?.message || e));
                               // 渲染失败时显示错误信息而不是原始代码
