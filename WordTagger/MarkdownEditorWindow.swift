@@ -149,6 +149,7 @@ struct MarkdownEditorWindow: View {
 
 // MARK: - Vditor WebView (更新增强版本)
 struct MarkdownVditorWebView: NSViewRepresentable {
+    @Environment(\.colorScheme) private var colorScheme
     var markdown: String
     var onChange: (String) -> Void
     
@@ -159,6 +160,11 @@ struct MarkdownVditorWebView: NSViewRepresentable {
         config.userContentController = contentController
         
         let webView = WKWebView(frame: .zero, configuration: config)
+        let appearanceName: NSAppearance.Name = (colorScheme == .dark ? .darkAqua : .aqua)
+        if let app = NSAppearance(named: appearanceName) {
+            webView.appearance = app
+        }
+        webView.enclosingScrollView?.drawsBackground = false
         webView.allowsBackForwardNavigationGestures = false
         webView.setValue(false, forKey: "drawsBackground")
         webView.layer?.backgroundColor = NSColor.clear.cgColor
@@ -166,13 +172,18 @@ struct MarkdownVditorWebView: NSViewRepresentable {
         let html = generateHTML()
         webView.loadHTMLString(html, baseURL: Bundle.main.bundleURL)
         context.coordinator.webView = webView
+        context.coordinator.setMarkdown(markdown)
         return webView
     }
     
     func updateNSView(_ nsView: WKWebView, context: Context) {
-        if !markdown.isEmpty {
-            context.coordinator.setMarkdown(markdown)
+        let appearanceName: NSAppearance.Name = (colorScheme == .dark ? .darkAqua : .aqua)
+        if let app = NSAppearance(named: appearanceName) {
+            nsView.appearance = app
         }
+        let jsTheme = "window.__applyNativeTheme && window.__applyNativeTheme(\(colorScheme == .dark ? "true" : "false"));"
+        nsView.evaluateJavaScript(jsTheme, completionHandler: nil)
+        context.coordinator.setMarkdown(markdown)
     }
     
     func makeCoordinator() -> Coordinator {
@@ -229,10 +240,11 @@ struct MarkdownVditorWebView: NSViewRepresentable {
                 }
             case "ready":
                 print("✅ Vditor ready")
-                // 编辑器准备好后，同步当前值
-                if !lastSyncedValue.isEmpty {
-                    setMarkdown(lastSyncedValue)
-                }
+                // 先把当前原生外观传给网页，强制应用主题，再同步内容，保证首帧就正确
+                let isDark = (webView?.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua)
+                webView?.evaluateJavaScript("window.__applyNativeTheme(\(isDark ? "true" : "false"))", completionHandler: nil)
+                // 同步当前值（即使是空字符串也要写入，以避免不同步）
+                setMarkdown(lastSyncedValue)
             case "save":
                 // 支持 Cmd+S 保存
                 NotificationCenter.default.post(name: NSNotification.Name("VditorSaveRequested"), object: nil)
@@ -241,7 +253,7 @@ struct MarkdownVditorWebView: NSViewRepresentable {
                 if let format = dict["format"] as? String,
                    let content = dict["content"] as? String {
                     NotificationCenter.default.post(
-                        name: NSNotification.Name("VditorExportRequested"), 
+                        name: NSNotification.Name("VditorExportRequested"),
                         object: nil,
                         userInfo: ["format": format, "content": content]
                     )
@@ -291,1374 +303,176 @@ struct MarkdownVditorWebView: NSViewRepresentable {
         <!DOCTYPE html>
         <html>
         <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <link rel="stylesheet" href="Resources/vditor/index.css">
-            <style>
-                body {
-                    margin: 0;
-                    padding: 0;
-                    background: transparent;
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-                }
-                
-                /* === Stop full-page overlay from Mermaid SVG === */
-                #content, .mermaid, .mmd-block { position: relative !important; z-index: auto !important; }
-
-                .mermaid > svg {
-                  position: relative !important;
-                  left: auto !important; right: auto !important; top: auto !important; bottom: auto !important;
-                  display: block !important;
-                  width: 100% !important;
-                  height: auto !important;
-                  max-width: none !important;
-                  min-width: 800px !important;
-                  min-height: 600px !important;
-                }
-                
-                #vditor {
-                    height: 100vh;
-                    border: none !important;
-                }
-                
-                /* 全局移除所有Vditor相关边框 */
-                .vditor, .vditor * {
-                    border: none !important;
-                    outline: none !important;
-                    box-shadow: none !important;
-                }
-                
-                /* Github官方浅色主题 */
-                .vditor {
-                    --panel-background-color: transparent;
-                    --textarea-background-color: transparent;
-                    --toolbar-background-color: #f6f8fa;
-                    --border-color: transparent;
-                    --text-color: #24292f !important;
-                    --second-color: #24292f !important;
-                    --count-color: #24292f !important;
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
-                    border: none !important;
-                }
-                
-                /* 浅色模式强制设置 */
-                @media (prefers-color-scheme: light) {
-                    .vditor .vditor-ir {
-                        color: #24292f !important;
-                    }
-                    
-                    .vditor .vditor-ir * {
-                        color: #24292f !important;
-                    }
-                }
-                
-                /* Github官方工具栏 - 移除边框 */
-                .vditor-toolbar {
-                    border: none !important;
-                    background-color: #f6f8fa !important;
-                    padding: 8px 16px !important;
-                }
-                
-                /* Github官方编辑区域 - 透明背景 */
-                .vditor-ir {
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif !important;
-                    font-size: 18px !important;
-                    line-height: 1.7 !important;
-                    color: #24292f !important;
-                    background-color: transparent !important;
-                }
-                
-                /* 浅色主题字体大小设置 */
-                @media (prefers-color-scheme: light) {
-                    .vditor-ir *, .vditor-ir p, .vditor-ir div, .vditor-ir span {
-                        font-size: 18px !important;
-                        color: #24292f !important;
-                    }
-                    
-                    /* 浅色主题标题字体大小 */
-                    .vditor-ir h1 {
-                        font-size: 32px !important;
-                        font-weight: 700 !important;
-                        color: #24292f !important;
-                    }
-                    
-                    .vditor-ir h2 {
-                        font-size: 28px !important;
-                        font-weight: 600 !important;
-                        color: #24292f !important;
-                    }
-                    
-                    .vditor-ir h3 {
-                        font-size: 24px !important;
-                        font-weight: 600 !important;
-                        color: #24292f !important;
-                    }
-                    
-                    .vditor-ir h4, .vditor-ir h5, .vditor-ir h6 {
-                        font-size: 20px !important;
-                        font-weight: 600 !important;
-                        color: #24292f !important;
-                    }
-                    
-                    /* 浅色主题 - Mermaid节点强制放大 - 超高优先级 */
-                    html body div .vditor-ir .mermaid svg rect,
-                    html body div .vditor-ir .mermaid svg circle,
-                    html body div .vditor-ir .mermaid svg ellipse,
-                    html body div .vditor-ir .mermaid svg polygon,
-                    html body div .vditor-ir .mermaid rect,
-                    html body div .vditor-ir .mermaid circle,
-                    html body div .vditor-ir .mermaid ellipse,
-                    html body div .vditor-ir .mermaid polygon,
-                    html body div .mermaid svg rect,
-                    html body div .mermaid svg circle,
-                    html body div .mermaid svg ellipse,
-                    html body div .mermaid svg polygon,
-                    html body div .mermaid rect,
-                    html body div .mermaid circle,
-                    html body div .mermaid ellipse,
-                    html body div .mermaid polygon,
-                    html body .mermaid svg rect,
-                    html body .mermaid svg circle,
-                    html body .mermaid svg ellipse,
-                    html body .mermaid svg polygon,
-                    html body .mermaid rect,
-                    html body .mermaid circle,
-                    html body .mermaid ellipse,
-                    html body .mermaid polygon {
-                        transform: scale(1.4) !important;
-                        transform-origin: center !important;
-                        stroke-width: 4px !important;
-                        stroke: #333 !important;
-                    }
-                    
-                    html body div .vditor-ir .mermaid,
-                    html body div .mermaid,
-                    html body .mermaid {
-                        transform: scale(1.5) !important;
-                        transform-origin: center !important;
-                        min-width: 800px !important;
-                        min-height: 600px !important;
-                        margin: 40px auto !important;
-                        padding: 50px !important;
-                    }
-                }
-                
-                /* Blackout暗色主题 - 使用指定CSS */
-                @media (prefers-color-scheme: dark) {
-                    /* 根CSS变量 */
-                    :root {
-                        --of-theme-color: #ff9100;
-                        --of-theme-color-dark: #4b4b46;
-                        --of-darkest-color: #2d2d2d;
-                        --of-darker-color: #1e1e1e;
-                        --of-dark-color: #292929;
-                        --of-dark-color2: #202020;
-                        --of-dark-color3: #404040;
-                        --of-dark-color4: #232323;
-                        --of-dark-color5: #222222;
-                        --of-dark-color6: #1b1b1b;
-                        --of-strong: white;
-                        --of-strong-code: #00ffa6;
-                        --of-font-size: 15px;
-                        --of-selection: #4a89dc;
-                        --of-selection-text: white;
-                        --of-text-color: #c6c5b8;
-                        --bg-color: var(--of-darker-color);
-                        --text-color: var(--of-text-color);
-                        --text-color-main: var(--of-text-color);
-                    }
-                    
-                    .vditor {
-                        --panel-background-color: var(--of-darker-color);
-                        --textarea-background-color: var(--of-darker-color);
-                        --toolbar-background-color: var(--of-darkest-color);
-                        --border-color: transparent;
-                        --text-color: var(--of-text-color);
-                        --second-color: var(--of-text-color);
-                        --count-color: var(--of-text-color);
-                        border: none !important;
-                        color: var(--of-text-color);
-                        background: var(--of-darker-color);
-                    }
-                    
-                    .vditor-toolbar {
-                        border: none !important;
-                        background-color: var(--of-darkest-color) !important;
-                        color: var(--of-text-color);
-                    }
-                    
-                    .vditor-ir {
-                        color: var(--of-text-color) !important;
-                        background-color: transparent !important;
-                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
-                        line-height: 1.7;
-                    }
-                    
-                    /* 暗色主题文字样式 */
-                    .vditor-ir *,
-                    .vditor-ir p,
-                    .vditor-ir div:not(.mermaid):not([class*="mermaid"]), 
-                    .vditor-ir span:not(.mermaid *),
-                    .vditor-ir li,
-                    .vditor-ir blockquote,
-                    .vditor-ir code:not(.mermaid *),
-                    .vditor-ir pre,
-                    .vditor-ir table,
-                    .vditor-ir td,
-                    .vditor-ir th {
-                        color: var(--of-text-color) !important;
-                    }
-                    
-                    /* 标题样式 */
-                    .vditor-ir h1,
-                    .vditor-ir h2,
-                    .vditor-ir h3,
-                    .vditor-ir h4,
-                    .vditor-ir h5,
-                    .vditor-ir h6 {
-                        color: var(--of-strong) !important;
-                        font-weight: bold;
-                    }
-                    
-                    .vditor-ir h1 {
-                        font-size: 2.5rem !important;
-                        border-bottom: 1px solid #383838;
-                    }
-                    
-                    .vditor-ir h2 {
-                        font-size: 1.63rem !important;
-                    }
-                    
-                    .vditor-ir h3 {
-                        font-size: 1.6rem !important;
-                    }
-                    
-                    .vditor-ir h4 {
-                        font-size: 1.12rem !important;
-                    }
-                    
-                    .vditor-ir h5 {
-                        font-size: 0.97rem !important;
-                    }
-                    
-                    .vditor-ir h6 {
-                        font-size: 0.93rem !important;
-                        color: #d3d3d3 !important;
-                    }
-                    
-                    /* 强调文字 */
-                    .vditor-ir strong,
-                    .vditor-ir b {
-                        color: var(--of-strong) !important;
-                    }
-                    
-                    /* 代码样式 */
-                    .vditor-ir code {
-                        background: rgba(255, 255, 255, 0.05) !important;
-                        color: var(--of-strong-code) !important;
-                        border-radius: 0.2rem;
-                    }
-                    
-                    /* 引用样式 */
-                    .vditor-ir blockquote {
-                        border: 1px solid var(--of-theme-color);
-                        background-color: var(--of-dark-color);
-                        border-radius: 8px;
-                        padding: 20px;
-                        color: white !important;
-                    }
-                    
-                    /* 链接样式 */
-                    .vditor-ir a {
-                        color: var(--of-theme-color) !important;
-                        text-decoration: underline;
-                    }
-                    
-                    .vditor-ir a:hover {
-                        color: white !important;
-                    }
-                    
-                    /* Mermaid图表暗色主题强制覆盖 - 使用最高优先级 */
-                    
-                    /* 1. Mermaid容器整体背景和尺寸 - 超级强制 */
-                    .vditor-ir .mermaid,
-                    .vditor-ir .mermaid > svg,
-                    .vditor-ir div[data-processed-by="mermaid"],
-                    div.mermaid,
-                    .mermaid {
-                        background: var(--of-darker-color) !important;
-                        background-color: var(--of-darker-color) !important;
-                        border-radius: 12px !important;
-                        padding: 50px !important;
-                        margin: 40px 0 !important;
-                        width: 100% !important;
-                        min-width: 800px !important;
-                        min-height: 600px !important;
-                        height: auto !important;
-                        max-width: none !important;
-                        display: block !important;
-                        overflow: visible !important;
-                        transform: scale(1.5) !important;
-                        transform-origin: center !important;
-                    }
-                    
-                    /* 1.1 SVG内部容器尺寸强制放大 */
-                    .vditor-ir .mermaid svg,
-                    .mermaid svg {
-                        width: 100% !important;
-                        height: auto !important;
-                        min-width: 800px !important;
-                        min-height: 600px !important;
-                        background: var(--of-darker-color) !important;
-                        background-color: var(--of-darker-color) !important;
-                        transform: scale(1.2) !important;
-                    }
-                }
-                
-                /* === 终极强制覆盖规则 - 最高优先级 === */
-                
-                /* 浅色模式：超高优先级强制放大 */
-                html body div.vditor div.vditor-ir div.mermaid svg rect,
-                html body div.vditor div.vditor-ir div.mermaid svg circle,
-                html body div.vditor div.vditor-ir div.mermaid svg ellipse,
-                html body div.vditor div.vditor-ir div.mermaid svg polygon,
-                html body div.vditor div.vditor-ir div.mermaid rect[style],
-                html body div.vditor div.vditor-ir div.mermaid circle[style],
-                html body div.vditor div.vditor-ir div.mermaid ellipse[style],
-                html body div.vditor div.vditor-ir div.mermaid polygon[style] {
-                    transform: scale(1.6) !important;
-                    transform-origin: center !important;
-                    stroke-width: 4px !important;
-                    stroke: #333333 !important;
-                }
-                
-                /* 浅色模式：整体容器强制放大 */
-                html body div.vditor div.vditor-ir div.mermaid {
-                    transform: scale(1.8) !important;
-                    transform-origin: center !important;
-                    min-width: 900px !important;
-                    min-height: 700px !important;
-                    padding: 60px !important;
-                    margin: 50px auto !important;
-                }
-                
-                /* 暗色模式：超高优先级强制颜色 */
-                @media (prefers-color-scheme: dark) {
-                    html body div.vditor div.vditor-ir div.mermaid svg rect[style],
-                    html body div.vditor div.vditor-ir div.mermaid svg circle[style],
-                    html body div.vditor div.vditor-ir div.mermaid svg ellipse[style],
-                    html body div.vditor div.vditor-ir div.mermaid svg polygon[style],
-                    html body div.vditor div.vditor-ir div.mermaid rect,
-                    html body div.vditor div.vditor-ir div.mermaid circle,
-                    html body div.vditor div.vditor-ir div.mermaid ellipse,
-                    html body div.vditor div.vditor-ir div.mermaid polygon {
-                        fill: #292929 !important;
-                        stroke: #ff9100 !important;
-                        stroke-width: 3px !important;
-                        transform: scale(1.4) !important;
-                        transform-origin: center !important;
-                    }
-                    
-                    html body div.vditor div.vditor-ir div.mermaid svg text[style],
-                    html body div.vditor div.vditor-ir div.mermaid text {
-                        fill: #c6c5b8 !important;
-                        color: #c6c5b8 !important;
-                        font-size: 16px !important;
-                        font-weight: 600 !important;
-                    }
-                }
-                
-                /* SVG容器最高优先级覆盖 */
-                html body div.vditor div.vditor-ir div.mermaid > svg {
-                    width: 100% !important;
-                    height: auto !important;
-                    max-width: none !important;
-                    min-width: 800px !important;
-                    min-height: 600px !important;
-                    transform: scale(1.2) !important;
-                }
-            </style>
+          <meta charset="UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <link rel="stylesheet" href="Resources/vditor/index.css" />
+          <style>
+            /* Clean, responsive base styles for Vditor + Mermaid */
+            :root { --bg: transparent; --fg:#1f2328; --muted:#6e7781; --code-bg:#f6f8fa; --code-fg:#1f2328; --s4:16px; }
+            @media (prefers-color-scheme: dark){ :root{ --fg:#d4d4d4; --muted:#9aa0a6; --code-bg:#2d2d2d; --code-fg:#d4d4d4; } }
+            html,body{ color-scheme:light dark; margin:0; padding:0; background:var(--bg); color:var(--fg); font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; }
+            #vditor{ height:100vh; border:none; }
+            .vditor,.vditor *{ border:none; box-shadow:none; }
+            .vditor-toolbar{ background:#f6f8fa; padding:8px 16px; }
+            @media (prefers-color-scheme: dark){ .vditor-toolbar{ background:#1f1f1f; } }
+            .vditor-ir{ background:transparent; font-size:18px; line-height:1.7; }
+            pre{ background:var(--code-bg); color:var(--code-fg); border-radius:6px; padding:var(--s4); overflow:auto; }
+            code{ background:color-mix(in srgb, var(--code-bg) 90%, transparent); color:var(--code-fg); border-radius:3px; padding:.2em .4em; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; }
+            /* Mermaid: responsive, non-obtrusive */
+            #content,.mermaid,.mmd-block{ position:relative; z-index:auto; }
+            .mermaid{ display:block; margin:var(--s4) 0; padding:0; background:transparent; overflow:visible; text-align:center; }
+            .mermaid>svg{ display:block; width:100%; max-width:100%; height:auto; block-size:auto; }
+            /* Avoid label clipping when htmlLabels=true */
+            .mermaid .label foreignObject{ overflow:visible; }
+            .mermaid .label foreignObject, .mermaid .label foreignObject>div{ max-width:100%; box-sizing:border-box; }
+            .mermaid .label foreignObject>div{
+              display:block;
+              padding:2px 4px;
+              white-space:normal;
+              word-break:break-word;
+              overflow-wrap:anywhere;
+              line-height:1.4;
+              font-size:16px;
+            }
+          </style>
         </head>
         <body>
-            <div id="vditor"></div>
-            
-            <script src="Resources/vditor/index.min.js"></script>
-            <script>
-                let vditor;
-                
-                // 检测主题
-                const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                
-                // 初始化 Vditor (IR 模式 = 即时渲染)
-                vditor = new Vditor('vditor', {
-                    mode: 'ir', // 关键：即时渲染模式，类似 Typora
-                    theme: isDark ? 'dark' : 'classic',
-                    value: '',
-                    width: '100%',
-                    height: '100vh',
-                    cache: { enable: false },
-                    // 添加Mermaid渲染完成回调
-                    after() {
-                        // 编辑器初始化完成
-                        window.webkit?.messageHandlers?.bridge?.postMessage({
-                            type: 'ready'
-                        });
-                        
-                        // 立即强制应用Mermaid样式
-                        setTimeout(bruteForceMermaidFix, 100);
-                        setTimeout(bruteForceMermaidFix, 500);
-                        setTimeout(bruteForceMermaidFix, 1000);
-                        
-                        // 初始化mermaid主题配置
-                        if (window.mermaid && window.mermaid.initialize) {
-                            const currentTheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                            console.log('🎨 初始化mermaid主题配置，当前主题:', currentTheme ? '深色' : '浅色');
-                            
-                            window.mermaid.initialize({
-                                startOnLoad: false,
-                                theme: currentTheme ? 'dark' : 'default',
-                                securityLevel: 'strict',
-                                themeVariables: currentTheme ? {
-                                    primaryColor: '#292929',
-                                    primaryTextColor: '#c6c5b8',
-                                    primaryBorderColor: '#ff9100',
-                                    lineColor: '#ff9100'
-                                } : {
-                                    primaryColor: '#ffffff',
-                                    primaryTextColor: '#333333',
-                                    primaryBorderColor: '#333333'
-                                }
-                            });
-                        }
-                        
-                        // 超级激进的Mermaid渲染监听 - 监听所有可能的变化
-                        const aggressiveObserver = new MutationObserver((mutations) => {
-                            let needsFix = false;
-                            let logDetails = [];
-                            
-                            mutations.forEach((mutation) => {
-                                // 监听新增节点
-                                if (mutation.addedNodes) {
-                                    mutation.addedNodes.forEach((node) => {
-                                        if (node.nodeType === 1) {
-                                            if (node.classList?.contains('mermaid') || 
-                                                node.querySelector?.('.mermaid') ||
-                                                node.tagName === 'svg' ||
-                                                node.innerHTML?.includes('mermaid') ||
-                                                node.textContent?.includes('graph') ||
-                                                node.textContent?.includes('flowchart')) {
-                                                needsFix = true;
-                                                logDetails.push('新增节点: ' + node.tagName + ' / ' + (node.className || 'no-class'));
-                                            }
-                                        }
-                                    });
-                                }
-                                
-                                // 监听属性变化（重要！）
-                                if (mutation.type === 'attributes') {
-                                    const target = mutation.target;
-                                    if (target.classList?.contains('mermaid') || 
-                                        target.closest('.mermaid') ||
-                                        target.tagName === 'svg') {
-                                        needsFix = true;
-                                        logDetails.push('属性变化: ' + target.tagName + '.' + (target.className || '') + ' 属性:' + mutation.attributeName);
-                                    }
-                                }
-                                
-                                // 监听子树变化
-                                if (mutation.type === 'childList' && mutation.target.classList?.contains('mermaid')) {
-                                    needsFix = true;
-                                    logDetails.push('Mermaid子树变化');
-                                }
-                            });
-                            
-                            if (needsFix) {
-                                console.log('🔍 监听器检测到Mermaid变化:', logDetails);
-                                // 立即修复 + 延迟修复
-                                setTimeout(bruteForceMermaidFix, 5);
-                                setTimeout(bruteForceMermaidFix, 50);
-                                setTimeout(bruteForceMermaidFix, 200);
-                            }
-                        });
-                        
-                        // 更全面的监听配置
-                        aggressiveObserver.observe(document.body, { 
-                            childList: true, 
-                            subtree: true, 
-                            attributes: true,
-                            attributeFilter: ['class', 'style', 'data-processed', 'data-processed-by'],
-                            characterData: true
-                        });
-                        
-                        // 添加键盘快捷键
-                        document.addEventListener('keydown', (e) => {
-                            if (e.metaKey || e.ctrlKey) {
-                                switch(e.key) {
-                                    case 's':
-                                        e.preventDefault();
-                                        window.webkit?.messageHandlers?.bridge?.postMessage({
-                                            type: 'save'
-                                        });
-                                        break;
-                                }
-                            }
-                        });
-                    },
-                    preview: {
-                        theme: {
-                            current: isDark ? 'dark' : 'light'
-                        },
-                        // 安全配置：启用内容清理
-                        hljs: { enable: true, style: isDark ? 'github-dark' : 'github' },
-                        math: { engine: 'KaTeX' },
-                        mermaid: { 
-                            theme: isDark ? 'dark' : 'default',
-                            securityLevel: 'strict',
-                            startOnLoad: false,
-                            maxTextSize: 50000,
-                            // 渲染节流配置
-                            flowchart: { 
-                                useMaxWidth: false,
-                                htmlLabels: true,
-                                curve: 'basis'
-                            },
-                            // 强制应用blackout主题色彩
-                            themeVariables: isDark ? {
-                                primaryColor: '#292929',
-                                primaryTextColor: '#c6c5b8', 
-                                primaryBorderColor: '#ff9100',
-                                lineColor: '#ff9100',
-                                secondaryColor: '#1e1e1e',
-                                tertiaryColor: '#404040',
-                                background: '#1e1e1e',
-                                mainBkg: '#292929',
-                                secondBkg: '#202020',
-                                tertiaryBkg: '#404040'
-                            } : {
-                                primaryColor: '#ffffff',
-                                primaryTextColor: '#333333',
-                                primaryBorderColor: '#333333',
-                                lineColor: '#333333',
-                                secondaryColor: '#f0f0f0',
-                                tertiaryColor: '#e0e0e0'
-                            }
-                        }
-                    },
-                    // HTML 安全清理
-                    options: {
-                        sanitize: true
-                    },
-                    upload: {
-                        accept: 'image/*',
-                        handler(files) {
-                            // 处理图片上传
-                            const file = files[0];
-                            if (!file) return;
-                            
-                            const reader = new FileReader();
-                            reader.onload = (e) => {
-                                const base64Data = e.target.result.split(',')[1];
-                                window.webkit?.messageHandlers?.bridge?.postMessage({
-                                    type: 'image',
-                                    filename: file.name,
-                                    data: base64Data
-                                });
-                            };
-                            reader.readAsDataURL(file);
-                            return null; // 阻止默认上传
-                        }
-                    },
-                    toolbar: [
-                        'emoji', 'headings', 'bold', 'italic', 'strike', 'link', '|',
-                        'list', 'ordered-list', 'check', 'outdent', 'indent', '|',
-                        'quote', 'line', 'code', 'inline-code', 'insert-before', 'insert-after', '|',
-                        'upload', 'table', '|',
-                        'undo', 'redo', '|',
-                        'fullscreen', 'edit-mode', 'both', 'preview', 'outline', 'code-theme'
-                    ],
-                    input(value) {
-                        // 内容变化回调 - 添加防抖以提高性能
-                        clearTimeout(window.inputTimeout);
-                        window.inputTimeout = setTimeout(() => {
-                            window.webkit?.messageHandlers?.bridge?.postMessage({
-                                type: 'change',
-                                value: value
-                            });
-                        }, 300); // 300ms 防抖
-                    }
-                });
-                
-                // 暴露到全局，供 Swift 调用
-                window.vditor = vditor;
-                
-                // 暴露修复函数到全局，便于手动调试
-                window.fixMermaid = bruteForceMermaidFix;
-                
-                // 绝对控制策略：拦截所有Mermaid渲染
-                const originalMermaid = window.mermaid;
-                if (originalMermaid) {
-                    // 保存原始的render和init方法
-                    const originalRender = originalMermaid.render;
-                    const originalInit = originalMermaid.init;
-                    const originalInitialize = originalMermaid.initialize;
-                    
-                    // 拦截render方法
-                    originalMermaid.render = function(...args) {
-                        console.log('🚫 拦截Mermaid.render调用，强制应用暗色主题');
-                        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                        
-                        // 在渲染前强制设置正确的主题
-                        if (isDark) {
-                            console.log('🌙 渲染前强制设置暗色主题配置');
-                            originalMermaid.initialize({
-                                startOnLoad: false,
-                                theme: 'dark',
-                                securityLevel: 'strict',
-                                themeVariables: {
-                                    primaryColor: '#292929',
-                                    primaryTextColor: '#c6c5b8',
-                                    primaryBorderColor: '#ff9100',
-                                    lineColor: '#ff9100',
-                                    background: '#1e1e1e',
-                                    mainBkg: '#292929',
-                                    secondBkg: '#202020',
-                                    tertiaryBkg: '#404040'
-                                }
-                            });
-                        }
-                        
-                        // 调用原始render方法
-                        const result = originalRender.apply(this, args);
-                        
-                        // 渲染后立即修复
-                        setTimeout(() => {
-                            console.log('🔨 渲染后立即修复');
-                            bruteForceMermaidFix();
-                        }, 10);
-                        
-                        return result;
+          <div id="vditor"></div>
+          <div style="position:fixed;left:8px;bottom:8px;font:11px -apple-system,BlinkMacSystemFont,'Segoe UI';background:rgba(0,0,0,.5);color:#fff;padding:2px 6px;border-radius:6px;z-index:9999;">VDITOR_WEBVIEW v2</div>
+          <!-- Load Mermaid BEFORE Vditor so first render uses our config/fonts -->
+          <script src="Resources/mermaid/mermaid.min.js"></script>
+          <script src="Resources/vditor/index.min.js"></script>
+          <script>
+            // ---- Unified Mermaid config ----
+            function currentMermaidConfig(){
+              const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+              const shared = {
+                startOnLoad: false,
+                securityLevel: 'loose', // allow htmlLabels/foreignObject
+                fontFamily: "-apple-system, 'SF Pro Text', 'Segoe UI', Arial, sans-serif",
+                flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis', padding: 8, nodeSpacing: 40, rankSpacing: 40 }
+              };
+              return isDark ? {
+                ...shared,
+                theme: 'dark',
+                themeVariables: {
+                  primaryColor: '#161b22', primaryTextColor: '#c9d1d9', primaryBorderColor: '#30363d',
+                  lineColor: '#58a6ff', background:'#0d1117', mainBkg:'#161b22', secondaryColor:'#21262d',
+                  fontSize:'16px', lineHeight:'1.4'
+                }
+              } : {
+                ...shared,
+                theme: 'default',
+                themeVariables: {
+                  primaryColor:'#ffffff', primaryTextColor:'#24292f', primaryBorderColor:'#d0d7de',
+                  lineColor:'#0969da', tertiaryColor:'#f6f8fa', background:'#ffffff',
+                  fontSize:'16px', lineHeight:'1.4'
+                }
+              }
+            }
+
+            // Only container/layout fix — never touch colors
+            function mermaidContainerFix(){
+              document.querySelectorAll('.mermaid,.mmd-block').forEach(div=>{
+                div.style.position='relative'; div.style.zIndex='auto';
+                div.style.removeProperty('transform'); div.style.removeProperty('min-width'); div.style.removeProperty('min-height');
+              });
+              document.querySelectorAll('.mermaid>svg').forEach(svg=>{
+                svg.style.display='block'; svg.style.width='100%'; svg.style.height='auto';
+                svg.style.removeProperty('min-width'); svg.style.removeProperty('min-height'); svg.style.removeProperty('transform');
+              });
+            }
+
+            function installMermaid(){
+              if (window.mermaid && window.mermaid.initialize) {
+                window.mermaid.initialize(currentMermaidConfig());
+              }
+            }
+
+            (function(){
+              // 1) Ensure Mermaid is configured BEFORE Vditor constructs/first-render
+              installMermaid();
+
+              const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+              const vditor = new Vditor('vditor', {
+                mode: 'ir',
+                theme: isDark ? 'dark' : 'classic',
+                value: '',
+                width: '100%',
+                height: '100vh',
+                cache: { enable: false },
+                after(){
+                  // Bridge: ready
+                  window.webkit?.messageHandlers?.bridge?.postMessage({ type: 'ready' });
+                  // DO NOT initialize mermaid here again — avoid double themes on first render
+                  mermaidContainerFix();
+                },
+                preview: {
+                  theme: { current: isDark ? 'dark' : 'light' },
+                  hljs: { enable: true, style: isDark ? 'github-dark' : 'github' },
+                  math: { engine: 'KaTeX' },
+                  // Forward our unified config to Vditor's mermaid so it renders with the same settings
+                  mermaid: currentMermaidConfig()
+                },
+                toolbar: [ 'emoji','headings','bold','italic','strike','link','|','list','ordered-list','check','outdent','indent','|','quote','line','code','inline-code','insert-before','insert-after','|','upload','table','|','undo','redo','|','fullscreen','edit-mode','both','preview','outline','code-theme' ],
+                upload: {
+                  accept: 'image/*',
+                  handler(files){
+                    const f = files?.[0]; if(!f) return null;
+                    const reader = new FileReader();
+                    reader.onload = (e)=>{
+                      const base64Data = String(e.target.result).split(',')[1] || '';
+                      window.webkit?.messageHandlers?.bridge?.postMessage({ type:'image', filename:f.name, data: base64Data });
                     };
-                    
-                    // 拦截init方法
-                    originalMermaid.init = function(...args) {
-                        console.log('🚫 拦截Mermaid.init调用');
-                        const result = originalInit.apply(this, args);
-                        
-                        // init后立即修复
-                        setTimeout(() => {
-                            console.log('🔨 init后立即修复');
-                            bruteForceMermaidFix();
-                        }, 10);
-                        
-                        return result;
-                    };
+                    reader.readAsDataURL(f);
+                    return null;
+                  }
+                },
+                input(value){
+                  clearTimeout(window.__inputDebounce);
+                  window.__inputDebounce = setTimeout(()=>{
+                    window.webkit?.messageHandlers?.bridge?.postMessage({ type:'change', value });
+                  }, 300);
                 }
-                
-                // 暴力修复Mermaid样式函数 - 超级激进版
-                function bruteForceMermaidFix() {
-                    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                    console.log('🔨🔨🔨 开始超级激进暴力修复Mermaid样式');
-                    console.log('当前主题模式 - 暗色模式:', isDark);
-                    console.log('当前时间:', new Date().toLocaleTimeString());
-                    
-                    // 清理旧的修复标记，确保重新应用
-                    const oldStyledElements = document.querySelectorAll('[data-theme-fixed]');
-                    oldStyledElements.forEach(el => el.removeAttribute('data-theme-fixed'));
-                    
-                    // 超级激进检测：强制等待DOM完全渲染
-                    if (document.readyState !== 'complete') {
-                        console.log('⏰ DOM未完全加载，延迟100ms重试');
-                        setTimeout(bruteForceMermaidFix, 100);
-                        return;
-                    }
-                    
-                    // 检查是否有正在渲染的Mermaid元素
-                    const renderingElements = document.querySelectorAll('.mermaid:empty, svg:not([viewBox])');
-                    if (renderingElements.length > 0) {
-                        console.log('⏰ 发现', renderingElements.length, '个正在渲染的元素，延迟200ms重试');
-                        setTimeout(bruteForceMermaidFix, 200);
-                        return;
-                    }
-                    
-                    // 更精准地找到Mermaid相关元素
-                    const allSvgs = document.querySelectorAll('svg');
-                    const mermaidDivs = document.querySelectorAll('.mermaid, [class*="mermaid"], div:has(svg)');
-                    const vditorContent = document.querySelectorAll('.vditor-ir, .vditor-content');
-                    
-                    console.log('找到', allSvgs.length, '个SVG元素,', mermaidDivs.length, '个mermaid容器,', vditorContent.length, '个编辑器内容区');
-                    
-                    // 1. 强制修复所有SVG容器尺寸
-                    allSvgs.forEach((svg, index) => {
-                        // 检查是否是Mermaid SVG（通过父元素或内容判断）
-                        const parent = svg.closest('.mermaid') || svg.parentElement;
-                        const isMermaidSvg = parent && (
-                            parent.classList.contains('mermaid') ||
-                            svg.querySelector('g[class*="node"]') ||
-                            svg.querySelector('rect[class*="rect"]') ||
-                            svg.querySelector('text[class*="label"]')
-                        );
-                        
-                        if (isMermaidSvg) {
-                            console.log('修复SVG #' + index);
-                            // 强制设置SVG尺寸
-                            svg.style.setProperty('width', '100%', 'important');
-                            svg.style.setProperty('height', 'auto', 'important');
-                            svg.style.setProperty('max-width', 'none', 'important');
-                            svg.style.setProperty('min-width', '800px', 'important');
-                            svg.style.setProperty('min-height', '600px', 'important');
-                            svg.style.setProperty('transform', 'scale(1.2)', 'important');
-                            svg.style.setProperty('transform-origin', 'center', 'important');
-                            svg.setAttribute('data-fixed', 'true');
-                        }
-                    });
-                    
-                    // 2. 强制修复所有节点元素 - 改进检测逻辑
-                    const allShapes = document.querySelectorAll('rect, circle, ellipse, polygon');
-                    console.log('找到', allShapes.length, '个图形元素');
-                    
-                    allShapes.forEach((shape, index) => {
-                        const svg = shape.closest('svg');
-                        const isMermaidShape = svg && (
-                            // 检查是否在.mermaid容器内
-                            shape.closest('.mermaid') ||
-                            // 检查SVG是否有Mermaid特征
-                            svg.querySelector('g[class*="node"]') ||
-                            svg.querySelector('g[class*="cluster"]') ||
-                            svg.querySelector('text[class*="label"]') ||
-                            svg.querySelector('path[class*="edge"]') ||
-                            // 检查shape本身的属性
-                            shape.getAttribute('class')?.includes('node') ||
-                            shape.getAttribute('class')?.includes('rect') ||
-                            shape.getAttribute('class')?.includes('cluster') ||
-                            // 检查父元素
-                            shape.parentElement?.getAttribute('class')?.includes('node')
-                        );
-                        
-                        if (isMermaidShape) {
-                            console.log('发现Mermaid节点 #' + index, '当前fill:', shape.getAttribute('fill'));
-                            
-                            if (isDark) {
-                                // 暗色模式 - 强制设置暗色背景
-                                console.log('应用暗色样式到节点 #' + index);
-                                shape.style.setProperty('fill', '#292929', 'important');
-                                shape.style.setProperty('stroke', '#ff9100', 'important');
-                                shape.style.setProperty('stroke-width', '3px', 'important');
-                                // 直接修改属性
-                                shape.setAttribute('fill', '#292929');
-                                shape.setAttribute('stroke', '#ff9100');
-                                shape.setAttribute('stroke-width', '3');
-                                // 移除可能的内联样式
-                                const currentStyle = shape.getAttribute('style') || '';
-                                const newStyle = currentStyle
-                                    .replace(/fill:[^;]*;?/g, '')
-                                    .replace(/stroke:[^;]*;?/g, '') +
-                                    ';fill: #292929 !important; stroke: #ff9100 !important; stroke-width: 3px !important;';
-                                shape.setAttribute('style', newStyle);
-                            } else {
-                                // 浅色模式 - 保持原有外观，只加粗边框
-                                console.log('应用浅色样式到节点 #' + index);
-                                shape.style.setProperty('stroke', '#333333', 'important');
-                                shape.style.setProperty('stroke-width', '2px', 'important');
-                                shape.setAttribute('stroke', '#333333');
-                                shape.setAttribute('stroke-width', '2');
-                                // 移除可能的固定尺寸
-                                shape.style.removeProperty('width');
-                                shape.style.removeProperty('height');
-                                shape.removeAttribute('width');
-                                shape.removeAttribute('height');
-                            }
-                            
-                            // 节点适度放大，深色模式稍小避免遮挡文字
-                            shape.style.setProperty('transform', isDark ? 'scale(1.05)' : 'scale(1.1)', 'important');
-                            shape.style.setProperty('transform-origin', 'center', 'important');
-                        }
-                    });
-                    
-                    // 3. 强制修复所有文字 - 确保可见且大小合适
-                    const allTexts = document.querySelectorAll('text');
-                    console.log('找到', allTexts.length, '个文字元素');
-                    
-                    allTexts.forEach((text, index) => {
-                        const svg = text.closest('svg');
-                        const isMermaidText = svg && (
-                            text.closest('.mermaid') ||
-                            svg.querySelector('g[class*="node"]') ||
-                            text.getAttribute('class')?.includes('label') ||
-                            text.getAttribute('class')?.includes('nodeLabel') ||
-                            text.parentElement?.getAttribute('class')?.includes('label')
-                        );
-                        
-                        if (isMermaidText) {
-                            console.log('发现Mermaid文字 #' + index, '内容:', text.textContent?.substring(0, 20));
-                            
-                            if (isDark) {
-                                // 暗色模式文字颜色
-                                console.log('应用暗色文字样式 #' + index);
-                                text.style.setProperty('fill', '#c6c5b8', 'important');
-                                text.style.setProperty('color', '#c6c5b8', 'important');
-                                text.setAttribute('fill', '#c6c5b8');
-                                // 移除可能的内联样式
-                                const currentStyle = text.getAttribute('style') || '';
-                                const newStyle = currentStyle
-                                    .replace(/fill:[^;]*;?/g, '')
-                                    .replace(/color:[^;]*;?/g, '') +
-                                    ';fill: #c6c5b8 !important; color: #c6c5b8 !important;';
-                                text.setAttribute('style', newStyle);
-                            }
-                            
-                            // 确保文字大小合适，不会被节点遮挡
-                            text.style.setProperty('font-size', '18px', 'important');
-                            text.style.setProperty('font-weight', '600', 'important');
-                            text.style.setProperty('font-family', '-apple-system, sans-serif', 'important');
-                            // 确保文字在节点上方
-                            text.style.setProperty('z-index', '100', 'important');
-                            text.style.setProperty('pointer-events', 'none', 'important');
-                        }
-                    });
-                    
-                    // 4. 强制修复容器 - 自适应大小
-                    mermaidDivs.forEach((div, index) => {
-                        console.log('修复容器 #' + index);
-                        if (isDark) {
-                            div.style.setProperty('background', '#1e1e1e', 'important');
-                            div.style.setProperty('background-color', '#1e1e1e', 'important');
-                            // 暗色模式适度放大
-                            div.style.setProperty('transform', 'scale(1.2)', 'important');
-                        } else {
-                            // 浅色模式保持自然大小，只加边距
-                            div.style.setProperty('transform', 'scale(1.1)', 'important');
-                        }
-                        div.style.setProperty('transform-origin', 'center', 'important');
-                        
-                        // 移除固定尺寸，改为自适应
-                        div.style.removeProperty('min-width');
-                        div.style.removeProperty('min-height');
-                        div.style.removeProperty('width');
-                        div.style.removeProperty('height');
-                        
-                        // 只设置合理的padding和margin
-                        div.style.setProperty('padding', '20px', 'important');
-                        div.style.setProperty('margin', '20px auto', 'important');
-                        div.style.setProperty('border-radius', '8px', 'important');
-                        div.style.setProperty('overflow', 'visible', 'important');
-                        div.style.setProperty('display', 'block', 'important');
-                    });
-                    
-                    // 5. 终极深色模式修复 - 不给任何浅色元素机会逃脱
-                    if (isDark) {
-                        console.log('🌙🌙🌙 启动终极深色模式修复 - 无情覆盖所有浅色元素');
-                        
-                        // 第一轮：找到所有可能的SVG容器并强制设置背景
-                        const allSvgContainers = document.querySelectorAll('svg, .mermaid, div:has(svg)');
-                        console.log('🎯 找到', allSvgContainers.length, '个SVG容器，强制设置深色背景');
-                        allSvgContainers.forEach((container, i) => {
-                            console.log('设置容器 #' + i + ' 深色背景');
-                            container.style.setProperty('background', '#1e1e1e', 'important');
-                            container.style.setProperty('background-color', '#1e1e1e', 'important');
-                        });
-                        
-                        // 第二轮：绝对无情地修改所有rect元素
-                        const allRects = document.querySelectorAll('rect');
-                        console.log('🔥 找到所有rect:', allRects.length, '- 准备无情覆盖');
-                        allRects.forEach((rect, i) => {
-                            // 检查是否在SVG内部（更宽松的检查）
-                            if (rect.closest('svg') || rect.closest('.mermaid') || 
-                                rect.tagName === 'rect' || rect.ownerSVGElement) {
-                                
-                                const originalFill = rect.getAttribute('fill');
-                                console.log('💀 强制修复rect #' + i, '原fill:', originalFill, '→ #292929');
-                                
-                                // 多种方式强制设置，确保覆盖任何可能的样式
-                                rect.setAttribute('fill', '#292929');
-                                rect.setAttribute('stroke', '#ff9100');
-                                rect.setAttribute('stroke-width', '3');
-                                rect.style.fill = '#292929';
-                                rect.style.stroke = '#ff9100';
-                                rect.style.strokeWidth = '3px';
-                                rect.style.setProperty('fill', '#292929', 'important');
-                                rect.style.setProperty('stroke', '#ff9100', 'important');
-                                rect.style.setProperty('stroke-width', '3px', 'important');
-                                
-                                // 移除任何可能覆盖我们样式的内联样式
-                                const style = rect.getAttribute('style') || '';
-                                let newStyle = style.replace(/fill\\s*:\\s*[^;]*;?/gi, '');
-                                newStyle = newStyle.replace(/stroke\\s*:\\s*[^;]*;?/gi, '');
-                                newStyle += '; fill: #292929 !important; stroke: #ff9100 !important; stroke-width: 3px !important;';
-                                rect.setAttribute('style', newStyle);
-                                
-                                // 标记已处理
-                                rect.setAttribute('data-dark-processed', 'true');
-                            }
-                        });
-                        
-                        // 第三轮：同样无情地修改所有circle元素
-                        const allCircles = document.querySelectorAll('circle');
-                        console.log('🔥 找到所有circle:', allCircles.length, '- 准备无情覆盖');
-                        allCircles.forEach((circle, i) => {
-                            if (circle.closest('svg') || circle.closest('.mermaid') || circle.ownerSVGElement) {
-                                const originalFill = circle.getAttribute('fill');
-                                console.log('💀 强制修复circle #' + i, '原fill:', originalFill, '→ #292929');
-                                
-                                // 同样的多重强制设置
-                                circle.setAttribute('fill', '#292929');
-                                circle.setAttribute('stroke', '#ff9100');
-                                circle.setAttribute('stroke-width', '3');
-                                circle.style.fill = '#292929';
-                                circle.style.stroke = '#ff9100';
-                                circle.style.strokeWidth = '3px';
-                                circle.style.setProperty('fill', '#292929', 'important');
-                                circle.style.setProperty('stroke', '#ff9100', 'important');
-                                circle.style.setProperty('stroke-width', '3px', 'important');
-                                
-                                const style = circle.getAttribute('style') || '';
-                                let newStyle = style.replace(/fill\\s*:\\s*[^;]*;?/gi, '');
-                                newStyle = newStyle.replace(/stroke\\s*:\\s*[^;]*;?/gi, '');
-                                newStyle += '; fill: #292929 !important; stroke: #ff9100 !important; stroke-width: 3px !important;';
-                                circle.setAttribute('style', newStyle);
-                                circle.setAttribute('data-dark-processed', 'true');
-                            }
-                        });
-                        
-                        // 第四轮：无情修改所有polygon和ellipse元素
-                        const allPolygons = document.querySelectorAll('polygon, ellipse');
-                        console.log('🔥 找到所有polygon/ellipse:', allPolygons.length, '- 准备无情覆盖');
-                        allPolygons.forEach((polygon, i) => {
-                            if (polygon.closest('svg') || polygon.closest('.mermaid') || polygon.ownerSVGElement) {
-                                const originalFill = polygon.getAttribute('fill');
-                                console.log('💀 强制修复', polygon.tagName, '#' + i, '原fill:', originalFill, '→ #292929');
-                                
-                                polygon.setAttribute('fill', '#292929');
-                                polygon.setAttribute('stroke', '#ff9100');
-                                polygon.setAttribute('stroke-width', '3');
-                                polygon.style.fill = '#292929';
-                                polygon.style.stroke = '#ff9100';
-                                polygon.style.strokeWidth = '3px';
-                                polygon.style.setProperty('fill', '#292929', 'important');
-                                polygon.style.setProperty('stroke', '#ff9100', 'important');
-                                polygon.style.setProperty('stroke-width', '3px', 'important');
-                                
-                                const style = polygon.getAttribute('style') || '';
-                                let newStyle = style.replace(/fill\\s*:\\s*[^;]*;?/gi, '');
-                                newStyle = newStyle.replace(/stroke\\s*:\\s*[^;]*;?/gi, '');
-                                newStyle += '; fill: #292929 !important; stroke: #ff9100 !important; stroke-width: 3px !important;';
-                                polygon.setAttribute('style', newStyle);
-                                polygon.setAttribute('data-dark-processed', 'true');
-                            }
-                        });
-                        
-                        // 第五轮：强制修改所有text元素为浅色 - 确保可读性
-                        const allTextElements = document.querySelectorAll('text');
-                        console.log('📝 找到所有text:', allTextElements.length, '- 强制设置浅色文字');
-                        allTextElements.forEach((textEl, i) => {
-                            if (textEl.closest('svg') || textEl.closest('.mermaid') || textEl.ownerSVGElement) {
-                                const originalFill = textEl.getAttribute('fill');
-                                const content = textEl.textContent?.substring(0, 15) || 'empty';
-                                console.log('📝 强制修复text #' + i, '内容:', content, '原fill:', originalFill, '→ #c6c5b8');
-                                
-                                textEl.setAttribute('fill', '#c6c5b8');
-                                textEl.style.fill = '#c6c5b8';
-                                textEl.style.color = '#c6c5b8';
-                                textEl.style.setProperty('fill', '#c6c5b8', 'important');
-                                textEl.style.setProperty('color', '#c6c5b8', 'important');
-                                textEl.style.setProperty('font-size', '16px', 'important');
-                                textEl.style.setProperty('font-weight', '600', 'important');
-                                
-                                const style = textEl.getAttribute('style') || '';
-                                let newStyle = style.replace(/fill\\s*:\\s*[^;]*;?/gi, '');
-                                newStyle = newStyle.replace(/color\\s*:\\s*[^;]*;?/gi, '');
-                                newStyle += '; fill: #c6c5b8 !important; color: #c6c5b8 !important; font-size: 16px !important;';
-                                textEl.setAttribute('style', newStyle);
-                                textEl.setAttribute('data-dark-processed', 'true');
-                            }
-                        });
-                        
-                        console.log('🌙 深色模式超级暴力修复完成');
-                    }
-                    
-                    // 标记所有修复过的元素
-                    const allMermaidElements = document.querySelectorAll('.mermaid');
-                    allMermaidElements.forEach(elem => {
-                        elem.setAttribute('data-theme-fixed', isDark ? 'dark' : 'light');
-                    });
-                    
-                    console.log('🔨 暴力修复完成 - 当前主题标记:', isDark ? 'dark' : 'light');
-                }
-                
-                // 主题切换监听 - 使用现代API修复版
-                const themeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-                
-                function handleThemeChange(e) {
-                    const isDark = e.matches;
-                    console.log('🎨 主题切换检测:', isDark ? '切换到深色模式' : '切换到浅色模式');
-                    console.log('🕐 切换时间:', new Date().toLocaleTimeString());
-                    
-                    if (vditor) {
-                        // 1. 立即切换编辑器主题
-                        console.log('🔄 切换vditor主题到:', isDark ? 'dark' : 'classic');
-                        vditor.setTheme(isDark ? 'dark' : 'classic');
-                        
-                        // 2. 完全重新初始化mermaid配置
-                        if (window.mermaid) {
-                            console.log('🔄 完全重新初始化mermaid配置');
-                            
-                            // 先清除旧配置
-                            window.mermaid.initialize({
-                                startOnLoad: false,
-                                theme: isDark ? 'dark' : 'default',
-                                securityLevel: 'strict',
-                                fontFamily: '-apple-system, sans-serif',
-                                themeVariables: isDark ? {
-                                    primaryColor: '#292929',
-                                    primaryTextColor: '#c6c5b8',
-                                    primaryBorderColor: '#ff9100',
-                                    lineColor: '#ff9100',
-                                    background: '#1e1e1e',
-                                    mainBkg: '#292929',
-                                    secondBkg: '#202020',
-                                    tertiaryBkg: '#404040'
-                                } : {
-                                    primaryColor: '#ffffff',
-                                    primaryTextColor: '#333333',
-                                    primaryBorderColor: '#333333',
-                                    lineColor: '#333333',
-                                    background: '#ffffff',
-                                    mainBkg: '#ffffff',
-                                    secondBkg: '#f0f0f0'
-                                }
-                            });
-                        }
-                        
-                        // 3. 强制清除所有现有的Mermaid渲染状态
-                        setTimeout(() => {
-                            console.log('🧹 清除所有Mermaid渲染状态');
-                            const mermaidElements = document.querySelectorAll('.mermaid, [data-processed-by="mermaid"]');
-                            console.log('找到', mermaidElements.length, '个需要重置的mermaid元素');
-                            
-                            mermaidElements.forEach((element, index) => {
-                                console.log('重置元素 #' + index);
-                                
-                                // 获取或保存原始Mermaid代码
-                                let originalContent = element.getAttribute('data-original-mermaid') || 
-                                                    element.textContent ||
-                                    element.innerHTML.replace(/<[^>]*>/g, '').trim();
-                                
-                                // 如果没有保存过原始内容，现在保存
-                                if (!element.getAttribute('data-original-mermaid') && originalContent) {
-                                    element.setAttribute('data-original-mermaid', originalContent);
-                                    console.log('保存原始内容 #' + index + ':', originalContent.substring(0, 50));
-                                }
-                                
-                                // 完全重置元素状态
-                                element.innerHTML = originalContent;
-                                element.removeAttribute('data-processed');
-                                element.removeAttribute('data-processed-by');
-                                element.classList.remove('mermaid');
-                                element.classList.remove('rendered');
-                                
-                                // 重新添加mermaid类
-                                setTimeout(() => {
-                                    element.classList.add('mermaid');
-                                    console.log('重新添加mermaid类到元素 #' + index);
-                                }, 10);
-                            });
-                        }, 50);
-                        
-                        // 4. 延迟触发完全重新渲染
-                        setTimeout(() => {
-                            console.log('🔄 触发vditor完全重新渲染');
-                            
-                            // 强制vditor重新解析和渲染所有内容
-                            if (vditor && vditor.preview) {
-                                try {
-                                    // 方法1：重新设置内容触发渲染
-                                    const currentValue = vditor.getValue();
-                                    if (currentValue) {
-                                        // 触发完全重新渲染
-                                        vditor.setValue(currentValue);
-                                    }
-                                    
-                                    // 方法2：手动触发预览渲染
-                                    if (vditor.preview.render) {
-                                        vditor.preview.render();
-                                    }
-                                } catch (err) {
-                                    console.log('vditor重新渲染出错:', err);
-                                }
-                            }
-                            
-                            // 额外的手动mermaid初始化
-                            if (window.mermaid && window.mermaid.init) {
-                                setTimeout(() => {
-                                    console.log('🔄 手动初始化mermaid图表');
-                                    try {
-                                        const mermaidElems = document.querySelectorAll('.mermaid:not([data-processed])');
-                                        console.log('找到未处理的mermaid元素:', mermaidElems.length);
-                                        if (mermaidElems.length > 0) {
-                                            window.mermaid.init(undefined, mermaidElems);
-                                        }
-                                    } catch (err) {
-                                        console.log('手动mermaid初始化失败:', err);
-                                    }
-                                }, 200);
-                            }
-                        }, 150);
-                        
-                        // 5. 多轮暴力样式修复 + 重新渲染
-                        console.log('🚨 主题切换：启动多轮攻击');
-                        // 第一轮：立即重新渲染
-                        setTimeout(() => {
-                            console.log('🔄 第1轮：强制重新渲染');
-                            forceReRenderAllMermaid();
-                        }, 50);
-                        
-                        // 多轮暴力修复
-                        const fixTimings = [100, 300, 600, 1000, 1500, 2500];
-                        fixTimings.forEach((delay, index) => {
-                            setTimeout(() => {
-                                console.log('💥 第' + (index + 2) + '轮暴力修复');
-                                bruteForceMermaidFix();
-                            }, delay);
-                        });
-                        
-                        // 6. 最终验证和修复
-                        setTimeout(() => {
-                            console.log('🏁 最终验证主题切换结果');
-                            const mermaidElements = document.querySelectorAll('.mermaid');
-                            console.log('最终检查：找到', mermaidElements.length, '个mermaid元素');
-                            
-                            let needsFix = false;
-                            if (isDark) {
-                                // 检查深色模式是否正确应用
-                                const darkNodes = document.querySelectorAll('.mermaid rect[fill="#292929"], .mermaid circle[fill="#292929"]');
-                                const lightNodes = document.querySelectorAll('.mermaid rect[fill="#ffffff"], .mermaid rect[fill="white"], .mermaid circle[fill="#ffffff"], .mermaid circle[fill="white"]');
-                                console.log('深色节点数:', darkNodes.length, '浅色节点数:', lightNodes.length);
-                                if (lightNodes.length > 0) needsFix = true;
-                            } else {
-                                // 检查浅色模式
-                                const scaledElements = document.querySelectorAll('.mermaid[style*="scale(1.8)"]');
-                                console.log('已放大的浅色元素数:', scaledElements.length);
-                                if (scaledElements.length !== mermaidElements.length) needsFix = true;
-                            }
-                            
-                            if (needsFix) {
-                                console.log('⚠️ 检测到主题未完全切换，执行最终修复');
-                                bruteForceMermaidFix();
-                            } else {
-                                console.log('✅ 主题切换验证通过');
-                            }
-                        }, 3000);
-                    }
-                }
-                
-                // 使用现代API添加监听器
-                themeMediaQuery.addEventListener('change', handleThemeChange);
-                
-                // 强制Mermaid主题函数
-                function forceMermaidTheme() {
-                    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                    
-                    // 查找所有Mermaid图表
-                    const mermaids = document.querySelectorAll('.mermaid');
-                    mermaids.forEach(mermaid => {
-                        // 添加样式覆盖class
-                        mermaid.classList.add('mermaid-override-styles');
-                        
-                        if (isDark) {
-                            // 暗色模式 - 强制所有节点使用暗色背景
-                            const shapes = mermaid.querySelectorAll('rect, circle, ellipse, polygon');
-                            shapes.forEach(shape => {
-                                shape.setAttribute('fill', '#292929');
-                                shape.setAttribute('stroke', '#ff9100');
-                                shape.setAttribute('stroke-width', '3');
-                                shape.style.transform = 'scale(1.4)';
-                                shape.style.transformOrigin = 'center';
-                            });
-                            
-                            // 强制文字颜色
-                            const texts = mermaid.querySelectorAll('text');
-                            texts.forEach(text => {
-                                text.setAttribute('fill', '#c6c5b8');
-                                text.style.color = '#c6c5b8';
-                                text.style.fontSize = '16px';
-                                text.style.fontWeight = '600';
-                            });
-                        } else {
-                            // 浅色模式 - 强制节点放大
-                            const shapes = mermaid.querySelectorAll('rect, circle, ellipse, polygon');
-                            shapes.forEach(shape => {
-                                shape.style.transform = 'scale(1.6)';
-                                shape.style.transformOrigin = 'center';
-                                shape.setAttribute('stroke-width', '4');
-                                shape.setAttribute('stroke', '#333');
-                            });
-                            
-                            // 整体放大
-                            mermaid.style.transform = 'scale(1.8)';
-                            mermaid.style.transformOrigin = 'center';
-                            mermaid.style.minWidth = '900px';
-                            mermaid.style.minHeight = '700px';
-                        }
-                    });
-                }
-                
-                // 智能Mermaid样式监视器 - 根据主题变化调整检查频率
-                let mermaidStyleTimer;
-                let lastTheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                
-                function startMermaidStyleWatcher() {
-                    if (mermaidStyleTimer) clearInterval(mermaidStyleTimer);
-                    
-                    mermaidStyleTimer = setInterval(() => {
-                        const currentTheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                        
-                        // 检测主题是否发生变化
-                        if (currentTheme !== lastTheme) {
-                            console.log('🎨 主题监视器检测到变化:', currentTheme ? '切换到深色' : '切换到浅色');
-                            lastTheme = currentTheme;
-                            // 主题变化时立即修复
-                            setTimeout(bruteForceMermaidFix, 10);
-                        }
-                        
-                        // 检查是否有未修复或主题不匹配的元素
-                        const currentThemeKey = currentTheme ? 'dark' : 'light';
-                        const wrongThemeElements = document.querySelectorAll('.mermaid:not([data-theme-fixed="' + currentThemeKey + '"])');
-                        
-                        if (wrongThemeElements.length > 0) {
-                            console.log('🔧 监视器发现', wrongThemeElements.length, '个需要修复的Mermaid元素');
-                            bruteForceMermaidFix();
-                        }
-                        
-                        // 应用强制主题
-                        forceMermaidTheme();
-                    }, 2000); // 降低检查频率避免性能问题
-                }
-                
-                // 启动样式监视器
-                startMermaidStyleWatcher();
-                
-                // 疯狂的暴力修复 - 多次尝试确保生效
-                setTimeout(bruteForceMermaidFix, 100);
-                setTimeout(bruteForceMermaidFix, 300);
-                setTimeout(bruteForceMermaidFix, 500);
-                setTimeout(bruteForceMermaidFix, 1000);
-                setTimeout(bruteForceMermaidFix, 2000);
-                setTimeout(bruteForceMermaidFix, 3000);
-                
-                // 终极武器：强制重新渲染策略
-                let reRenderCount = 0;
-                const forceReRenderAllMermaid = () => {
-                    reRenderCount++;
-                    console.log('🔄 强制重新渲染所有Mermaid #' + reRenderCount);
-                    
-                    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                    console.log('当前主题:', isDark ? '深色' : '浅色');
-                    
-                    // 找到所有Mermaid元素
-                    const mermaidElements = document.querySelectorAll('.mermaid, [data-processed-by="mermaid"]');
-                    console.log('找到', mermaidElements.length, '个Mermaid元素需要重新渲染');
-                    
-                    if (mermaidElements.length === 0) {
-                        console.log('没有找到Mermaid元素，可能还未渲染');
-                        return;
-                    }
-                    
-                    mermaidElements.forEach((element, index) => {
-                        const originalText = element.getAttribute('data-original-mermaid') || 
-                                           element.textContent || 
-                                           element.innerHTML.replace(/<[^>]*>/g, '').trim();
-                        
-                        if (originalText && originalText.includes('graph') || originalText.includes('flowchart')) {
-                            console.log('🔄 重新渲染元素 #' + index, '内容:', originalText.substring(0, 30));
-                            
-                            // 保存原始内容
-                            if (!element.getAttribute('data-original-mermaid')) {
-                                element.setAttribute('data-original-mermaid', originalText);
-                            }
-                            
-                            // 完全重置元素
-                            element.innerHTML = originalText;
-                            element.removeAttribute('data-processed');
-                            element.removeAttribute('data-processed-by');
-                            element.classList.remove('rendered');
-                            
-                            // 如果是深色模式，强制重新初始化Mermaid主题
-                            if (isDark && window.mermaid) {
-                                console.log('🌙 深色模式：重新初始化Mermaid主题');
-                                window.mermaid.initialize({
-                                    startOnLoad: false,
-                                    theme: 'dark',
-                                    securityLevel: 'strict',
-                                    themeVariables: {
-                                        primaryColor: '#292929',
-                                        primaryTextColor: '#c6c5b8',
-                                        primaryBorderColor: '#ff9100',
-                                        lineColor: '#ff9100',
-                                        background: '#1e1e1e',
-                                        mainBkg: '#292929',
-                                        secondBkg: '#202020',
-                                        tertiaryBkg: '#404040'
-                                    }
-                                });
-                                
-                                // 手动渲染这个元素
-                                setTimeout(() => {
-                                    try {
-                                        window.mermaid.init(undefined, element);
-                                        console.log('✅ 手动渲染完成元素 #' + index);
-                                        
-                                        // 渲染后立即修复
-                                        setTimeout(() => {
-                                            bruteForceMermaidFix();
-                                        }, 100);
-                                    } catch (err) {
-                                        console.log('❌ 手动渲染失败:', err);
-                                    }
-                                }, 50 + index * 10);
-                            }
-                        }
-                    });
-                };
-                
-                // 核武器级别的Mermaid修复：更频繁的检查和修复
-                let nuclearFixCount = 0;
-                const nuclearMermaidFix = () => {
-                    nuclearFixCount++;
-                    console.log('☢️ 核武器级修复 #' + nuclearFixCount);
-                    
-                    // 检查当前主题
-                    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                    
-                    if (isDark) {
-                        // 深色模式下，检查是否还有浅色的节点
-                        const lightNodes = document.querySelectorAll(
-                            'svg rect[fill="#ffffff"], svg rect[fill="white"], svg rect[fill="rgb(255, 255, 255)"], ' +
-                            'svg circle[fill="#ffffff"], svg circle[fill="white"], svg circle[fill="rgb(255, 255, 255)"], ' +
-                            'svg polygon[fill="#ffffff"], svg polygon[fill="white"], svg polygon[fill="rgb(255, 255, 255)"]'
-                        );
-                        
-                        if (lightNodes.length > 0) {
-                            console.log('☢️ 检测到', lightNodes.length, '个顽固的浅色节点，准备重新渲染');
-                            // 不只是修复，而是重新渲染
-                            forceReRenderAllMermaid();
-                            bruteForceMermaidFix();
-                        }
-                        
-                        // 检查文字颜色
-                        const darkTexts = document.querySelectorAll('svg text[fill="#000000"], svg text[fill="black"], svg text[fill="rgb(0, 0, 0)"]');
-                        if (darkTexts.length > 0) {
-                            console.log('☢️ 检测到', darkTexts.length, '个深色文字，准备重新渲染');
-                            forceReRenderAllMermaid();
-                            bruteForceMermaidFix();
-                        }
-                    }
-                };
-                
-                // 每2秒进行一次核武器级检查
-                setInterval(nuclearMermaidFix, 2000);
-                
-                // 每5秒强制修复一次（原有的）
-                setInterval(bruteForceMermaidFix, 5000);
-            </script>
+              });
+              window.vditor = vditor;
+
+              // Cmd/Ctrl+S -> save
+              document.addEventListener('keydown', (e)=>{
+                if ((e.metaKey||e.ctrlKey) && e.key==='s') { e.preventDefault(); window.webkit?.messageHandlers?.bridge?.postMessage({ type:'save' }); }
+              });
+
+              // Theme change: re-init Mermaid BEFORE asking Vditor to re-render
+              const mq = window.matchMedia('(prefers-color-scheme: dark)');
+              function onThemeChange(e){
+                const dark = e.matches;
+                vditor.setTheme(dark ? 'dark' : 'classic');
+                // 1) re-install Mermaid so first paint after theme change uses correct variables/fonts
+                installMermaid();
+                // 2) Force Vditor to re-render preview to apply the new mermaid theme
+                try {
+                  const val = vditor.getValue();
+                  if (val != null) vditor.setValue(val);
+                } catch(_) {}
+                // 3) Layout fix after DOM updates
+                setTimeout(mermaidContainerFix, 60);
+              }
+              if (mq.addEventListener) mq.addEventListener('change', onThemeChange); else if (mq.addListener) mq.addListener(onThemeChange);
+              // Expose a native hook to force theme application without waiting for matchMedia events
+              window.__applyNativeTheme = function(dark){
+                try { window.vditor && window.vditor.setTheme(dark ? 'dark' : 'classic'); } catch(_) {}
+                // Re-install Mermaid with the correct variables
+                installMermaid();
+                // Force a stable re-render so diagrams take the new config immediately
+                try {
+                  const val = window.vditor?.getValue();
+                  if (val != null) window.vditor.setValue(val);
+                } catch(_) {}
+                // Layout fix after DOM updates
+                setTimeout(mermaidContainerFix, 60);
+              };
+            })();
+          </script>
         </body>
         </html>
         """
