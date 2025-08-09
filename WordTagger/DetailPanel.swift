@@ -2925,102 +2925,102 @@ struct VditorWebView: NSViewRepresentable {
                         // Debug: Check Vditor's preview options
                         console.log('🎨 DEBUG: Vditor preview options:', JSON.stringify(vditor.vditor.options?.preview, null, 2));
                         
-                        // Force initialize Mermaid with our theme immediately
+                        // Force initialize Mermaid - try multiple approaches
                         setTimeout(() => {
-                            console.log('🎨 DEBUG: Force initializing Mermaid with custom theme...');
-                            const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                            const customConfig = {
-                                theme: isDark ? 'dark' : 'default',
-                                startOnLoad: false,
-                                securityLevel: 'loose',
-                                fontFamily: "-apple-system, 'SF Pro Text', 'Segoe UI', Arial, sans-serif",
-                                flowchart: { 
-                                    useMaxWidth: true, 
-                                    htmlLabels: true, 
-                                    curve: 'basis', 
-                                    padding: 12, 
-                                    nodeSpacing: 50, 
-                                    rankSpacing: 60
-                                },
-                                themeVariables: isDark ? {
-                                    background: '#0d1117',
-                                    primaryColor: '#1f2937',
-                                    primaryTextColor: '#e5e7eb',
-                                    primaryBorderColor: '#374151',
-                                    secondaryColor: '#374151',
-                                    tertiaryColor: '#4b5563',
-                                    lineColor: '#60a5fa',
-                                    mainBkg: '#1f2937',
-                                    nodeBkg: '#1f2937',
-                                    nodeTextColor: '#e5e7eb',
-                                    textColor: '#e5e7eb',
-                                    labelTextColor: '#e5e7eb',
-                                    fillType0: '#3b82f6',
-                                    fillType1: '#10b981',
-                                    fillType2: '#f59e0b',
-                                    fillType3: '#ef4444',
-                                    fontSize: '16px'
-                                } : {
-                                    primaryColor: '#ffffff',
-                                    primaryTextColor: '#24292f',
-                                    primaryBorderColor: '#d0d7de',
-                                    lineColor: '#0969da',
-                                    tertiaryColor: '#f6f8fa',
-                                    background: '#ffffff',
-                                    fontSize: '16px'
-                                }
-                            };
+                            console.log('🎨 DEBUG: Trying to find Mermaid...');
                             
-                            if (window.mermaid && window.mermaid.initialize) {
-                                window.mermaid.initialize(customConfig);
-                                console.log('🎨 DEBUG: Custom Mermaid initialization complete');
-                                
-                                // Also try to override Vditor's internal mermaid config
-                                try {
-                                    if (vditor && vditor.vditor && vditor.vditor.preview && vditor.vditor.preview.element) {
-                                        console.log('🎨 DEBUG: Attempting to override Vditor internal mermaid...');
-                                        const previewElement = vditor.vditor.preview.element;
-                                        if (previewElement.vditorPreviewElement && previewElement.vditorPreviewElement.mermaid) {
-                                            previewElement.vditorPreviewElement.mermaid.initialize(customConfig);
-                                            console.log('🎨 DEBUG: Vditor internal mermaid overridden');
-                                        }
-                                    }
-                                } catch (e) {
-                                    console.log('🎨 DEBUG: Failed to override Vditor internal mermaid:', e);
-                                }
-                                
-                                // Set up mutation observer to catch dynamically created mermaid diagrams
-                                const observer = new MutationObserver((mutations) => {
-                                    mutations.forEach((mutation) => {
-                                        if (mutation.type === 'childList') {
-                                            mutation.addedNodes.forEach((node) => {
-                                                if (node.nodeType === 1) { // Element node
-                                                    const mermaidElements = node.classList && node.classList.contains('mermaid') 
-                                                        ? [node] 
-                                                        : node.querySelectorAll ? node.querySelectorAll('.mermaid') : [];
-                                                    
-                                                    if (mermaidElements.length > 0) {
-                                                        console.log('🎨 DEBUG: Found new mermaid elements:', mermaidElements.length);
-                                                        // Re-initialize mermaid for new elements
-                                                        if (window.mermaid && window.mermaid.init) {
-                                                            window.mermaid.init(undefined, mermaidElements);
-                                                        }
-                                                    }
-                                                }
-                                            });
-                                        }
-                                    });
-                                });
-                                
-                                // Start observing
-                                observer.observe(document.body, {
-                                    childList: true,
-                                    subtree: true
-                                });
-                                
-                                console.log('🎨 DEBUG: Mermaid mutation observer started');
+                            // Debug: Check all possible Mermaid locations
+                            window.webkit?.messageHandlers?.bridge?.postMessage({
+                                type: 'debug',
+                                message: `Checking Mermaid locations: window.mermaid=${!!window.mermaid}, window.Vditor=${!!window.Vditor}, vditor.vditor=${!!vditor?.vditor}`
+                            });
+                            
+                            // Try to access Vditor's internal Mermaid
+                            let mermaidInstance = null;
+                            if (window.mermaid) {
+                                mermaidInstance = window.mermaid;
+                                console.log('🎨 DEBUG: Using global Mermaid');
+                            } else if (window.Vditor && window.Vditor.mermaid) {
+                                mermaidInstance = window.Vditor.mermaid;
+                                console.log('🎨 DEBUG: Using Vditor.mermaid');
+                            } else if (vditor && vditor.vditor && vditor.vditor.lute && vditor.vditor.lute.mermaid) {
+                                mermaidInstance = vditor.vditor.lute.mermaid;
+                                console.log('🎨 DEBUG: Using Vditor internal Mermaid');
                             }
-                        }, 500);
+                            
+                            if (mermaidInstance) {
+                                const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                                const customConfig = {
+                                    theme: isDark ? 'dark' : 'default',
+                                    startOnLoad: false,
+                                    securityLevel: 'loose',
+                                    themeVariables: isDark ? {
+                                        background: '#0d1117',
+                                        primaryColor: '#1f2937',
+                                        primaryTextColor: '#e5e7eb',
+                                        primaryBorderColor: '#374151',
+                                        secondaryColor: '#374151',
+                                        lineColor: '#60a5fa',
+                                        mainBkg: '#1f2937',
+                                        nodeBkg: '#1f2937',
+                                        nodeTextColor: '#e5e7eb',
+                                        textColor: '#e5e7eb',
+                                        labelTextColor: '#e5e7eb',
+                                        fillType0: '#3b82f6',
+                                        fillType1: '#10b981',
+                                        fillType2: '#f59e0b',
+                                        fillType3: '#ef4444',
+                                        fontSize: '16px'
+                                    } : {
+                                        primaryColor: '#ffffff',
+                                        primaryTextColor: '#24292f',
+                                        primaryBorderColor: '#d0d7de',
+                                        lineColor: '#0969da',
+                                        tertiaryColor: '#f6f8fa',
+                                        background: '#ffffff',
+                                        fontSize: '16px'
+                                    }
+                                };
+                                
+                                try {
+                                    mermaidInstance.initialize(customConfig);
+                                    console.log('🎨 DEBUG: Mermaid initialized with custom theme!');
+                                    window.webkit?.messageHandlers?.bridge?.postMessage({
+                                        type: 'debug',
+                                        message: 'Mermaid successfully initialized with custom dark theme!'
+                                    });
+                                } catch (e) {
+                                    console.log('🎨 DEBUG: Failed to initialize Mermaid:', e);
+                                    window.webkit?.messageHandlers?.bridge?.postMessage({
+                                        type: 'debug',
+                                        message: `Mermaid initialization failed: ${e.message}`
+                                    });
+                                }
+                            } else {
+                                console.log('🎨 DEBUG: No Mermaid instance found anywhere');
+                                window.webkit?.messageHandlers?.bridge?.postMessage({
+                                    type: 'debug',
+                                    message: 'No Mermaid instance found - will try CSS override approach'
+                                });
+                                
+                                // Fallback: Use CSS injection to force dark theme
+                                const style = document.createElement('style');
+                                style.textContent = `
+                                    .mermaid rect, .mermaid circle, .mermaid ellipse, .mermaid polygon {
+                                        fill: #1f2937 !important;
+                                        stroke: #60a5fa !important;
+                                        stroke-width: 2px !important;
+                                    }
+                                    .mermaid text, .mermaid .label, .mermaid .nodeLabel {
+                                        fill: #e5e7eb !important;
+                                        color: #e5e7eb !important;
+                                        font-weight: 600 !important;
+                                    }
+                                `;
+                                document.head.appendChild(style);
+                                console.log('🎨 DEBUG: CSS fallback theme applied');
+                            }
+                        }, 1000);
                         
                         window.webkit?.messageHandlers?.bridge?.postMessage({
                             type: 'ready'
