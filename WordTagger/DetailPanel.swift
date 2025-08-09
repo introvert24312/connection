@@ -2243,6 +2243,10 @@ struct VditorWebView: NSViewRepresentable {
                         // 这里可以更新UI状态，比如更新编辑状态指示
                     }
                 }
+            case "debug":
+                if let message = dict["message"] as? String {
+                    print("🎨 MERMAID DEBUG: \(message)")
+                }
             default:
                 print("❓ Unknown message type: \(type)")
                 break
@@ -2875,19 +2879,48 @@ struct VditorWebView: NSViewRepresentable {
                         // 编辑器初始化完成
                         console.log('🚨🚨🚨 VDITOR INITIALIZATION COMPLETE');
                         
-                        // Debug: Check if Mermaid config was applied
+                        // Debug: Check if Mermaid config was applied and send to Swift
                         console.log('🎨 DEBUG: Checking Mermaid configuration...');
+                        
+                        // Send debug info to Swift console
+                        window.webkit?.messageHandlers?.bridge?.postMessage({
+                            type: 'debug',
+                            message: 'Checking Mermaid configuration...'
+                        });
+                        
                         if (window.mermaid) {
-                            console.log('🎨 DEBUG: Mermaid exists:', !!window.mermaid);
-                            console.log('🎨 DEBUG: Mermaid version:', window.mermaid.version || 'unknown');
+                            const mermaidExists = !!window.mermaid;
+                            const mermaidVersion = window.mermaid.version || 'unknown';
+                            
+                            console.log('🎨 DEBUG: Mermaid exists:', mermaidExists);
+                            console.log('🎨 DEBUG: Mermaid version:', mermaidVersion);
+                            
+                            window.webkit?.messageHandlers?.bridge?.postMessage({
+                                type: 'debug',
+                                message: `Mermaid exists: ${mermaidExists}, version: ${mermaidVersion}`
+                            });
+                            
                             try {
                                 const config = window.mermaid.getConfig && window.mermaid.getConfig();
                                 console.log('🎨 DEBUG: Current Mermaid config:', JSON.stringify(config, null, 2));
+                                
+                                window.webkit?.messageHandlers?.bridge?.postMessage({
+                                    type: 'debug',
+                                    message: `Mermaid config: ${JSON.stringify(config)}`
+                                });
                             } catch(e) {
                                 console.log('🎨 DEBUG: Could not get Mermaid config:', e);
+                                window.webkit?.messageHandlers?.bridge?.postMessage({
+                                    type: 'debug',
+                                    message: `Could not get Mermaid config: ${e.message}`
+                                });
                             }
                         } else {
                             console.log('🎨 DEBUG: Mermaid not found on window object');
+                            window.webkit?.messageHandlers?.bridge?.postMessage({
+                                type: 'debug',
+                                message: 'Mermaid not found on window object'
+                            });
                         }
                         
                         // Debug: Check Vditor's preview options
