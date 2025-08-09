@@ -3228,6 +3228,43 @@ struct VditorWebView: NSViewRepresentable {
                             console.log('🎨 DEBUG: Re-initializing Mermaid with config:', JSON.stringify(mermaidConfig, null, 2));
                             window.mermaid.initialize(mermaidConfig);
                             console.log('🎨 DEBUG: Mermaid re-initialized');
+                            
+                            // Force complete re-render by clearing and recreating all diagrams
+                            setTimeout(() => {
+                                const mermaidElements = document.querySelectorAll('.mermaid');
+                                console.log('🎨 DEBUG: Force re-rendering', mermaidElements.length, 'diagrams');
+                                window.webkit?.messageHandlers?.bridge?.postMessage({
+                                    type: 'debug',
+                                    message: `Force re-rendering ${mermaidElements.length} diagrams`
+                                });
+                                
+                                mermaidElements.forEach((element, index) => {
+                                    console.log('🎨 DEBUG: Processing diagram', index + 1);
+                                    
+                                    // Store original content
+                                    const originalContent = element.textContent || element.innerHTML;
+                                    
+                                    // Clear the element
+                                    element.innerHTML = originalContent;
+                                    element.removeAttribute('data-processed');
+                                    element.classList.add('mermaid');
+                                    
+                                    // Force re-render
+                                    if (window.mermaid.init) {
+                                        try {
+                                            window.mermaid.init(undefined, element);
+                                            console.log('🎨 DEBUG: Re-rendered diagram', index + 1);
+                                        } catch (e) {
+                                            console.log('🎨 DEBUG: Failed to re-render diagram', index + 1, ':', e);
+                                        }
+                                    }
+                                });
+                                
+                                window.webkit?.messageHandlers?.bridge?.postMessage({
+                                    type: 'debug',
+                                    message: 'Completed force re-rendering of all diagrams'
+                                });
+                            }, 200);
                         } else {
                             console.log('🎨 DEBUG: Mermaid.initialize not available');
                         }
