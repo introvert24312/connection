@@ -894,6 +894,66 @@ struct MarkdownVditorWebView: NSViewRepresentable {
                 // 暴露修复函数到全局，便于手动调试
                 window.fixMermaid = bruteForceMermaidFix;
                 
+                // 绝对控制策略：拦截所有Mermaid渲染
+                const originalMermaid = window.mermaid;
+                if (originalMermaid) {
+                    // 保存原始的render和init方法
+                    const originalRender = originalMermaid.render;
+                    const originalInit = originalMermaid.init;
+                    const originalInitialize = originalMermaid.initialize;
+                    
+                    // 拦截render方法
+                    originalMermaid.render = function(...args) {
+                        console.log('🚫 拦截Mermaid.render调用，强制应用暗色主题');
+                        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                        
+                        // 在渲染前强制设置正确的主题
+                        if (isDark) {
+                            console.log('🌙 渲染前强制设置暗色主题配置');
+                            originalMermaid.initialize({
+                                startOnLoad: false,
+                                theme: 'dark',
+                                securityLevel: 'strict',
+                                themeVariables: {
+                                    primaryColor: '#292929',
+                                    primaryTextColor: '#c6c5b8',
+                                    primaryBorderColor: '#ff9100',
+                                    lineColor: '#ff9100',
+                                    background: '#1e1e1e',
+                                    mainBkg: '#292929',
+                                    secondBkg: '#202020',
+                                    tertiaryBkg: '#404040'
+                                }
+                            });
+                        }
+                        
+                        // 调用原始render方法
+                        const result = originalRender.apply(this, args);
+                        
+                        // 渲染后立即修复
+                        setTimeout(() => {
+                            console.log('🔨 渲染后立即修复');
+                            bruteForceMermaidFix();
+                        }, 10);
+                        
+                        return result;
+                    };
+                    
+                    // 拦截init方法
+                    originalMermaid.init = function(...args) {
+                        console.log('🚫 拦截Mermaid.init调用');
+                        const result = originalInit.apply(this, args);
+                        
+                        // init后立即修复
+                        setTimeout(() => {
+                            console.log('🔨 init后立即修复');
+                            bruteForceMermaidFix();
+                        }, 10);
+                        
+                        return result;
+                    };
+                }
+                
                 // 暴力修复Mermaid样式函数 - 超级激进版
                 function bruteForceMermaidFix() {
                     const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -1343,11 +1403,19 @@ struct MarkdownVditorWebView: NSViewRepresentable {
                             }
                         }, 150);
                         
-                        // 5. 多轮暴力样式修复
+                        // 5. 多轮暴力样式修复 + 重新渲染
+                        console.log('🚨 主题切换：启动多轮攻击');
+                        // 第一轮：立即重新渲染
+                        setTimeout(() => {
+                            console.log('🔄 第1轮：强制重新渲染');
+                            forceReRenderAllMermaid();
+                        }, 50);
+                        
+                        // 多轮暴力修复
                         const fixTimings = [100, 300, 600, 1000, 1500, 2500];
                         fixTimings.forEach((delay, index) => {
                             setTimeout(() => {
-                                console.log('第' + (index + 1) + '轮暴力修复');
+                                console.log('💥 第' + (index + 2) + '轮暴力修复');
                                 bruteForceMermaidFix();
                             }, delay);
                         });
@@ -1476,6 +1544,81 @@ struct MarkdownVditorWebView: NSViewRepresentable {
                 setTimeout(bruteForceMermaidFix, 2000);
                 setTimeout(bruteForceMermaidFix, 3000);
                 
+                // 终极武器：强制重新渲染策略
+                let reRenderCount = 0;
+                const forceReRenderAllMermaid = () => {
+                    reRenderCount++;
+                    console.log('🔄 强制重新渲染所有Mermaid #' + reRenderCount);
+                    
+                    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    console.log('当前主题:', isDark ? '深色' : '浅色');
+                    
+                    // 找到所有Mermaid元素
+                    const mermaidElements = document.querySelectorAll('.mermaid, [data-processed-by="mermaid"]');
+                    console.log('找到', mermaidElements.length, '个Mermaid元素需要重新渲染');
+                    
+                    if (mermaidElements.length === 0) {
+                        console.log('没有找到Mermaid元素，可能还未渲染');
+                        return;
+                    }
+                    
+                    mermaidElements.forEach((element, index) => {
+                        const originalText = element.getAttribute('data-original-mermaid') || 
+                                           element.textContent || 
+                                           element.innerHTML.replace(/<[^>]*>/g, '').trim();
+                        
+                        if (originalText && originalText.includes('graph') || originalText.includes('flowchart')) {
+                            console.log('🔄 重新渲染元素 #' + index, '内容:', originalText.substring(0, 30));
+                            
+                            // 保存原始内容
+                            if (!element.getAttribute('data-original-mermaid')) {
+                                element.setAttribute('data-original-mermaid', originalText);
+                            }
+                            
+                            // 完全重置元素
+                            element.innerHTML = originalText;
+                            element.removeAttribute('data-processed');
+                            element.removeAttribute('data-processed-by');
+                            element.classList.remove('rendered');
+                            
+                            // 如果是深色模式，强制重新初始化Mermaid主题
+                            if (isDark && window.mermaid) {
+                                console.log('🌙 深色模式：重新初始化Mermaid主题');
+                                window.mermaid.initialize({
+                                    startOnLoad: false,
+                                    theme: 'dark',
+                                    securityLevel: 'strict',
+                                    themeVariables: {
+                                        primaryColor: '#292929',
+                                        primaryTextColor: '#c6c5b8',
+                                        primaryBorderColor: '#ff9100',
+                                        lineColor: '#ff9100',
+                                        background: '#1e1e1e',
+                                        mainBkg: '#292929',
+                                        secondBkg: '#202020',
+                                        tertiaryBkg: '#404040'
+                                    }
+                                });
+                                
+                                // 手动渲染这个元素
+                                setTimeout(() => {
+                                    try {
+                                        window.mermaid.init(undefined, element);
+                                        console.log('✅ 手动渲染完成元素 #' + index);
+                                        
+                                        // 渲染后立即修复
+                                        setTimeout(() => {
+                                            bruteForceMermaidFix();
+                                        }, 100);
+                                    } catch (err) {
+                                        console.log('❌ 手动渲染失败:', err);
+                                    }
+                                }, 50 + index * 10);
+                            }
+                        }
+                    });
+                };
+                
                 // 核武器级别的Mermaid修复：更频繁的检查和修复
                 let nuclearFixCount = 0;
                 const nuclearMermaidFix = () => {
@@ -1494,14 +1637,17 @@ struct MarkdownVditorWebView: NSViewRepresentable {
                         );
                         
                         if (lightNodes.length > 0) {
-                            console.log('☢️ 检测到', lightNodes.length, '个顽固的浅色节点，执行核武器打击');
+                            console.log('☢️ 检测到', lightNodes.length, '个顽固的浅色节点，准备重新渲染');
+                            // 不只是修复，而是重新渲染
+                            forceReRenderAllMermaid();
                             bruteForceMermaidFix();
                         }
                         
                         // 检查文字颜色
                         const darkTexts = document.querySelectorAll('svg text[fill="#000000"], svg text[fill="black"], svg text[fill="rgb(0, 0, 0)"]');
                         if (darkTexts.length > 0) {
-                            console.log('☢️ 检测到', darkTexts.length, '个深色文字，执行核武器打击');
+                            console.log('☢️ 检测到', darkTexts.length, '个深色文字，准备重新渲染');
+                            forceReRenderAllMermaid();
                             bruteForceMermaidFix();
                         }
                     }
