@@ -2373,46 +2373,55 @@ struct VditorWebView: NSViewRepresentable {
                 
                 /* GitHub暗色主题优化 - 使用更柔和的灰色背景 */
                 @media (prefers-color-scheme: dark) {
+                    /* One Dark Pro 风格暗色主题 - 温和且专业 */
                     .vditor {
-                        --panel-background-color: #21262d;
-                        --textarea-background-color: #21262d;
-                        --toolbar-background-color: #2d333b;
-                        --border-color: #444c56;
-                        --text-color: #f0f6fc;
-                        --second-color: #9198a1;
-                        --count-color: #f0f6fc;
+                        --panel-background-color: #282c34;
+                        --textarea-background-color: #282c34;
+                        --toolbar-background-color: #2d313b;
+                        --border-color: #3e4451;
+                        --text-color: #abb2bf;
+                        --second-color: #5c6370;
+                        --count-color: #abb2bf;
                     }
                     
                     .vditor-toolbar {
-                        border-bottom-color: #444c56 !important;
-                        background-color: #2d333b !important;
+                        border-bottom-color: #3e4451 !important;
+                        background-color: #2d313b !important;
                     }
                     
                     .vditor-ir {
-                        color: #f0f6fc !important;
-                        background-color: #21262d !important;
+                        color: #abb2bf !important;
+                        background-color: #282c34 !important;
                     }
                     
-                    /* 暗色模式下的Markdown渲染元素优化 */
+                    /* 优化Markdown元素显示 */
                     .vditor-ir h1, .vditor-ir h2, .vditor-ir h3, 
                     .vditor-ir h4, .vditor-ir h5, .vditor-ir h6 {
-                        color: #f0f6fc !important;
-                        border-color: #444c56 !important;
+                        color: #e06c75 !important;
+                        border-color: #3e4451 !important;
                     }
                     
                     .vditor-ir blockquote {
-                        border-left-color: #444c56 !important;
-                        color: #9198a1 !important;
+                        border-left-color: #98c379 !important;
+                        color: #5c6370 !important;
                     }
                     
                     .vditor-ir code {
-                        background-color: #373e47 !important;
-                        color: #f0f6fc !important;
+                        background-color: #3e4451 !important;
+                        color: #e5c07b !important;
                     }
                     
                     .vditor-ir pre {
-                        background-color: #161b22 !important;
-                        border-color: #30363d !important;
+                        background-color: #2d313b !important;
+                        border-color: #3e4451 !important;
+                    }
+                    
+                    .vditor-ir a {
+                        color: #61afef !important;
+                    }
+                    
+                    .vditor-ir strong {
+                        color: #e06c75 !important;
                     }
                 }
             </style>
