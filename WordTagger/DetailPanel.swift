@@ -136,15 +136,15 @@ struct NodeDetailView: View {
             }
             .padding(.horizontal)
 
-            // 使用 Milkdown WebView 实时 Markdown 编辑（主角）
-            MilkdownWebView(
+            // Vditor 即时渲染编辑器（Typora 体验）
+            VditorWebView(
                 markdown: markdownText,
                 onChange: { newValue in
                     debouncedSave(newValue)
                     markdownText = newValue
                 }
             )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)   // 让它吃满可用空间
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.clear)
             .zIndex(2)
 
@@ -1851,7 +1851,7 @@ struct MermaidWebView: NSViewRepresentable {
             <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
             
             <!-- Mermaid 最新版本 -->
-            <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+            <script src="Resources/mermaid/mermaid.min.js"></script>
         <script>
           window.addEventListener('error', function(e){
             if (String(e.message || '').includes('mermaid')) {
@@ -1906,10 +1906,24 @@ struct MermaidWebView: NSViewRepresentable {
                   background-color: transparent;
                   opacity: 0;
                   transition: opacity 0.3s ease-in-out;
+                  display: block;
+                  max-width: 100%;
               }
                 
                 .mermaid.rendered {
                     opacity: 1;
+                }
+
+                /* === Stop full-page overlay from Mermaid SVG === */
+                #content, .mermaid, .mmd-block { position: relative !important; z-index: auto !important; }
+
+                .mermaid > svg {
+                  position: relative !important;
+                  left: auto !important; right: auto !important; top: auto !important; bottom: auto !important;
+                  display: block !important;
+                  width: 100% !important;
+                  height: auto !important;
+                  max-width: 100% !important;
                 }
                 #debug-log{ position:fixed; right:8px; bottom:8px; width:320px; max-height:40vh; overflow:auto; font:11px -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial; background:rgba(0,0,0,.6); color:#fff; padding:8px 10px; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,.3); z-index:99999; }
                 #debug-log.hidden{ display:none; }
@@ -2016,11 +2030,23 @@ struct MermaidWebView: NSViewRepresentable {
                   .replace(/```mmd/gi, '```mermaid')
                   // 支持 :::mermaid ... :::
                   .replace(/:::mermaid\s([\s\S]*?):::/gi, '```mermaid\n$1\n```');
-                // 若存在未闭合的 ```mermaid，则在文末补一个 ```
-                if (/```mermaid[\s\S]*?(?!```)[\s\S]*$/.test(normalized) && !/```\s*$/.test(normalized)) {
-                  normalized += '\n```';
-                }
                 const markdownContent = normalized;
+
+                // 检测是否存在未闭合的 ```mermaid 代码块（避免把后文都当作 mermaid）
+                function hasUnclosedMermaid(md) {
+                  const lines = md.split(/\r?\n/);
+                  for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (/^```(mermaid|mmd)\b/i.test(line)) {
+                      let closed = false;
+                      for (let j = i + 1; j < lines.length; j++) {
+                        if (/^```$/.test(lines[j].trim())) { closed = true; break; }
+                      }
+                      if (!closed) return true;
+                    }
+                  }
+                  return false;
+                }
                 
                 // 重新渲染Mermaid图表的函数
                 function reRenderMermaidCharts() {
@@ -2053,6 +2079,13 @@ struct MermaidWebView: NSViewRepresentable {
                             mermaidElements.forEach(element => {
                                 element.classList.add('rendered');
                             });
+                            
+                            // 渲染成功后检测大图并绑定事件
+                            clampOversizeDiagrams();
+                            if (!window.__mmdClampBound) {
+                              window.__mmdClampBound = true;
+                              window.addEventListener('resize', debounce(clampOversizeDiagrams, 150));
+                            }
                         }).catch(error => {
                             __mmdLog('mermaid.run failed', String(error && error.message || error));
                         });
@@ -2064,6 +2097,21 @@ struct MermaidWebView: NSViewRepresentable {
                   __mmdLog('renderContent start');
 
                   const contentDiv = document.getElementById('content');
+
+                  // 如果存在未闭合的 mermaid 围栏，直接按普通 Markdown 显示，避免整页被吞
+                  if (hasUnclosedMermaid(markdownContent)) {
+                    __mmdLog('⚠️ 检测到未闭合的 mermaid 代码块，跳过图表渲染以防遮挡');
+                    const fallbackHtml = marked.parse(markdownContent);
+                    contentDiv.innerHTML = fallbackHtml;
+                    contentDiv.classList.add('ready');
+                    try {
+                      const warn = document.createElement('div');
+                      warn.textContent = '提示：检测到未闭合的 mermaid 代码块，已按普通代码显示。请补上结尾的 ```。';
+                      warn.style.cssText = 'position:sticky;top:8px;margin:8px 0;padding:6px 10px;border-radius:6px;background:rgba(255,165,0,.15);border:1px solid rgba(255,165,0,.4);font:12px -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial;';
+                      contentDiv.prepend(warn);
+                    } catch(_){}
+                    return;
+                  }
 
                   // 1) Markdown -> HTML
                   let html = marked.parse(markdownContent);
@@ -2081,7 +2129,17 @@ struct MermaidWebView: NSViewRepresentable {
                       .filter(el => !el.className.includes('language-mermaid') && isMermaidKw.test((el.textContent || '').trim()))
                   );
 
-                  __mmdLog('mermaid blocks found', blocks.length);
+                  // 过滤掉超大的 code 块，避免误把整页当作 mermaid
+                  blocks = blocks.filter(codeEl => {
+                    const txt = (codeEl.textContent || '').trim();
+                    const lines = txt.split(/\r?\n/);
+                    // 只在首行是合法 mermaid 关键字时才渲染
+                    const first = (lines.find(l => l.trim().length > 0) || '').trim();
+                    const isKw = /^(graph|sequenceDiagram|classDiagram|erDiagram|gantt|pie|journey)\b/.test(first);
+                    const isReasonableSize = lines.length <= 400 && txt.length <= 20000;
+                    return isKw && isReasonableSize;
+                  });
+                  __mmdLog('filtered mermaid blocks', blocks.length);
 
                   blocks.forEach((codeEl, idx) => {
                     const raw = (codeEl.textContent || '').replace(/\uFEFF/g, '').trim();
@@ -2186,6 +2244,169 @@ struct MermaidWebView: NSViewRepresentable {
 // MARK: - 实时 Markdown（Milkdown）WebView
 import WebKit
 
+struct VditorWebView: NSViewRepresentable {
+    var markdown: String
+    var onChange: (String) -> Void
+    
+    func makeCoordinator() -> Coordinator { 
+        Coordinator(onChange: onChange) 
+    }
+    
+    func makeNSView(context: Context) -> WKWebView {
+        let config = WKWebViewConfiguration()
+        let uc = WKUserContentController()
+        uc.add(context.coordinator, name: "bridge")
+        config.userContentController = uc
+        
+        let webView = WKWebView(frame: .zero, configuration: config)
+        webView.setValue(false, forKey: "drawsBackground")
+        webView.wantsLayer = true
+        webView.layer?.backgroundColor = NSColor.clear.cgColor
+        
+        let html = generateVditorHTML()
+        webView.loadHTMLString(html, baseURL: Bundle.main.bundleURL)
+        context.coordinator.webView = webView
+        return webView
+    }
+    
+    func updateNSView(_ webView: WKWebView, context: Context) {
+        context.coordinator.setMarkdown(markdown)
+    }
+    
+    class Coordinator: NSObject, WKScriptMessageHandler {
+        weak var webView: WKWebView?
+        private let onChange: (String) -> Void
+        private var lastSyncedValue: String = ""
+        private var isUpdatingFromSwift = false
+        
+        init(onChange: @escaping (String) -> Void) {
+            self.onChange = onChange
+        }
+        
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            guard let dict = message.body as? [String: Any],
+                  let type = dict["type"] as? String else { return }
+            
+            switch type {
+            case "change":
+                if !isUpdatingFromSwift,
+                   let value = dict["value"] as? String,
+                   value != lastSyncedValue {
+                    lastSyncedValue = value
+                    onChange(value)
+                }
+            case "ready":
+                print("✅ Vditor ready in DetailPanel")
+                // 编辑器准备好后，同步当前值
+                if !lastSyncedValue.isEmpty {
+                    setMarkdown(lastSyncedValue)
+                }
+            default:
+                break
+            }
+        }
+        
+        func setMarkdown(_ markdown: String) {
+            guard markdown != lastSyncedValue else { return }
+            
+            isUpdatingFromSwift = true
+            lastSyncedValue = markdown
+            
+            let escaped = markdown
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"")
+                .replacingOccurrences(of: "\n", with: "\\n")
+            let js = "window.vditor?.setValue(\"\(escaped)\");"
+            webView?.evaluateJavaScript(js) { _, _ in
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.isUpdatingFromSwift = false
+                }
+            }
+        }
+    }
+    
+    private func generateVditorHTML() -> String {
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vditor@3.10.4/dist/index.css">
+            <style>
+                body {
+                    margin: 0;
+                    padding: 0;
+                    background: transparent;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+                }
+                #vditor {
+                    height: 100vh;
+                }
+                /* 适配系统主题 */
+                @media (prefers-color-scheme: dark) {
+                    .vditor {
+                        --panel-background-color: #1e1e1e;
+                        --textarea-background-color: #1e1e1e;
+                        --toolbar-background-color: #2d2d2d;
+                        --border-color: #444;
+                        --text-color: #d4d4d4;
+                    }
+                }
+            </style>
+        </head>
+        <body>
+            <div id="vditor"></div>
+            
+            <script src="https://cdn.jsdelivr.net/npm/vditor@3.10.4/dist/index.min.js"></script>
+            <script>
+                let vditor;
+                
+                // 检测主题
+                const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                
+                // 初始化 Vditor (IR 模式 = 即时渲染)
+                vditor = new Vditor('vditor', {
+                    mode: 'ir', // 关键：即时渲染模式，类似 Typora
+                    theme: isDark ? 'dark' : 'classic',
+                    value: '',
+                    width: '100%',
+                    height: '100vh',
+                    cache: { enable: false },
+                    after() {
+                        // 编辑器初始化完成
+                        window.webkit?.messageHandlers?.bridge?.postMessage({
+                            type: 'ready'
+                        });
+                    },
+                    input(value) {
+                        // 内容变化回调 - 添加防抖以提高性能
+                        clearTimeout(window.inputTimeout);
+                        window.inputTimeout = setTimeout(() => {
+                            window.webkit?.messageHandlers?.bridge?.postMessage({
+                                type: 'change',
+                                value: value
+                            });
+                        }, 300); // 300ms 防抖
+                    }
+                });
+                
+                // 暴露到全局，供 Swift 调用
+                window.vditor = vditor;
+                
+                // 主题切换监听
+                window.matchMedia('(prefers-color-scheme: dark)').addListener((e) => {
+                    if (vditor) {
+                        vditor.setTheme(e.matches ? 'dark' : 'classic');
+                    }
+                });
+            </script>
+        </body>
+        </html>
+        """
+    }
+}
+
 struct MilkdownWebView: NSViewRepresentable {
     var markdown: String
     var onChange: (String) -> Void
@@ -2289,8 +2510,7 @@ struct MilkdownWebView: NSViewRepresentable {
                 #app{background:transparent !important;border:none !important;border-radius:0;min-height:0;padding:0;box-shadow:none}
                 .milkdown{background:transparent !important}
                 .ProseMirror{background:transparent !important}
-                /* 在编辑器内联预览 Mermaid（只展示，不拦截编辑） */
-                .pm-mermaid-preview{ margin:12px 0; padding:0; background:transparent; pointer-events:none; opacity:1; }
+                /* 在编辑器内联预览 Mermaid（只展示，不拦截编辑） - 已移至后面的详细样式中 */
                 /* 右下角调试面板 */
                 #md-debug{ position:fixed; right:8px; bottom:8px; width:320px; max-height:40vh; overflow:auto;
                   font:11px -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial; background:rgba(0,0,0,.6); color:#fff;
@@ -2304,6 +2524,11 @@ struct MilkdownWebView: NSViewRepresentable {
                 .milkdown .ProseMirror:focus{ outline: none !important; box-shadow: none !important; }
                 .milkdown .editor:focus{ outline: none !important; box-shadow: none !important; }
                 ::-moz-focus-inner{ border: 0 !important; }
+                
+                /* 强制所有文本可见 - 直接解决输入不可见问题 */
+                .ProseMirror * { color: inherit !important; }
+                .milkdown pre * { color: inherit !important; }
+                .milkdown code * { color: inherit !important; }
                 a{color:#8b5cf6;text-decoration:none}
                 a:hover{text-decoration:underline}
 
@@ -2316,36 +2541,36 @@ struct MilkdownWebView: NSViewRepresentable {
                 .milkdown p{margin:.6em 0}
                 .milkdown ul,.milkdown ol{margin:.6em 0 .6em 1.3em}
 
-                /* Code */
+                /* Code - 明确设置代码文字颜色 */
                 .milkdown pre,.milkdown code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace}
-                .milkdown pre{background:rgba(0,0,0,.05);border:0;border-radius:10px;padding:12px 14px;overflow:auto}
-                @media (prefers-color-scheme: dark){ .milkdown pre{background:rgba(255,255,255,.06)} }
-                .milkdown code:not(pre code){background:rgba(0,0,0,.05);padding:2px 6px;border-radius:6px}
-                @media (prefers-color-scheme: dark){ .milkdown code:not(pre code){background:rgba(255,255,255,.06)} }
+                .milkdown pre{background:rgba(0,0,0,.05);border:0;border-radius:10px;padding:12px 14px;overflow:auto;color:#333 !important}
+                .milkdown pre code{color:#333 !important}
+                @media (prefers-color-scheme: dark){ 
+                  .milkdown pre{background:rgba(255,255,255,.06);color:#d4d4d4 !important} 
+                  .milkdown pre code{color:#d4d4d4 !important}
+                }
+                .milkdown code:not(pre code){background:rgba(0,0,0,.05);padding:2px 6px;border-radius:6px;color:#333 !important}
+                @media (prefers-color-scheme: dark){ .milkdown code:not(pre code){background:rgba(255,255,255,.06);color:#d4d4d4 !important} }
 
                 /* HR */
                 .milkdown hr{border:0;border-top:1px solid rgba(0,0,0,.12);margin:2em 0}
                 @media (prefers-color-scheme: dark){ .milkdown hr{border-top-color: rgba(255,255,255,.15)} }
 
-                /* 内联 Mermaid 预览样式 - 绝对定位覆盖 */
+                /* 内联 Mermaid 预览样式 - 修复定位问题 */
                 .pm-mermaid-preview {
-                  position: absolute;  /* 绝对定位覆盖在代码块上 */
-                  top: 0;
-                  left: 0;
-                  right: 0;
-                  z-index: 1;  /* 确保在代码块之上 */
-                  margin: 0;  /* 移除外边距避免位置偏移 */
-                  padding: 16px;
-                  background: white;  /* 给背景色避免透明 */
-                  pointer-events: all !important;  /* 允许交互 */
-                  opacity: 1;
+                  display: inline-block;
+                  margin: 8px 0;
+                  padding: 12px;
                   max-width: 100%;
-                  overflow-x: auto;
-                  text-align: center;  /* 让内容居中 */
-                  border: 1px solid rgba(0,0,0,.12);  /* 添加边框 */
-                  border-radius: 8px;  /* 圆角 */
-                  box-shadow: 0 1px 3px rgba(0,0,0,.05);  /* 轻微阴影 */
-                  min-height: 60px;  /* 确保有足够高度 */
+                  max-height: 300px;
+                  overflow: auto;
+                  text-align: center;
+                  border: 1px solid rgba(0,0,0,.12);
+                  border-radius: 8px;
+                  background: white;
+                  box-shadow: 0 1px 3px rgba(0,0,0,.05);
+                  cursor: pointer;
+                  transition: all 0.2s ease;
                 }
 
                 @media (prefers-color-scheme: dark) {
@@ -2357,9 +2582,12 @@ struct MilkdownWebView: NSViewRepresentable {
                 }
 
                 .pm-mermaid-preview svg {
+                  display: block;
                   max-width: 100%;
                   height: auto;
-                  display: inline-block;  /* 确保SVG可以居中 */
+                  margin: 0 auto;
+                  transform: scale(0.8);
+                  transform-origin: center;
                 }
 
                 /* 隐藏被 Mermaid 图表替换的代码块 */
@@ -2371,14 +2599,10 @@ struct MilkdownWebView: NSViewRepresentable {
                   overflow: hidden !important;
                 }
 
-                /* Mermaid代码块透明化 - 保持结构但不可见 */
+                /* Mermaid代码块 - 保持完全可见和可编辑 */
                 .mermaid-code-transparent {
-                  color: transparent !important;
-                  background: transparent !important;
-                  border: none !important;
-                  outline: none !important;
-                  position: relative !important;
-                  /* 保持原有高度和布局，但内容透明 */
+                  position: relative;
+                  /* 完全移除透明度设置，保持正常显示 */
                 }
 
                 /* Debug 浮窗不拦截事件 */
@@ -2404,7 +2628,13 @@ struct MilkdownWebView: NSViewRepresentable {
                   z-index: 10;
                   opacity: 0;
                   transition: opacity 0.2s ease;
-                  pointer-events: all !important;
+                  pointer-events: auto;
+                }
+
+                .pm-mermaid-preview:hover {
+                  border-color: rgba(0,0,0,.24);
+                  box-shadow: 0 2px 8px rgba(0,0,0,.1);
+                  transform: translateY(-1px);
                 }
 
                 .pm-mermaid-preview:hover .mermaid-edit-btn {
@@ -2434,6 +2664,10 @@ struct MilkdownWebView: NSViewRepresentable {
                 .mmd-block { 
                   margin: 16px 0; 
                   clear: both;
+                  position: relative !important;
+                  isolation: isolate;
+                  contain: layout paint;   /* 把布局与绘制限制在容器内，防逃逸 */
+                  overflow: visible;
                 }
                 .mmd-block .mermaid {
                   display: block;
@@ -2445,10 +2679,12 @@ struct MilkdownWebView: NSViewRepresentable {
                   border: 1px solid rgba(125,125,125,.24);
                   border-radius: 8px;
                   background: rgba(125,125,125,.06);
+                  position: relative !important;
                 }
                 .mmd-block .mermaid svg {
                   /* 关键：让 svg 服从容器宽度，而不是用自己的宽高撑爆布局 */
-                  display: block;
+                  position: relative !important;
+                  display: block !important;
                   width: 100% !important;
                   height: auto !important;
                 }
@@ -2479,6 +2715,7 @@ struct MilkdownWebView: NSViewRepresentable {
                   .mmd-block .mermaid {
                     background: rgba(255,255,255,.04);
                     border-color: rgba(255,255,255,.18);
+                    position: relative !important;
                   }
                   .mmd-caption {
                     color: #999;
@@ -2487,8 +2724,11 @@ struct MilkdownWebView: NSViewRepresentable {
                     border-color: rgba(255,255,255,.2);
                   }
                 }
+
+                /* 双保险：所有 mermaid svg 横向不可溢出 */
+                .mermaid svg { max-width: 100%; height: auto; }
               </style>
-              <script src="https://cdn.jsdelivr.net/npm/mermaid@11.9.0/dist/mermaid.min.js">
+              <script src="Resources/mermaid/mermaid.min.js">
               <script>
                 (function(){
                   try{
@@ -2547,7 +2787,8 @@ struct MilkdownWebView: NSViewRepresentable {
                   const mermaidStart = /^(graph|sequenceDiagram|classDiagram|erDiagram|gantt|pie|journey)\b/i;
                   
                   doc.descendants((node, pos) => {
-                    if (node.type && node.type.name === 'code_block') {
+                
+    if (node.type && node.type.name === 'code_block') {
                       const lang = (node.attrs && (node.attrs.language || node.attrs.params || node.attrs.lang) || '').toString().toLowerCase();
                       const text = (node.textContent || '').trim();
                       
@@ -2570,7 +2811,7 @@ struct MilkdownWebView: NSViewRepresentable {
                         
                         // 再次检查清理后的代码是否为空
                         if (!cleanCode || cleanCode.trim().length === 0) {
-                          return; // 跳过清理后为空的代码块
+                          return; // 跳过清理后为空的代码块，不添加预览和不透明化代码块
                         }
                         
                         const dom = document.createElement('div');
@@ -2618,21 +2859,51 @@ struct MilkdownWebView: NSViewRepresentable {
                         
                         dom.appendChild(editBtn);
                         
-                        // 简化策略：直接在原代码块位置显示图表
-                        // 1. 将原代码块设为透明但保持结构
-                        decos.push(Decoration.node(pos, pos + node.nodeSize, {
-                          'class': 'mermaid-code-transparent',
-                          'style': 'position: relative; background: transparent; border: none; color: transparent;'
-                        }));
-                        
-                        // 2. 在代码块开始位置添加图表作为绝对定位覆盖
-                        decos.push(Decoration.widget(pos, dom, { 
-                          side: 0,  // 在代码块开始位置
-                          ignoreSelection: false,  // 允许选择交互
-                          stopEvent: (e) => {
-                            // 只允许点击事件通过，阻止其他会干扰编辑的事件
-                            return e.type !== 'click' && e.type !== 'mousedown' && e.type !== 'mouseup';
+                        // 让整个预览区域都可以点击进入编辑模式
+                        dom.addEventListener('click', (e) => {
+                          // 如果点击的是编辑按钮，不重复处理
+                          if (e.target.closest('.mermaid-edit-btn')) {
+                            return;
                           }
+                          
+                          e.preventDefault();
+                          e.stopPropagation();
+                          __mmdLog('Preview area clicked, switching to edit mode');
+                          
+                          if (!window.milkdownEditor) {
+                            __mmdLog('Editor not available');
+                            return;
+                          }
+                          
+                          try {
+                            window.milkdownEditor.action((ctx) => {
+                              const view = ctx.get(editorViewCtx);
+                              
+                              // 隐藏当前位置的Mermaid预览
+                              const tr = view.state.tr.setMeta('hideMermaidPreview', pos);
+                              
+                              // 选中代码块内容
+                              const selection = TextSelection.create(view.state.doc, pos + 1, pos + node.nodeSize - 1);
+                              tr.setSelection(selection);
+                              
+                              view.dispatch(tr);
+                              view.focus();
+                              
+                              __mmdLog('Switched to edit mode at pos:', pos);
+                            });
+                          } catch (e) {
+                            __mmdLog('Error switching to edit mode:', String(e?.message || e));
+                          }
+                        });
+                        
+                        // 简化策略：直接在原代码块位置显示图表
+                        // 1. 完全移除透明化逻辑，保持代码块完全可见可编辑
+                        
+                        // 2. 按 ProseMirror 官方最佳实践创建 widget
+                        decos.push(Decoration.widget(pos, dom, { 
+                          side: 1,  // 在位置之后，官方推荐
+                          key: `mermaid-${pos}-${raw.slice(0, 20).replace(/\s+/g, '-')}`,
+                          // 使用默认的 ignoreSelection: false 和 stopEvent: null
                         }));
                         
                         // 现在单击Mermaid图表就可以越过代码块了，不需要额外的间隔区域

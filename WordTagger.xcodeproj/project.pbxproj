@@ -9,6 +9,10 @@
 /* Begin PBXBuildFile section */
 		54209B7C2E3F248300388A1B /* ExternalDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54209B7B2E3F248300388A1B /* ExternalDataService.swift */; };
 		54209B7D2E3F248300388A1B /* ExternalDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54209B7A2E3F248300388A1B /* ExternalDataManager.swift */; };
+		R001 /* Resources in Resources */ = {isa = PBXBuildFile; fileRef = R100 /* Resources */; };
+		R002 /* ResourceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = R101 /* ResourceManager.swift */; };
+		A022 /* DocumentState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B123 /* DocumentState.swift */; };
+		A023 /* MarkdownEditorWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B124 /* MarkdownEditorWindow.swift */; };
 		A001 /* WordTaggerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101 /* WordTaggerApp.swift */; };
 		A002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B102 /* ContentView.swift */; };
 		A003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B103 /* Assets.xcassets */; };
@@ -34,6 +38,8 @@
 /* Begin PBXFileReference section */
 		54209B7A2E3F248300388A1B /* ExternalDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalDataManager.swift; sourceTree = "<group>"; };
 		54209B7B2E3F248300388A1B /* ExternalDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalDataService.swift; sourceTree = "<group>"; };
+		B123 /* DocumentState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentState.swift; sourceTree = "<group>"; };
+		B124 /* MarkdownEditorWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownEditorWindow.swift; sourceTree = "<group>"; };
 		B101 /* WordTaggerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordTaggerApp.swift; sourceTree = "<group>"; };
 		B102 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		B103 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -56,6 +62,8 @@
 		B121 /* UniversalRelationshipGraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UniversalRelationshipGraphView.swift; sourceTree = "<group>"; };
 		B122 /* WordManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordManagerView.swift; sourceTree = "<group>"; };
 		C100 /* WordTagger.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WordTagger.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		R100 /* Resources */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Resources; sourceTree = "<group>"; };
+		R101 /* ResourceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -109,8 +117,12 @@
 				B118 /* SettingsView.swift */,
 				B121 /* UniversalRelationshipGraphView.swift */,
 				B122 /* WordManagerView.swift */,
+				B123 /* DocumentState.swift */,
+				B124 /* MarkdownEditorWindow.swift */,
 				B103 /* Assets.xcassets */,
 				B120 /* WordTagger.entitlements */,
+				R100 /* Resources */,
+				R101 /* ResourceManager.swift */,
 			);
 			path = WordTagger;
 			sourceTree = "<group>";
@@ -174,6 +186,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A003 /* Assets.xcassets in Resources */,
+				R001 /* Resources in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -205,6 +218,9 @@
 				54209B7C2E3F248300388A1B /* ExternalDataService.swift in Sources */,
 				54209B7D2E3F248300388A1B /* ExternalDataManager.swift in Sources */,
 				A021 /* WordManagerView.swift in Sources */,
+				A022 /* DocumentState.swift in Sources */,
+				A023 /* MarkdownEditorWindow.swift in Sources */,
+				R002 /* ResourceManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

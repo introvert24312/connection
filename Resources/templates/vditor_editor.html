@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../vditor/index.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: transparent;
+        }
+        #vditor {
+            height: 100vh;
+            background: transparent;
+        }
+        .vditor {
+            background: transparent !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="vditor"></div>
+    
+    <script src="../vditor/index.min.js"></script>
+    <script>
+        let vditor;
+        
+        // 检测主题
+        const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        
+        // 初始化Vditor
+        vditor = new Vditor('vditor', {
+            height: '100vh',
+            theme: isDark ? 'dark' : 'classic',
+            toolbar: [
+                'emoji',
+                'headings',
+                'bold',
+                'italic',
+                'strike',
+                'link',
+                'list',
+                'ordered-list',
+                'check',
+                'line',
+                'quote',
+                'code',
+                'inline-code',
+                'table'
+            ],
+            cache: {
+                enable: false
+            },
+            input: (value) => {
+                // 通过JavaScript Bridge发送内容变化到Swift
+                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bridge) {
+                    window.webkit.messageHandlers.bridge.postMessage({
+                        type: 'markdown',
+                        value: value
+                    });
+                }
+            }
+        });
+        
+        // 暴露vditor实例到全局
+        window.vditor = vditor;
+        
+        // 监听主题变化
+        if (window.matchMedia) {
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+                if (vditor) {
+                    vditor.setTheme(e.matches ? 'dark' : 'classic');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

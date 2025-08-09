@@ -31,7 +31,14 @@
       "WebFetch(domain:docs.anthropic.com)",
       "Bash(git restore:*)",
       "Bash(git reset:*)",
-      "Bash(NSZombieEnabled=YES NSHangDetectionEnabled=YES build/Debug/WordTagger.app/Contents/MacOS/WordTagger)"
+      "Bash(NSZombieEnabled=YES NSHangDetectionEnabled=YES build/Debug/WordTagger.app/Contents/MacOS/WordTagger)",
+      "Bash(echo:*)",
+      "WebFetch(domain:milkdown.dev)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:discuss.prosemirror.net)",
+      "WebFetch(domain:prosemirror.net)",
+      "Bash(pkill:*)",
+      "Bash(log stream:*)"
     ],
     "deny": []
   }

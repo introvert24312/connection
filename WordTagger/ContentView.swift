@@ -165,6 +165,14 @@ struct ContentView: View {
             }
             
             NotificationCenter.default.addObserver(
+                forName: Notification.Name("openMarkdownEditor"),
+                object: nil,
+                queue: .main
+            ) { _ in
+                openWindow(id: "markdownEditor")
+            }
+            
+            NotificationCenter.default.addObserver(
                 forName: Notification.Name("openNodeManager"),
                 object: nil,
                 queue: .main

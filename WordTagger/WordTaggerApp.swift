@@ -1307,6 +1307,20 @@ struct WordTaggerApp: App {
         UserDefaults.standard.set(false, forKey: "NSApplicationCrashOnExceptions")
         
         print("🚀 WordTagger 启动，已优化SQLite设置")
+        
+        // 验证资源文件是否正确加载
+        let verification = ResourceManager.verifyAllResourcesExist()
+        if verification.success {
+            print("✅ 所有静态资源文件已正确加载")
+            print("   - vditor CSS: \(ResourceManager.getVditorCSSPath() ?? "未找到")")
+            print("   - vditor JS: \(ResourceManager.getVditorJSPath() ?? "未找到")")
+            print("   - mermaid JS: \(ResourceManager.getMermaidJSPath() ?? "未找到")")
+        } else {
+            print("❌ 资源文件加载失败:")
+            for missingFile in verification.missingFiles {
+                print("   - \(missingFile)")
+            }
+        }
     }
 
     var body: some Scene {
@@ -1437,6 +1451,12 @@ struct WordTaggerApp: App {
                     NotificationCenter.default.post(name: Notification.Name("openGraphWindow"), object: nil)
                 }
                 .keyboardShortcut("g", modifiers: [.command])
+                
+                Divider()
+                
+                Button("Markdown编辑器") {
+                    NotificationCenter.default.post(name: Notification.Name("openMarkdownEditor"), object: nil)
+                }
             }
         }
         
@@ -1479,6 +1499,13 @@ struct WordTaggerApp: App {
         }
         .defaultSize(width: 1200, height: 800)
         .windowToolbarStyle(.unified)
+        
+        // Markdown编辑器窗口
+        WindowGroup("Markdown编辑器", id: "markdownEditor") {
+            MarkdownEditorWindow()
+                .frame(minWidth: 800, minHeight: 600)
+        }
+        .defaultSize(width: 1200, height: 800)
         
         // 设置窗口
         Settings {
