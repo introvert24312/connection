@@ -2488,64 +2488,83 @@ struct MilkdownWebView: NSViewRepresentable {
                           'class': 'mermaid-hidden-code'
                         }));
                         
-                        // 添加点击事件监听器用于编辑原码
+                        // 添加双击事件监听器用于编辑原码（避免与单击越过冲突）
+                        dom.addEventListener('dblclick', (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          __mmdLog('Mermaid double-clicked, switching to edit mode');
+                          
+                          // 直接通过全局访问editor
+                          if (!window.milkdownEditor) {
+                            __mmdLog('Editor not available');
+                            return;
+                          }
+                          
+                          try {
+                            window.milkdownEditor.action((ctx) => {
+                              const view = ctx.get(editorViewCtx);
+                              
+                              // 隐藏当前位置的Mermaid预览
+                              const tr = view.state.tr.setMeta('hideMermaidPreview', pos);
+                              
+                              // 选中代码块内容
+                              const selection = TextSelection.create(view.state.doc, pos + 1, pos + node.nodeSize - 1);
+                              tr.setSelection(selection);
+                              
+                              view.dispatch(tr);
+                              view.focus();
+                              
+                              __mmdLog('Switched to edit mode at pos:', pos);
+                            });
+                          } catch (e) {
+                            __mmdLog('Error switching to edit mode:', String(e?.message || e));
+                          }
+                        });
+                        
+                        // 添加提示文本
+                        dom.title = '单击越过代码块 | 双击编辑原码';
+                        
+                        // 添加单击事件用于光标定位到代码块之后
                         dom.addEventListener('click', (e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          __mmdLog('Mermaid clicked, switching to edit mode');
+                          __mmdLog('Mermaid single-clicked, positioning cursor after block');
                           
-                          // 获取当前的 EditorView
-                          const view = editor?.action?.((ctx) => ctx.get(editorViewCtx));
-                          if (!view) return;
+                          if (!window.milkdownEditor) {
+                            __mmdLog('Editor not available for single click');
+                            return;
+                          }
                           
-                          // 找到对应的代码块位置并选中
-                          const $pos = view.state.doc.resolve(pos);
-                          const selection = TextSelection.create(view.state.doc, pos, pos + node.nodeSize);
-                          const tr = view.state.tr.setSelection(selection);
-                          
-                          // 暂时移除 Mermaid 预览，显示原始代码
-                          tr.setMeta('hideMermaidPreview', pos);
-                          view.dispatch(tr);
-                          
-                          // 聚焦编辑器
-                          view.focus();
+                          try {
+                            window.milkdownEditor.action((ctx) => {
+                              const view = ctx.get(editorViewCtx);
+                              
+                              // 将光标定位到代码块结束位置
+                              const endPos = pos + node.nodeSize;
+                              const selection = TextSelection.create(view.state.doc, endPos, endPos);
+                              const tr = view.state.tr.setSelection(selection);
+                              
+                              view.dispatch(tr);
+                              view.focus();
+                              
+                              __mmdLog('Cursor positioned after Mermaid block at pos:', endPos);
+                            });
+                          } catch (e) {
+                            __mmdLog('Error positioning cursor:', String(e?.message || e));
+                          }
                         });
-                        
+
                         // 2. 在同位置显示图表
                         decos.push(Decoration.widget(pos, dom, { 
                           side: 0, 
                           ignoreSelection: false,  // 允许选择，这样可以点击
                           stopEvent: (e) => {
-                            // 只阻止非点击事件
-                            return e.type !== 'click' && e.type !== 'mousedown';
+                            // 允许点击和双击事件通过
+                            return e.type !== 'click' && e.type !== 'dblclick' && e.type !== 'mousedown' && e.type !== 'mouseup';
                           }
                         }));
                         
-                        // 3. 在代码块末尾添加一个可点击的间隔区域，让用户能够越过Mermaid块
-                        const spacer = document.createElement('div');
-                        spacer.className = 'mermaid-spacer';
-                        spacer.style.cssText = 'height: 20px; width: 100%; cursor: text; background: transparent;';
-                        spacer.title = '点击此处在Mermaid图表后添加内容';
-                        
-                        spacer.addEventListener('click', (e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          __mmdLog('Mermaid spacer clicked, positioning cursor after block');
-                          
-                          const view = editor?.action?.((ctx) => ctx.get(editorViewCtx));
-                          if (!view) return;
-                          
-                          // 将光标定位到代码块结束位置
-                          const endPos = pos + node.nodeSize;
-                          const selection = TextSelection.create(view.state.doc, endPos, endPos);
-                          view.dispatch(view.state.tr.setSelection(selection));
-                          view.focus();
-                        });
-                        
-                        decos.push(Decoration.widget(pos + node.nodeSize, spacer, { 
-                          side: 1, 
-                          ignoreSelection: true
-                        }));
+                        // 现在单击Mermaid图表就可以越过代码块了，不需要额外的间隔区域
                       }
                     }
                   });
@@ -2646,7 +2665,10 @@ struct MilkdownWebView: NSViewRepresentable {
                     .use(commonmark)
                     .use(listener)
                     .create();
-                    __mmdLog('editor ready');
+                    
+                    // 将editor设置为全局变量，供点击事件访问
+                    window.milkdownEditor = editor;
+                    __mmdLog('editor ready and set as global');
                     
                     // 注入安全的内联 Mermaid 预览插件
                     try {
