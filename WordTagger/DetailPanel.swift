@@ -2326,20 +2326,32 @@ struct MilkdownWebView: NSViewRepresentable {
                 .milkdown hr{border:0;border-top:1px solid rgba(0,0,0,.12);margin:2em 0}
                 @media (prefers-color-scheme: dark){ .milkdown hr{border-top-color: rgba(255,255,255,.15)} }
 
-                /* 内联 Mermaid 预览样式 - 允许显示但不拦截编辑 */
+                /* 内联 Mermaid 预览样式 - 居中显示并添加边框 */
                 .pm-mermaid-preview {
-                  margin: 12px 0;
-                  padding: 0;
+                  margin: 16px 0;
+                  padding: 16px;
                   background: transparent;
                   pointer-events: none !important;  /* 关键：不拦截编辑器交互 */
                   opacity: 1;
                   max-width: 100%;
                   overflow-x: auto;
+                  text-align: center;  /* 让内容居中 */
+                  border: 1px solid rgba(0,0,0,.12);  /* 添加边框 */
+                  border-radius: 8px;  /* 圆角 */
+                  box-shadow: 0 1px 3px rgba(0,0,0,.05);  /* 轻微阴影 */
+                }
+
+                @media (prefers-color-scheme: dark) {
+                  .pm-mermaid-preview {
+                    border-color: rgba(255,255,255,.15);  /* 深色模式下的边框 */
+                    box-shadow: 0 1px 3px rgba(0,0,0,.2);
+                  }
                 }
 
                 .pm-mermaid-preview svg {
                   max-width: 100%;
                   height: auto;
+                  display: inline-block;  /* 确保SVG可以居中 */
                 }
 
                 /* 隐藏被 Mermaid 图表替换的代码块 */
@@ -2354,11 +2366,33 @@ struct MilkdownWebView: NSViewRepresentable {
                 /* Debug 浮窗不拦截事件 */
                 #debug-log { pointer-events: none !important; }
 
+                /* Mermaid 间隔区域样式 */
+                .mermaid-spacer {
+                  height: 20px;
+                  width: 100%;
+                  cursor: text;
+                  background: transparent;
+                  border: none;
+                  outline: none;
+                  position: relative;
+                }
+
+                .mermaid-spacer:hover {
+                  background: rgba(0, 0, 0, 0.02);
+                  border-radius: 4px;
+                }
+
+                @media (prefers-color-scheme: dark) {
+                  .mermaid-spacer:hover {
+                    background: rgba(255, 255, 255, 0.05);
+                  }
+                }
+
                 /* 确保编辑器区域可滚动并撑满高度 */
                 html, body { height: 100%; }
                 #app, #root, .milkdown, .ProseMirror { min-height: 100%; }
               </style>
-              <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+              <script src="https://cdn.jsdelivr.net/npm/mermaid@11.9.0/dist/mermaid.min.js">
               <script>
                 (function(){
                   try{
@@ -2411,7 +2445,7 @@ struct MilkdownWebView: NSViewRepresentable {
                 // === 安全的 Mermaid 内联预览插件 ===
                 const mermaidPreviewKey = new PluginKey('safe-mermaid-preview');
                 
-                function buildMermaidDecorations(state) {
+                function buildMermaidDecorations(state, hiddenPreviews = new Set()) {
                   const decos = [];
                   const { doc } = state;
                   const mermaidStart = /^(graph|sequenceDiagram|classDiagram|erDiagram|gantt|pie|journey)\b/i;
@@ -2427,6 +2461,10 @@ struct MilkdownWebView: NSViewRepresentable {
                       
                       // 只有在有语言标识且有内容，或者有有效图表内容时才处理
                       if ((hasLanguage && text.length > 0) || hasValidContent) {
+                        // 如果该位置被隐藏，跳过预览
+                        if (hiddenPreviews.has(pos)) {
+                          return;
+                        }
                         // 清理代码（移除无关首行）
                         let cleanCode = text.replace(/\uFEFF/g, '').trim();
                         
@@ -2450,11 +2488,63 @@ struct MilkdownWebView: NSViewRepresentable {
                           'class': 'mermaid-hidden-code'
                         }));
                         
+                        // 添加点击事件监听器用于编辑原码
+                        dom.addEventListener('click', (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          __mmdLog('Mermaid clicked, switching to edit mode');
+                          
+                          // 获取当前的 EditorView
+                          const view = editor?.action?.((ctx) => ctx.get(editorViewCtx));
+                          if (!view) return;
+                          
+                          // 找到对应的代码块位置并选中
+                          const $pos = view.state.doc.resolve(pos);
+                          const selection = TextSelection.create(view.state.doc, pos, pos + node.nodeSize);
+                          const tr = view.state.tr.setSelection(selection);
+                          
+                          // 暂时移除 Mermaid 预览，显示原始代码
+                          tr.setMeta('hideMermaidPreview', pos);
+                          view.dispatch(tr);
+                          
+                          // 聚焦编辑器
+                          view.focus();
+                        });
+                        
                         // 2. 在同位置显示图表
                         decos.push(Decoration.widget(pos, dom, { 
                           side: 0, 
-                          ignoreSelection: true,  // 不影响光标选择
-                          stopEvent: () => true   // 阻止事件冒泡到编辑器
+                          ignoreSelection: false,  // 允许选择，这样可以点击
+                          stopEvent: (e) => {
+                            // 只阻止非点击事件
+                            return e.type !== 'click' && e.type !== 'mousedown';
+                          }
+                        }));
+                        
+                        // 3. 在代码块末尾添加一个可点击的间隔区域，让用户能够越过Mermaid块
+                        const spacer = document.createElement('div');
+                        spacer.className = 'mermaid-spacer';
+                        spacer.style.cssText = 'height: 20px; width: 100%; cursor: text; background: transparent;';
+                        spacer.title = '点击此处在Mermaid图表后添加内容';
+                        
+                        spacer.addEventListener('click', (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          __mmdLog('Mermaid spacer clicked, positioning cursor after block');
+                          
+                          const view = editor?.action?.((ctx) => ctx.get(editorViewCtx));
+                          if (!view) return;
+                          
+                          // 将光标定位到代码块结束位置
+                          const endPos = pos + node.nodeSize;
+                          const selection = TextSelection.create(view.state.doc, endPos, endPos);
+                          view.dispatch(view.state.tr.setSelection(selection));
+                          view.focus();
+                        });
+                        
+                        decos.push(Decoration.widget(pos + node.nodeSize, spacer, { 
+                          side: 1, 
+                          ignoreSelection: true
                         }));
                       }
                     }
@@ -2466,14 +2556,36 @@ struct MilkdownWebView: NSViewRepresentable {
                 const safeMermaidPlugin = new Plugin({
                   key: mermaidPreviewKey,
                   state: {
-                    init() { return DecorationSet.empty; },
+                    init() { return { decorations: DecorationSet.empty, hiddenPreviews: new Set() }; },
                     apply(tr, old, _oldState, newState) {
-                      if (tr.docChanged) return buildMermaidDecorations(newState);
-                      return old.map(tr.mapping, tr.doc);
+                      let { decorations, hiddenPreviews } = old;
+                      
+                      // 处理隐藏预览的请求
+                      const hidePos = tr.getMeta('hideMermaidPreview');
+                      if (typeof hidePos === 'number') {
+                        hiddenPreviews = new Set(hiddenPreviews);
+                        hiddenPreviews.add(hidePos);
+                      }
+                      
+                      // 处理显示预览的请求
+                      const showPos = tr.getMeta('showMermaidPreview');
+                      if (typeof showPos === 'number') {
+                        hiddenPreviews = new Set(hiddenPreviews);
+                        hiddenPreviews.delete(showPos);
+                      }
+                      
+                      // 文档变更时重建装饰器
+                      if (tr.docChanged) {
+                        decorations = buildMermaidDecorations(newState, hiddenPreviews);
+                      } else {
+                        decorations = decorations.map(tr.mapping, tr.doc);
+                      }
+                      
+                      return { decorations, hiddenPreviews };
                     }
                   },
                   props: {
-                    decorations(state) { return this.getState(state); }
+                    decorations(state) { return this.getState(state).decorations; }
                   },
                   view(view) {
                     function renderPreviews() {
