@@ -857,12 +857,16 @@ struct MarkdownVditorWebView: NSViewRepresentable {
                 // 暴露修复函数到全局，便于手动调试
                 window.fixMermaid = bruteForceMermaidFix;
                 
-                // 暴力修复Mermaid样式函数 - 直接操作DOM
+                // 暴力修复Mermaid样式函数 - 直接操作DOM - 优化版
                 function bruteForceMermaidFix() {
                     const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                    console.log('🔨🔨🔨 开始暴力修复Mermaid样式');
+                    console.log('🔨🔨🔨 开始暴力修复Mermaid样式 - 优化版');
                     console.log('当前主题模式 - 暗色模式:', isDark);
                     console.log('当前时间:', new Date().toLocaleTimeString());
+                    
+                    // 清理旧的修复标记，确保重新应用
+                    const oldStyledElements = document.querySelectorAll('[data-theme-fixed]');
+                    oldStyledElements.forEach(el => el.removeAttribute('data-theme-fixed'));
                     
                     // 更精准地找到Mermaid相关元素
                     const allSvgs = document.querySelectorAll('svg');
@@ -1088,60 +1092,183 @@ struct MarkdownVditorWebView: NSViewRepresentable {
                                 textEl.style.color = '#c6c5b8';
                                 textEl.style.setProperty('fill', '#c6c5b8', 'important');
                                 textEl.style.setProperty('color', '#c6c5b8', 'important');
+                                // 标记已修复
+                                textEl.setAttribute('data-theme-fixed', isDark ? 'dark' : 'light');
                             }
                         });
                         
                         console.log('🌙 深色模式超级暴力修复完成');
                     }
                     
-                    console.log('🔨 暴力修复完成');
+                    // 标记所有修复过的元素
+                    const allMermaidElements = document.querySelectorAll('.mermaid');
+                    allMermaidElements.forEach(elem => {
+                        elem.setAttribute('data-theme-fixed', isDark ? 'dark' : 'light');
+                    });
+                    
+                    console.log('🔨 暴力修复完成 - 当前主题标记:', isDark ? 'dark' : 'light');
                 }
                 
-                // 主题切换监听 - 增强版
-                window.matchMedia('(prefers-color-scheme: dark)').addListener((e) => {
+                // 主题切换监听 - 使用现代API修复版
+                const themeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+                
+                function handleThemeChange(e) {
                     const isDark = e.matches;
                     console.log('🎨 主题切换检测:', isDark ? '切换到深色模式' : '切换到浅色模式');
+                    console.log('🕐 切换时间:', new Date().toLocaleTimeString());
                     
                     if (vditor) {
-                        // 立即切换编辑器主题
+                        // 1. 立即切换编辑器主题
+                        console.log('🔄 切换vditor主题到:', isDark ? 'dark' : 'classic');
                         vditor.setTheme(isDark ? 'dark' : 'classic');
                         
-                        // 立即触发第一轮修复
-                        setTimeout(bruteForceMermaidFix, 50);
-                        
-                        // 延迟触发多轮修复，确保生效
-                        setTimeout(bruteForceMermaidFix, 200);
-                        setTimeout(bruteForceMermaidFix, 500);
-                        setTimeout(bruteForceMermaidFix, 800);
-                        setTimeout(bruteForceMermaidFix, 1200);
-                        
-                        // 强制重新渲染所有mermaid图表
-                        setTimeout(() => {
-                            console.log('🔄 强制重新渲染mermaid图表');
-                            const mermaidElements = document.querySelectorAll('.mermaid');
-                            mermaidElements.forEach((element, index) => {
-                                console.log('重新渲染图表 #' + index);
-                                // 触发重新渲染
-                                const content = element.textContent;
-                                if (content && window.mermaid && window.mermaid.render) {
-                                    const id = 'mermaid-' + Date.now() + '-' + index;
-                                    element.innerHTML = '';
-                                    try {
-                                        window.mermaid.render(id, content).then(({ svg }) => {
-                                            element.innerHTML = svg;
-                                            // 渲染完成后立即修复样式
-                                            setTimeout(bruteForceMermaidFix, 10);
-                                        }).catch(err => {
-                                            console.log('mermaid渲染失败:', err);
-                                        });
-                                    } catch (err) {
-                                        console.log('mermaid调用失败:', err);
-                                    }
+                        // 2. 完全重新初始化mermaid配置
+                        if (window.mermaid) {
+                            console.log('🔄 完全重新初始化mermaid配置');
+                            
+                            // 先清除旧配置
+                            window.mermaid.initialize({
+                                startOnLoad: false,
+                                theme: isDark ? 'dark' : 'default',
+                                securityLevel: 'strict',
+                                fontFamily: '-apple-system, sans-serif',
+                                themeVariables: isDark ? {
+                                    primaryColor: '#292929',
+                                    primaryTextColor: '#c6c5b8',
+                                    primaryBorderColor: '#ff9100',
+                                    lineColor: '#ff9100',
+                                    background: '#1e1e1e',
+                                    mainBkg: '#292929',
+                                    secondBkg: '#202020',
+                                    tertiaryBkg: '#404040'
+                                } : {
+                                    primaryColor: '#ffffff',
+                                    primaryTextColor: '#333333',
+                                    primaryBorderColor: '#333333',
+                                    lineColor: '#333333',
+                                    background: '#ffffff',
+                                    mainBkg: '#ffffff',
+                                    secondBkg: '#f0f0f0'
                                 }
                             });
-                        }, 1000);
+                        }
+                        
+                        // 3. 强制清除所有现有的Mermaid渲染状态
+                        setTimeout(() => {
+                            console.log('🧹 清除所有Mermaid渲染状态');
+                            const mermaidElements = document.querySelectorAll('.mermaid, [data-processed-by="mermaid"]');
+                            console.log('找到', mermaidElements.length, '个需要重置的mermaid元素');
+                            
+                            mermaidElements.forEach((element, index) => {
+                                console.log('重置元素 #' + index);
+                                
+                                // 获取或保存原始Mermaid代码
+                                let originalContent = element.getAttribute('data-original-mermaid') || 
+                                                    element.textContent ||
+                                    element.innerHTML.replace(/<[^>]*>/g, '').trim();
+                                
+                                // 如果没有保存过原始内容，现在保存
+                                if (!element.getAttribute('data-original-mermaid') && originalContent) {
+                                    element.setAttribute('data-original-mermaid', originalContent);
+                                    console.log('保存原始内容 #' + index + ':', originalContent.substring(0, 50));
+                                }
+                                
+                                // 完全重置元素状态
+                                element.innerHTML = originalContent;
+                                element.removeAttribute('data-processed');
+                                element.removeAttribute('data-processed-by');
+                                element.classList.remove('mermaid');
+                                element.classList.remove('rendered');
+                                
+                                // 重新添加mermaid类
+                                setTimeout(() => {
+                                    element.classList.add('mermaid');
+                                    console.log('重新添加mermaid类到元素 #' + index);
+                                }, 10);
+                            });
+                        }, 50);
+                        
+                        // 4. 延迟触发完全重新渲染
+                        setTimeout(() => {
+                            console.log('🔄 触发vditor完全重新渲染');
+                            
+                            // 强制vditor重新解析和渲染所有内容
+                            if (vditor && vditor.preview) {
+                                try {
+                                    // 方法1：重新设置内容触发渲染
+                                    const currentValue = vditor.getValue();
+                                    if (currentValue) {
+                                        // 触发完全重新渲染
+                                        vditor.setValue(currentValue);
+                                    }
+                                    
+                                    // 方法2：手动触发预览渲染
+                                    if (vditor.preview.render) {
+                                        vditor.preview.render();
+                                    }
+                                } catch (err) {
+                                    console.log('vditor重新渲染出错:', err);
+                                }
+                            }
+                            
+                            // 额外的手动mermaid初始化
+                            if (window.mermaid && window.mermaid.init) {
+                                setTimeout(() => {
+                                    console.log('🔄 手动初始化mermaid图表');
+                                    try {
+                                        const mermaidElems = document.querySelectorAll('.mermaid:not([data-processed])');
+                                        console.log('找到未处理的mermaid元素:', mermaidElems.length);
+                                        if (mermaidElems.length > 0) {
+                                            window.mermaid.init(undefined, mermaidElems);
+                                        }
+                                    } catch (err) {
+                                        console.log('手动mermaid初始化失败:', err);
+                                    }
+                                }, 200);
+                            }
+                        }, 150);
+                        
+                        // 5. 多轮暴力样式修复
+                        const fixTimings = [100, 300, 600, 1000, 1500, 2500];
+                        fixTimings.forEach((delay, index) => {
+                            setTimeout(() => {
+                                console.log('第' + (index + 1) + '轮暴力修复');
+                                bruteForceMermaidFix();
+                            }, delay);
+                        });
+                        
+                        // 6. 最终验证和修复
+                        setTimeout(() => {
+                            console.log('🏁 最终验证主题切换结果');
+                            const mermaidElements = document.querySelectorAll('.mermaid');
+                            console.log('最终检查：找到', mermaidElements.length, '个mermaid元素');
+                            
+                            let needsFix = false;
+                            if (isDark) {
+                                // 检查深色模式是否正确应用
+                                const darkNodes = document.querySelectorAll('.mermaid rect[fill="#292929"], .mermaid circle[fill="#292929"]');
+                                const lightNodes = document.querySelectorAll('.mermaid rect[fill="#ffffff"], .mermaid rect[fill="white"], .mermaid circle[fill="#ffffff"], .mermaid circle[fill="white"]');
+                                console.log('深色节点数:', darkNodes.length, '浅色节点数:', lightNodes.length);
+                                if (lightNodes.length > 0) needsFix = true;
+                            } else {
+                                // 检查浅色模式
+                                const scaledElements = document.querySelectorAll('.mermaid[style*="scale(1.8)"]');
+                                console.log('已放大的浅色元素数:', scaledElements.length);
+                                if (scaledElements.length !== mermaidElements.length) needsFix = true;
+                            }
+                            
+                            if (needsFix) {
+                                console.log('⚠️ 检测到主题未完全切换，执行最终修复');
+                                bruteForceMermaidFix();
+                            } else {
+                                console.log('✅ 主题切换验证通过');
+                            }
+                        }, 3000);
                     }
-                });
+                }
+                
+                // 使用现代API添加监听器
+                themeMediaQuery.addEventListener('change', handleThemeChange);
                 
                 // 强制Mermaid主题函数
                 function forceMermaidTheme() {
@@ -1191,26 +1318,36 @@ struct MarkdownVditorWebView: NSViewRepresentable {
                     });
                 }
                 
-                // 定期检查并应用Mermaid样式（处理动态生成的图表）
+                // 智能Mermaid样式监视器 - 根据主题变化调整检查频率
                 let mermaidStyleTimer;
+                let lastTheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
                 
                 function startMermaidStyleWatcher() {
                     if (mermaidStyleTimer) clearInterval(mermaidStyleTimer);
                     
                     mermaidStyleTimer = setInterval(() => {
-                        forceMermaidTheme();
+                        const currentTheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
                         
-                        // 额外的暗色模式检查
-                        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                            const unstyledMermaid = document.querySelectorAll('.vditor-ir .mermaid svg:not([data-dark-styled])');
-                            if (unstyledMermaid.length > 0) {
-                                console.log('🎨 检测到', unstyledMermaid.length, '个新的Mermaid图表，应用暗色样式');
-                                unstyledMermaid.forEach(svg => {
-                                    svg.setAttribute('data-dark-styled', 'true');
-                                });
-                            }
+                        // 检测主题是否发生变化
+                        if (currentTheme !== lastTheme) {
+                            console.log('🎨 主题监视器检测到变化:', currentTheme ? '切换到深色' : '切换到浅色');
+                            lastTheme = currentTheme;
+                            // 主题变化时立即修复
+                            setTimeout(bruteForceMermaidFix, 10);
                         }
-                    }, 1000);
+                        
+                        // 检查是否有未修复或主题不匹配的元素
+                        const currentThemeKey = currentTheme ? 'dark' : 'light';
+                        const wrongThemeElements = document.querySelectorAll('.mermaid:not([data-theme-fixed="' + currentThemeKey + '"])');
+                        
+                        if (wrongThemeElements.length > 0) {
+                            console.log('🔧 监视器发现', wrongThemeElements.length, '个需要修复的Mermaid元素');
+                            bruteForceMermaidFix();
+                        }
+                        
+                        // 应用强制主题
+                        forceMermaidTheme();
+                    }, 2000); // 降低检查频率避免性能问题
                 }
                 
                 // 启动样式监视器
