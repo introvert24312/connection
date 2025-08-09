@@ -731,27 +731,64 @@ struct MarkdownVditorWebView: NSViewRepresentable {
                             });
                         }
                         
-                        // 监听所有可能的Mermaid渲染事件
-                        const observer = new MutationObserver((mutations) => {
-                            let hasMermaid = false;
+                        // 超级激进的Mermaid渲染监听 - 监听所有可能的变化
+                        const aggressiveObserver = new MutationObserver((mutations) => {
+                            let needsFix = false;
+                            let logDetails = [];
+                            
                             mutations.forEach((mutation) => {
+                                // 监听新增节点
                                 if (mutation.addedNodes) {
                                     mutation.addedNodes.forEach((node) => {
                                         if (node.nodeType === 1) {
                                             if (node.classList?.contains('mermaid') || 
                                                 node.querySelector?.('.mermaid') ||
-                                                node.tagName === 'svg') {
-                                                hasMermaid = true;
+                                                node.tagName === 'svg' ||
+                                                node.innerHTML?.includes('mermaid') ||
+                                                node.textContent?.includes('graph') ||
+                                                node.textContent?.includes('flowchart')) {
+                                                needsFix = true;
+                                                logDetails.push('新增节点: ' + node.tagName + ' / ' + (node.className || 'no-class'));
                                             }
                                         }
                                     });
                                 }
+                                
+                                // 监听属性变化（重要！）
+                                if (mutation.type === 'attributes') {
+                                    const target = mutation.target;
+                                    if (target.classList?.contains('mermaid') || 
+                                        target.closest('.mermaid') ||
+                                        target.tagName === 'svg') {
+                                        needsFix = true;
+                                        logDetails.push('属性变化: ' + target.tagName + '.' + (target.className || '') + ' 属性:' + mutation.attributeName);
+                                    }
+                                }
+                                
+                                // 监听子树变化
+                                if (mutation.type === 'childList' && mutation.target.classList?.contains('mermaid')) {
+                                    needsFix = true;
+                                    logDetails.push('Mermaid子树变化');
+                                }
                             });
-                            if (hasMermaid) {
-                                setTimeout(bruteForceMermaidFix, 10);
+                            
+                            if (needsFix) {
+                                console.log('🔍 监听器检测到Mermaid变化:', logDetails);
+                                // 立即修复 + 延迟修复
+                                setTimeout(bruteForceMermaidFix, 5);
+                                setTimeout(bruteForceMermaidFix, 50);
+                                setTimeout(bruteForceMermaidFix, 200);
                             }
                         });
-                        observer.observe(document.body, { childList: true, subtree: true });
+                        
+                        // 更全面的监听配置
+                        aggressiveObserver.observe(document.body, { 
+                            childList: true, 
+                            subtree: true, 
+                            attributes: true,
+                            attributeFilter: ['class', 'style', 'data-processed', 'data-processed-by'],
+                            characterData: true
+                        });
                         
                         // 添加键盘快捷键
                         document.addEventListener('keydown', (e) => {
@@ -857,16 +894,31 @@ struct MarkdownVditorWebView: NSViewRepresentable {
                 // 暴露修复函数到全局，便于手动调试
                 window.fixMermaid = bruteForceMermaidFix;
                 
-                // 暴力修复Mermaid样式函数 - 直接操作DOM - 优化版
+                // 暴力修复Mermaid样式函数 - 超级激进版
                 function bruteForceMermaidFix() {
                     const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                    console.log('🔨🔨🔨 开始暴力修复Mermaid样式 - 优化版');
+                    console.log('🔨🔨🔨 开始超级激进暴力修复Mermaid样式');
                     console.log('当前主题模式 - 暗色模式:', isDark);
                     console.log('当前时间:', new Date().toLocaleTimeString());
                     
                     // 清理旧的修复标记，确保重新应用
                     const oldStyledElements = document.querySelectorAll('[data-theme-fixed]');
                     oldStyledElements.forEach(el => el.removeAttribute('data-theme-fixed'));
+                    
+                    // 超级激进检测：强制等待DOM完全渲染
+                    if (document.readyState !== 'complete') {
+                        console.log('⏰ DOM未完全加载，延迟100ms重试');
+                        setTimeout(bruteForceMermaidFix, 100);
+                        return;
+                    }
+                    
+                    // 检查是否有正在渲染的Mermaid元素
+                    const renderingElements = document.querySelectorAll('.mermaid:empty, svg:not([viewBox])');
+                    if (renderingElements.length > 0) {
+                        console.log('⏰ 发现', renderingElements.length, '个正在渲染的元素，延迟200ms重试');
+                        setTimeout(bruteForceMermaidFix, 200);
+                        return;
+                    }
                     
                     // 更精准地找到Mermaid相关元素
                     const allSvgs = document.querySelectorAll('svg');
@@ -1032,68 +1084,131 @@ struct MarkdownVditorWebView: NSViewRepresentable {
                         div.style.setProperty('display', 'block', 'important');
                     });
                     
-                    // 5. 超级暴力修复 - 如果是深色模式，强制修改所有符合条件的元素
+                    // 5. 终极深色模式修复 - 不给任何浅色元素机会逃脱
                     if (isDark) {
-                        console.log('🌙 启动深色模式超级暴力修复');
+                        console.log('🌙🌙🌙 启动终极深色模式修复 - 无情覆盖所有浅色元素');
                         
-                        // 强制修改所有rect元素
+                        // 第一轮：找到所有可能的SVG容器并强制设置背景
+                        const allSvgContainers = document.querySelectorAll('svg, .mermaid, div:has(svg)');
+                        console.log('🎯 找到', allSvgContainers.length, '个SVG容器，强制设置深色背景');
+                        allSvgContainers.forEach((container, i) => {
+                            console.log('设置容器 #' + i + ' 深色背景');
+                            container.style.setProperty('background', '#1e1e1e', 'important');
+                            container.style.setProperty('background-color', '#1e1e1e', 'important');
+                        });
+                        
+                        // 第二轮：绝对无情地修改所有rect元素
                         const allRects = document.querySelectorAll('rect');
-                        console.log('找到所有rect:', allRects.length);
+                        console.log('🔥 找到所有rect:', allRects.length, '- 准备无情覆盖');
                         allRects.forEach((rect, i) => {
-                            if (rect.closest('svg')) {
-                                console.log('强制修复rect #' + i, '原fill:', rect.getAttribute('fill'));
+                            // 检查是否在SVG内部（更宽松的检查）
+                            if (rect.closest('svg') || rect.closest('.mermaid') || 
+                                rect.tagName === 'rect' || rect.ownerSVGElement) {
+                                
+                                const originalFill = rect.getAttribute('fill');
+                                console.log('💀 强制修复rect #' + i, '原fill:', originalFill, '→ #292929');
+                                
+                                // 多种方式强制设置，确保覆盖任何可能的样式
                                 rect.setAttribute('fill', '#292929');
                                 rect.setAttribute('stroke', '#ff9100');
+                                rect.setAttribute('stroke-width', '3');
                                 rect.style.fill = '#292929';
                                 rect.style.stroke = '#ff9100';
+                                rect.style.strokeWidth = '3px';
                                 rect.style.setProperty('fill', '#292929', 'important');
                                 rect.style.setProperty('stroke', '#ff9100', 'important');
+                                rect.style.setProperty('stroke-width', '3px', 'important');
+                                
+                                // 移除任何可能覆盖我们样式的内联样式
+                                const style = rect.getAttribute('style') || '';
+                                let newStyle = style.replace(/fill\\s*:\\s*[^;]*;?/gi, '');
+                                newStyle = newStyle.replace(/stroke\\s*:\\s*[^;]*;?/gi, '');
+                                newStyle += '; fill: #292929 !important; stroke: #ff9100 !important; stroke-width: 3px !important;';
+                                rect.setAttribute('style', newStyle);
+                                
+                                // 标记已处理
+                                rect.setAttribute('data-dark-processed', 'true');
                             }
                         });
                         
-                        // 强制修改所有circle元素
+                        // 第三轮：同样无情地修改所有circle元素
                         const allCircles = document.querySelectorAll('circle');
-                        console.log('找到所有circle:', allCircles.length);
+                        console.log('🔥 找到所有circle:', allCircles.length, '- 准备无情覆盖');
                         allCircles.forEach((circle, i) => {
-                            if (circle.closest('svg')) {
-                                console.log('强制修复circle #' + i);
+                            if (circle.closest('svg') || circle.closest('.mermaid') || circle.ownerSVGElement) {
+                                const originalFill = circle.getAttribute('fill');
+                                console.log('💀 强制修复circle #' + i, '原fill:', originalFill, '→ #292929');
+                                
+                                // 同样的多重强制设置
                                 circle.setAttribute('fill', '#292929');
                                 circle.setAttribute('stroke', '#ff9100');
+                                circle.setAttribute('stroke-width', '3');
                                 circle.style.fill = '#292929';
                                 circle.style.stroke = '#ff9100';
+                                circle.style.strokeWidth = '3px';
                                 circle.style.setProperty('fill', '#292929', 'important');
                                 circle.style.setProperty('stroke', '#ff9100', 'important');
+                                circle.style.setProperty('stroke-width', '3px', 'important');
+                                
+                                const style = circle.getAttribute('style') || '';
+                                let newStyle = style.replace(/fill\\s*:\\s*[^;]*;?/gi, '');
+                                newStyle = newStyle.replace(/stroke\\s*:\\s*[^;]*;?/gi, '');
+                                newStyle += '; fill: #292929 !important; stroke: #ff9100 !important; stroke-width: 3px !important;';
+                                circle.setAttribute('style', newStyle);
+                                circle.setAttribute('data-dark-processed', 'true');
                             }
                         });
                         
-                        // 强制修改所有polygon元素
-                        const allPolygons = document.querySelectorAll('polygon');
-                        console.log('找到所有polygon:', allPolygons.length);
+                        // 第四轮：无情修改所有polygon和ellipse元素
+                        const allPolygons = document.querySelectorAll('polygon, ellipse');
+                        console.log('🔥 找到所有polygon/ellipse:', allPolygons.length, '- 准备无情覆盖');
                         allPolygons.forEach((polygon, i) => {
-                            if (polygon.closest('svg')) {
-                                console.log('强制修复polygon #' + i);
+                            if (polygon.closest('svg') || polygon.closest('.mermaid') || polygon.ownerSVGElement) {
+                                const originalFill = polygon.getAttribute('fill');
+                                console.log('💀 强制修复', polygon.tagName, '#' + i, '原fill:', originalFill, '→ #292929');
+                                
                                 polygon.setAttribute('fill', '#292929');
                                 polygon.setAttribute('stroke', '#ff9100');
+                                polygon.setAttribute('stroke-width', '3');
                                 polygon.style.fill = '#292929';
                                 polygon.style.stroke = '#ff9100';
+                                polygon.style.strokeWidth = '3px';
                                 polygon.style.setProperty('fill', '#292929', 'important');
                                 polygon.style.setProperty('stroke', '#ff9100', 'important');
+                                polygon.style.setProperty('stroke-width', '3px', 'important');
+                                
+                                const style = polygon.getAttribute('style') || '';
+                                let newStyle = style.replace(/fill\\s*:\\s*[^;]*;?/gi, '');
+                                newStyle = newStyle.replace(/stroke\\s*:\\s*[^;]*;?/gi, '');
+                                newStyle += '; fill: #292929 !important; stroke: #ff9100 !important; stroke-width: 3px !important;';
+                                polygon.setAttribute('style', newStyle);
+                                polygon.setAttribute('data-dark-processed', 'true');
                             }
                         });
                         
-                        // 强制修改所有text元素为浅色
+                        // 第五轮：强制修改所有text元素为浅色 - 确保可读性
                         const allTextElements = document.querySelectorAll('text');
-                        console.log('找到所有text:', allTextElements.length);
+                        console.log('📝 找到所有text:', allTextElements.length, '- 强制设置浅色文字');
                         allTextElements.forEach((textEl, i) => {
-                            if (textEl.closest('svg')) {
-                                console.log('强制修复text #' + i, '内容:', textEl.textContent?.substring(0, 10));
+                            if (textEl.closest('svg') || textEl.closest('.mermaid') || textEl.ownerSVGElement) {
+                                const originalFill = textEl.getAttribute('fill');
+                                const content = textEl.textContent?.substring(0, 15) || 'empty';
+                                console.log('📝 强制修复text #' + i, '内容:', content, '原fill:', originalFill, '→ #c6c5b8');
+                                
                                 textEl.setAttribute('fill', '#c6c5b8');
                                 textEl.style.fill = '#c6c5b8';
                                 textEl.style.color = '#c6c5b8';
                                 textEl.style.setProperty('fill', '#c6c5b8', 'important');
                                 textEl.style.setProperty('color', '#c6c5b8', 'important');
-                                // 标记已修复
-                                textEl.setAttribute('data-theme-fixed', isDark ? 'dark' : 'light');
+                                textEl.style.setProperty('font-size', '16px', 'important');
+                                textEl.style.setProperty('font-weight', '600', 'important');
+                                
+                                const style = textEl.getAttribute('style') || '';
+                                let newStyle = style.replace(/fill\\s*:\\s*[^;]*;?/gi, '');
+                                newStyle = newStyle.replace(/color\\s*:\\s*[^;]*;?/gi, '');
+                                newStyle += '; fill: #c6c5b8 !important; color: #c6c5b8 !important; font-size: 16px !important;';
+                                textEl.setAttribute('style', newStyle);
+                                textEl.setAttribute('data-dark-processed', 'true');
                             }
                         });
                         
@@ -1361,8 +1476,42 @@ struct MarkdownVditorWebView: NSViewRepresentable {
                 setTimeout(bruteForceMermaidFix, 2000);
                 setTimeout(bruteForceMermaidFix, 3000);
                 
-                // 每3秒强制修复一次
-                setInterval(bruteForceMermaidFix, 3000);
+                // 核武器级别的Mermaid修复：更频繁的检查和修复
+                let nuclearFixCount = 0;
+                const nuclearMermaidFix = () => {
+                    nuclearFixCount++;
+                    console.log('☢️ 核武器级修复 #' + nuclearFixCount);
+                    
+                    // 检查当前主题
+                    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    
+                    if (isDark) {
+                        // 深色模式下，检查是否还有浅色的节点
+                        const lightNodes = document.querySelectorAll(
+                            'svg rect[fill="#ffffff"], svg rect[fill="white"], svg rect[fill="rgb(255, 255, 255)"], ' +
+                            'svg circle[fill="#ffffff"], svg circle[fill="white"], svg circle[fill="rgb(255, 255, 255)"], ' +
+                            'svg polygon[fill="#ffffff"], svg polygon[fill="white"], svg polygon[fill="rgb(255, 255, 255)"]'
+                        );
+                        
+                        if (lightNodes.length > 0) {
+                            console.log('☢️ 检测到', lightNodes.length, '个顽固的浅色节点，执行核武器打击');
+                            bruteForceMermaidFix();
+                        }
+                        
+                        // 检查文字颜色
+                        const darkTexts = document.querySelectorAll('svg text[fill="#000000"], svg text[fill="black"], svg text[fill="rgb(0, 0, 0)"]');
+                        if (darkTexts.length > 0) {
+                            console.log('☢️ 检测到', darkTexts.length, '个深色文字，执行核武器打击');
+                            bruteForceMermaidFix();
+                        }
+                    }
+                };
+                
+                // 每2秒进行一次核武器级检查
+                setInterval(nuclearMermaidFix, 2000);
+                
+                // 每5秒强制修复一次（原有的）
+                setInterval(bruteForceMermaidFix, 5000);
             </script>
         </body>
         </html>
