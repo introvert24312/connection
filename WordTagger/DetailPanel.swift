@@ -2313,7 +2313,7 @@ struct VditorWebView: NSViewRepresentable {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vditor@3.10.4/dist/index.css">
+            <link rel="stylesheet" href="Resources/vditor/index.css">
             <style>
                 /* 移除Tanda主题加载 */
             </style>
@@ -2800,12 +2800,57 @@ struct VditorWebView: NSViewRepresentable {
         <body>
             <div id="vditor"></div>
             
-            <script src="https://cdn.jsdelivr.net/npm/vditor@3.10.4/dist/index.min.js"></script>
+            <script src="Resources/mermaid/mermaid.min.js"></script>
+            <script src="Resources/vditor/index.min.js"></script>
             <script>
                 let vditor;
                 
                 // 检测主题
                 const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                
+                // FIRST: Initialize Mermaid with our custom theme BEFORE Vditor
+                if (window.mermaid) {
+                    const customMermaidConfig = {
+                        theme: isDark ? 'dark' : 'default',
+                        startOnLoad: false,
+                        securityLevel: 'loose',
+                        themeVariables: isDark ? {
+                            background: '#0d1117',
+                            primaryColor: '#1f2937',
+                            primaryTextColor: '#e5e7eb',
+                            primaryBorderColor: '#374151',
+                            secondaryColor: '#374151',
+                            lineColor: '#60a5fa',
+                            mainBkg: '#1f2937',
+                            nodeBkg: '#1f2937',
+                            nodeTextColor: '#e5e7eb',
+                            textColor: '#e5e7eb',
+                            labelTextColor: '#e5e7eb',
+                            fillType0: '#3b82f6',
+                            fillType1: '#10b981',
+                            fillType2: '#f59e0b',
+                            fillType3: '#ef4444',
+                            fontSize: '16px'
+                        } : {
+                            primaryColor: '#ffffff',
+                            primaryTextColor: '#24292f',
+                            primaryBorderColor: '#d0d7de',
+                            lineColor: '#0969da',
+                            tertiaryColor: '#f6f8fa',
+                            background: '#ffffff',
+                            fontSize: '16px'
+                        }
+                    };
+                    
+                    console.log('🎨 PRE-INIT: Initializing Mermaid with custom theme BEFORE Vditor');
+                    window.mermaid.initialize(customMermaidConfig);
+                    console.log('🎨 PRE-INIT: Mermaid initialization complete');
+                    
+                    window.webkit?.messageHandlers?.bridge?.postMessage({
+                        type: 'debug',
+                        message: `PRE-INIT: Mermaid initialized with ${isDark ? 'dark' : 'light'} theme`
+                    });
+                }
                 
                 // 初始化 Vditor (IR 模式 = 即时渲染，SV 模式 = 源码分栏)
                 let currentMode = 'ir'; // 默认即时渲染模式
@@ -2828,50 +2873,6 @@ struct VditorWebView: NSViewRepresentable {
                             enable: true,
                             style: isDark ? 'github-dark' : 'github'
                         },
-                        mermaid: isDark ? {
-                            theme: 'dark',
-                            startOnLoad: false,
-                            securityLevel: 'loose',
-                            themeVariables: {
-                                background: '#0d1117',
-                                primaryColor: '#1f2937',
-                                primaryTextColor: '#e5e7eb',
-                                primaryBorderColor: '#374151',
-                                secondaryColor: '#374151',
-                                tertiaryColor: '#4b5563',
-                                lineColor: '#60a5fa',
-                                edgeLabelBackground: '#1f2937',
-                                mainBkg: '#1f2937',
-                                nodeBkg: '#1f2937',
-                                clusterBkg: '#374151',
-                                nodeTextColor: '#e5e7eb',
-                                textColor: '#e5e7eb',
-                                labelTextColor: '#e5e7eb',
-                                fillType0: '#3b82f6',
-                                fillType1: '#10b981',
-                                fillType2: '#f59e0b',
-                                fillType3: '#ef4444',
-                                fillType4: '#8b5cf6',
-                                fontSize: '16px',
-                                fontFamily: "-apple-system, 'SF Pro Text', 'Segoe UI', Arial, sans-serif"
-                            }
-                        } : {
-                            theme: 'default',
-                            startOnLoad: false,
-                            securityLevel: 'loose',
-                            themeVariables: {
-                                primaryColor: '#ffffff',
-                                primaryTextColor: '#24292f',
-                                primaryBorderColor: '#d0d7de',
-                                lineColor: '#0969da',
-                                tertiaryColor: '#f6f8fa',
-                                background: '#ffffff',
-                                mainBkg: '#ffffff',
-                                secondaryColor: '#f6f8fa',
-                                fontSize: '16px',
-                                fontFamily: "-apple-system, 'SF Pro Text', 'Segoe UI', Arial, sans-serif"
-                            }
-                        }
                     },
                     toolbar: ['outline'], // 只保留大纲展示按钮
                     after() {
