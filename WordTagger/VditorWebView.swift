@@ -26,6 +26,10 @@ struct VditorWebView: NSViewRepresentable {
         config.userContentController = uc
         config.suppressesIncrementalRendering = false
         config.preferences.setValue(true, forKey: "developerExtrasEnabled") // 方便调试
+        
+        // 允许访问本地文件
+        config.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
+        config.setValue(true, forKey: "allowUniversalAccessFromFileURLs")
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
@@ -42,8 +46,15 @@ struct VditorWebView: NSViewRepresentable {
 
         // 生成 HTML 并加载
         let html = generateHTML()
-        let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0] // 支持本地图片相对路径
-        webView.loadHTMLString(html, baseURL: documentsURL)
+        let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let wordTaggerURL = documentsURL.appendingPathComponent("WordTagger") // 设置为 WordTagger 目录，支持相对路径 Images/xxx
+        
+        // 创建临时 HTML 文件以支持本地图片加载
+        let tempURL = wordTaggerURL.appendingPathComponent("temp.html")
+        try? html.write(to: tempURL, atomically: true, encoding: .utf8)
+        
+        // 使用 loadFileURL 而不是 loadHTMLString，这样可以正确加载本地资源
+        webView.loadFileURL(tempURL, allowingReadAccessTo: wordTaggerURL)
 
         // 绑定
         context.coordinator.webView = webView
@@ -106,6 +117,15 @@ struct VditorWebView: NSViewRepresentable {
                 // 如果需要处理 ⌘S，可以在这里转发给上层
                 // print("⌘S requested from Vditor")
                 break
+                
+            case "saveImage":
+                // 处理图片保存
+                if let fileName = body["fileName"] as? String,
+                   let base64Data = body["data"] as? String,
+                   let imageData = Data(base64Encoded: base64Data) {
+                    saveImageToFile(fileName: fileName, data: imageData)
+                }
+                break
 
             case "image":
                 // 如果你实现了上传回调，可在此接收
@@ -142,6 +162,34 @@ struct VditorWebView: NSViewRepresentable {
             let isDark = (NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua)
             lastDarkValue = isDark
             evaluateJS("window.__applyNativeTheme(\(isDark ? "true" : "false"));", delayMS: force ? 0 : 30)
+        }
+        
+        // 图片保存功能
+        private func saveImageToFile(fileName: String, data: Data) {
+            // 获取文档目录
+            guard let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+            
+            // 创建 Images 子目录
+            let imagesURL = documentsURL.appendingPathComponent("WordTagger/Images")
+            
+            // 确保目录存在
+            try? FileManager.default.createDirectory(at: imagesURL, withIntermediateDirectories: true, attributes: nil)
+            
+            // 保存文件
+            let fileURL = imagesURL.appendingPathComponent(fileName)
+            
+            do {
+                // 直接保存原始图片，不压缩
+                try data.write(to: fileURL)
+                print("图片已保存到: \(fileURL.path)")
+                
+                // 通知前端保存成功
+                let relativePath = "Images/\(fileName)"
+                evaluateJS("window.__onImageSaved && window.__onImageSaved('\(fileName)', '\(relativePath)');")
+            } catch {
+                print("保存图片失败: \(error)")
+                evaluateJS("window.__onImageSaveError && window.__onImageSaveError('\(fileName)', '\(error.localizedDescription)');")
+            }
         }
 
         // Helpers
@@ -203,6 +251,41 @@ struct VditorWebView: NSViewRepresentable {
 
             /* --- Dark content readability for Markdown preview/content --- */
             .vditor--dark .vditor-reset { color: #c9d1d9; }
+            
+            /* --- 图片性能优化 --- */
+            .vditor-reset img {
+              max-width: 100%;
+              height: auto;
+              image-rendering: -webkit-optimize-contrast;
+              will-change: transform;
+            }
+            
+            /* 大图片加载时显示占位符 */
+            .vditor-reset img[src^="data:"] {
+              background: #f0f0f0;
+              min-height: 100px;
+            }
+            
+            .vditor--dark .vditor-reset img[src^="data:"] {
+              background: #2b2b2b;
+            }
+            
+            /* 本地图片路径处理 */
+            .vditor-reset img[src^="Images/"],
+            .vditor-reset img[src^="./Images/"],
+            .vditor-reset img[src*="/Images/"] {
+              max-width: 100%;
+              height: auto;
+              cursor: pointer;
+              display: block;
+            }
+            
+            /* 图片加载失败时的样式 */
+            .vditor-reset img:not([src=""]) {
+              min-width: 100px;
+              min-height: 100px;
+              background: #f0f0f0 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="%23999">图片加载中...</text></svg>') center no-repeat;
+            }
             .vditor--dark .vditor-reset h1,
             .vditor--dark .vditor-reset h2,
             .vditor--dark .vditor-reset h3,
@@ -295,7 +378,59 @@ struct VditorWebView: NSViewRepresentable {
                 mermaid: { startOnLoad:false }     // 由我们手动控制
               },
               toolbar: ['emoji','headings','bold','italic','strike','link','|','list','ordered-list','check','outdent','indent','|','quote','line','code','inline-code','insert-before','insert-after','|','upload','table','|','undo','redo','|','fullscreen','edit-mode','both','preview','outline','code-theme' ],
-              upload: { accept:'image/*' },
+              upload: { 
+                accept:'image/*',
+                async handler(files) {
+                  // 自定义上传处理
+                  const file = files[0];
+                  if (!file) return;
+                  
+                  try {
+                    // 生成唯一文件名
+                    const timestamp = Date.now();
+                    const ext = file.name.split('.').pop() || 'jpg';
+                    const fileName = `img_${timestamp}.${ext}`;
+                    
+                    // 显示加载提示
+                    vditor.insertValue(`![加载中...]()`);
+                    
+                    // 读取文件
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                      const base64 = e.target.result.split(',')[1]; // 去掉 data:image/xxx;base64, 前缀
+                      
+                      // 发送到 Swift 保存
+                      window.webkit?.messageHandlers?.bridge?.postMessage({ 
+                        type: 'saveImage',
+                        fileName: fileName,
+                        data: base64
+                      });
+                      
+                      // 设置回调处理
+                      window.__onImageSaved = (name, path) => {
+                        // 替换加载提示为实际图片路径（使用相对路径）
+                        const content = vditor.getValue();
+                        const updated = content.replace('![加载中...]()', `![${file.name}](${path})`);
+                        vditor.setValue(updated);
+                      };
+                      
+                      window.__onImageSaveError = (name, error) => {
+                        alert(`保存图片失败: ${error}`);
+                        const content = vditor.getValue();
+                        const updated = content.replace('![加载中...]()', '');
+                        vditor.setValue(updated);
+                      };
+                    };
+                    
+                    reader.readAsDataURL(file);
+                  } catch (error) {
+                    console.error('处理图片失败:', error);
+                    alert('处理图片失败');
+                  }
+                  
+                  return null; // 阻止默认处理
+                }
+              },
               input(value){
                 clearTimeout(window.__inputDebounce);
                 window.__inputDebounce = setTimeout(()=>{
@@ -304,6 +439,20 @@ struct VditorWebView: NSViewRepresentable {
               }
             });
             window.vditor = vditor;
+            
+            // 监听图片加载事件进行调试
+            document.addEventListener('error', function(e) {
+              if (e.target.tagName === 'IMG') {
+                console.error('图片加载失败:', e.target.src);
+                // 尝试修复路径
+                const src = e.target.src;
+                if (src.includes('Images/') && !src.startsWith('file://')) {
+                  // 如果不是 file:// 开头，尝试转换
+                  const filename = src.split('Images/').pop();
+                  e.target.src = 'Images/' + filename;
+                }
+              }
+            }, true);
 
             // 动态调整 Mermaid 基准字号（整体缩放）
             window.__setMermaidFont = function(px){

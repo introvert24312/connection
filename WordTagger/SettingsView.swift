@@ -801,6 +801,38 @@ struct DataManagementView: View {
                 // 外部数据存储设置
                 ExternalDataStoragePanel()
                 
+                // 图片管理
+                GroupBox("图片管理") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Image(systemName: "photo.stack")
+                                .foregroundColor(.blue)
+                            Text("Markdown 图片存储")
+                                .fontWeight(.medium)
+                            Spacer()
+                        }
+                        
+                        Text("所有通过编辑器上传的图片都保存在此文件夹中")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        HStack {
+                            Button("打开图片文件夹") {
+                                openImagesFolder()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
+                            
+                            Button("在 Finder 中显示") {
+                                showInFinder()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                    }
+                    .padding(12)
+                }
+                
                 // 数据统计
                 GroupBox("数据统计") {
                     Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
@@ -956,6 +988,28 @@ struct DataManagementView: View {
             isSuccess = true
             showingResultAlert = true
         }
+    }
+    
+    private func openImagesFolder() {
+        guard let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+        let imagesURL = documentsURL.appendingPathComponent("WordTagger/Images")
+        
+        // 确保目录存在
+        try? FileManager.default.createDirectory(at: imagesURL, withIntermediateDirectories: true, attributes: nil)
+        
+        // 打开文件夹
+        NSWorkspace.shared.open(imagesURL)
+    }
+    
+    private func showInFinder() {
+        guard let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+        let imagesURL = documentsURL.appendingPathComponent("WordTagger/Images")
+        
+        // 确保目录存在
+        try? FileManager.default.createDirectory(at: imagesURL, withIntermediateDirectories: true, attributes: nil)
+        
+        // 在 Finder 中显示
+        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: imagesURL.path)
     }
 }
 

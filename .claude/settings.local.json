@@ -44,7 +44,8 @@
       "Bash(git apply:*)",
       "Bash(python3:*)",
       "Bash(log show:*)",
-      "Bash(./build/Release/WordTagger.app/Contents/MacOS/WordTagger)"
+      "Bash(./build/Release/WordTagger.app/Contents/MacOS/WordTagger)",
+      "Bash(mv:*)"
     ],
     "deny": []
   }
