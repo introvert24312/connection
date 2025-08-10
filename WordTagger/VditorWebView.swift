@@ -398,9 +398,7 @@ struct VditorWebView: NSViewRepresentable {
                 // 彻底禁用所有可能的 Command+E 相关快捷键
                 'Ctrl+Alt+E': '',
                 'Shift+Ctrl+E': '',
-                'Ctrl+E': '',
-                // 自定义 Command+/ 来切换编辑模式
-                '⌘+/': 'toggleMode'
+                'Ctrl+E': ''
               },
               after(){
                 // 通知 Native：ready
@@ -427,14 +425,20 @@ struct VditorWebView: NSViewRepresentable {
                   
                   // Command+/: 切换编辑模式
                   if (e.metaKey && e.key === '/') {
-                    console.log('拦截 Command+/ 快捷键，切换编辑模式');
+                    console.log('🎯 拦截 Command+/ 快捷键，准备切换编辑模式');
+                    console.log('按键信息:', { key: e.key, metaKey: e.metaKey, ctrlKey: e.ctrlKey, altKey: e.altKey });
                     e.preventDefault();
                     e.stopImmediatePropagation();
                     
                     try {
-                      window.__toggleVditorMode && window.__toggleVditorMode();
+                      if (window.__toggleVditorMode) {
+                        console.log('🔄 调用 __toggleVditorMode 函数');
+                        window.__toggleVditorMode();
+                      } else {
+                        console.error('❌ __toggleVditorMode 函数不存在');
+                      }
                     } catch(err) {
-                      console.error('无法切换编辑模式:', err);
+                      console.error('❌ 无法切换编辑模式:', err);
                     }
                     return false;
                   }
@@ -661,13 +665,41 @@ struct VditorWebView: NSViewRepresentable {
               }catch(_){}
             };
 
-            // 切换编辑模式（IR <-> WYSIWYG）
+            // 切换编辑模式（IR <-> WYSIWYG <-> SV）
             window.__toggleVditorMode = function(){
               try{
-                const mode = vditor.getCurrentMode ? vditor.getCurrentMode() : 'ir';
-                const next = mode === 'ir' ? 'wysiwyg' : 'ir';
-                if (vditor.setEditMode) vditor.setEditMode(next);
-              }catch(_){}
+                console.log('🔄 开始切换编辑模式...');
+                console.log('vditor 对象:', vditor);
+                console.log('vditor 可用方法:', Object.getOwnPropertyNames(vditor));
+                
+                // 尝试不同的API方法
+                if (vditor.setEditMode) {
+                  console.log('使用 setEditMode 方法');
+                  const currentMode = vditor.getCurrentMode ? vditor.getCurrentMode() : 'ir';
+                  console.log('当前模式:', currentMode);
+                  const nextMode = currentMode === 'ir' ? 'wysiwyg' : 'ir';
+                  vditor.setEditMode(nextMode);
+                } else if (vditor.switchEditMode) {
+                  console.log('使用 switchEditMode 方法');
+                  vditor.switchEditMode();
+                } else if (vditor.changeMode) {
+                  console.log('使用 changeMode 方法');
+                  vditor.changeMode();
+                } else {
+                  console.log('尝试直接点击工具栏按钮');
+                  // 尝试点击编辑模式切换按钮
+                  const editModeBtn = document.querySelector('.vditor-toolbar .vditor-tooltipped[data-type="edit-mode"]');
+                  if (editModeBtn) {
+                    console.log('找到编辑模式按钮，模拟点击');
+                    editModeBtn.click();
+                  } else {
+                    console.error('❌ 找不到编辑模式切换按钮');
+                  }
+                }
+                console.log('✅ 模式切换尝试完成');
+              }catch(e){
+                console.error('❌ 切换模式失败:', e);
+              }
             };
           })();
           </script>
