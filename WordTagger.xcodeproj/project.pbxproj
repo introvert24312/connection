@@ -33,6 +33,7 @@
 		A023 /* MarkdownEditorWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B124 /* MarkdownEditorWindow.swift */; };
 		R001 /* Resources in Resources */ = {isa = PBXBuildFile; fileRef = R100 /* Resources */; };
 		R002 /* ResourceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = R101 /* ResourceManager.swift */; };
+		V001 /* VditorWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = V100 /* VditorWebView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -64,6 +65,7 @@
 		C100 /* WordTagger.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WordTagger.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		R100 /* Resources */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Resources; sourceTree = "<group>"; };
 		R101 /* ResourceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceManager.swift; sourceTree = "<group>"; };
+		V100 /* VditorWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VditorWebView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -123,6 +125,7 @@
 				B120 /* WordTagger.entitlements */,
 				R100 /* Resources */,
 				R101 /* ResourceManager.swift */,
+				V100 /* VditorWebView.swift */,
 			);
 			path = WordTagger;
 			sourceTree = "<group>";
@@ -221,6 +224,7 @@
 				A022 /* DocumentState.swift in Sources */,
 				A023 /* MarkdownEditorWindow.swift in Sources */,
 				R002 /* ResourceManager.swift in Sources */,
+				V001 /* VditorWebView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
