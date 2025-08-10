@@ -9,6 +9,7 @@ struct DetailPanel: View {
     @EnvironmentObject private var store: NodeStore
     @State private var tab: Tab = .related
     @State private var showingEditSheet = false
+    @FocusState private var isPanelFocused: Bool
     
     // 从store中获取最新的节点数据
     private var currentNode: Node {
@@ -83,26 +84,47 @@ struct DetailPanel: View {
         }
         .onKeyPress(.init("o"), phases: .down) { keyPress in
             if keyPress.modifiers == .command {
-                print("🎯 DetailPanel: Command+O 全局快捷键，切换到详情标签")
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    tab = .detail
-                }
+                print("🎯 DetailPanel: Command+O 检测到，切换到详情标签")
+                handleSwitchToDetail()
                 return .handled
             }
             return .ignored
         }
         .onKeyPress(.init("l"), phases: .down) { keyPress in
             if keyPress.modifiers == .command {
-                print("🎯 DetailPanel: Command+L 全局快捷键，切换到图谱标签")
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    tab = .related
-                }
+                print("🎯 DetailPanel: Command+L 检测到，切换到图谱标签")
+                handleSwitchToGraph()
                 return .handled
             }
             return .ignored
         }
         .onAppear {
             setupNotificationObservers()
+            // 尝试获取焦点
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                isPanelFocused = true
+            }
+        }
+    }
+    
+    // MARK: - 快捷键处理方法
+    private func handleSwitchToDetail() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            tab = .detail
+        }
+        // 请求焦点 - 延迟执行避免在视图更新期间修改状态
+        DispatchQueue.main.async {
+            self.isPanelFocused = true
+        }
+    }
+    
+    private func handleSwitchToGraph() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            tab = .related
+        }
+        // 请求焦点 - 延迟执行避免在视图更新期间修改状态
+        DispatchQueue.main.async {
+            self.isPanelFocused = true
         }
     }
     
@@ -116,7 +138,7 @@ struct DetailPanel: View {
         ) { notification in
             print("🔔 DetailPanel: 收到switchToDetailTab通知，切换到详情标签")
             DispatchQueue.main.async {
-                self.tab = .detail
+                self.handleSwitchToDetail()
             }
         }
         
@@ -128,7 +150,7 @@ struct DetailPanel: View {
         ) { notification in
             print("🔔 DetailPanel: 收到switchToGraphTab通知，切换到图谱标签")
             DispatchQueue.main.async {
-                self.tab = .related
+                self.handleSwitchToGraph()
             }
         }
     }

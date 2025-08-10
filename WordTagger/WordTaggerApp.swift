@@ -1455,50 +1455,18 @@ struct WordTaggerApp: App {
                 Divider()
                 
                 Button("详情面板：详情") {
-                    print("🎯 WordTaggerApp: Command+O 立即处理当前选中节点")
-                    print("🔍 DEBUG: store.selectedNode = \(store.selectedNode?.text ?? "nil")")
-                    print("🔍 DEBUG: store.nodes.count = \(store.nodes.count)")
-                    // 直接获取当前选中的节点并发送通知给DetailPanel
-                    if let currentNode = store.selectedNode {
-                        print("✅ 向DetailPanel发送显示详情通知，节点: \(currentNode.text)")
-                        NotificationCenter.default.post(
-                            name: NSNotification.Name("showDetailTabInDetailPanel"), 
-                            object: currentNode
-                        )
-                    } else if let firstNode = store.nodes.first {
-                        print("🔄 自动选择第一个节点并显示详情: \(firstNode.text)")
-                        store.selectNode(firstNode)
-                        NotificationCenter.default.post(
-                            name: NSNotification.Name("showDetailTabInDetailPanel"), 
-                            object: firstNode
-                        )
-                    } else {
-                        print("⚠️ 没有可用的节点")
-                    }
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("switchToDetailTab"), 
+                        object: nil
+                    )
                 }
                 .keyboardShortcut("o", modifiers: [.command])
                 
                 Button("详情面板：图谱") {
-                    print("🎯 WordTaggerApp: Command+L 立即处理当前选中节点")
-                    print("🔍 DEBUG: store.selectedNode = \(store.selectedNode?.text ?? "nil")")
-                    print("🔍 DEBUG: store.nodes.count = \(store.nodes.count)")
-                    // 直接获取当前选中的节点并发送通知给DetailPanel
-                    if let currentNode = store.selectedNode {
-                        print("✅ 向DetailPanel发送显示图谱通知，节点: \(currentNode.text)")
-                        NotificationCenter.default.post(
-                            name: NSNotification.Name("showGraphTabInDetailPanel"), 
-                            object: currentNode
-                        )
-                    } else if let firstNode = store.nodes.first {
-                        print("🔄 自动选择第一个节点并显示图谱: \(firstNode.text)")
-                        store.selectNode(firstNode)
-                        NotificationCenter.default.post(
-                            name: NSNotification.Name("showGraphTabInDetailPanel"), 
-                            object: firstNode
-                        )
-                    } else {
-                        print("⚠️ 没有可用的节点")
-                    }
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("switchToGraphTab"), 
+                        object: nil
+                    )
                 }
                 .keyboardShortcut("l", modifiers: [.command])
                 

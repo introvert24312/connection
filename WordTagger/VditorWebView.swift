@@ -33,6 +33,7 @@ struct VditorWebView: NSViewRepresentable {
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
+        webView.uiDelegate = context.coordinator // 添加UI委托
 
         // macOS: 彻底透明
         webView.setValue(false, forKey: "drawsBackground")
@@ -77,7 +78,7 @@ struct VditorWebView: NSViewRepresentable {
     }
 
     // MARK: - Coordinator
-    class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
+    class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate, WKUIDelegate {
         var webView: WKWebView?
         var onChange: (String) -> Void
 
@@ -232,6 +233,25 @@ struct VditorWebView: NSViewRepresentable {
             }
         }
 
+        // MARK: - WKUIDelegate
+        func webViewDidClose(_ webView: WKWebView) {
+            print("🌐 VditorWebView: WebView关闭")
+            // 通知焦点管理器WebView已关闭
+            NotificationCenter.default.post(name: NSNotification.Name("webViewDidClose"), object: nil)
+        }
+        
+        func webView(_ webView: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String, defaultText: String?, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (String?) -> Void) {
+            // 处理JS的prompt调用
+            completionHandler(defaultText)
+        }
+        
+        // MARK: - WKNavigationDelegate
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            print("🌐 VditorWebView: 页面加载完成")
+            // WebView加载完成时，发送通知
+            NotificationCenter.default.post(name: NSNotification.Name("webViewDidLoad"), object: nil)
+        }
+        
         // Helpers
         private func evaluateJS(_ js: String, delayMS: Int = 0) {
             guard let webView = webView else { return }
