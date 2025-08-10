@@ -139,6 +139,27 @@ struct VditorWebView: NSViewRepresentable {
                     showImageInFinder(filename: filename)
                 }
                 break
+                
+            case "commandE":
+                // 转发 Command+E 给原生 App
+                DispatchQueue.main.async {
+                    // 模拟原生按键事件
+                    let event = NSEvent.keyEvent(with: .keyDown,
+                                               location: NSPoint.zero,
+                                               modifierFlags: .command,
+                                               timestamp: 0,
+                                               windowNumber: 0,
+                                               context: nil,
+                                               characters: "e",
+                                               charactersIgnoringModifiers: "e",
+                                               isARepeat: false,
+                                               keyCode: 14) // E 键的 keyCode
+                    
+                    if let event = event {
+                        NSApp.sendEvent(event)
+                    }
+                }
+                break
 
             default:
                 break
@@ -295,16 +316,8 @@ struct VditorWebView: NSViewRepresentable {
             .vditor-reset img[src*="/Images/"] {
               max-width: 100%;
               height: auto;
-              cursor: zoom-in;
+              cursor: default;
               display: block;
-              transition: transform 0.2s ease;
-            }
-            
-            .vditor-reset img[src^="Images/"]:hover,
-            .vditor-reset img[src^="./Images/"]:hover,
-            .vditor-reset img[src*="/Images/"]:hover {
-              transform: scale(1.02);
-              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             }
             
             /* 图片加载失败时的样式 */
@@ -406,12 +419,21 @@ struct VditorWebView: NSViewRepresentable {
                 try { window.webkit?.messageHandlers?.bridge?.postMessage({ type: 'ready' }); } catch(_) {}
                 setTimeout(containerFix, 30);
                 
-                // 强制拦截并阻止所有 Command+E 相关按键
+                // 拦截 Command+E 并转发给原生 App
                 document.addEventListener('keydown', function(e) {
                   if (e.metaKey && (e.key === 'e' || e.key === 'E')) {
-                    console.log('拦截 Command+E 快捷键，交给 App 处理');
+                    console.log('拦截 Command+E 快捷键，转发给 App 处理');
                     e.preventDefault();
                     e.stopImmediatePropagation();
+                    
+                    // 发送消息给原生 App 处理
+                    try {
+                      window.webkit?.messageHandlers?.bridge?.postMessage({ 
+                        type: 'commandE'
+                      });
+                    } catch(err) {
+                      console.error('无法发送 Command+E 事件:', err);
+                    }
                     return false;
                   }
                 }, true);
