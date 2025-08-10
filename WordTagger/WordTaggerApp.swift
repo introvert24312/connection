@@ -1458,7 +1458,7 @@ struct WordTaggerApp: App {
                     print("🎯 WordTaggerApp: 发送showDetailPanel通知")
                     NotificationCenter.default.post(name: Notification.Name("showDetailPanel"), object: nil)
                 }
-                .keyboardShortcut(";", modifiers: [.command])
+                .keyboardShortcut("o", modifiers: [.command])
                 
                 Button("打开视图图谱") {
                     NotificationCenter.default.post(name: Notification.Name("showGraphInDetailPanel"), object: nil)
