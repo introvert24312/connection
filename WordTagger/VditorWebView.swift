@@ -393,10 +393,23 @@ struct VditorWebView: NSViewRepresentable {
               width: '100%',
               height: '100vh',
               cache: { enable: false },
+              hotkey: {
+                // 禁用 Command+E 快捷键，让 App 使用
+                'edit-mode': ''
+              },
               after(){
                 // 通知 Native：ready
                 try { window.webkit?.messageHandlers?.bridge?.postMessage({ type: 'ready' }); } catch(_) {}
                 setTimeout(containerFix, 30);
+                
+                // 拦截并阻止 Command+E
+                document.addEventListener('keydown', function(e) {
+                  if (e.metaKey && e.key === 'e') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                  }
+                }, true);
               },
               preview: {
                 theme: { current: 'light' },      // 占位
@@ -558,9 +571,9 @@ struct VditorWebView: NSViewRepresentable {
               }
             }, true);
             
-            // 点击图片时在 Finder 中显示
+            // 点击图片时在 Finder 中显示（需要按住 Command 键）
             document.addEventListener('click', function(e) {
-              if (e.target.tagName === 'IMG' && e.target.src.includes('Images/')) {
+              if (e.target.tagName === 'IMG' && e.target.src.includes('Images/') && e.metaKey) {
                 e.preventDefault();
                 // 提取文件名
                 const src = e.target.src;
