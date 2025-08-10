@@ -398,27 +398,43 @@ struct VditorWebView: NSViewRepresentable {
                 // 彻底禁用所有可能的 Command+E 相关快捷键
                 'Ctrl+Alt+E': '',
                 'Shift+Ctrl+E': '',
-                'Ctrl+E': ''
+                'Ctrl+E': '',
+                // 自定义 Command+/ 来切换编辑模式
+                '⌘+/': 'toggleMode'
               },
               after(){
                 // 通知 Native：ready
                 try { window.webkit?.messageHandlers?.bridge?.postMessage({ type: 'ready' }); } catch(_) {}
                 setTimeout(containerFix, 30);
                 
-                // 拦截 Command+E 并转发给原生 App
+                // 拦截特殊快捷键
                 document.addEventListener('keydown', function(e) {
+                  // Command+E: 转发给原生 App
                   if (e.metaKey && (e.key === 'e' || e.key === 'E')) {
                     console.log('拦截 Command+E 快捷键，转发给 App 处理');
                     e.preventDefault();
                     e.stopImmediatePropagation();
                     
-                    // 发送消息给原生 App 处理
                     try {
                       window.webkit?.messageHandlers?.bridge?.postMessage({ 
                         type: 'commandE'
                       });
                     } catch(err) {
                       console.error('无法发送 Command+E 事件:', err);
+                    }
+                    return false;
+                  }
+                  
+                  // Command+/: 切换编辑模式
+                  if (e.metaKey && e.key === '/') {
+                    console.log('拦截 Command+/ 快捷键，切换编辑模式');
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    
+                    try {
+                      window.__toggleVditorMode && window.__toggleVditorMode();
+                    } catch(err) {
+                      console.error('无法切换编辑模式:', err);
                     }
                     return false;
                   }
