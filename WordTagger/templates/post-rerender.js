@@ -7,7 +7,22 @@
             startOnLoad: false, 
             theme: 'dark',
             securityLevel: 'loose',
-            fontFamily: 'system-ui, -apple-system, sans-serif'
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            fontSize: 20,
+            themeVariables: {
+                primaryTextColor: '#eee',
+                primaryBorderColor: '#666',
+                primaryColor: '#111',
+                background: 'transparent',
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                fontSize: '20px',
+                // 流程图特定配置
+                flowchart: {
+                    fontSize: '20px',
+                    nodeSpacing: 50,
+                    rankSpacing: 50
+                }
+            }
         });
     }
 
@@ -156,7 +171,22 @@
                     startOnLoad: false, 
                     theme: isDark ? 'dark' : 'default',
                     securityLevel: 'loose',
-                    fontFamily: 'system-ui, -apple-system, sans-serif'
+                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                    fontSize: 20,
+                    themeVariables: {
+                        primaryTextColor: isDark ? '#eee' : '#333',
+                        primaryBorderColor: isDark ? '#666' : '#333',
+                        primaryColor: isDark ? '#111' : '#fff',
+                        background: 'transparent',
+                        fontFamily: 'system-ui, -apple-system, sans-serif',
+                        fontSize: '20px',
+                        // 流程图特定配置
+                        flowchart: {
+                            fontSize: '20px',
+                            nodeSpacing: 50,
+                            rankSpacing: 50
+                        }
+                    }
                 });
             }
             

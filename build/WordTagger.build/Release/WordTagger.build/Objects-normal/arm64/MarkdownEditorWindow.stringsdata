@@ -1,0 +1,40 @@
+{
+  "source": "/Users/Patronum/Desktop/WordTagger/WordTagger/MarkdownEditorWindow.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "新建",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 13
+        }
+      },
+      {
+        "comment": "",
+        "key": "打开...",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 18
+        }
+      },
+      {
+        "comment": "",
+        "key": "保存",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 25
+        }
+      },
+      {
+        "comment": "",
+        "key": "另存为...",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 31
+        }
+      }
+    ]
+  },
+  "version": 1
+}

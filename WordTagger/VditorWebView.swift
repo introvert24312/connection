@@ -191,7 +191,15 @@ struct VditorWebView: NSViewRepresentable {
             #vditor { height: 100vh; }
 
             /* --- Mermaid base scaling via container font-size --- */
-            .mermaid { font-size: var(--mmd-font) !important; }
+            .mermaid { 
+              font-size: 20px !important;
+              zoom: 1.3;  /* 整体放大 1.3 倍 */
+              transform-origin: top left;
+            }
+            .mermaid svg text { 
+              font-size: 20px !important;
+              font-family: -apple-system, 'SF Pro Text', sans-serif !important;
+            }
 
             /* --- Dark content readability for Markdown preview/content --- */
             .vditor--dark .vditor-reset { color: #c9d1d9; }
@@ -229,7 +237,7 @@ struct VditorWebView: NSViewRepresentable {
                 themeVariables: {
                   primaryColor:'#161b22', primaryTextColor:'#c9d1d9', primaryBorderColor:'#30363d',
                   lineColor:'#58a6ff', background:'#0d1117', mainBkg:'#161b22', secondaryColor:'#21262d',
-                  fontSize:'1em', lineHeight:'1.4'
+                  fontSize:'20px', lineHeight:'1.4'
                 }
               } : {
                 ...shared,
@@ -237,7 +245,7 @@ struct VditorWebView: NSViewRepresentable {
                 themeVariables: {
                   primaryColor:'#ffffff', primaryTextColor:'#24292f', primaryBorderColor:'#d0d7de',
                   lineColor:'#0969da', tertiaryColor:'#f6f8fa', background:'#ffffff',
-                  fontSize:'1em', lineHeight:'1.4'
+                  fontSize:'20px', lineHeight:'1.4'
                 }
               };
             }
@@ -247,7 +255,7 @@ struct VditorWebView: NSViewRepresentable {
               window.mermaid.initialize(currentMermaidConfig(dark));
             }
 
-            // 容器修正，避免 SVG 锁高/溢出
+            // 容器修正，避免 SVG 锁高/溢出 + viewBox 缩放
             function containerFix(){
               document.querySelectorAll('.mermaid>svg').forEach(svg=>{
                 svg.style.display='block';
@@ -256,6 +264,14 @@ struct VditorWebView: NSViewRepresentable {
                 svg.style.removeProperty('transform');
                 svg.style.removeProperty('min-width');
                 svg.style.removeProperty('min-height');
+                
+                // viewBox 缩放：放大内容
+                const viewBox = svg.getAttribute('viewBox');
+                if (viewBox) {
+                  const [x, y, width, height] = viewBox.split(' ').map(Number);
+                  const scaleFactor = 0.7; // 缩小 viewBox 使内容看起来更大
+                  svg.setAttribute('viewBox', `${x} ${y} ${width * scaleFactor} ${height * scaleFactor}`);
+                }
               });
             }
 

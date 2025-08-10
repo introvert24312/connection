@@ -16,12 +16,16 @@
     stroke-width: 1.5px !important;
 }
 
-/* 文字标签 - 高对比度 */
+/* 文字标签 - 高对比度和字体大小 */
 .mermaid .label, 
 .mermaid text, 
 .mermaid tspan { 
     fill: #eee !important; 
     font-weight: 500 !important;
+    font-size: 20px !important;
+    font-family: system-ui, -apple-system, sans-serif !important;
+    text-anchor: middle !important;
+    dominant-baseline: middle !important;
 }
 
 /* 边和箭头 */
@@ -156,4 +160,65 @@
 .mermaid .c4Component text,
 .mermaid .c4System text {
     fill: #eee !important;
+}
+
+/* 统一字体大小设置 - 确保所有文本元素都有合适的字体大小 */
+.mermaid svg text {
+    font-size: 20px !important;
+    font-family: system-ui, -apple-system, sans-serif !important;
+    text-anchor: middle !important;
+    dominant-baseline: middle !important;
+}
+
+/* 特定元素的字体大小调整 */
+.mermaid .nodeLabel,
+.mermaid .edgeLabel text,
+.mermaid .cluster text {
+    font-size: 20px !important;
+    text-anchor: middle !important;
+    dominant-baseline: middle !important;
+}
+
+/* 标题和主要标签 */
+.mermaid .titleText,
+.mermaid .sectionTitle {
+    font-size: 24px !important;
+    font-weight: 600 !important;
+    text-anchor: middle !important;
+    dominant-baseline: middle !important;
+}
+
+/* 小标签保持稍小但仍然可读 */
+.mermaid .tick text,
+.mermaid .legend text {
+    font-size: 16px !important;
+}
+
+/* 流程图节点内的文字居中 */
+.mermaid .node foreignObject {
+    overflow: visible !important;
+}
+
+.mermaid .node div {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* 确保所有图表类型的文字垂直居中 */
+.mermaid .flowchartTitleText,
+.mermaid .nodeLabel,
+.mermaid .cluster-label {
+    dominant-baseline: middle !important;
+    text-anchor: middle !important;
+}
+
+/* 修复连接线上的标签 */
+.mermaid .edgeLabel {
+    background-color: #1a1a1a !important;
+    padding: 2px 4px !important;
+    font-size: 18px !important;
 }
