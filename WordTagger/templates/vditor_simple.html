@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vditor Editor</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vditor@3.10.4/dist/index.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        #vditor {
+            height: 100vh;
+            background: transparent;
+        }
+        .vditor {
+            background: transparent !important;
+            border: none !important;
+        }
+        .vditor-ir {
+            min-height: 200px !important;
+            padding: 16px !important;
+            font-size: 16px !important;
+            line-height: 1.6 !important;
+        }
+        .vditor-toolbar {
+            background: rgba(246, 248, 250, 0.8) !important;
+            border: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="vditor"></div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vditor@3.10.4/dist/index.min.js"></script>
+    <script>
+        console.log('🚀 开始加载 Vditor 编辑器');
+        
+        let vditor;
+        
+        // 检测主题
+        const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        console.log('🎨 当前主题:', isDark ? 'dark' : 'light');
+        
+        function initVditor() {
+            if (typeof Vditor === 'undefined') {
+                console.warn('⚠️ Vditor 还未加载，1秒后重试...');
+                setTimeout(initVditor, 1000);
+                return;
+            }
+            
+            console.log('✅ 开始初始化 Vditor');
+            
+            try {
+                vditor = new Vditor('vditor', {
+                    height: '100vh',
+                    theme: isDark ? 'dark' : 'classic',
+                    mode: 'ir',
+                    placeholder: '开始输入 Markdown...',
+                    toolbar: [
+                        'emoji', 'headings', 'bold', 'italic', 'strike',
+                        'link', 'list', 'ordered-list', 'check', 'line',
+                        'quote', 'code', 'inline-code', 'table'
+                    ],
+                    preview: {
+                        markdown: { mermaid: true }
+                    },
+                    cache: { enable: false },
+                    counter: { enable: false },
+                    outline: { enable: false },
+                    input: (value) => {
+                        console.log('📝 内容变化:', value.length, '字符');
+                        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bridge) {
+                            window.webkit.messageHandlers.bridge.postMessage({
+                                type: 'change',
+                                value: value
+                            });
+                        }
+                    },
+                    after: () => {
+                        console.log('🎉 Vditor 初始化完成！');
+                        
+                        setTimeout(() => {
+                            const irElement = document.querySelector('.vditor-ir');
+                            if (irElement) {
+                                irElement.setAttribute('contenteditable', 'true');
+                                irElement.style.outline = 'none';
+                                console.log('✅ 编辑器已启用');
+                                
+                                // 设置一些示例内容使编辑器可见
+                                if (!irElement.textContent.trim()) {
+                                    irElement.innerHTML = '<p><br></p>';
+                                }
+                            }
+                            
+                            // 通知 Swift 准备就绪
+                            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bridge) {
+                                window.webkit.messageHandlers.bridge.postMessage({
+                                    type: 'ready'
+                                });
+                                console.log('✅ 已通知 Swift 准备就绪');
+                            }
+                        }, 500);
+                    }
+                });
+                
+                // 全局暴露
+                window.vditor = vditor;
+                window.v = vditor;
+                
+                console.log('✅ Vditor 实例创建成功');
+                
+            } catch (error) {
+                console.error('❌ Vditor 初始化失败:', error);
+            }
+        }
+        
+        // 当页面加载完成后初始化
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initVditor);
+        } else {
+            initVditor();
+        }
+        
+        // 主题切换函数
+        window.applyDarkMode = function(isDark) {
+            console.log('🎨 切换主题到:', isDark ? 'dark' : 'light');
+            if (window.vditor) {
+                window.vditor.setTheme(
+                    isDark ? 'dark' : 'classic',
+                    isDark ? 'dark' : 'light',
+                    isDark ? 'dracula' : 'github'
+                );
+            }
+        };
+        
+    </script>
+</body>
+</html>

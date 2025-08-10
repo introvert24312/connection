@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vditor@3.10.4/dist/index.css">
+    <link rel="stylesheet" href="dark-patch.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            pointer-events: auto;
+            user-select: text;
+        }
+        #vditor {
+            height: 100vh;
+            background: transparent;
+            pointer-events: auto;
+        }
+        .vditor {
+            background: transparent !important;
+            pointer-events: auto !important;
+        }
+        .vditor-ir {
+            pointer-events: auto !important;
+            user-select: text !important;
+            cursor: text !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="vditor"></div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vditor@3.10.4/dist/index.min.js"></script>
+    <script>
+        let vditor;
+        
+        // 检测主题
+        const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        
+        console.log('🚨 开始初始化 Vditor...');
+        console.log('🚨 Vditor 构造函数是否可用:', typeof Vditor);
+        
+        // 确保 DOM 完全加载后再初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚨 DOM 已加载，开始初始化 Vditor');
+            initializeVditor();
+        });
+        
+        // 如果 DOM 已经加载，立即初始化
+        if (document.readyState === 'loading') {
+            console.log('🚨 DOM 还在加载中，等待 DOMContentLoaded');
+        } else {
+            console.log('🚨 DOM 已就绪，立即初始化');
+            initializeVditor();
+        }
+        
+        function initializeVditor() {
+            if (typeof Vditor === 'undefined') {
+                console.error('❌ Vditor 构造函数未定义，可能资源加载失败');
+                setTimeout(initializeVditor, 1000);
+                return;
+            }
+            
+            console.log('✅ 开始创建 Vditor 实例');
+            
+            // 初始化Vditor
+            vditor = new Vditor('vditor', {
+            height: '100vh',
+            theme: isDark ? 'dark' : 'classic',
+            mode: 'ir',
+            toolbar: [
+                'emoji',
+                'headings',
+                'bold',
+                'italic',
+                'strike',
+                'link',
+                'list',
+                'ordered-list',
+                'check',
+                'line',
+                'quote',
+                'code',
+                'inline-code',
+                'table'
+            ],
+            preview: {
+                markdown: {
+                    mermaid: true
+                }
+            },
+            cache: {
+                enable: false
+            },
+            counter: {
+                enable: false
+            },
+            outline: {
+                enable: false
+            },
+            hint: {
+                delay: 200
+            },
+            input: (value) => {
+                // 通过JavaScript Bridge发送内容变化到Swift
+                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bridge) {
+                    window.webkit.messageHandlers.bridge.postMessage({
+                        type: 'change',
+                        value: value
+                    });
+                }
+            },
+            after() {
+                console.log('✅ Vditor after 回调执行');
+                vditor.setTheme(isDark ? 'dark' : 'classic', isDark ? 'dark' : 'light', isDark ? 'dracula' : 'github');
+                
+                // 延迟确保 DOM 完全渲染
+                setTimeout(() => {
+                    const irElement = document.querySelector('.vditor-ir');
+                    const vditorDiv = document.querySelector('#vditor');
+                    
+                    console.log('🔍 查找编辑器元素:');
+                    console.log('  - #vditor:', !!vditorDiv);
+                    console.log('  - .vditor-ir:', !!irElement);
+                    
+                    if (irElement) {
+                        irElement.setAttribute('contenteditable', 'true');
+                        irElement.style.minHeight = '300px';
+                        irElement.style.padding = '16px';
+                        irElement.style.border = '1px solid #ddd';
+                        irElement.focus();
+                        console.log('✅ Vditor IR 编辑器已启用并设置可见样式');
+                    } else {
+                        console.warn('❌ 未找到 .vditor-ir 元素，编辑器可能未正确初始化');
+                    }
+                    
+                    // 通知 Swift 编辑器已准备就绪
+                    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bridge) {
+                        window.webkit.messageHandlers.bridge.postMessage({
+                            type: 'ready'
+                        });
+                        console.log('✅ 已通知 Swift 编辑器准备就绪');
+                    } else {
+                        console.warn('⚠️ 无法找到 Swift bridge');
+                    }
+                }, 1000);
+            }
+        });
+        
+        // 暴露vditor实例到全局
+        window.vditor = vditor;
+        // 为了兼容，也暴露为 v
+        window.v = vditor;
+        
+        // 添加点击事件确保编辑器获得焦点
+        document.addEventListener('click', function(e) {
+            const vditorElement = document.querySelector('.vditor-ir');
+            if (vditorElement && !vditorElement.contains(e.target)) {
+                // 点击编辑器外部时，确保编辑器仍然可以获得焦点
+                setTimeout(() => {
+                    vditorElement.focus();
+                }, 100);
+            }
+        });
+        
+        // 确保页面加载完成后编辑器可以获得焦点
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                const vditorElement = document.querySelector('.vditor-ir');
+                if (vditorElement) {
+                    vditorElement.focus();
+                    console.log('编辑器已获得焦点');
+                }
+            }, 500);
+        });
+        
+        // 监听主题变化
+        if (window.matchMedia) {
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+                if (vditor) {
+                    vditor.setTheme(e.matches ? 'dark' : 'classic');
+                }
+            });
+        }
+    </script>
+    
+    <script src="post-rerender.js"></script>
+    
+    <script>
+        // 全局函数：强制启用编辑模式
+        window.enableEditing = function() {
+            const vditorIR = document.querySelector('.vditor-ir');
+            const vditorElement = document.querySelector('#vditor');
+            const bodyElement = document.body;
+            
+            // 确保整个文档可以交互
+            bodyElement.style.pointerEvents = 'auto';
+            bodyElement.style.userSelect = 'text';
+            
+            if (vditorElement) {
+                vditorElement.style.pointerEvents = 'auto';
+                vditorElement.style.userSelect = 'text';
+                vditorElement.style.zIndex = 'auto';
+            }
+            
+            if (vditorIR) {
+                vditorIR.setAttribute('contenteditable', 'true');
+                vditorIR.style.pointerEvents = 'auto';
+                vditorIR.style.userSelect = 'text';
+                vditorIR.style.cursor = 'text';
+                vditorIR.style.zIndex = 'auto';
+                vditorIR.style.position = 'relative';
+                
+                // 移除可能阻止交互的属性
+                vditorIR.removeAttribute('readonly');
+                vditorIR.removeAttribute('disabled');
+                
+                // 设置焦点
+                setTimeout(() => {
+                    vditorIR.focus();
+                    vditorIR.click();
+                }, 100);
+                
+                console.log('✅ 编辑模式已强制启用，所有交互属性已设置');
+                return true;
+            }
+            
+            console.warn('⚠️ 未找到 vditor-ir 元素');
+            return false;
+        };
+        
+        // 在页面完全加载后启用编辑
+        setTimeout(() => {
+            window.enableEditing();
+        }, 1000);
+        
+        // 添加键盘事件监听确保编辑正常工作
+        document.addEventListener('keydown', function(e) {
+            // 如果按下任何字符键，确保编辑器有焦点
+            if (e.key.length === 1 || e.key === 'Backspace' || e.key === 'Delete' || e.key === 'Enter') {
+                const vditorIR = document.querySelector('.vditor-ir');
+                if (vditorIR && document.activeElement !== vditorIR) {
+                    vditorIR.focus();
+                }
+            }
+        });
+        
+        // 添加全局点击事件确保编辑器可以被点击
+        document.addEventListener('click', function(e) {
+            console.log('🖱️ 页面点击事件:', e.target);
+            // 确保编辑器始终可以交互
+            window.enableEditing();
+        }, true);
+        
+        // 添加鼠标移动事件确保鼠标样式正确
+        document.addEventListener('mousemove', function(e) {
+            const vditorIR = document.querySelector('.vditor-ir');
+            if (vditorIR && vditorIR.contains(e.target)) {
+                document.body.style.cursor = 'text';
+            }
+        });
+    </script>
+</body>
+</html>

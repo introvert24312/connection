@@ -186,14 +186,12 @@ struct VditorWebView: NSViewRepresentable {
           <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
 
           <style>
-            :root { --bg: transparent; }
+            :root { --bg: transparent; --mmd-font: 20px; }
             html, body { margin:0; padding:0; background: var(--bg); }
             #vditor { height: 100vh; }
 
-            /* --- Mermaid font size bump --- */
-            .mermaid svg,
-            .mermaid svg text,
-            .mermaid svg tspan { font-size: 18px !important; }
+            /* --- Mermaid base scaling via container font-size --- */
+            .mermaid { font-size: var(--mmd-font) !important; }
 
             /* --- Dark content readability for Markdown preview/content --- */
             .vditor--dark .vditor-reset { color: #c9d1d9; }
@@ -231,7 +229,7 @@ struct VditorWebView: NSViewRepresentable {
                 themeVariables: {
                   primaryColor:'#161b22', primaryTextColor:'#c9d1d9', primaryBorderColor:'#30363d',
                   lineColor:'#58a6ff', background:'#0d1117', mainBkg:'#161b22', secondaryColor:'#21262d',
-                  fontSize:'18px', lineHeight:'1.4'
+                  fontSize:'1em', lineHeight:'1.4'
                 }
               } : {
                 ...shared,
@@ -239,7 +237,7 @@ struct VditorWebView: NSViewRepresentable {
                 themeVariables: {
                   primaryColor:'#ffffff', primaryTextColor:'#24292f', primaryBorderColor:'#d0d7de',
                   lineColor:'#0969da', tertiaryColor:'#f6f8fa', background:'#ffffff',
-                  fontSize:'18px', lineHeight:'1.4'
+                  fontSize:'1em', lineHeight:'1.4'
                 }
               };
             }
@@ -290,6 +288,16 @@ struct VditorWebView: NSViewRepresentable {
               }
             });
             window.vditor = vditor;
+
+            // 动态调整 Mermaid 基准字号（整体缩放）
+            window.__setMermaidFont = function(px){
+              try {
+                document.documentElement.style.setProperty('--mmd-font', typeof px === 'number' ? px + 'px' : String(px));
+                const val = vditor.getValue();
+                if (val != null) vditor.setValue(val); // 触发预览重算
+              } catch(_) {}
+              setTimeout(containerFix, 60);
+            };
 
             // Native 唯一入口：应用主题 + 触发重渲染
             window.__applyNativeTheme = function(dark){

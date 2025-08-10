@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Typora Style Editor</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <link rel="stylesheet" href="dark-patch.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 16px;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 16px;
+            line-height: 1.6;
+            background: transparent;
+            color: #333;
+            min-height: 100vh;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            body { 
+                color: #e5e7eb; 
+                background: transparent;
+            }
+        }
+        
+        .editor-container {
+            position: relative;
+            min-height: 400px;
+            width: 100%;
+        }
+        
+        #markdown-input {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            outline: none;
+            background: transparent;
+            color: transparent;
+            caret-color: #007AFF;
+            resize: none;
+            font-family: 'SF Mono', Monaco, 'Consolas', monospace;
+            font-size: 16px;
+            line-height: 1.6;
+            padding: 0;
+            margin: 0;
+            z-index: 2;
+            overflow: hidden;
+        }
+        
+        #markdown-preview {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow: auto;
+            padding: 0;
+            margin: 0;
+        }
+        
+        /* Markdown 渲染样式 */
+        .markdown-body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        
+        .markdown-body h1 { 
+            font-size: 2em; 
+            font-weight: bold; 
+            margin: 1em 0 0.5em 0; 
+            border-bottom: 1px solid #eee;
+            padding-bottom: 0.3em;
+        }
+        .markdown-body h2 { 
+            font-size: 1.5em; 
+            font-weight: bold; 
+            margin: 1em 0 0.5em 0; 
+        }
+        .markdown-body h3 { 
+            font-size: 1.2em; 
+            font-weight: bold; 
+            margin: 1em 0 0.5em 0; 
+        }
+        .markdown-body p { 
+            margin: 0.5em 0; 
+        }
+        .markdown-body ul, .markdown-body ol { 
+            margin: 0.5em 0; 
+            padding-left: 2em; 
+        }
+        .markdown-body li {
+            margin: 0.2em 0;
+        }
+        .markdown-body blockquote { 
+            border-left: 4px solid #ddd; 
+            margin: 1em 0; 
+            padding: 0 1em; 
+            color: #666; 
+        }
+        .markdown-body code { 
+            background: #f5f5f5; 
+            padding: 2px 4px; 
+            border-radius: 3px; 
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 0.9em;
+        }
+        .markdown-body pre { 
+            background: #f5f5f5; 
+            padding: 16px; 
+            border-radius: 8px; 
+            overflow: auto; 
+            margin: 1em 0;
+        }
+        .markdown-body pre code {
+            background: none;
+            padding: 0;
+        }
+        .markdown-body strong { 
+            font-weight: bold; 
+        }
+        .markdown-body em { 
+            font-style: italic; 
+        }
+        .markdown-body a {
+            color: #007AFF;
+            text-decoration: none;
+        }
+        .markdown-body a:hover {
+            text-decoration: underline;
+        }
+        
+        /* Mermaid 图表样式 */
+        .mermaid { 
+            text-align: center; 
+            margin: 1em 0; 
+            background: transparent; 
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 16px;
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .mermaid-loading {
+            color: #666;
+            font-style: italic;
+        }
+        
+        /* 暗色主题样式 */
+        @media (prefers-color-scheme: dark) {
+            .markdown-body h1 { 
+                border-bottom-color: #444; 
+                color: #e5e7eb;
+            }
+            .markdown-body h2, 
+            .markdown-body h3 { 
+                color: #e5e7eb; 
+            }
+            .markdown-body p,
+            .markdown-body li {
+                color: #d1d5db;
+            }
+            .markdown-body blockquote { 
+                border-left-color: #4a5568; 
+                color: #9ca3af; 
+            }
+            .markdown-body code, 
+            .markdown-body pre { 
+                background: #2d3748; 
+                color: #e2e8f0; 
+            }
+            .mermaid { 
+                border-color: #4a5568; 
+            }
+            .mermaid-loading {
+                color: #9ca3af;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="editor-container">
+        <textarea id="markdown-input" spellcheck="false" placeholder="开始输入 Markdown..."></textarea>
+        <div id="markdown-preview" class="markdown-body"></div>
+    </div>
+    
+    <script>
+        console.log('🚀 Typora 风格编辑器初始化开始');
+        
+        // 初始化 Mermaid
+        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        mermaid.initialize({ 
+            startOnLoad: false, 
+            theme: isDark ? 'dark' : 'default',
+            securityLevel: 'loose',
+            fontFamily: 'system-ui, -apple-system, sans-serif'
+        });
+        
+        // 配置 marked
+        marked.setOptions({
+            gfm: true,
+            breaks: true,
+            sanitize: false
+        });
+        
+        const input = document.getElementById('markdown-input');
+        const preview = document.getElementById('markdown-preview');
+        
+        let currentContent = '';
+        let isUpdatingFromSwift = false;
+        let renderTimeout;
+        let mermaidCounter = 0;
+        
+        // 渲染 Markdown
+        function renderMarkdown(markdownText) {
+            if (!markdownText.trim()) {
+                preview.innerHTML = '<p class="placeholder">开始输入 Markdown...</p>';
+                return;
+            }
+            
+            try {
+                // 首先处理 Mermaid 代码块
+                let processedMarkdown = markdownText.replace(/```mermaid\\s*\\n([\\s\\S]*?)```/g, (match, code) => {
+                    const id = `mermaid-${mermaidCounter++}`;
+                    return `<div class="mermaid" id="${id}">${code.trim()}</div>`;
+                });
+                
+                // 渲染其他 Markdown
+                const html = marked.parse(processedMarkdown);
+                preview.innerHTML = html;
+                
+                // 异步渲染 Mermaid 图表
+                setTimeout(() => {
+                    const mermaidElements = document.querySelectorAll('.mermaid');
+                    mermaidElements.forEach((element) => {
+                        if (!element.querySelector('svg')) {
+                            const code = element.textContent.trim();
+                            if (code) {
+                                element.innerHTML = '<div class="mermaid-loading">正在渲染图表...</div>';
+                                
+                                try {
+                                    mermaid.render(element.id + '-svg', code)
+                                        .then(({ svg }) => {
+                                            element.innerHTML = svg;
+                                            console.log('✅ Mermaid 图表渲染成功');
+                                        })
+                                        .catch(error => {
+                                            console.error('❌ Mermaid 渲染失败:', error);
+                                            element.innerHTML = `<div class="mermaid-loading">图表渲染失败: ${error.message}</div>`;
+                                        });
+                                } catch (error) {
+                                    console.error('❌ Mermaid 渲染异常:', error);
+                                    element.innerHTML = `<div class="mermaid-loading">图表渲染异常</div>`;
+                                }
+                            }
+                        }
+                    });
+                }, 100);
+                
+            } catch (error) {
+                console.error('❌ Markdown 渲染失败:', error);
+                preview.innerHTML = `<p style="color: red;">渲染失败: ${error.message}</p>`;
+            }
+        }
+        
+        // 输入事件处理
+        input.addEventListener('input', function() {
+            if (isUpdatingFromSwift) return;
+            
+            const content = input.value;
+            currentContent = content;
+            
+            // 延迟渲染以提高性能
+            clearTimeout(renderTimeout);
+            renderTimeout = setTimeout(() => {
+                renderMarkdown(content);
+            }, 150);
+            
+            // 立即通知 Swift
+            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bridge) {
+                window.webkit.messageHandlers.bridge.postMessage({
+                    type: 'change',
+                    value: content
+                });
+            }
+        });
+        
+        // 同步滚动
+        input.addEventListener('scroll', function() {
+            preview.scrollTop = input.scrollTop;
+            preview.scrollLeft = input.scrollLeft;
+        });
+        
+        // 设置内容 (来自 Swift)
+        window.setContent = function(content) {
+            if (content !== currentContent) {
+                isUpdatingFromSwift = true;
+                currentContent = content;
+                input.value = content;
+                renderMarkdown(content);
+                
+                setTimeout(() => {
+                    isUpdatingFromSwift = false;
+                }, 100);
+            }
+        };
+        
+        // 主题切换
+        window.applyDarkMode = function(isDark) {
+            console.log('🎨 切换主题到:', isDark ? 'dark' : 'light');
+            
+            // 重新初始化 Mermaid
+            mermaid.initialize({ 
+                startOnLoad: false, 
+                theme: isDark ? 'dark' : 'default',
+                securityLevel: 'loose',
+                fontFamily: 'system-ui, -apple-system, sans-serif'
+            });
+            
+            // 重新渲染当前内容
+            setTimeout(() => {
+                mermaidCounter = 0; // 重置计数器
+                renderMarkdown(currentContent);
+            }, 100);
+        };
+        
+        // 监听系统主题变化
+        if (window.matchMedia) {
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+                window.applyDarkMode(e.matches);
+            });
+        }
+        
+        // 准备就绪通知
+        setTimeout(() => {
+            if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bridge) {
+                window.webkit.messageHandlers.bridge.postMessage({
+                    type: 'ready'
+                });
+            }
+            console.log('✅ Typora 风格编辑器准备就绪');
+        }, 500);
+        
+    </script>
+</body>
+</html>

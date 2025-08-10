@@ -1,0 +1,510 @@
+*** a/WordTagger/DetailPanel.swift
+--- b/WordTagger/DetailPanel.swift
+***************
+*** 105,112 ****
+-     private var hasMermaid: Bool {
+-         // 检测是否包含 mermaid 代码块或常见的 mermaid 关键字
+-         let pattern = #"(^|\n)```(mermaid|mmd)\b|(^|\n):::mermaid\b|(^|\n)(graph|sequenceDiagram|classDiagram|erDiagram|gantt|pie|journey)\b"#
+-         return markdownText.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
+-     }
+-     
+      var body: some View {
+          let _ = print("🚨🚨🚨 NodeDetailView RENDERING - Node: \(currentNode.text)")
+***************
+*** 141,142 ****
+              // Vditor 即时渲染编辑器（Typora 体验）
++             // 单一渲染管线：Vditor(IR) 负责 Markdown + Mermaid 的就地渲染（不再使用独立 MermaidWebView）
+              VditorWebView(
+***************
+*** 162,177 ****
+              }
+  
+-             // TODO: 移除独立预览区域，改为真正的编辑器内联就地渲染
+-             // if hasMermaid {
+-             //     Divider().opacity(0.15)
+-             //     MermaidWebView(markdown: markdownText)
+-             //         .frame(height: 220)
+-             //         .background(Color.clear)
+-             //         .allowsHitTesting(false)
+-             //         .zIndex(0)
+-             // }
+-             
+          }
+          .padding(.horizontal, 16)
+***************
+*** 1627,1677 ****
+- // MARK: - 代码块视图
+- 
+- struct CodeBlockView: View {
+-     let code: String
+-     let language: String
+-     
+-     var body: some View {
+-         VStack(alignment: .leading, spacing: 8) {
+-             // 代码块头部
+-             HStack {
+-                 Text(language.isEmpty ? "代码" : language.uppercased())
+-                     .font(.caption)
+-                     .fontWeight(.medium)
+-                     .foregroundColor(.secondary)
+-                 
+-                 Spacer()
+-                 
+-                 Button(action: copyToClipboard) {
+-                     Image(systemName: "doc.on.doc")
+-                         .font(.caption)
+-                 }
+-                 .buttonStyle(.plain)
+-                 .foregroundColor(.secondary)
+-                 .help("复制代码")
+-             }
+-             .padding(.horizontal, 12)
+-             .padding(.vertical, 8)
+-             .background(Color(NSColor.controlBackgroundColor))
+-             
+-             // 代码内容
+-             ScrollView(.horizontal, showsIndicators: false) {
+-                 Text(code)
+-                     .font(.system(.title3, design: .monospaced))  // 更大
+-                     .foregroundColor(.primary)
+-                     .textSelection(.enabled)
+-                     .padding(12)
+-             }
+-             .background(Color(NSColor.textBackgroundColor))
+-         }
+-         .overlay(
+-             RoundedRectangle(cornerRadius: 8)
+-                 .stroke(Color(NSColor.separatorColor), lineWidth: 1)
+-         )
+-         .clipShape(RoundedRectangle(cornerRadius: 8))
+-     }
+-     
+-     private func copyToClipboard() {
+-         NSPasteboard.general.clearContents()
+-         NSPasteboard.general.setString(code, forType: .string)
+-     }
+- }
+- 
+***************
+*** 1678,1898 ****
+- // MARK: - Mermaid图表视图
+- 
+- struct MermaidView: View {
+-     let diagram: String
+-     @State private var isExpanded = true  // 默认展开显示代码
+-     
+-     var body: some View {
+-         VStack(alignment: .leading, spacing: 12) {
+-             // Mermaid头部
+-             HStack {
+-                 Image(systemName: getIconName())
+-                     .foregroundColor(.blue)
+-                 Text("\(getMermaidDescription()) - Mermaid图表")
+-                     .font(.caption)
+-                     .fontWeight(.medium)
+-                     .foregroundColor(.secondary)
+-                 
+-                 Spacer()
+-                 
+-                 HStack(spacing: 8) {
+-                     Button(action: copyToClipboard) {
+-                         Image(systemName: "doc.on.doc")
+-                             .font(.caption)
+-                     }
+-                     .buttonStyle(.plain)
+-                     .foregroundColor(.secondary)
+-                     .help("复制代码")
+-                     
+-                     Button(action: { isExpanded.toggle() }) {
+-                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+-                             .font(.caption)
+-                     }
+-                     .buttonStyle(.plain)
+-                     .foregroundColor(.secondary)
+-                     .help(isExpanded ? "收起代码" : "展开代码")
+-                 }
+-             }
+-             .padding(.horizontal, 12)
+-             .padding(.vertical, 8)
+-             .background(Color.blue.opacity(0.1))
+-             
+-             if isExpanded {
+-                 // 显示图表预览信息和代码
+-                 VStack(alignment: .leading, spacing: 12) {
+-                     // 图表信息摘要
+-                     VStack(alignment: .leading, spacing: 8) {
+-                         HStack {
+-                             Image(systemName: getIconName())
+-                                 .font(.title2)
+-                                 .foregroundColor(.blue)
+-                             
+-                             VStack(alignment: .leading) {
+-                                 Text(getMermaidDescription())
+-                                     .font(.headline)
+-                                     .fontWeight(.semibold)
+-                                 Text(getMermaidDetails())
+-                                     .font(.caption)
+-                                     .foregroundColor(.secondary)
+-                             }
+-                             
+-                             Spacer()
+-                         }
+-                         .padding(.bottom, 8)
+-                         
+-                         // 功能按钮
+-                         HStack(spacing: 12) {
+-                             Button("复制为纯文本") {
+-                                 copyToClipboard()
+-                             }
+-                             .font(.caption)
+-                             
+-                             Button("在新窗口渲染") {
+-                                 openInNewWindow()
+-                             }
+-                             .font(.caption)
+-                         }
+-                     }
+-                     .padding()
+-                     .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+-                     .cornerRadius(8)
+-                     
+-                     // 代码块
+-                     ScrollView(.horizontal, showsIndicators: false) {
+-                         Text(diagram)
+-                             .font(.system(.body, design: .monospaced))
+-                             .textSelection(.enabled)
+-                             .padding()
+-                     }
+-                     .background(Color(NSColor.textBackgroundColor))
+-                     .cornerRadius(8)
+-                 }
+-                 .padding(.horizontal)
+-                 .padding(.bottom)
+-             }
+-         }
+-         .overlay(
+-             RoundedRectangle(cornerRadius: 10)
+-                 .stroke(Color.blue.opacity(0.3), lineWidth: 2)
+-         )
+-         .background(Color(NSColor.controlBackgroundColor).opacity(0.7))
+-         .cornerRadius(10)
+-         .shadow(color: .gray.opacity(0.15), radius: 4, x: 0, y: 2)
+-     }
+-     
+-     private func getIconName() -> String {
+-         let lowercased = diagram.lowercased()
+-         
+-         if lowercased.contains("graph") || lowercased.contains("flowchart") {
+-             return "arrow.branch"
+-         } else if lowercased.contains("sequencediagram") {
+-             return "arrow.left.arrow.right"
+-         } else if lowercased.contains("classDiagram") {
+-             return "square.stack.3d.up"
+-         } else if lowercased.contains("erdiagram") {
+-             return "cylinder"
+-         } else if lowercased.contains("gantt") {
+-             return "calendar"
+-         } else if lowercased.contains("pie") {
+-             return "chart.pie"
+-         } else if lowercased.contains("journey") {
+-             return "figure.walk"
+-         } else {
+-             return "chart.bar.doc.horizontal"
+-         }
+-     }
+-     
+-     private func getMermaidDescription() -> String {
+-         let lowercased = diagram.lowercased()
+-         
+-         if lowercased.contains("graph") || lowercased.contains("flowchart") {
+-             return "流程图"
+-         } else if lowercased.contains("sequencediagram") {
+-             return "时序图"
+-         } else if lowercased.contains("classDiagram") {
+-             return "类图"
+-         } else if lowercased.contains("erdiagram") {
+-             return "实体关系图"
+-         } else if lowercased.contains("gantt") {
+-             return "甘特图"
+-         } else if lowercased.contains("pie") {
+-             return "饼图"
+-         } else if lowercased.contains("journey") {
+-             return "用户旅程图"
+-         } else {
+-             return "Mermaid图表"
+-         }
+-     }
+-     
+-     private func getMermaidDetails() -> String {
+-         let lowercased = diagram.lowercased()
+-         let lineCount = diagram.components(separatedBy: .newlines).count
+-         
+-         if lowercased.contains("graph") || lowercased.contains("flowchart") {
+-             return "显示流程和决策路径，共\(lineCount)行代码"
+-         } else if lowercased.contains("sequencediagram") {
+-             return "显示对象间的时间顺序交互，共\(lineCount)行代码"
+-         } else if lowercased.contains("classDiagram") {
+-             return "显示类结构和关系，共\(lineCount)行代码"
+-         } else if lowercased.contains("erdiagram") {
+-             return "显示数据库实体关系，共\(lineCount)行代码"
+-         } else if lowercased.contains("gantt") {
+-             return "显示项目时间进度，共\(lineCount)行代码"
+-         } else if lowercased.contains("pie") {
+-             return "显示数据比例分布，共\(lineCount)行代码"
+-         } else if lowercased.contains("journey") {
+-             return "显示用户操作流程，共\(lineCount)行代码"
+-         } else {
+-             return "共\(lineCount)行代码"
+-         }
+-     }
+-     
+-     private func copyToClipboard() {
+-         NSPasteboard.general.clearContents()
+-         NSPasteboard.general.setString(diagram, forType: .string)
+-     }
+-     
+-     private func openInNewWindow() {
+-         // 创建新窗口显示 Mermaid 渲染
+-         let newWindow = NSWindow(
+-             contentRect: NSRect(x: 100, y: 100, width: 800, height: 600),
+-             styleMask: [.titled, .closable, .resizable],
+-             backing: .buffered,
+-             defer: false
+-         )
+-         newWindow.title = "Mermaid 图表渲染"
+-         newWindow.contentView = NSHostingView(rootView: MermaidWebView(markdown: "```mermaid\n\(diagram)\n```"))
+-         newWindow.makeKeyAndOrderFront(nil)
+-     }
+- }
+- 
+***************
+*** 1899,2118 ****
+- // MARK: - 简化的Mermaid WebView渲染器
+- import WebKit
+- 
+- struct MermaidWebView: NSViewRepresentable {
+-     @Environment(\.colorScheme) private var colorScheme
+-     let markdown: String
+- 
+-     func makeNSView(context: Context) -> WKWebView {
+-         let config = WKWebViewConfiguration()
+-         config.preferences.setValue(true, forKey: "developerExtrasEnabled")
+-         
+-         let webView = WKWebView(frame: .zero, configuration: config)
+-         webView.setValue(false, forKey: "drawsBackground")
+-         
+-         return webView
+-     }
+-     
+-     func updateNSView(_ webView: WKWebView, context: Context) {
+-         let processedMarkdown = processLocalImages(in: markdown)
+-         let html = generateHTML(from: processedMarkdown)
+-         webView.loadHTMLString(html, baseURL: Bundle.main.bundleURL)
+-     }
+-     
+-     func makeCoordinator() -> Coordinator {
+-         Coordinator()
+-     }
+-     
+-     class Coordinator: NSObject {
+-         // 空的协调器
+-     }
+-     
+-     private func processLocalImages(in markdown: String) -> String {
+-         let pattern = #"\!\[([^\]]*)\]\(NodeImages\/([^)]+)\)"#
+-         let regex = try! NSRegularExpression(pattern: pattern)
+-         
+-         let range = NSRange(markdown.startIndex..., in: markdown)
+-         let matches = regex.matches(in: markdown, range: range)
+-         
+-         var result = markdown
+-         
+-         // 从后往前处理，避免索引变化
+-         for match in matches.reversed() {
+-             if let matchRange = Range(match.range, in: markdown),
+-                let altRange = Range(match.range(at: 1), in: markdown),
+-                let fileNameRange = Range(match.range(at: 2), in: markdown) {
+-                 
+-                 let altText = String(markdown[altRange])
+-                 let fileName = String(markdown[fileNameRange])
+-                 
+-                 let imageURL = NodeImageManager.shared.getImageURL(for: fileName)
+-                 let replacement = "![\(altText)](\(imageURL.absoluteString))"
+-                 
+-                 result.replaceSubrange(matchRange, with: replacement)
+-             }
+-         }
+-         
+-         return result
+-     }
+-     
+-     private func escapeForJavaScript(_ string: String) -> String {
+-         return string
+-             .replacingOccurrences(of: "\\", with: "\\\\")
+-             .replacingOccurrences(of: "\"", with: "\\\"")
+-             .replacingOccurrences(of: "\n", with: "\\n")
+-             .replacingOccurrences(of: "\r", with: "\\r")
+-             .replacingOccurrences(of: "\t", with: "\\t")
+-     }
+-     
+-     private func generateHTML(from markdown: String) -> String {
+-         let escapedMarkdown = escapeForJavaScript(markdown)
+-         let isDark = colorScheme == .dark
+-         
+-         return """
+-         <!DOCTYPE html>
+-         <html>
+-         <head>
+-             <meta charset="UTF-8">
+-             <meta name="viewport" content="width=device-width, initial-scale=1.0">
+-             <style>
+-                 body {
+-                     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+-                     font-size: 14px;
+-                     line-height: 1.6;
+-                     margin: 0;
+-                     padding: 16px;
+-                     background: transparent;
+-                     color: \(isDark ? "#e5e7eb" : "#1a1a1a");
+-                 }
+-                 
+-                 .mermaid {
+-                     text-align: center;
+-                     margin: 20px 0;
+-                 }
+-                 
+-                 .mermaid svg {
+-                     max-width: 100%;
+-                     height: auto;
+-                 }
+-                 
+-                 pre {
+-                     background: \(isDark ? "#2d3748" : "#f7fafc");
+-                     padding: 12px 16px;
+-                     border-radius: 8px;
+-                     overflow-x: auto;
+-                     border: 1px solid \(isDark ? "#4a5568" : "#e2e8f0");
+-                 }
+-                 
+-                 code {
+-                     font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+-                     font-size: 13px;
+-                 }
+-                 
+-                 h1, h2, h3, h4, h5, h6 {
+-                     margin-top: 24px;
+-                     margin-bottom: 16px;
+-                     font-weight: 600;
+-                     line-height: 1.25;
+-                 }
+-                 
+-                 h1 { font-size: 2em; border-bottom: 1px solid \(isDark ? "#30363d" : "#d8dee4"); padding-bottom: 10px; }
+-                 h2 { font-size: 1.5em; }
+-                 h3 { font-size: 1.25em; }
+-                 
+-                 p { margin: 16px 0; }
+-                 
+-                 blockquote {
+-                     padding: 0 1em;
+-                     color: \(isDark ? "#8b949e" : "#656d76");
+-                     border-left: 0.25em solid \(isDark ? "#30363d" : "#d0d7de");
+-                     margin: 16px 0;
+-                 }
+-                 
+-                 ul, ol { padding-left: 2em; margin: 16px 0; }
+-                 li { margin: 4px 0; }
+-                 
+-                 table {
+-                     border-spacing: 0;
+-                     border-collapse: collapse;
+-                     margin: 16px 0;
+-                     width: 100%;
+-                 }
+-                 
+-                 th, td {
+-                     padding: 8px 12px;
+-                     border: 1px solid \(isDark ? "#30363d" : "#d0d7de");
+-                     text-align: left;
+-                 }
+-                 
+-                 th {
+-                     font-weight: 600;
+-                     background: \(isDark ? "#21262d" : "#f6f8fa");
+-                 }
+-                 
+-                 a {
+-                     color: \(isDark ? "#58a6ff" : "#0969da");
+-                     text-decoration: none;
+-                 }
+-                 
+-                 a:hover {
+-                     text-decoration: underline;
+-                 }
+-                 
+-                 img {
+-                     max-width: 100%;
+-                     height: auto;
+-                     border-radius: 6px;
+-                 }
+-                 
+-                 hr {
+-                     height: 0.25em;
+-                     padding: 0;
+-                     margin: 24px 0;
+-                     background-color: \(isDark ? "#30363d" : "#d0d7de");
+-                     border: 0;
+-                 }
+-             </style>
+-             <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+-         </head>
+-         <body>
+-             <div id="content"></div>
+-             
+-             <script>
+-                 // 配置 Mermaid
+-                 mermaid.initialize({
+-                     startOnLoad: true,
+-                     theme: '\(isDark ? "dark" : "default")',
+-                     securityLevel: 'loose',
+-                     fontFamily: '-apple-system, BlinkMacSystemFont, SF Pro Display, sans-serif'
+-                 });
+-                 
+-                 // 简单的 Markdown 解析器
+-                 function parseMarkdown(text) {
+-                     return text
+-                         .replace(/```mermaid\\s*\\n([\\s\\S]*?)\\n```/g, '<div class="mermaid">$1</div>')
+-                         .replace(/```([\\w]*)\\s*\\n([\\s\\S]*?)\\n```/g, '<pre><code class="language-$1">$2</code></pre>')
+-                         .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+-                         .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+-                         .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+-                         .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')
+-                         .replace(/\\*(.+?)\\*/g, '<em>$1</em>')
+-                         .replace(/`(.+?)`/g, '<code>$1</code>')
+-                         .replace(/!\\[([^\\]]*)\\]\\(([^)]+)\\)/g, '<img alt="$1" src="$2" />')
+-                         .replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, '<a href="$2">$1</a>')
+-                         .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+-                         .replace(/^\\* (.+)$/gm, '<li>$1</li>')
+-                         .replace(/(<li>.*<\\/li>)/s, '<ul>$1</ul>')
+-                         .replace(/^\\d+\\. (.+)$/gm, '<li>$1</li>')
+-                         .replace(/^([^<\\n]+)$/gm, '<p>$1</p>')
+-                         .replace(/\\n/g, '<br>');
+-                 }
+-                 
+-                 // 渲染内容
+-                 const markdownText = "\(escapedMarkdown)";
+-                 const html = parseMarkdown(markdownText);
+-                 document.getElementById('content').innerHTML = html;
+-                 
+-                 // 重新初始化 Mermaid（对动态内容）
+-                 setTimeout(() => {
+-                     if (typeof mermaid !== 'undefined') {
+-                         mermaid.init(undefined, document.querySelectorAll('.mermaid'));
+-                     }
+-                 }, 100);
+-             </script>
+-         </body>
+-         </html>
+-         """;
+-     }
+- }
+- 

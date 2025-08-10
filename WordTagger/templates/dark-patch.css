@@ -1,0 +1,159 @@
+/* Mermaid 暗色主题补丁 - 修复对比度问题 */
+
+/* 基础 SVG 背景透明 */
+.mermaid svg { 
+    background: transparent !important; 
+}
+
+/* 节点样式 */
+.mermaid .node rect,
+.mermaid .node circle,
+.mermaid .node ellipse,
+.mermaid .node polygon,
+.mermaid .cluster rect { 
+    fill: #111 !important; 
+    stroke: #666 !important; 
+    stroke-width: 1.5px !important;
+}
+
+/* 文字标签 - 高对比度 */
+.mermaid .label, 
+.mermaid text, 
+.mermaid tspan { 
+    fill: #eee !important; 
+    font-weight: 500 !important;
+}
+
+/* 边和箭头 */
+.mermaid .edgePath path, 
+.mermaid .arrowheadPath { 
+    stroke: #999 !important; 
+    stroke-width: 2px !important;
+}
+
+/* 注释和类组 */
+.mermaid .note, 
+.mermaid .classGroup rect { 
+    fill: #1a1a1a !important; 
+    stroke: #666 !important; 
+}
+
+/* 流程图特定样式 */
+.mermaid .flowchart-link {
+    stroke: #999 !important;
+    stroke-width: 2px !important;
+}
+
+/* 序列图 */
+.mermaid .actor {
+    fill: #111 !important;
+    stroke: #666 !important;
+}
+
+.mermaid .actor-line {
+    stroke: #666 !important;
+}
+
+.mermaid .messageLine0,
+.mermaid .messageLine1 {
+    stroke: #999 !important;
+    stroke-width: 2px !important;
+}
+
+/* 甘特图 */
+.mermaid .section0,
+.mermaid .section1,
+.mermaid .section2,
+.mermaid .section3 {
+    fill: #333 !important;
+}
+
+.mermaid .taskText,
+.mermaid .taskTextOutsideRight,
+.mermaid .taskTextOutsideLeft {
+    fill: #eee !important;
+}
+
+/* Git 图 */
+.mermaid .commit-id,
+.mermaid .commit-msg,
+.mermaid .branch-label {
+    fill: #eee !important;
+}
+
+/* 饼图 */
+.mermaid .pieCircle {
+    stroke: #666 !important;
+}
+
+.mermaid .pieTitleText {
+    fill: #eee !important;
+}
+
+/* 状态图 */
+.mermaid .state-note {
+    fill: #1a1a1a !important;
+    stroke: #666 !important;
+}
+
+.mermaid .state-note text {
+    fill: #eee !important;
+}
+
+/* 用户旅程图 */
+.mermaid .journey-section {
+    fill: #333 !important;
+}
+
+.mermaid .journey-task {
+    fill: #111 !important;
+    stroke: #666 !important;
+}
+
+/* 实体关系图 */
+.mermaid .er.entityBox {
+    fill: #111 !important;
+    stroke: #666 !important;
+}
+
+.mermaid .er.attributeBoxEven,
+.mermaid .er.attributeBoxOdd {
+    fill: #1a1a1a !important;
+    stroke: #666 !important;
+}
+
+/* 思维导图 */
+.mermaid .mindmap-node {
+    fill: #111 !important;
+    stroke: #666 !important;
+}
+
+.mermaid .mindmap-node text {
+    fill: #eee !important;
+}
+
+/* 时间线 */
+.mermaid .timeline-event {
+    fill: #111 !important;
+    stroke: #666 !important;
+}
+
+.mermaid .timeline-event text {
+    fill: #eee !important;
+}
+
+/* C4 架构图 */
+.mermaid .c4Person,
+.mermaid .c4Container,
+.mermaid .c4Component,
+.mermaid .c4System {
+    fill: #111 !important;
+    stroke: #666 !important;
+}
+
+.mermaid .c4Person text,
+.mermaid .c4Container text,
+.mermaid .c4Component text,
+.mermaid .c4System text {
+    fill: #eee !important;
+}

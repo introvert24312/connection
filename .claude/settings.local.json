@@ -40,7 +40,9 @@
       "Bash(pkill:*)",
       "Bash(log stream:*)",
       "WebFetch(domain:github.com)",
-      "Bash(defaults write:*)"
+      "Bash(defaults write:*)",
+      "Bash(git apply:*)",
+      "Bash(python3:*)"
     ],
     "deny": []
   }

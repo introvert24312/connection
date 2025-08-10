@@ -4,8 +4,6 @@ import WebKit
 // MARK: - Markdown编辑器窗口
 struct MarkdownEditorWindow: View {
     @StateObject private var documentState = DocumentState()
-    @State private var showingOpenDialog = false
-    @State private var showingSaveDialog = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -338,7 +336,6 @@ struct MarkdownVditorWebView: NSViewRepresentable {
         </head>
         <body>
           <div id="vditor"></div>
-          <div style="position:fixed;left:8px;bottom:8px;font:11px -apple-system,BlinkMacSystemFont,'Segoe UI';background:rgba(0,0,0,.5);color:#fff;padding:2px 6px;border-radius:6px;z-index:9999;">VDITOR_WEBVIEW v2</div>
           <!-- Load Mermaid BEFORE Vditor so first render uses our config/fonts -->
           <script src="Resources/mermaid/mermaid.min.js"></script>
           <script src="Resources/vditor/index.min.js"></script>
@@ -508,10 +505,9 @@ struct MarkdownVditorWebView: NSViewRepresentable {
               // 1) Ensure Mermaid is configured BEFORE Vditor constructs/first-render
               installMermaid();
 
-              const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
               const vditor = new Vditor('vditor', {
                 mode: 'ir',
-                theme: isDark ? 'dark' : 'classic',
+                theme: 'classic',
                 value: '',
                 width: '100%',
                 height: '100vh',
@@ -523,8 +519,8 @@ struct MarkdownVditorWebView: NSViewRepresentable {
                   mermaidContainerFix();
                 },
                 preview: {
-                  theme: { current: isDark ? 'dark' : 'light' },
-                  hljs: { enable: true, style: isDark ? 'github-dark' : 'github' },
+                  theme: { current: 'light' },
+                  hljs: { enable: true, style: 'github' },
                   math: { engine: 'KaTeX' },
                   // Forward our unified config to Vditor's mermaid so it renders with the same settings
                   mermaid: currentMermaidConfig()
@@ -556,23 +552,6 @@ struct MarkdownVditorWebView: NSViewRepresentable {
               document.addEventListener('keydown', (e)=>{
                 if ((e.metaKey||e.ctrlKey) && e.key==='s') { e.preventDefault(); window.webkit?.messageHandlers?.bridge?.postMessage({ type:'save' }); }
               });
-
-              // Theme change: re-init Mermaid BEFORE asking Vditor to re-render
-              const mq = window.matchMedia('(prefers-color-scheme: dark)');
-              function onThemeChange(e){
-                const dark = e.matches;
-                vditor.setTheme(dark ? 'dark' : 'classic');
-                // 1) re-install Mermaid so first paint after theme change uses correct variables/fonts
-                installMermaid();
-                // 2) Force Vditor to re-render preview to apply the new mermaid theme
-                try {
-                  const val = vditor.getValue();
-                  if (val != null) vditor.setValue(val);
-                } catch(_) {}
-                // 3) Layout fix after DOM updates
-                setTimeout(mermaidContainerFix, 60);
-              }
-              if (mq.addEventListener) mq.addEventListener('change', onThemeChange); else if (mq.addListener) mq.addListener(onThemeChange);
               // Expose a native hook to force theme application without waiting for matchMedia events
               window.__applyNativeTheme = function(dark){
                 try { window.vditor && window.vditor.setTheme(dark ? 'dark' : 'classic'); } catch(_) {}
