@@ -96,6 +96,8 @@ struct NodeDetailView: View {
     @State private var isEditing: Bool = false
     @State private var vditorCoordinator: VditorWebView.Coordinator?
     @FocusState private var isTextEditorFocused: Bool
+    @State private var currentNodeId: UUID = UUID()
+    @State private var isLoadingContent: Bool = false
     
     // 从store中获取最新的节点数据
     private var currentNode: Node {
@@ -138,11 +140,27 @@ struct NodeDetailView: View {
             VditorWebView(
                 markdown: markdownText,
                 nodeId: currentNode.id.uuidString,
-                onChange: { newValue in
+                onChange: { [weak store] newValue in
+                    // 防止在节点切换期间保存
+                    guard !isLoadingContent else {
+                        print("⚠️ 忽略onChange - 正在加载内容")
+                        return
+                    }
+                    
+                    // 确保使用当前的节点ID
+                    guard currentNodeId == currentNode.id else {
+                        print("⚠️ 忽略onChange - 节点ID不匹配")
+                        return
+                    }
+                    
                     print("🚨🚨🚨 VDITOR ONCHANGE CALLED - length: \(newValue.count)")
                     print("🚨🚨🚨 CONTENT PREVIEW: \(newValue.prefix(200))")
                     print("🚨🚨🚨 CURRENT NODE: \(currentNode.text) (\(currentNode.id))")
-                    instantSave(newValue)
+                    
+                    // 使用当前节点保存
+                    if let latestNode = store?.nodes.first(where: { $0.id == currentNodeId }) {
+                        instantSaveForNode(latestNode, content: newValue)
+                    }
                     markdownText = newValue
                 },
                 coordinatorBinding: $vditorCoordinator
@@ -162,10 +180,15 @@ struct NodeDetailView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color(NSColor.textBackgroundColor))
         .onAppear {
+            currentNodeId = currentNode.id
             loadMarkdown()
         }
         .onChange(of: currentNode.id) { oldId, newId in
             print("🔄 节点ID发生变化: \(oldId) -> \(newId)")
+            
+            // 更新当前节点ID
+            currentNodeId = newId
+            isLoadingContent = true
             
             // 等待当前保存任务完成，避免切换时保存被掐断
             if let currentSaveTask = saveTask {
@@ -177,6 +200,7 @@ struct NodeDetailView: View {
                         // 确保编辑器内容也重新加载
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                             vditorCoordinator?.setMarkdown(markdownText, forceUpdate: true)
+                            isLoadingContent = false
                         }
                     }
                 }
@@ -185,15 +209,19 @@ struct NodeDetailView: View {
                 // 确保编辑器内容也重新加载
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     vditorCoordinator?.setMarkdown(markdownText, forceUpdate: true)
+                    isLoadingContent = false
                 }
             }
         }
         .onChange(of: node.id) { oldId, newId in
             print("🔄 传入节点ID发生变化: \(oldId) -> \(newId)")
+            currentNodeId = newId
+            isLoadingContent = true
             // 当传入的node发生变化时，也要重新加载内容
             loadMarkdown()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 vditorCoordinator?.setMarkdown(markdownText, forceUpdate: true)
+                isLoadingContent = false
             }
         }
         .onChange(of: isEditing) { _, newValue in
@@ -203,10 +231,8 @@ struct NodeDetailView: View {
         }
         .onChange(of: colorScheme) { _, newValue in
             print("🎨 主题变化: \(newValue == .dark ? "dark" : "light")")
-            // 主题变化时强制刷新 Vditor 内容以应用新主题
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                vditorCoordinator?.setMarkdown(markdownText, forceUpdate: true)
-            }
+            // 主题变化时立即强制刷新编辑器内容以应用新主题
+            vditorCoordinator?.setMarkdown(markdownText, forceUpdate: true)
         }
         .onKeyPress(.init("/"), phases: .down) { keyPress in
             if keyPress.modifiers == .command {
@@ -234,24 +260,34 @@ struct NodeDetailView: View {
     }
     
     private func instantSave(_ newValue: String) {
+        instantSaveForNode(currentNode, content: newValue)
+    }
+    
+    private func instantSaveForNode(_ node: Node, content: String) {
         print("🚨🚨🚨 INSTANT SAVE CALLED!")
-        print("🚨🚨🚨 NODE: \(currentNode.text)")
-        print("🚨🚨🚨 CONTENT LENGTH: \(newValue.count)")
+        print("🚨🚨🚨 NODE: \(node.text)")
+        print("🚨🚨🚨 CONTENT LENGTH: \(content.count)")
         
         // 取消之前的任务避免重复保存
         saveTask?.cancel()
         
         // 立即更新内存中的数据
-        store.updateNodeMarkdown(currentNode.id, markdown: newValue)
+        store.updateNodeMarkdown(node.id, markdown: content)
         
         // 立即异步保存到文件
+        let nodeToSave = node
         saveTask = Task {
-            await saveMarkdownToFile(newValue)
+            await saveMarkdownToFileForNode(nodeToSave, content: content)
         }
     }
     
     private func saveMarkdownToFile(_ content: String) async {
+        await saveMarkdownToFileForNode(currentNode, content: content)
+    }
+    
+    private func saveMarkdownToFileForNode(_ node: Node, content: String) async {
         print("🚨🚨🚨 SAVING MARKDOWN FILE...")
+        print("🚨🚨🚨 为节点保存: \(node.text) (\(node.id))")
         
         guard let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
             print("❌ 无法获取Documents目录")
@@ -266,7 +302,7 @@ struct NodeDetailView: View {
             try FileManager.default.createDirectory(at: markdownURL, withIntermediateDirectories: true)
             
             // 创建安全的文件名（移除特殊字符）
-            let safeFileName = currentNode.text
+            let safeFileName = node.text
                 .replacingOccurrences(of: "/", with: "_")
                 .replacingOccurrences(of: ":", with: "_")
                 .replacingOccurrences(of: "?", with: "_")
@@ -317,9 +353,10 @@ struct NodeDetailView: View {
             print("✅ 从文件加载Markdown内容: \(content.count)字符")
             
             // 确保编辑器也更新内容
+            // 延迟到下一个运行循环，避免在视图更新期间修改状态
             DispatchQueue.main.async {
                 print("📝 loadMarkdownFromFile: 设置编辑器内容")
-                vditorCoordinator?.setMarkdown(content, forceUpdate: true)
+                self.vditorCoordinator?.setMarkdown(content, forceUpdate: true)
             }
         } catch {
             print("📄 文件不存在或无法读取，使用默认内容: \(error)")
@@ -330,7 +367,7 @@ struct NodeDetailView: View {
             // 确保编辑器也更新默认内容
             DispatchQueue.main.async {
                 print("📝 loadMarkdownFromFile: 设置默认内容到编辑器")
-                vditorCoordinator?.setMarkdown(defaultContent, forceUpdate: true)
+                self.vditorCoordinator?.setMarkdown(defaultContent, forceUpdate: true)
             }
         }
     }

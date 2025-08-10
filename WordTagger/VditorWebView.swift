@@ -168,7 +168,7 @@ struct VditorWebView: NSViewRepresentable {
         private func applyTheme(force: Bool) {
             let isDark = (NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua)
             lastDarkValue = isDark
-            evaluateJS("window.__applyNativeTheme(\(isDark ? "true" : "false"));", delayMS: force ? 0 : 30)
+            evaluateJS("window.__applyNativeTheme(\(isDark ? "true" : "false"));", delayMS: 0) // 立即执行，无延迟
         }
         
         // 图片保存功能
@@ -472,7 +472,21 @@ struct VditorWebView: NSViewRepresentable {
                   } catch(e) {
                     console.error('Failed to send change message:', e);
                   }
-                }, 300);
+                }, 50); // 缩短防抖时间到50ms，提高响应速度
+              },
+              // 添加 blur 事件处理，确保失焦时立即保存
+              blur() {
+                clearTimeout(window.__inputDebounce);
+                const originalValue = vditor.getValue();
+                console.log('Blur event - immediately sending value');
+                try { 
+                  window.webkit?.messageHandlers?.bridge?.postMessage({ 
+                    type:'change', 
+                    value: originalValue 
+                  }); 
+                } catch(e) {
+                  console.error('Failed to send change message on blur:', e);
+                }
               }
             });
             window.vditor = vditor;
