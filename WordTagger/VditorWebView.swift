@@ -665,38 +665,49 @@ struct VditorWebView: NSViewRepresentable {
               }catch(_){}
             };
 
-            // 切换编辑模式（IR <-> WYSIWYG <-> SV）
+            // 切换编辑模式（IR <-> WYSIWYG）
+            let currentEditMode = 'ir'; // 跟踪当前模式
+            
             window.__toggleVditorMode = function(){
               try{
                 console.log('🔄 开始切换编辑模式...');
-                console.log('vditor 对象:', vditor);
-                console.log('vditor 可用方法:', Object.getOwnPropertyNames(vditor));
+                console.log('当前模式:', currentEditMode);
                 
-                // 尝试不同的API方法
-                if (vditor.setEditMode) {
-                  console.log('使用 setEditMode 方法');
-                  const currentMode = vditor.getCurrentMode ? vditor.getCurrentMode() : 'ir';
-                  console.log('当前模式:', currentMode);
-                  const nextMode = currentMode === 'ir' ? 'wysiwyg' : 'ir';
-                  vditor.setEditMode(nextMode);
-                } else if (vditor.switchEditMode) {
-                  console.log('使用 switchEditMode 方法');
-                  vditor.switchEditMode();
-                } else if (vditor.changeMode) {
-                  console.log('使用 changeMode 方法');
-                  vditor.changeMode();
+                // 首先点击编辑模式按钮打开下拉菜单
+                const editModeBtn = document.querySelector('[data-type="edit-mode"]');
+                if (editModeBtn) {
+                  console.log('找到编辑模式按钮');
+                  editModeBtn.click();
+                  
+                  // 等待下拉菜单出现，然后选择对应的模式
+                  setTimeout(() => {
+                    if (currentEditMode === 'ir') {
+                      // 从 IR 切换到 WYSIWYG (所见即所得)
+                      const wysiwygBtn = document.querySelector('[data-mode="wysiwyg"]');
+                      if (wysiwygBtn) {
+                        console.log('切换到 WYSIWYG 模式');
+                        wysiwygBtn.click();
+                        currentEditMode = 'wysiwyg';
+                      } else {
+                        console.error('❌ 找不到 WYSIWYG 按钮');
+                      }
+                    } else {
+                      // 从 WYSIWYG 切换回 IR
+                      const irBtn = document.querySelector('[data-mode="ir"]');
+                      if (irBtn) {
+                        console.log('切换到 IR 模式');
+                        irBtn.click();
+                        currentEditMode = 'ir';
+                      } else {
+                        console.error('❌ 找不到 IR 按钮');
+                      }
+                    }
+                    
+                    console.log('✅ 模式切换完成，当前模式:', currentEditMode);
+                  }, 100); // 给下拉菜单一点时间显示
                 } else {
-                  console.log('尝试直接点击工具栏按钮');
-                  // 尝试点击编辑模式切换按钮
-                  const editModeBtn = document.querySelector('.vditor-toolbar .vditor-tooltipped[data-type="edit-mode"]');
-                  if (editModeBtn) {
-                    console.log('找到编辑模式按钮，模拟点击');
-                    editModeBtn.click();
-                  } else {
-                    console.error('❌ 找不到编辑模式切换按钮');
-                  }
+                  console.error('❌ 找不到编辑模式切换按钮');
                 }
-                console.log('✅ 模式切换尝试完成');
               }catch(e){
                 console.error('❌ 切换模式失败:', e);
               }
