@@ -395,18 +395,23 @@ struct VditorWebView: NSViewRepresentable {
               cache: { enable: false },
               hotkey: {
                 // 禁用 Command+E 快捷键，让 App 使用
-                'edit-mode': ''
+                'edit-mode': '',
+                // 彻底禁用所有可能的 Command+E 相关快捷键
+                'Ctrl+Alt+E': '',
+                'Shift+Ctrl+E': '',
+                'Ctrl+E': ''
               },
               after(){
                 // 通知 Native：ready
                 try { window.webkit?.messageHandlers?.bridge?.postMessage({ type: 'ready' }); } catch(_) {}
                 setTimeout(containerFix, 30);
                 
-                // 拦截并阻止 Command+E
+                // 强制拦截并阻止所有 Command+E 相关按键
                 document.addEventListener('keydown', function(e) {
-                  if (e.metaKey && e.key === 'e') {
+                  if (e.metaKey && (e.key === 'e' || e.key === 'E')) {
+                    console.log('拦截 Command+E 快捷键，交给 App 处理');
                     e.preventDefault();
-                    e.stopPropagation();
+                    e.stopImmediatePropagation();
                     return false;
                   }
                 }, true);
@@ -571,21 +576,29 @@ struct VditorWebView: NSViewRepresentable {
               }
             }, true);
             
-            // 点击图片时在 Finder 中显示（需要按住 Command 键）
+            // 图片点击处理：只有 Command+点击 才在 Finder 中显示，普通点击不做任何操作
             document.addEventListener('click', function(e) {
-              if (e.target.tagName === 'IMG' && e.target.src.includes('Images/') && e.metaKey) {
-                e.preventDefault();
-                // 提取文件名
-                const src = e.target.src;
-                const filename = src.split('Images/').pop();
-                // 发送消息给 Swift
-                try {
-                  window.webkit?.messageHandlers?.bridge?.postMessage({ 
-                    type: 'showImageInFinder',
-                    filename: 'Images/' + filename
-                  });
-                } catch(err) {
-                  console.error('无法打开图片:', err);
+              if (e.target.tagName === 'IMG' && e.target.src.includes('Images/')) {
+                if (e.metaKey) {
+                  // Command+点击：在 Finder 中显示图片
+                  e.preventDefault();
+                  e.stopPropagation();
+                  // 提取文件名
+                  const src = e.target.src;
+                  const filename = src.split('Images/').pop();
+                  // 发送消息给 Swift
+                  try {
+                    window.webkit?.messageHandlers?.bridge?.postMessage({ 
+                      type: 'showImageInFinder',
+                      filename: 'Images/' + filename
+                    });
+                  } catch(err) {
+                    console.error('无法打开图片:', err);
+                  }
+                } else {
+                  // 普通点击：阻止默认行为，避免误触
+                  e.preventDefault();
+                  console.log('普通点击图片，已阻止默认行为。使用 Command+点击 可在 Finder 中显示图片');
                 }
               }
             });
