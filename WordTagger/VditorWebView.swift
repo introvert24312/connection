@@ -665,8 +665,8 @@ struct VditorWebView: NSViewRepresentable {
               }catch(_){}
             };
 
-            // 切换编辑模式（IR <-> WYSIWYG）
-            let currentEditMode = 'ir'; // 跟踪当前模式
+            // 切换编辑模式（IR <-> SV 分屏预览）
+            let currentEditMode = 'ir'; // 跟踪当前模式，默认为即时渲染(8)
             
             window.__toggleVditorMode = function(){
               try{
@@ -682,20 +682,23 @@ struct VditorWebView: NSViewRepresentable {
                   // 等待下拉菜单出现，然后选择对应的模式
                   setTimeout(() => {
                     if (currentEditMode === 'ir') {
-                      // 从 IR 切换到 WYSIWYG (所见即所得)
-                      const wysiwygBtn = document.querySelector('[data-mode="wysiwyg"]');
-                      if (wysiwygBtn) {
-                        console.log('切换到 WYSIWYG 模式');
-                        wysiwygBtn.click();
-                        currentEditMode = 'wysiwyg';
+                      // 从 IR(8) 切换到 SV(9) 分屏预览
+                      const svBtn = document.querySelector('[data-mode="sv"]');
+                      if (svBtn) {
+                        console.log('切换到 SV 分屏预览模式');
+                        svBtn.click();
+                        currentEditMode = 'sv';
                       } else {
-                        console.error('❌ 找不到 WYSIWYG 按钮');
+                        console.error('❌ 找不到 SV 按钮');
+                        // 如果找不到SV按钮，尝试查找所有可用的模式按钮
+                        const allModeButtons = document.querySelectorAll('[data-mode]');
+                        console.log('可用的模式按钮:', Array.from(allModeButtons).map(btn => btn.getAttribute('data-mode')));
                       }
                     } else {
-                      // 从 WYSIWYG 切换回 IR
+                      // 从 SV(9) 切换回 IR(8)
                       const irBtn = document.querySelector('[data-mode="ir"]');
                       if (irBtn) {
-                        console.log('切换到 IR 模式');
+                        console.log('切换到 IR 即时渲染模式');
                         irBtn.click();
                         currentEditMode = 'ir';
                       } else {
