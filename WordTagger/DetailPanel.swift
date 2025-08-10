@@ -1266,7 +1266,7 @@ struct NodeGraphView: View {
                 }
             }
         }
-        .focusable()
+        .focusable(false)
         .onKeyPress(.init("l"), phases: .down) { keyPress in
             if keyPress.modifiers == .command {
                 Swift.print("🎯 Command+L 检测到，开始处理...")

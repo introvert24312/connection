@@ -181,7 +181,7 @@ struct TagSidebarView: View {
                 .padding(.horizontal)
             }
             .navigationTitle("标签")
-            .focusable()
+            .focusable(false)
             .onKeyPress(.escape) {
                 // 按ESC键隐藏标签管理侧边栏
                 print("🔑 TagSidebarView: ESC键按下，隐藏标签管理")
@@ -189,15 +189,8 @@ struct TagSidebarView: View {
                 return .handled
             }
             .onAppear {
-                // 确保获得键盘焦点，这对ESC键处理很重要
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    print("🔑 TagSidebarView 获得键盘焦点")
-                    // 强制设置焦点到整个视图
-                    if let window = NSApp.keyWindow {
-                        window.makeFirstResponder(window.contentView)
-                        print("🔑 设置键盘焦点到窗口内容视图")
-                    }
-                }
+                // 移除强制键盘焦点设置，避免干扰全局快捷键
+                print("🔑 TagSidebarView 出现，不强制设置键盘焦点")
             }
             // 添加额外的ESC键处理层
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in

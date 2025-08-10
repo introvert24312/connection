@@ -198,7 +198,7 @@ struct MapContainer: View {
                 }
             )
         }
-        .focusable()
+        .focusable(false)
         .onKeyPress(.return) {
             if isLocationSelectionMode && selectedLocation != nil {
                 confirmLocationSelection()
