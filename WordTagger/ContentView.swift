@@ -193,59 +193,9 @@ struct ContentView: View {
                 print("🔔 ContentView: 切换后showSidebar=\(showSidebar)")
             }
             
-            // 监听在详情面板中显示详情的通知 (Command+O)
-            NotificationCenter.default.addObserver(
-                forName: Notification.Name("showDetailTabInDetailPanel"),
-                object: nil,
-                queue: .main
-            ) { _ in
-                print("🔔 ContentView: 收到showDetailTabInDetailPanel通知")
-                DispatchQueue.main.async {
-                    // 确保有选中的节点，然后发送通知给DetailPanel显示详情
-                    if let node = selectedNode {
-                        print("✅ 向DetailPanel发送显示详情通知，节点: \(node.text)")
-                        NotificationCenter.default.post(
-                            name: NSNotification.Name("showDetailTabInDetailPanel"), 
-                            object: node
-                        )
-                    } else if let firstNode = store.nodes.first {
-                        // 如果没有选中节点，自动选择第一个
-                        selectedNode = firstNode
-                        print("🔄 自动选择节点并显示详情: \(firstNode.text)")
-                        NotificationCenter.default.post(
-                            name: NSNotification.Name("showDetailTabInDetailPanel"), 
-                            object: firstNode
-                        )
-                    }
-                }
-            }
+            // 移除多余的Command+O通知监听器 - WordTaggerApp现在直接发送给DetailPanel
             
-            // 监听在详情面板中显示图谱的通知 (Command+L)
-            NotificationCenter.default.addObserver(
-                forName: Notification.Name("showGraphTabInDetailPanel"),
-                object: nil,
-                queue: .main
-            ) { _ in
-                print("🔔 ContentView: 收到showGraphTabInDetailPanel通知")
-                DispatchQueue.main.async {
-                    // 确保有选中的节点，然后发送通知给DetailPanel显示图谱
-                    if let node = selectedNode {
-                        print("✅ 向DetailPanel发送显示图谱通知，节点: \(node.text)")
-                        NotificationCenter.default.post(
-                            name: NSNotification.Name("showGraphTabInDetailPanel"), 
-                            object: node
-                        )
-                    } else if let firstNode = store.nodes.first {
-                        // 如果没有选中节点，自动选择第一个
-                        selectedNode = firstNode
-                        print("🔄 自动选择节点并显示图谱: \(firstNode.text)")
-                        NotificationCenter.default.post(
-                            name: NSNotification.Name("showGraphTabInDetailPanel"), 
-                            object: firstNode
-                        )
-                    }
-                }
-            }
+            // 移除多余的Command+L通知监听器 - WordTaggerApp现在直接发送给DetailPanel
             
             // 监听打开全屏图谱的通知
             NotificationCenter.default.addObserver(
