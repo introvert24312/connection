@@ -81,6 +81,26 @@ struct DetailPanel: View {
                 }
             }
         }
+        .onKeyPress(.init("o"), phases: .down) { keyPress in
+            if keyPress.modifiers == .command {
+                print("🎯 DetailPanel: Command+O 全局快捷键，切换到详情标签")
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    tab = .detail
+                }
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(.init("l"), phases: .down) { keyPress in
+            if keyPress.modifiers == .command {
+                print("🎯 DetailPanel: Command+L 全局快捷键，切换到图谱标签")
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    tab = .related
+                }
+                return .handled
+            }
+            return .ignored
+        }
         .onAppear {
             setupNotificationObservers()
         }
@@ -1260,19 +1280,7 @@ struct NodeGraphView: View {
                 }
             }
         }
-        .focusable(true)
-        .onKeyPress(.init("o"), phases: .down) { keyPress in
-            if keyPress.modifiers == .command {
-                Swift.print("🎯 NodeGraphView: Command+O 检测到，切换到详情标签")
-                // 发送通知切换到详情标签
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("switchToDetailTab"),
-                    object: nil
-                )
-                return .handled
-            }
-            return .ignored
-        }
+        .focusable(false)
         .onKeyPress(.init("l"), phases: .down) { keyPress in
             if keyPress.modifiers == .command {
                 Swift.print("🎯 Command+L 检测到，开始处理...")
