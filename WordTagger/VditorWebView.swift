@@ -132,6 +132,13 @@ struct VditorWebView: NSViewRepresentable {
                 // filename / data(base64)
                 // print("image from web:", body)
                 break
+                
+            case "showImageInFinder":
+                // 在 Finder 中显示图片
+                if let filename = body["filename"] as? String {
+                    showImageInFinder(filename: filename)
+                }
+                break
 
             default:
                 break
@@ -189,6 +196,18 @@ struct VditorWebView: NSViewRepresentable {
             } catch {
                 print("保存图片失败: \(error)")
                 evaluateJS("window.__onImageSaveError && window.__onImageSaveError('\(fileName)', '\(error.localizedDescription)');")
+            }
+        }
+        
+        // 在 Finder 中显示图片
+        private func showImageInFinder(filename: String) {
+            guard let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+            let fileURL = documentsURL.appendingPathComponent("WordTagger").appendingPathComponent(filename)
+            
+            if FileManager.default.fileExists(atPath: fileURL.path) {
+                NSWorkspace.shared.selectFile(fileURL.path, inFileViewerRootedAtPath: fileURL.deletingLastPathComponent().path)
+            } else {
+                print("图片文件不存在: \(fileURL.path)")
             }
         }
 
@@ -276,8 +295,16 @@ struct VditorWebView: NSViewRepresentable {
             .vditor-reset img[src*="/Images/"] {
               max-width: 100%;
               height: auto;
-              cursor: pointer;
+              cursor: zoom-in;
               display: block;
+              transition: transform 0.2s ease;
+            }
+            
+            .vditor-reset img[src^="Images/"]:hover,
+            .vditor-reset img[src^="./Images/"]:hover,
+            .vditor-reset img[src*="/Images/"]:hover {
+              transform: scale(1.02);
+              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             }
             
             /* 图片加载失败时的样式 */
@@ -434,11 +461,74 @@ struct VditorWebView: NSViewRepresentable {
               input(value){
                 clearTimeout(window.__inputDebounce);
                 window.__inputDebounce = setTimeout(()=>{
-                  try { window.webkit?.messageHandlers?.bridge?.postMessage({ type:'change', value }); } catch(_) {}
+                  // 获取原始 Markdown 内容（getValue 已经处理了还原）
+                  const originalValue = vditor.getValue();
+                  console.log('Input event - sending value:', originalValue.substring(0, 100) + '...');
+                  try { 
+                    window.webkit?.messageHandlers?.bridge?.postMessage({ 
+                      type:'change', 
+                      value: originalValue 
+                    }); 
+                  } catch(e) {
+                    console.error('Failed to send change message:', e);
+                  }
                 }, 300);
               }
             });
             window.vditor = vditor;
+            
+            // 实现自定义图片缩放语法
+            // 支持格式：
+            // ![alt|50](src)      - 缩放到 50%
+            // ![alt|75.5](src)    - 缩放到 75.5%
+            // ![alt|300px](src)   - 固定宽度 300 像素
+            const processImageScale = (markdown) => {
+              return markdown.replace(/!\[([^\]]*?)\|([0-9.]+)(px)?\]\(([^)]+)\)/g, (match, alt, size, unit, src) => {
+                // 如果有 px 单位，使用像素；否则使用百分比
+                const style = unit === 'px' 
+                  ? `width: ${size}px; height: auto; max-width: 100%;`
+                  : `width: ${size}%; height: auto; max-width: 100%;`;
+                // 保留原始 alt 文本（去掉缩放参数）
+                return `<img src="${src}" alt="${alt}" style="${style}" title="${alt}" />`;
+              });
+            };
+            
+            // 保存原始 Markdown 用于编辑
+            let originalMarkdown = { current: '' };
+            
+            // 重写 setValue 以支持缩放语法
+            const originalSetValue = vditor.setValue.bind(vditor);
+            vditor.setValue = function(value) {
+              // 保存原始内容
+              originalMarkdown.current = value;
+              // 处理缩放语法仅用于显示
+              const processed = processImageScale(value);
+              originalSetValue(processed);
+            };
+            
+            // 确保 input 事件也处理缩放
+            const originalInsertValue = vditor.insertValue.bind(vditor);
+            vditor.insertValue = function(value) {
+              const processed = processImageScale(value);
+              originalInsertValue(processed);
+            };
+            
+            // 重写 getValue 返回原始内容
+            const originalGetValue = vditor.getValue.bind(vditor);
+            vditor.getValue = function() {
+              // 获取当前编辑器内容
+              const currentValue = originalGetValue();
+              // 如果内容包含我们的 HTML img 标签，尝试还原
+              if (currentValue.includes('<img')) {
+                // 还原 img 标签为 Markdown 格式
+                return currentValue.replace(/<img src="([^"]+)" alt="([^"]*)" style="width: (\d+(?:\.\d+)?)(px|%);[^"]*"[^>]*>/g, 
+                  (match, src, alt, size, unit) => {
+                    const suffix = unit === 'px' ? 'px' : '';
+                    return `![${alt}|${size}${suffix}](${src})`;
+                  });
+              }
+              return currentValue;
+            };
             
             // 监听图片加载事件进行调试
             document.addEventListener('error', function(e) {
@@ -453,6 +543,25 @@ struct VditorWebView: NSViewRepresentable {
                 }
               }
             }, true);
+            
+            // 点击图片时在 Finder 中显示
+            document.addEventListener('click', function(e) {
+              if (e.target.tagName === 'IMG' && e.target.src.includes('Images/')) {
+                e.preventDefault();
+                // 提取文件名
+                const src = e.target.src;
+                const filename = src.split('Images/').pop();
+                // 发送消息给 Swift
+                try {
+                  window.webkit?.messageHandlers?.bridge?.postMessage({ 
+                    type: 'showImageInFinder',
+                    filename: 'Images/' + filename
+                  });
+                } catch(err) {
+                  console.error('无法打开图片:', err);
+                }
+              }
+            });
 
             // 动态调整 Mermaid 基准字号（整体缩放）
             window.__setMermaidFont = function(px){
