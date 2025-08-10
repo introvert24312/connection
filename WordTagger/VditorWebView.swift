@@ -146,6 +146,20 @@ struct VditorWebView: NSViewRepresentable {
                     NotificationCenter.default.post(name: Notification.Name("toggleSidebar"), object: nil)
                 }
                 break
+                
+            case "commandO":
+                // 转发 Command+O 给原生 App - 切换到详情标签
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: Notification.Name("switchToDetailTab"), object: nil)
+                }
+                break
+                
+            case "commandL":
+                // 转发 Command+L 给原生 App - 切换到图谱标签  
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: Notification.Name("switchToGraphTab"), object: nil)
+                }
+                break
 
             default:
                 break
@@ -398,7 +412,17 @@ struct VditorWebView: NSViewRepresentable {
                 // 彻底禁用所有可能的 Command+E 相关快捷键
                 'Ctrl+Alt+E': '',
                 'Shift+Ctrl+E': '',
-                'Ctrl+E': ''
+                'Ctrl+E': '',
+                // 🔥 禁用 Command+O 和 Command+L，让应用层接管
+                'Cmd+O': '',
+                'Ctrl+O': '',
+                'Cmd+L': '',
+                'Ctrl+L': '',
+                // 禁用可能的组合键
+                'Cmd+Shift+O': '',
+                'Cmd+Shift+L': '',
+                'Ctrl+Shift+O': '',
+                'Ctrl+Shift+L': ''
               },
               after(){
                 // 通知 Native：ready
@@ -419,6 +443,38 @@ struct VditorWebView: NSViewRepresentable {
                       });
                     } catch(err) {
                       console.error('无法发送 Command+E 事件:', err);
+                    }
+                    return false;
+                  }
+                  
+                  // Command+O: 转发给原生App处理
+                  if (e.metaKey && (e.key === 'o' || e.key === 'O')) {
+                    console.log('🔥 拦截 Command+O 快捷键，转发给App处理');
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    
+                    try {
+                      window.webkit?.messageHandlers?.bridge?.postMessage({ 
+                        type: 'commandO'
+                      });
+                    } catch(err) {
+                      console.error('无法发送 Command+O 事件:', err);
+                    }
+                    return false;
+                  }
+                  
+                  // Command+L: 转发给原生App处理
+                  if (e.metaKey && (e.key === 'l' || e.key === 'L')) {
+                    console.log('🔥 拦截 Command+L 快捷键，转发给App处理');
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    
+                    try {
+                      window.webkit?.messageHandlers?.bridge?.postMessage({ 
+                        type: 'commandL'
+                      });
+                    } catch(err) {
+                      console.error('无法发送 Command+L 事件:', err);
                     }
                     return false;
                   }
