@@ -224,6 +224,9 @@ struct NodeDetailView: View {
                 isLoadingContent = false
             }
         }
+        .onAppear {
+            setupNotificationObservers()
+        }
         .onChange(of: isEditing) { _, newValue in
             if newValue {
                 // 静默进入编辑模式
@@ -413,6 +416,22 @@ struct NodeDetailView: View {
             markdownText = text
         } else {
             markdownText += "\n" + text
+        }
+    }
+    
+    // MARK: - 通知监听
+    private func setupNotificationObservers() {
+        // 监听显示图谱标签的通知 (Command+L触发)
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("showGraphTabInDetailPanel"),
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let notificationNode = notification.object as? Node,
+               notificationNode.id == self.node.id {
+                print("🔔 DetailPanel: 收到showGraphTabInDetailPanel通知，切换到图谱标签")
+                self.tab = .related
+            }
         }
     }
 }

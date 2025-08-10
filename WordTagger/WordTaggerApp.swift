@@ -1454,6 +1454,18 @@ struct WordTaggerApp: App {
                 
                 Divider()
                 
+                Button("打开详情面板") {
+                    NotificationCenter.default.post(name: Notification.Name("showDetailPanel"), object: nil)
+                }
+                .keyboardShortcut(";", modifiers: [.command])
+                
+                Button("打开视图图谱") {
+                    NotificationCenter.default.post(name: Notification.Name("showGraphInDetailPanel"), object: nil)
+                }
+                .keyboardShortcut("l", modifiers: [.command])
+                
+                Divider()
+                
                 Button("Markdown编辑器") {
                     NotificationCenter.default.post(name: Notification.Name("openMarkdownEditor"), object: nil)
                 }
