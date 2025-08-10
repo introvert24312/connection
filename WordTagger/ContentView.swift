@@ -279,6 +279,14 @@ struct ContentView: View {
                 selectedNode = newValue
             }
         }
+        .onChange(of: selectedNode) { _, newValue in
+            // 反向同步：当ContentView的selectedNode改变时，更新store状态
+            DispatchQueue.main.async {
+                if store.selectedNode?.id != newValue?.id {
+                    store.selectNode(newValue)
+                }
+            }
+        }
         .onChange(of: store.nodes) { _, _ in
             // 当nodes变化时，检查selectedNode是否还有效
             DispatchQueue.main.async {
