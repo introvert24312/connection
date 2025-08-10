@@ -141,23 +141,9 @@ struct VditorWebView: NSViewRepresentable {
                 break
                 
             case "commandE":
-                // 转发 Command+E 给原生 App
+                // 通过通知机制转发 Command+E 给原生 App
                 DispatchQueue.main.async {
-                    // 模拟原生按键事件
-                    let event = NSEvent.keyEvent(with: .keyDown,
-                                               location: NSPoint.zero,
-                                               modifierFlags: .command,
-                                               timestamp: 0,
-                                               windowNumber: 0,
-                                               context: nil,
-                                               characters: "e",
-                                               charactersIgnoringModifiers: "e",
-                                               isARepeat: false,
-                                               keyCode: 14) // E 键的 keyCode
-                    
-                    if let event = event {
-                        NSApp.sendEvent(event)
-                    }
+                    NotificationCenter.default.post(name: Notification.Name("toggleSidebar"), object: nil)
                 }
                 break
 
