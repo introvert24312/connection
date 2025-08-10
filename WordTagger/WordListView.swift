@@ -154,9 +154,11 @@ struct NodeListView: View {
                             isSelected: selectedNode?.id == node.id || (index == selectedIndex && selectedIndex >= 0),
                             searchQuery: store.searchQuery
                         ) {
+                            print("🎯 NodeListView: 用户点击节点 \(node.text)")
                             selectedNode = node
-                            store.selectNode(node)
                             selectedIndex = index
+                            print("🔄 NodeListView: 调用store.selectNode(\(node.text))")
+                            store.selectNode(node)
                         }
                         .id(node.id)
                         .transition(.opacity.combined(with: .move(edge: .leading)))

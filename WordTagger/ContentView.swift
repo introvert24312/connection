@@ -53,34 +53,6 @@ struct ContentView: View {
             Swift.print("📝 ContentView: 收到打开全屏图谱请求")
             openWindow(id: "fullscreenGraph")
         }
-        .onKeyPress(.init("l"), phases: .down) { keyPress in
-            if keyPress.modifiers == .command {
-                Swift.print("🔑 ContentView: Command+L键按下")
-                
-                // 检查是否有选中的节点
-                if let node = selectedNode {
-                    // 检查是否有全屏图谱窗口打开
-                    let windowManager = FullscreenGraphWindowManager.shared
-                    if windowManager.isWindowActive() {
-                        Swift.print("📝 ContentView: Command+L - 关闭全屏图谱窗口")
-                        windowManager.hideFullscreenGraph()
-                        return .handled
-                    } else {
-                        Swift.print("📝 ContentView: Command+L - 打开全屏图谱窗口")
-                        // 发送通知打开全屏图谱
-                        NotificationCenter.default.post(
-                            name: NSNotification.Name("openFullscreenGraphForNode"),
-                            object: node
-                        )
-                        return .handled
-                    }
-                } else {
-                    Swift.print("🔑 ContentView: Command+L - 无选中节点，忽略")
-                    return .ignored
-                }
-            }
-            return .ignored
-        }
         .onKeyPress(.init("t"), phases: .down) { keyPress in
             if keyPress.modifiers == .command {
                 print("🔑 ContentView: Command+T键按下")
@@ -142,10 +114,6 @@ struct ContentView: View {
             }
         }
         .onAppear {
-            // 同步selectedNode状态
-            DispatchQueue.main.async {
-                selectedNode = store.selectedNode
-            }
             
             // 注册通知监听器
             NotificationCenter.default.addObserver(
@@ -224,17 +192,11 @@ struct ContentView: View {
                 }
             }
         }
-        .onChange(of: store.selectedNode) { _, newValue in
-            DispatchQueue.main.async {
+        .onChange(of: store.selectedNode) { oldValue, newValue in
+            print("🔄 ContentView: store.selectedNode 发生变化: \(oldValue?.text ?? "nil") -> \(newValue?.text ?? "nil")")
+            if selectedNode?.id != newValue?.id {
                 selectedNode = newValue
-            }
-        }
-        .onChange(of: selectedNode) { _, newValue in
-            // 反向同步：当ContentView的selectedNode改变时，更新store状态
-            DispatchQueue.main.async {
-                if store.selectedNode?.id != newValue?.id {
-                    store.selectNode(newValue)
-                }
+                print("🔄 ContentView: 同步本地selectedNode: \(newValue?.text ?? "nil")")
             }
         }
         .onChange(of: store.nodes) { _, _ in

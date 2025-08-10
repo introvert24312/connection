@@ -482,7 +482,10 @@ public final class NodeStore: ObservableObject {
     
     @MainActor
     public func setSelectedNode(_ node: Node?) {
+        print("🔧 Store.setSelectedNode 被调用: \(node?.text ?? "nil")")
+        let oldText = selectedNode?.text ?? "nil"
         selectedNode = node
+        print("🔧 selectedNode 已更新: \(oldText) → \(selectedNode?.text ?? "nil")")
     }
     
     @MainActor
@@ -492,8 +495,12 @@ public final class NodeStore: ObservableObject {
     
     // MARK: - 兼容性方法
     
+    @MainActor 
     public func selectNode(_ node: Node?) {
+        print("🔧 Store.selectNode 被调用: \(node?.text ?? "nil")")
+        print("🔧 调用前 store.selectedNode: \(selectedNode?.text ?? "nil")")
         setSelectedNode(node)
+        print("🔧 调用后 store.selectedNode: \(selectedNode?.text ?? "nil")")
     }
     
     public func createLayer(name: String, displayName: String, color: String = "blue") -> Layer {
@@ -1034,6 +1041,7 @@ public final class NodeStore: ObservableObject {
         return searchTags(query: query)
     }
     
+    @MainActor
     public func selectTag(_ tag: Tag?) {
         setSelectedTag(tag)
     }

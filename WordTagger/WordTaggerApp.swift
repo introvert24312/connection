@@ -1456,6 +1456,8 @@ struct WordTaggerApp: App {
                 
                 Button("详情面板：详情") {
                     print("🎯 WordTaggerApp: Command+O 立即处理当前选中节点")
+                    print("🔍 DEBUG: store.selectedNode = \(store.selectedNode?.text ?? "nil")")
+                    print("🔍 DEBUG: store.nodes.count = \(store.nodes.count)")
                     // 直接获取当前选中的节点并发送通知给DetailPanel
                     if let currentNode = store.selectedNode {
                         print("✅ 向DetailPanel发送显示详情通知，节点: \(currentNode.text)")
@@ -1478,6 +1480,8 @@ struct WordTaggerApp: App {
                 
                 Button("详情面板：图谱") {
                     print("🎯 WordTaggerApp: Command+L 立即处理当前选中节点")
+                    print("🔍 DEBUG: store.selectedNode = \(store.selectedNode?.text ?? "nil")")
+                    print("🔍 DEBUG: store.nodes.count = \(store.nodes.count)")
                     // 直接获取当前选中的节点并发送通知给DetailPanel
                     if let currentNode = store.selectedNode {
                         print("✅ 向DetailPanel发送显示图谱通知，节点: \(currentNode.text)")

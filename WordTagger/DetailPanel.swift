@@ -94,12 +94,9 @@ struct DetailPanel: View {
             object: nil,
             queue: .main
         ) { notification in
-            if let notificationNode = notification.object as? Node,
-               notificationNode.id == self.node.id {
-                print("🔔 DetailPanel: 收到showDetailTabInDetailPanel通知，切换到详情标签")
-                DispatchQueue.main.async {
-                    self.tab = .detail
-                }
+            print("🔔 DetailPanel: 收到showDetailTabInDetailPanel通知，切换到详情标签")
+            DispatchQueue.main.async {
+                self.tab = .detail
             }
         }
         
@@ -109,12 +106,9 @@ struct DetailPanel: View {
             object: nil,
             queue: .main
         ) { notification in
-            if let notificationNode = notification.object as? Node,
-               notificationNode.id == self.node.id {
-                print("🔔 DetailPanel: 收到showGraphTabInDetailPanel通知，切换到图谱标签")
-                DispatchQueue.main.async {
-                    self.tab = .related
-                }
+            print("🔔 DetailPanel: 收到showGraphTabInDetailPanel通知，切换到图谱标签")
+            DispatchQueue.main.async {
+                self.tab = .related
             }
         }
     }
