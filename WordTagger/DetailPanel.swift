@@ -88,6 +88,21 @@ struct DetailPanel: View {
     
     // MARK: - 通知监听
     private func setupNotificationObservers() {
+        // 监听显示详情标签的通知 (Command+O触发)
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("showDetailTabInDetailPanel"),
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let notificationNode = notification.object as? Node,
+               notificationNode.id == self.node.id {
+                print("🔔 DetailPanel: 收到showDetailTabInDetailPanel通知，切换到详情标签")
+                DispatchQueue.main.async {
+                    self.tab = .detail
+                }
+            }
+        }
+        
         // 监听显示图谱标签的通知 (Command+L触发)
         NotificationCenter.default.addObserver(
             forName: NSNotification.Name("showGraphTabInDetailPanel"),

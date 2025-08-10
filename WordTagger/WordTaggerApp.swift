@@ -1454,14 +1454,15 @@ struct WordTaggerApp: App {
                 
                 Divider()
                 
-                Button("打开详情面板") {
-                    print("🎯 WordTaggerApp: 发送showDetailPanel通知")
-                    NotificationCenter.default.post(name: Notification.Name("showDetailPanel"), object: nil)
+                Button("详情面板：详情") {
+                    print("🎯 WordTaggerApp: 发送showDetailTabInDetailPanel通知")
+                    NotificationCenter.default.post(name: Notification.Name("showDetailTabInDetailPanel"), object: nil)
                 }
                 .keyboardShortcut("o", modifiers: [.command])
                 
-                Button("打开视图图谱") {
-                    NotificationCenter.default.post(name: Notification.Name("showGraphInDetailPanel"), object: nil)
+                Button("详情面板：图谱") {
+                    print("🎯 WordTaggerApp: 发送showGraphTabInDetailPanel通知")
+                    NotificationCenter.default.post(name: Notification.Name("showGraphTabInDetailPanel"), object: nil)
                 }
                 .keyboardShortcut("l", modifiers: [.command])
                 
