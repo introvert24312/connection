@@ -1846,72 +1846,112 @@ struct CompoundNodeAddSheetView: View {
     @State private var inputText: String = ""
     @State private var showingErrorAlert = false
     @State private var errorMessage = ""
+    @FocusState private var isInputFocused: Bool
     
     var body: some View {
-        NavigationView {
-            VStack(spacing: 20) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("添加复合节点")
-                        .font(.title2)
-                        .fontWeight(.bold)
+        VStack(spacing: 0) {
+            // 搜索输入框 - 采用与QuickAddSheetView一致的样式
+            HStack {
+                Image(systemName: "square.stack.3d.up.fill")
+                    .foregroundColor(.purple)
+                
+                TextField("输入格式：复合节点名 节点1 节点2 节点3...", text: $inputText)
+                    .textFieldStyle(.plain)
+                    .font(.title3)
+                    .focused($isInputFocused)
+                    .onKeyPress(.escape) {
+                        inputText = ""
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                            dismiss()
+                        }
+                        return .handled
+                    }
+            }
+            .padding(16)
+            .background(Color(NSColor.controlBackgroundColor))
+            
+            Divider()
+            
+            // 使用说明部分
+            VStack(alignment: .leading, spacing: 12) {
+                Text("💡 使用方法:")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Circle()
+                            .fill(Color.purple.opacity(0.8))
+                            .frame(width: 8, height: 8)
+                        Text("创建1级复合节点：动物 狗 猫 鸟")
+                            .font(.caption)
+                            .foregroundColor(.primary)
+                    }
                     
-                    Text("输入格式：复合节点名 节点1 节点2 节点3...")
-                        .font(.body)
-                        .foregroundColor(.secondary)
+                    HStack {
+                        Circle()
+                            .fill(Color.orange.opacity(0.8))
+                            .frame(width: 8, height: 8)
+                        Text("创建2级复合节点：生物 动物 植物")
+                            .font(.caption)
+                            .foregroundColor(.primary)
+                    }
                     
-                    Text("创建1级复合节点：动物 狗 猫 鸟")
-                        .font(.caption)
-                        .foregroundColor(.purple.opacity(0.8))
-                    
-                    Text("创建2级复合节点：生物 动物 植物")
-                        .font(.caption)
-                        .foregroundColor(.orange.opacity(0.8))
-                    
-                    Text("删除子节点：动物 -狗 -猫")
-                        .font(.caption)
-                        .foregroundColor(.red.opacity(0.8))
-                        
-                    Text("💡 复合节点可以无限嵌套，颜色会自动区分层级")
+                    HStack {
+                        Circle()
+                            .fill(Color.red.opacity(0.8))
+                            .frame(width: 8, height: 8)
+                        Text("删除子节点：动物 -狗 -猫")
+                            .font(.caption)
+                            .foregroundColor(.primary)
+                    }
+                }
+                
+                Text("复合节点可以无限嵌套，颜色会自动区分层级")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .padding(.top, 4)
+                
+                HStack {
+                    Text("快捷键: ⌘+R提交 • Esc关闭")
                         .font(.caption2)
                         .foregroundColor(.secondary)
+                    Spacer()
                 }
-                
-                TextField("例如：颜色 红色 蓝色 绿色", text: $inputText, axis: .vertical)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .lineLimit(3...6)
-                    .onKeyPress(.return) {
-                        processInput()
-                        return .handled
-                    }
-                    .onKeyPress(.escape) {
-                        dismiss()
-                        return .handled
-                    }
-                
-                Spacer()
             }
-            .padding(20)
-            .frame(width: 500, height: 300)
-            .navigationTitle("添加复合节点")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") {
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .background(Color(NSColor.controlBackgroundColor))
+        }
+        .frame(width: 600)
+        .navigationTitle("添加复合节点")
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("取消") {
+                    inputText = ""
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                         dismiss()
                     }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("添加") {
-                        processInput()
-                    }
-                    .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    .keyboardShortcut(.return)
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("添加") {
+                    processInput()
                 }
+                .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .keyboardShortcut("r", modifiers: .command)
             }
         }
         .alert("错误", isPresented: $showingErrorAlert) {
             Button("确定") { }
         } message: {
             Text(errorMessage)
+        }
+        .onAppear {
+            // 自动聚焦到输入框
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                isInputFocused = true
+            }
         }
     }
     
