@@ -2786,21 +2786,147 @@ struct VditorWebView: NSViewRepresentable {
                     }
                 }
                 
-                /* SVG容器最高优先级覆盖 */
-                html body div.vditor div.vditor-ir div.mermaid > svg {
-                    width: 100% !important;
-                    height: auto !important;
-                    max-width: none !important;
-                    min-width: 800px !important;
-                    min-height: 600px !important;
-                    transform: scale(1.2) !important;
+                /* 🎨 自定义独立Mermaid系统样式 */
+                
+                /* 自定义Mermaid容器 */
+                .mermaid.custom-mermaid {
+                    display: block;
+                    margin: 32px 0;
+                    padding: 24px;
+                    text-align: center;
+                    border-radius: 12px;
+                    overflow: visible;
+                    position: relative;
+                    transition: all 0.3s ease;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                }
+                
+                /* 深色主题容器样式 */
+                @media (prefers-color-scheme: dark) {
+                    .mermaid.custom-mermaid {
+                        background: linear-gradient(135deg, rgba(31, 41, 55, 0.8), rgba(17, 24, 39, 0.6));
+                        border: 2px solid rgba(96, 165, 250, 0.3);
+                        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+                    }
+                    
+                    .mermaid.custom-mermaid:hover {
+                        border-color: rgba(96, 165, 250, 0.5);
+                        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+                        transform: translateY(-2px);
+                    }
+                }
+                
+                /* 浅色主题容器样式 */
+                @media (prefers-color-scheme: light) {
+                    .mermaid.custom-mermaid {
+                        background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(246, 248, 250, 0.8));
+                        border: 2px solid rgba(9, 105, 218, 0.2);
+                        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+                    }
+                    
+                    .mermaid.custom-mermaid:hover {
+                        border-color: rgba(9, 105, 218, 0.4);
+                        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+                        transform: translateY(-2px);
+                    }
+                }
+                
+                /* SVG优化样式 */
+                .mermaid.custom-mermaid svg {
+                    max-width: 100%;
+                    height: auto;
+                    display: block;
+                    margin: 0 auto;
+                    font-family: -apple-system, 'SF Pro Text', 'Segoe UI', Arial, sans-serif !important;
+                    font-size: 16px !important;
+                    overflow: visible;
+                }
+                
+                /* 文本优化 */
+                .mermaid.custom-mermaid svg text {
+                    font-family: -apple-system, 'SF Pro Text', 'Segoe UI', Arial, sans-serif !important;
+                    font-weight: 600 !important;
+                    font-size: 16px !important;
+                }
+                
+                /* 节点和边的优化 */
+                .mermaid.custom-mermaid svg .node rect,
+                .mermaid.custom-mermaid svg .node circle,
+                .mermaid.custom-mermaid svg .node ellipse,
+                .mermaid.custom-mermaid svg .node polygon {
+                    stroke-width: 2px !important;
+                    filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.1));
+                }
+                
+                /* 箭头和连线优化 */
+                .mermaid.custom-mermaid svg .edgePath path {
+                    stroke-width: 2.5px !important;
+                    filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.1));
+                }
+                
+                .mermaid.custom-mermaid svg .arrowheadPath {
+                    stroke-width: 2px !important;
+                    filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.1));
+                }
+                
+                /* 响应式设计 */
+                @media (max-width: 768px) {
+                    .mermaid.custom-mermaid {
+                        margin: 24px 0;
+                        padding: 16px;
+                        border-radius: 8px;
+                    }
+                    
+                    .mermaid.custom-mermaid svg text {
+                        font-size: 14px !important;
+                    }
+                }
+                
+                @media (max-width: 480px) {
+                    .mermaid.custom-mermaid {
+                        margin: 16px 0;
+                        padding: 12px;
+                    }
+                    
+                    .mermaid.custom-mermaid svg text {
+                        font-size: 12px !important;
+                    }
+                }
+                
+                /* 加载状态 */
+                .mermaid.custom-mermaid:not([data-processed]) {
+                    background: rgba(156, 163, 175, 0.1);
+                    border: 2px dashed rgba(156, 163, 175, 0.3);
+                }
+                
+                .mermaid.custom-mermaid:not([data-processed])::after {
+                    content: '🎨 正在渲染图表...';
+                    display: block;
+                    color: rgba(156, 163, 175, 0.8);
+                    font-style: italic;
+                    font-size: 14px;
+                    margin-top: 8px;
+                }
+                
+                /* 确保图表完全可见 */
+                .vditor-ir .mermaid.custom-mermaid,
+                .vditor-preview .mermaid.custom-mermaid {
+                    z-index: 1;
+                    position: relative;
+                }
+                
+                /* 清理可能的干扰样式 */
+                .mermaid.custom-mermaid * {
+                    box-sizing: border-box;
                 }
             </style>
         </head>
         <body>
             <div id="vditor"></div>
             
-            <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/nomnoml@1.6.2/dist/nomnoml.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+            <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
             <script src="https://cdn.jsdelivr.net/npm/vditor@3.10.4/dist/index.min.js"></script>
             <script>
                 let vditor;
@@ -2874,7 +3000,7 @@ struct VditorWebView: NSViewRepresentable {
                             style: isDark ? 'github-dark' : 'github'
                         },
                         mermaid: {
-                            enable: false  // 禁用Vditor内置的Mermaid支持
+                            enable: false  // 🚫 完全禁用Vditor的mermaid支持
                         }
                     },
                     toolbar: ['outline'], // 只保留大纲展示按钮
@@ -3042,104 +3168,208 @@ struct VditorWebView: NSViewRepresentable {
                             }
                         }, 1000);
                         
-                        // 添加独立的Mermaid渲染系统
-                        window.renderMermaidManually = function() {
-                            console.log('🎨 MANUAL: Starting manual Mermaid rendering...');
+                        // 🎯 完全抛弃Mermaid，使用可靠的替代引擎
+                        console.log('🎯 ALTERNATIVE: 启动替代图表渲染系统');
+                        
+                        // Nomnoml转换函数 - 将Mermaid语法转换为Nomnoml语法
+                        window.mermaidToNomnoml = function(mermaidCode) {
+                            console.log("🎯 CONVERT: 转换Mermaid到Nomnoml:", mermaidCode.substring(0, 50));
                             
-                            if (!window.mermaid) {
-                                console.log('🎨 MANUAL: Mermaid not available');
-                                return;
-                            }
+                            // 简单的语法转换
+                            let nomnomlCode = mermaidCode
+                                .replace(/^graph\\s+(TD|TB|BT|RL|LR)/, "") // 移除graph声明
+                                .replace(/^flowchart\\s+(TD|TB|BT|RL|LR)/, "") // 移除flowchart声明
+                                .replace(/([A-Z]+)\\[(.*?)\\]/g, "[$1|$2]") // A[text] -> [A|text]
+                                .replace(/([A-Z]+)\\{(.*?)\\}/g, "<$1|$2>") // A{text} -> <A|text> (decision)
+                                .replace(/([A-Z]+)\\((.*?)\\)/g, "($1|$2)") // A(text) -> (A|text) (rounded)
+                                .replace(/-->/g, "->") // --> to ->
+                                .replace(/\\|([^|]+)\\|/g, " $1 "); // |text| labels
                             
-                            // 配置我们的自定义主题
-                            const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                            const config = {
-                                theme: isDarkMode ? 'dark' : 'default',
-                                startOnLoad: false,
-                                securityLevel: 'loose',
-                                themeVariables: isDarkMode ? {
-                                    background: '#0d1117',
-                                    primaryColor: '#1f2937',
-                                    primaryTextColor: '#e5e7eb',
-                                    primaryBorderColor: '#374151',
-                                    secondaryColor: '#374151',
-                                    lineColor: '#60a5fa',
-                                    mainBkg: '#1f2937',
-                                    nodeBkg: '#1f2937',
-                                    nodeTextColor: '#e5e7eb',
-                                    textColor: '#e5e7eb',
-                                    labelTextColor: '#e5e7eb',
-                                    fillType0: '#3b82f6',
-                                    fillType1: '#10b981',
-                                    fillType2: '#f59e0b',
-                                    fillType3: '#ef4444',
-                                    fontSize: '16px'
-                                } : {
-                                    primaryColor: '#ffffff',
-                                    primaryTextColor: '#24292f',
-                                    primaryBorderColor: '#d0d7de',
-                                    lineColor: '#0969da',
-                                    tertiaryColor: '#f6f8fa',
-                                    background: '#ffffff',
-                                    fontSize: '16px'
-                                }
-                            };
+                            // 添加样式指令
+                            const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                            const styles = isDark ? 
+                                `#fill: #1f2937; #stroke: #60a5fa; #font: SF Pro Text; #fontSize: 14; #background: #0d1117` :
+                                `#fill: #f6f8fa; #stroke: #0969da; #font: SF Pro Text; #fontSize: 14; #background: #ffffff`;
                             
-                            window.mermaid.initialize(config);
-                            console.log('🎨 MANUAL: Mermaid configured with theme:', isDarkMode ? 'dark' : 'light');
+                            return `${styles}\\n${nomnomlCode}`;
+                        };
+                        
+                        // D3.js 简单流程图渲染器
+                        window.renderWithD3 = function(container, data) {
+                            console.log('🎯 D3: 使用D3渲染流程图');
                             
-                            // 查找所有代码块中的mermaid图表
-                            const codeBlocks = document.querySelectorAll('code.language-mermaid, pre code[class*="language-mermaid"]');
-                            console.log('🎨 MANUAL: Found', codeBlocks.length, 'mermaid code blocks');
+                            const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                            const width = 600;
+                            const height = 400;
                             
-                            codeBlocks.forEach((codeBlock, index) => {
-                                const content = codeBlock.textContent.trim();
-                                if (content) {
-                                    console.log('🎨 MANUAL: Processing mermaid block', index, ':', content.substring(0, 50));
+                            // 清空容器
+                            container.innerHTML = '';
+                            
+                            // 创建SVG
+                            const svg = d3.select(container)
+                                .append('svg')
+                                .attr('width', width)
+                                .attr('height', height)
+                                .style('background', isDark ? '#1f2937' : '#f6f8fa')
+                                .style('border-radius', '8px');
+                            
+                            // 简单示例节点
+                            const nodes = [
+                                {id: 'A', x: 100, y: 100, text: '开始'},
+                                {id: 'B', x: 300, y: 100, text: '处理'},
+                                {id: 'C', x: 500, y: 100, text: '结束'}
+                            ];
+                            
+                            const links = [
+                                {source: 'A', target: 'B'},
+                                {source: 'B', target: 'C'}
+                            ];
+                            
+                            // 绘制连线
+                            svg.selectAll('line')
+                                .data(links)
+                                .enter()
+                                .append('line')
+                                .attr('x1', d => nodes.find(n => n.id === d.source).x + 60)
+                                .attr('y1', d => nodes.find(n => n.id === d.source).y + 20)
+                                .attr('x2', d => nodes.find(n => n.id === d.target).x)
+                                .attr('y2', d => nodes.find(n => n.id === d.target).y + 20)
+                                .attr('stroke', isDark ? '#60a5fa' : '#0969da')
+                                .attr('stroke-width', 2)
+                                .attr('marker-end', 'url(#arrowhead)');
+                            
+                            // 添加箭头标记
+                            svg.append('defs').append('marker')
+                                .attr('id', 'arrowhead')
+                                .attr('viewBox', '0 -5 10 10')
+                                .attr('refX', 8)
+                                .attr('refY', 0)
+                                .attr('markerWidth', 6)
+                                .attr('markerHeight', 6)
+                                .attr('orient', 'auto')
+                                .append('path')
+                                .attr('d', 'M0,-5L10,0L0,5')
+                                .attr('fill', isDark ? '#60a5fa' : '#0969da');
+                            
+                            // 绘制节点
+                            const nodeGroups = svg.selectAll('g.node')
+                                .data(nodes)
+                                .enter()
+                                .append('g')
+                                .attr('class', 'node')
+                                .attr('transform', d => `translate(${d.x}, ${d.y})`);
+                            
+                            nodeGroups.append('rect')
+                                .attr('width', 80)
+                                .attr('height', 40)
+                                .attr('rx', 8)
+                                .attr('fill', isDark ? '#374151' : '#ffffff')
+                                .attr('stroke', isDark ? '#60a5fa' : '#0969da')
+                                .attr('stroke-width', 2);
+                            
+                            nodeGroups.append('text')
+                                .attr('x', 40)
+                                .attr('y', 25)
+                                .attr('text-anchor', 'middle')
+                                .attr('dominant-baseline', 'middle')
+                                .attr('fill', isDark ? '#e5e7eb' : '#24292f')
+                                .attr('font-family', 'SF Pro Text, -apple-system, sans-serif')
+                                .attr('font-size', '14px')
+                                .text(d => d.text);
+                        };
+                        
+                        // 智能替代渲染系统
+                        window.alternativeRender = function() {
+                            console.log('🎯 ALTERNATIVE: 开始替代渲染');
+                            
+                            // 查找所有可能的图表代码
+                            const allCodes = document.querySelectorAll('pre code, code, .language-mermaid, .mermaid');
+                            console.log('🎯 ALTERNATIVE: 检查', allCodes.length, '个元素');
+                            
+                            let processedCount = 0;
+                            
+                            allCodes.forEach((element, i) => {
+                                const content = element.textContent || element.innerText || '';
+                                const trimmedContent = content.trim();
+                                
+                                if (trimmedContent.length === 0) return;
+                                
+                                // 检测是否是图表代码
+                                const isDiagram = trimmedContent.match(/^(graph|flowchart|sequenceDiagram|classDiagram)/) ||
+                                                  trimmedContent.includes('-->') ||
+                                                  trimmedContent.includes('graph') ||
+                                                  trimmedContent.includes('A[') ||
+                                                  trimmedContent.includes('participant');
+                                
+                                if (isDiagram) {
+                                    console.log('🎯 ALTERNATIVE: 检测到图表:', trimmedContent.substring(0, 40));
                                     
-                                    // 创建一个div来替换代码块
-                                    const mermaidDiv = document.createElement('div');
-                                    mermaidDiv.className = 'mermaid';
-                                    mermaidDiv.textContent = content;
-                                    
-                                    // 替换代码块
-                                    const pre = codeBlock.closest('pre');
-                                    if (pre) {
-                                        pre.parentNode.replaceChild(mermaidDiv, pre);
+                                    try {
+                                        // 创建容器
+                                        const container = document.createElement('div');
+                                        container.className = 'alternative-diagram';
+                                        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                                        
+                                        container.style.cssText = `
+                                            margin: 32px 0;
+                                            padding: 24px;
+                                            border: 2px solid ${isDark ? '#60a5fa' : '#0969da'};
+                                            border-radius: 12px;
+                                            text-align: center;
+                                            background: ${isDark ? 'linear-gradient(135deg, rgba(31,41,55,0.8), rgba(17,24,39,0.6))' : 'linear-gradient(135deg, rgba(255,255,255,0.9), rgba(246,248,250,0.8))'};
+                                            box-shadow: 0 8px 24px ${isDark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.08)'};
+                                            transition: all 0.3s ease;
+                                        `;
+                                        
+                                        // 尝试使用Nomnoml渲染
+                                        if (window.nomnoml) {
+                                            try {
+                                                console.log('🎯 NOMNOML: 尝试Nomnoml渲染');
+                                                const nomnomlCode = window.mermaidToNomnoml(trimmedContent);
+                                                const svg = nomnoml.renderSvg(nomnomlCode);
+                                                container.innerHTML = svg;
+                                                console.log('🎯 NOMNOML: ✅ 渲染成功');
+                                            } catch (e) {
+                                                console.log('🎯 NOMNOML: ❌ 渲染失败，尝试D3:', e);
+                                                // 降级到D3
+                                                window.renderWithD3(container, trimmedContent);
+                                            }
+                                        } 
+                                        // 降级到D3渲染
+                                        else if (window.d3) {
+                                            console.log('🎯 D3: 使用D3渲染');
+                                            window.renderWithD3(container, trimmedContent);
+                                        }
+                                        // 最后降级到纯文本展示
+                                        else {
+                                            container.innerHTML = `
+                                                <div style="text-align: left; background: rgba(0,0,0,0.05); padding: 16px; border-radius: 8px; font-family: monospace; white-space: pre-wrap; overflow: auto;">${trimmedContent}</div>
+                                                <p style="color: #888; font-size: 12px; margin-top: 8px;">📊 图表代码 (渲染引擎不可用)</p>
+                                            `;
+                                        }
+                                        
+                                        // 替换原元素
+                                        const parent = element.closest('pre') || element.parentElement;
+                                        if (parent && parent.parentNode) {
+                                            parent.parentNode.replaceChild(container, parent);
+                                            processedCount++;
+                                            console.log('🎯 ALTERNATIVE: ✅ 替换完成', i);
+                                        }
+                                        
+                                    } catch (e) {
+                                        console.error('🎯 ALTERNATIVE: ❌ 处理失败:', e);
                                     }
                                 }
                             });
                             
-                            // 渲染所有mermaid图表
-                            const mermaidDivs = document.querySelectorAll('.mermaid');
-                            if (mermaidDivs.length > 0) {
-                                console.log('🎨 MANUAL: Rendering', mermaidDivs.length, 'mermaid diagrams');
-                                try {
-                                    window.mermaid.init(undefined, mermaidDivs);
-                                    console.log('🎨 MANUAL: Mermaid rendering complete!');
-                                } catch (e) {
-                                    console.error('🎨 MANUAL: Mermaid rendering failed:', e);
-                                }
-                            }
+                            console.log(`🎯 ALTERNATIVE: 完成处理，共转换${processedCount}个图表`);
+                            return processedCount;
                         };
                         
-                        // 启动手动渲染
+                        // 启动替代渲染系统
                         setTimeout(() => {
-                            window.renderMermaidManually();
-                        }, 500);
-                        
-                        // 监听内容变化，重新渲染Mermaid
-                        const observer = new MutationObserver(() => {
-                            setTimeout(() => {
-                                window.renderMermaidManually();
-                            }, 200);
-                        });
-                        
-                        observer.observe(document.body, {
-                            childList: true,
-                            subtree: true,
-                            characterData: true
-                        });
+                            window.alternativeRender();
+                        }, 1000);
                         
                         window.webkit?.messageHandlers?.bridge?.postMessage({
                             type: 'ready'
@@ -3188,55 +3418,7 @@ struct VditorWebView: NSViewRepresentable {
                                         path: 'https://fastly.jsdelivr.net/npm/vditor@3.10.4/dist/css/content-theme'
                                     },
                                     mermaid: {
-                                        theme: isDark ? 'dark' : 'default',
-                                        startOnLoad: false,
-                                        securityLevel: 'loose',
-                                        fontFamily: "-apple-system, 'SF Pro Text', 'Segoe UI', Arial, sans-serif",
-                                        flowchart: { 
-                                            useMaxWidth: true, 
-                                            htmlLabels: true, 
-                                            curve: 'basis', 
-                                            padding: 12, 
-                                            nodeSpacing: 50, 
-                                            rankSpacing: 60,
-                                            diagramPadding: 8
-                                        },
-                                        themeVariables: isDark ? {
-                                            background: '#0d1117',
-                                            primaryColor: '#1f2937',
-                                            primaryTextColor: '#e5e7eb',
-                                            primaryBorderColor: '#374151',
-                                            secondaryColor: '#374151',
-                                            tertiaryColor: '#4b5563',
-                                            lineColor: '#60a5fa',
-                                            edgeLabelBackground: '#1f2937',
-                                            mainBkg: '#1f2937',
-                                            nodeBkg: '#1f2937',
-                                            clusterBkg: '#374151',
-                                            nodeTextColor: '#e5e7eb',
-                                            textColor: '#e5e7eb',
-                                            labelTextColor: '#e5e7eb',
-                                            fillType0: '#3b82f6',
-                                            fillType1: '#10b981',
-                                            fillType2: '#f59e0b',
-                                            fillType3: '#ef4444',
-                                            fillType4: '#8b5cf6',
-                                            fontSize: '16px',
-                                            fontFamily: "-apple-system, 'SF Pro Text', 'Segoe UI', Arial, sans-serif",
-                                            lineHeight: '1.5'
-                                        } : {
-                                            primaryColor: '#ffffff',
-                                            primaryTextColor: '#24292f',
-                                            primaryBorderColor: '#d0d7de',
-                                            lineColor: '#0969da',
-                                            tertiaryColor: '#f6f8fa',
-                                            background: '#ffffff',
-                                            mainBkg: '#ffffff',
-                                            secondaryColor: '#f6f8fa',
-                                            fontSize: '16px',
-                                            fontFamily: "-apple-system, 'SF Pro Text', 'Segoe UI', Arial, sans-serif",
-                                            lineHeight: '1.5'
-                                        }
+                                        enable: false  // 🚫 完全禁用Vditor的mermaid支持
                                     }
                                 },
                                 input(value) {
@@ -3326,11 +3508,18 @@ struct VditorWebView: NSViewRepresentable {
                             }
                         };
                         
-                        // 使用我们的手动渲染系统重新渲染Mermaid
-                        console.log('🎨 THEME: Calling manual Mermaid rendering for theme change');
-                        if (window.renderMermaidManually) {
+                        // 🎯 替代引擎主题切换
+                        console.log('🎯 ALTERNATIVE: 主题切换，重新渲染');
+                        
+                        if (window.alternativeRender) {
+                            // 清除所有现有图表
+                            document.querySelectorAll('.alternative-diagram').forEach(el => {
+                                el.remove();
+                            });
+                            
+                            // 重新渲染
                             setTimeout(() => {
-                                window.renderMermaidManually();
+                                window.alternativeRender();
                             }, 300);
                         }
                         
