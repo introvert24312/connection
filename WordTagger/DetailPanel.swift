@@ -81,6 +81,27 @@ struct DetailPanel: View {
                 }
             }
         }
+        .onAppear {
+            setupNotificationObservers()
+        }
+    }
+    
+    // MARK: - 通知监听
+    private func setupNotificationObservers() {
+        // 监听显示图谱标签的通知 (Command+L触发)
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("showGraphTabInDetailPanel"),
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let notificationNode = notification.object as? Node,
+               notificationNode.id == self.node.id {
+                print("🔔 DetailPanel: 收到showGraphTabInDetailPanel通知，切换到图谱标签")
+                DispatchQueue.main.async {
+                    self.tab = .related
+                }
+            }
+        }
     }
 }
 
@@ -223,9 +244,6 @@ struct NodeDetailView: View {
                 vditorCoordinator?.setMarkdown(markdownText, forceUpdate: true)
                 isLoadingContent = false
             }
-        }
-        .onAppear {
-            setupNotificationObservers()
         }
         .onChange(of: isEditing) { _, newValue in
             if newValue {
@@ -419,21 +437,6 @@ struct NodeDetailView: View {
         }
     }
     
-    // MARK: - 通知监听
-    private func setupNotificationObservers() {
-        // 监听显示图谱标签的通知 (Command+L触发)
-        NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("showGraphTabInDetailPanel"),
-            object: nil,
-            queue: .main
-        ) { notification in
-            if let notificationNode = notification.object as? Node,
-               notificationNode.id == self.node.id {
-                print("🔔 DetailPanel: 收到showGraphTabInDetailPanel通知，切换到图谱标签")
-                self.tab = .related
-            }
-        }
-    }
 }
 
 

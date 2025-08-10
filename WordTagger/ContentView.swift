@@ -200,19 +200,21 @@ struct ContentView: View {
                 queue: .main
             ) { _ in
                 print("🔔 ContentView: 收到showDetailPanel通知")
-                // 如果当前没有选中节点，选中第一个可用节点
-                if selectedNode == nil {
-                    if let firstNode = store.nodes.first {
-                        selectedNode = firstNode
-                        print("✅ 自动选择第一个节点: \(firstNode.text)")
+                DispatchQueue.main.async {
+                    // 如果当前没有选中节点，选中第一个可用节点
+                    if selectedNode == nil {
+                        if let firstNode = store.nodes.first {
+                            selectedNode = firstNode
+                            print("✅ 自动选择第一个节点: \(firstNode.text)")
+                        }
                     }
-                }
-                // 确保详情面板可见（关闭侧边栏如果需要更多空间）
-                if showSidebar && selectedNode != nil {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        showSidebar = false
+                    // 确保详情面板可见（关闭侧边栏如果需要更多空间）
+                    if showSidebar && selectedNode != nil {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showSidebar = false
+                        }
+                        print("🔄 为显示详情面板而关闭侧边栏")
                     }
-                    print("🔄 为显示详情面板而关闭侧边栏")
                 }
             }
             
@@ -223,21 +225,23 @@ struct ContentView: View {
                 queue: .main
             ) { _ in
                 print("🔔 ContentView: 收到showGraphInDetailPanel通知")
-                // 确保有选中的节点，然后发送通知给DetailPanel显示图谱
-                if let node = selectedNode {
-                    print("✅ 向DetailPanel发送显示图谱通知，节点: \(node.text)")
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("showGraphTabInDetailPanel"), 
-                        object: node
-                    )
-                } else if let firstNode = store.nodes.first {
-                    // 如果没有选中节点，自动选择第一个
-                    selectedNode = firstNode
-                    print("🔄 自动选择节点并显示图谱: \(firstNode.text)")
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("showGraphTabInDetailPanel"), 
-                        object: firstNode
-                    )
+                DispatchQueue.main.async {
+                    // 确保有选中的节点，然后发送通知给DetailPanel显示图谱
+                    if let node = selectedNode {
+                        print("✅ 向DetailPanel发送显示图谱通知，节点: \(node.text)")
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("showGraphTabInDetailPanel"), 
+                            object: node
+                        )
+                    } else if let firstNode = store.nodes.first {
+                        // 如果没有选中节点，自动选择第一个
+                        selectedNode = firstNode
+                        print("🔄 自动选择节点并显示图谱: \(firstNode.text)")
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("showGraphTabInDetailPanel"), 
+                            object: firstNode
+                        )
+                    }
                 }
             }
             
