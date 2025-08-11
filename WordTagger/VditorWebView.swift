@@ -891,7 +891,7 @@ struct VditorWebView: NSViewRepresentable {
                 height: auto;
                 object-fit: contain;
                 transform-origin: center;
-                transition: transform 0.3s ease;
+                transition: none;  // 移除默认过渡，减少延迟
                 cursor: grab;
               `;
               
@@ -932,7 +932,7 @@ struct VditorWebView: NSViewRepresentable {
               overlay.addEventListener('gestureend', (e) => {
                 e.preventDefault();
                 isGesturing = false;
-                clonedImg.style.transition = 'transform 0.3s ease';
+                // 移除过渡动画，减少释放延迟
               });
               
               // 双指触摸捏合缩放（通用支持）
@@ -980,10 +980,10 @@ struct VditorWebView: NSViewRepresentable {
                     updateTransform();
                   }
                 } else if (e.touches.length === 1 && isTouchDragging && !isGesturing) {
-                  // 单指拖拽 - 降低灵敏度
+                  // 单指拖拽 - 进一步降低灵敏度
                   const touch = e.touches[0];
-                  const deltaX = (touch.clientX - lastTouchX) * 0.6;  // 降低到60%灵敏度
-                  const deltaY = (touch.clientY - lastTouchY) * 0.6;  // 降低到60%灵敏度
+                  const deltaX = (touch.clientX - lastTouchX) * 0.4;  // 降低到40%灵敏度
+                  const deltaY = (touch.clientY - lastTouchY) * 0.4;  // 降低到40%灵敏度
                   
                   translateX += deltaX;
                   translateY += deltaY;
@@ -1003,7 +1003,7 @@ struct VditorWebView: NSViewRepresentable {
                 if (e.touches.length === 0) {
                   isTouchDragging = false;
                 }
-                clonedImg.style.transition = 'transform 0.3s ease';
+                // 移除过渡动画，减少释放延迟
               });
               
               // 鼠标滚轮缩放（支持触控板捏合）
@@ -1052,7 +1052,7 @@ struct VditorWebView: NSViewRepresentable {
                 if (isDragging) {
                   isDragging = false;
                   clonedImg.style.cursor = 'grab';
-                  clonedImg.style.transition = 'transform 0.3s ease';
+                  // 移除过渡动画，减少鼠标释放延迟
                 }
               });
               
@@ -1077,14 +1077,10 @@ struct VditorWebView: NSViewRepresentable {
                 e.preventDefault();
                 switch(e.key) {
                   case 'Escape':
-                    // ESC退出
-                    overlay.style.transition = 'opacity 0.2s ease';
-                    overlay.style.opacity = '0';
-                    setTimeout(() => {
-                      if (document.body.contains(overlay)) {
-                        document.body.removeChild(overlay);
-                      }
-                    }, 200);
+                    // ESC退出 - 立即关闭，无延迟
+                    if (document.body.contains(overlay)) {
+                      document.body.removeChild(overlay);
+                    }
                     document.removeEventListener('keydown', handleKeyPress);
                     break;
                   case '0':
@@ -1092,7 +1088,6 @@ struct VditorWebView: NSViewRepresentable {
                     scale = 1;
                     translateX = 0;
                     translateY = 0;
-                    clonedImg.style.transition = 'transform 0.3s ease';
                     updateTransform();
                     break;
                   case '=':
@@ -1167,12 +1162,8 @@ struct VditorWebView: NSViewRepresentable {
                     const overlay = createImageOverlay(currentImg);
                     document.body.appendChild(overlay);
                     
-                    // 淡入动画
-                    overlay.style.opacity = '0';
-                    requestAnimationFrame(() => {
-                      overlay.style.transition = 'opacity 0.3s ease';
-                      overlay.style.opacity = '1';
-                    });
+                    // 立即显示，无淡入动画
+                    overlay.style.opacity = '1';
                   }
                 }
               }
