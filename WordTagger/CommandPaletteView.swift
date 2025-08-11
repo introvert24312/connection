@@ -127,16 +127,17 @@ struct CommandPaletteView: View {
                 let result = try await command.execute(with: context)
                 await MainActor.run {
                     handleCommandResult(result)
+                    // 只有在命令执行完成后才关闭面板，避免层切换时的输入框残留
+                    isPresented = false
                 }
             } catch {
                 await MainActor.run {
                     // Handle error
                     print("Command execution error: \(error)")
+                    isPresented = false
                 }
             }
         }
-        
-        isPresented = false
     }
     
     private func handleCommandResult(_ result: CommandResult) {
@@ -195,6 +196,7 @@ struct CommandPaletteView: View {
                 await store.switchToLayer(newLayer)
                 await MainActor.run {
                     print("已创建并切换到新层: \(newLayer.displayName)")
+                    // 确保层切换操作完成后才关闭面板
                     isPresented = false
                 }
             }
