@@ -459,6 +459,9 @@ struct LayerManagementView: View {
                                         onDelete: {
                                             layerToDelete = layer
                                             showingDeleteAlert = true
+                                        },
+                                        onEdit: { newName in
+                                            store.updateLayerDisplayName(layer: layer, newDisplayName: newName)
                                         }
                                     )
                                 }
@@ -502,6 +505,10 @@ struct LayerRowView: View {
     let isActive: Bool
     let onActivate: () -> Void
     let onDelete: () -> Void
+    let onEdit: (String) -> Void
+    
+    @State private var isEditing: Bool = false
+    @State private var editingName: String = ""
     
     var body: some View {
         HStack(spacing: 16) {
@@ -517,10 +524,23 @@ struct LayerRowView: View {
                 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
-                        Text(layer.displayName)
-                            .font(.headline)
-                            .fontWeight(isActive ? .bold : .semibold)
-                            .foregroundColor(.primary)
+                        if isEditing {
+                            TextField("层名称", text: $editingName)
+                                .font(.headline)
+                                .fontWeight(isActive ? .bold : .semibold)
+                                .textFieldStyle(.roundedBorder)
+                                .onSubmit {
+                                    saveEdit()
+                                }
+                                .onAppear {
+                                    editingName = layer.displayName
+                                }
+                        } else {
+                            Text(layer.displayName)
+                                .font(.headline)
+                                .fontWeight(isActive ? .bold : .semibold)
+                                .foregroundColor(.primary)
+                        }
                         
                         if isActive {
                             HStack(spacing: 4) {
@@ -571,30 +591,61 @@ struct LayerRowView: View {
             
             // 右侧：操作按钮
             HStack(spacing: 8) {
-                if !isActive {
-                    Button(action: onActivate) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "target")
-                                .font(.caption)
-                            Text("激活")
-                                .font(.caption)
-                                .fontWeight(.medium)
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
+                if isEditing {
+                    // 编辑模式下的按钮
+                    Button(action: saveEdit) {
+                        Image(systemName: "checkmark")
+                            .font(.body)
+                            .foregroundColor(.green)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bordered)
                     .controlSize(.small)
+                    .help("保存")
+                    
+                    Button(action: cancelEdit) {
+                        Image(systemName: "xmark")
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .help("取消")
+                } else {
+                    // 正常模式下的按钮
+                    if !isActive {
+                        Button(action: onActivate) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "target")
+                                    .font(.caption)
+                                Text("激活")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                    }
+                    
+                    Button(action: startEdit) {
+                        Image(systemName: "pencil")
+                            .font(.body)
+                            .foregroundColor(.blue)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .help("编辑名称")
+                    
+                    Button(action: onDelete) {
+                        Image(systemName: "trash")
+                            .font(.body)
+                            .foregroundColor(.red)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .help("删除层")
                 }
-                
-                Button(action: onDelete) {
-                    Image(systemName: "trash")
-                        .font(.body)
-                        .foregroundColor(.red)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .help("删除层")
             }
         }
         .padding(.horizontal, 16)
@@ -608,6 +659,24 @@ struct LayerRowView: View {
                 )
         )
         .shadow(color: isActive ? Color.blue.opacity(0.1) : Color.clear, radius: 4, x: 0, y: 2)
+    }
+    
+    private func startEdit() {
+        isEditing = true
+        editingName = layer.displayName
+    }
+    
+    private func saveEdit() {
+        let trimmedName = editingName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedName.isEmpty && trimmedName != layer.displayName {
+            onEdit(trimmedName)
+        }
+        isEditing = false
+    }
+    
+    private func cancelEdit() {
+        isEditing = false
+        editingName = layer.displayName
     }
 }
 

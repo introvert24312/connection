@@ -563,6 +563,29 @@ public final class NodeStore: ObservableObject {
     }
     
     @MainActor
+    public func updateLayerDisplayName(layer: Layer, newDisplayName: String, newColor: String? = nil) {
+        print("📝 更新层信息: \(layer.displayName) -> \(newDisplayName)")
+        
+        // 更新层数组中的层
+        if let index = layers.firstIndex(where: { $0.id == layer.id }) {
+            // 直接修改现有层的属性
+            layers[index].displayName = newDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let newColor = newColor {
+                layers[index].color = newColor
+            }
+            
+            // 如果更新的是当前层，也需要更新 currentLayer 引用
+            if currentLayer?.id == layer.id {
+                currentLayer = layers[index]
+            }
+            
+            print("✅ 层信息更新成功")
+        } else {
+            print("❌ 未找到要更新的层")
+        }
+    }
+    
+    @MainActor
     public func deleteLayer(_ layer: Layer) {
         print("🗑️ 删除层: \(layer.displayName) (ID: \(layer.id))")
         
