@@ -29,6 +29,7 @@ struct CommandPaletteView: View {
                         return .handled
                     }
                     .onKeyPress(.escape) {
+                        isTextFieldFocused = false
                         isPresented = false
                         return .handled
                     }
@@ -130,11 +131,14 @@ struct CommandPaletteView: View {
                     
                     // 针对层切换操作使用快速关闭动画
                     if case .layerSwitched(_) = result {
+                        // 立即移除焦点，避免蓝框残留
+                        isTextFieldFocused = false
                         withAnimation(.linear(duration: 0.05)) {
                             isPresented = false
                         }
                     } else {
                         // 其他命令使用正常关闭
+                        isTextFieldFocused = false
                         isPresented = false
                     }
                 }
@@ -142,6 +146,7 @@ struct CommandPaletteView: View {
                 await MainActor.run {
                     // Handle error
                     print("Command execution error: \(error)")
+                    isTextFieldFocused = false
                     isPresented = false
                 }
             }
@@ -204,7 +209,8 @@ struct CommandPaletteView: View {
                 await store.switchToLayer(newLayer)
                 await MainActor.run {
                     print("已创建并切换到新层: \(newLayer.displayName)")
-                    // 新建层完成后使用快速关闭动画
+                    // 新建层完成后移除焦点并使用快速关闭动画
+                    isTextFieldFocused = false
                     withAnimation(.linear(duration: 0.05)) {
                         isPresented = false
                     }
