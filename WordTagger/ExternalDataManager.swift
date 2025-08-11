@@ -208,6 +208,8 @@ public class ExternalDataManager: ObservableObject {
                 baseURL.appendingPathComponent("data/words"),
                 baseURL.appendingPathComponent("data/tags"),
                 baseURL.appendingPathComponent("data/metadata"),
+                baseURL.appendingPathComponent("Images"),
+                baseURL.appendingPathComponent("Markdown"),
                 baseURL.appendingPathComponent("backups")
             ]
             
@@ -272,6 +274,16 @@ public class ExternalDataManager: ObservableObject {
         formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
         let dateString = formatter.string(from: date)
         return basePath.appendingPathComponent("backups/backup_\(dateString).json")
+    }
+    
+    public func getImagesURL() -> URL? {
+        guard let basePath = currentDataPath else { return nil }
+        return basePath.appendingPathComponent("Images")
+    }
+    
+    public func getMarkdownURL() -> URL? {
+        guard let basePath = currentDataPath else { return nil }
+        return basePath.appendingPathComponent("Markdown")
     }
     
     // MARK: - 数据验证

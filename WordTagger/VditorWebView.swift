@@ -45,23 +45,45 @@ struct VditorWebView: NSViewRepresentable {
         let isDark = (NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua)
         webView.appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
 
+        // 强制使用外部数据管理器的路径，不提供后备选项
+        guard let baseURL = ExternalDataManager.shared.currentDataPath else {
+            // 如果没有设置外部路径，加载一个提示页面
+            let errorHTML = Self.generateErrorHTML()
+            webView.loadHTMLString(errorHTML, baseURL: nil)
+            return webView
+        }
+        
+        // 确保有访问权限
+        guard ExternalDataManager.shared.ensureAccess() else {
+            let errorHTML = Self.generateAccessErrorHTML()
+            webView.loadHTMLString(errorHTML, baseURL: nil)
+            return webView
+        }
+        
         // 生成 HTML 并加载
-        let html = generateHTML()
-        let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let wordTaggerURL = documentsURL.appendingPathComponent("WordTagger") // 设置为 WordTagger 目录，支持相对路径 Images/xxx
+        let html = Self.generateHTML()
         
         // 创建临时 HTML 文件以支持本地图片加载
-        let tempURL = wordTaggerURL.appendingPathComponent("temp.html")
-        try? html.write(to: tempURL, atomically: true, encoding: .utf8)
-        
-        // 使用 loadFileURL 而不是 loadHTMLString，这样可以正确加载本地资源
-        webView.loadFileURL(tempURL, allowingReadAccessTo: wordTaggerURL)
+        let tempURL = baseURL.appendingPathComponent("temp.html")
+        do {
+            try html.write(to: tempURL, atomically: true, encoding: .utf8)
+            // 使用 loadFileURL 而不是 loadHTMLString，这样可以正确加载本地资源
+            webView.loadFileURL(tempURL, allowingReadAccessTo: baseURL)
+        } catch {
+            print("创建临时HTML文件失败: \(error)")
+            let errorHTML = Self.generateWriteErrorHTML()
+            webView.loadHTMLString(errorHTML, baseURL: nil)
+        }
 
         // 绑定
         context.coordinator.webView = webView
         context.coordinator.latestMarkdown = markdown
         context.coordinator.nodeId = nodeId
-        coordinatorBinding = context.coordinator
+        
+        // 异步设置 coordinator binding 避免在视图更新时修改状态
+        DispatchQueue.main.async {
+            coordinatorBinding = context.coordinator
+        }
         return webView
     }
 
@@ -195,11 +217,19 @@ struct VditorWebView: NSViewRepresentable {
         
         // 图片保存功能
         private func saveImageToFile(fileName: String, data: Data) {
-            // 获取文档目录
-            guard let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+            // 强制使用外部数据管理器获取图片路径，不提供后备选项
+            guard let imagesURL = ExternalDataManager.shared.getImagesURL() else {
+                print("错误：必须先设置外部数据存储路径才能保存图片")
+                evaluateJS("window.__onImageSaveError && window.__onImageSaveError('\(fileName)', '请先在设置中选择数据存储文件夹');")
+                return
+            }
             
-            // 创建 Images 子目录
-            let imagesURL = documentsURL.appendingPathComponent("WordTagger/Images")
+            // 确保外部数据管理器有访问权限
+            guard ExternalDataManager.shared.ensureAccess() else {
+                print("错误：无法访问外部数据存储路径")
+                evaluateJS("window.__onImageSaveError && window.__onImageSaveError('\(fileName)', '无法访问数据存储文件夹，请重新选择');")
+                return
+            }
             
             // 确保目录存在
             try? FileManager.default.createDirectory(at: imagesURL, withIntermediateDirectories: true, attributes: nil)
@@ -223,8 +253,18 @@ struct VditorWebView: NSViewRepresentable {
         
         // 在 Finder 中显示图片
         private func showImageInFinder(filename: String) {
-            guard let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
-            let fileURL = documentsURL.appendingPathComponent("WordTagger").appendingPathComponent(filename)
+            guard let imagesURL = ExternalDataManager.shared.getImagesURL() else { 
+                print("错误：必须先设置外部数据存储路径")
+                return 
+            }
+            
+            // 确保外部数据管理器有访问权限
+            guard ExternalDataManager.shared.ensureAccess() else {
+                print("错误：无法访问外部数据存储路径")
+                return
+            }
+            
+            let fileURL = imagesURL.appendingPathComponent(filename.replacingOccurrences(of: "Images/", with: ""))
             
             if FileManager.default.fileExists(atPath: fileURL.path) {
                 NSWorkspace.shared.selectFile(fileURL.path, inFileViewerRootedAtPath: fileURL.deletingLastPathComponent().path)
@@ -275,8 +315,146 @@ struct VditorWebView: NSViewRepresentable {
         }
     }
 
+    // MARK: - 错误页面生成
+    private static func generateErrorHTML() -> String {
+        return """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <title>WordTagger - 需要设置数据存储路径</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: #f5f5f5;
+            color: #333;
+        }
+        .error-container {
+            text-align: center;
+            padding: 40px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            max-width: 500px;
+        }
+        h1 { color: #e74c3c; margin-bottom: 20px; }
+        p { margin: 15px 0; line-height: 1.6; }
+        .instruction { background: #ecf0f1; padding: 15px; border-radius: 6px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <h1>📁 需要设置数据存储路径</h1>
+        <p>请在设置中选择一个外部文件夹来存储您的数据和图片。</p>
+        <div class="instruction">
+            <strong>操作步骤：</strong><br>
+            1. 点击左上角的设置按钮<br>
+            2. 选择“数据存储文件夹”<br>
+            3. 选择一个安全的位置（如 Documents 或 Desktop）
+        </div>
+        <p>设置完成后，您的数据和图片都将保存在所选文件夹中。</p>
+    </div>
+</body>
+</html>
+"""
+    }
+    
+    private static func generateAccessErrorHTML() -> String {
+        return """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <title>WordTagger - 访问权限错误</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: #f5f5f5;
+            color: #333;
+        }
+        .error-container {
+            text-align: center;
+            padding: 40px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            max-width: 500px;
+        }
+        h1 { color: #e74c3c; margin-bottom: 20px; }
+        p { margin: 15px 0; line-height: 1.6; }
+        .instruction { background: #ecf0f1; padding: 15px; border-radius: 6px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <h1>🔒 访问权限错误</h1>
+        <p>无法访问数据存储文件夹，请重新选择。</p>
+        <div class="instruction">
+            <strong>解决方法：</strong><br>
+            1. 转到设置页面<br>
+            2. 点击“重新选择数据文件夹”<br>
+            3. 选择一个您有写入权限的文件夹
+        </div>
+        <p>建议选择 Documents、Desktop 或其他用户目录。</p>
+    </div>
+</body>
+</html>
+"""
+    }
+    
+    private static func generateWriteErrorHTML() -> String {
+        return """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <title>WordTagger - 写入错误</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: #f5f5f5;
+            color: #333;
+        }
+        .error-container {
+            text-align: center;
+            padding: 40px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            max-width: 500px;
+        }
+        h1 { color: #e74c3c; margin-bottom: 20px; }
+        p { margin: 15px 0; line-height: 1.6; }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <h1>⚠️ 写入错误</h1>
+        <p>无法在数据存储文件夹中创建文件。</p>
+        <p>请检查文件夹是否存在且有写入权限。</p>
+    </div>
+</body>
+</html>
+"""
+    }
+    
     // MARK: - HTML / JS （单一入口：__applyNativeTheme）
-    private func generateHTML() -> String {
+    private static func generateHTML() -> String {
         // 你可以把 CDN 换成本地资源；这里只用 CDN 以便快速验证
         return #"""
         <!DOCTYPE html>

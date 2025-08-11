@@ -67,18 +67,21 @@ struct DetailPanel: View {
             // 收到全局Command+T通知，切换到详情页并切换编辑模式
             if let notificationNode = notification.object as? Node,
                notificationNode.id == node.id {
-                // 静默切换到详情编辑模式
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    tab = .detail // 切换到详情页
-                }
-                
-                // 延迟一点确保tab切换完成后再切换编辑模式
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    // 发送通知给NodeDetailView切换编辑模式
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("toggleNodeDetailEditMode"),
-                        object: notificationNode
-                    )
+                // 异步修改状态避免在视图更新期间修改状态的警告
+                DispatchQueue.main.async {
+                    // 静默切换到详情编辑模式
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        tab = .detail // 切换到详情页
+                    }
+                    
+                    // 延迟一点确保tab切换完成后再切换编辑模式
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        // 发送通知给NodeDetailView切换编辑模式
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("toggleNodeDetailEditMode"),
+                            object: notificationNode
+                        )
+                    }
                 }
             }
         }
@@ -109,22 +112,28 @@ struct DetailPanel: View {
     
     // MARK: - 快捷键处理方法
     private func handleSwitchToDetail() {
-        withAnimation(.easeInOut(duration: 0.2)) {
-            tab = .detail
-        }
-        // 请求焦点 - 延迟执行避免在视图更新期间修改状态
+        // 异步修改状态避免在视图更新期间修改状态的警告
         DispatchQueue.main.async {
-            self.isPanelFocused = true
+            withAnimation(.easeInOut(duration: 0.2)) {
+                tab = .detail
+            }
+            // 请求焦点 - 延迟执行避免在视图更新期间修改状态
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self.isPanelFocused = true
+            }
         }
     }
     
     private func handleSwitchToGraph() {
-        withAnimation(.easeInOut(duration: 0.2)) {
-            tab = .related
-        }
-        // 请求焦点 - 延迟执行避免在视图更新期间修改状态
+        // 异步修改状态避免在视图更新期间修改状态的警告
         DispatchQueue.main.async {
-            self.isPanelFocused = true
+            withAnimation(.easeInOut(duration: 0.2)) {
+                tab = .related
+            }
+            // 请求焦点 - 延迟执行避免在视图更新期间修改状态
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self.isPanelFocused = true
+            }
         }
     }
     
@@ -233,7 +242,10 @@ struct NodeDetailView: View {
                     if let latestNode = store?.nodes.first(where: { $0.id == currentNodeId }) {
                         instantSaveForNode(latestNode, content: newValue)
                     }
-                    markdownText = newValue
+                    // 异步修改状态避免在视图更新期间修改状态的警告
+                    DispatchQueue.main.async {
+                        markdownText = newValue
+                    }
                 },
                 coordinatorBinding: $vditorCoordinator
             )
@@ -252,48 +264,57 @@ struct NodeDetailView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color(NSColor.textBackgroundColor))
         .onAppear {
-            currentNodeId = currentNode.id
-            loadMarkdown()
+            // 异步修改状态避免在视图更新期间修改状态的警告
+            DispatchQueue.main.async {
+                currentNodeId = currentNode.id
+                loadMarkdown()
+            }
         }
         .onChange(of: currentNode.id) { oldId, newId in
             print("🔄 节点ID发生变化: \(oldId) -> \(newId)")
             
-            // 更新当前节点ID
-            currentNodeId = newId
-            isLoadingContent = true
-            
-            // 等待当前保存任务完成，避免切换时保存被掐断
-            if let currentSaveTask = saveTask {
-                Task {
-                    await currentSaveTask.value
-                    print("✅ 等待之前的保存任务完成")
-                    await MainActor.run {
-                        loadMarkdown()
-                        // 确保编辑器内容也重新加载
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            vditorCoordinator?.setMarkdown(markdownText, forceUpdate: true)
-                            isLoadingContent = false
+            // 异步修改状态避免在视图更新期间修改状态的警告
+            DispatchQueue.main.async {
+                // 更新当前节点ID
+                currentNodeId = newId
+                isLoadingContent = true
+                
+                // 等待当前保存任务完成，避免切换时保存被掐断
+                if let currentSaveTask = saveTask {
+                    Task {
+                        await currentSaveTask.value
+                        print("✅ 等待之前的保存任务完成")
+                        await MainActor.run {
+                            loadMarkdown()
+                            // 确保编辑器内容也重新加载
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                vditorCoordinator?.setMarkdown(markdownText, forceUpdate: true)
+                                isLoadingContent = false
+                            }
                         }
                     }
-                }
-            } else {
-                loadMarkdown()
-                // 确保编辑器内容也重新加载
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    vditorCoordinator?.setMarkdown(markdownText, forceUpdate: true)
-                    isLoadingContent = false
+                } else {
+                    loadMarkdown()
+                    // 确保编辑器内容也重新加载
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        vditorCoordinator?.setMarkdown(markdownText, forceUpdate: true)
+                        isLoadingContent = false
+                    }
                 }
             }
         }
         .onChange(of: node.id) { oldId, newId in
             print("🔄 传入节点ID发生变化: \(oldId) -> \(newId)")
-            currentNodeId = newId
-            isLoadingContent = true
-            // 当传入的node发生变化时，也要重新加载内容
-            loadMarkdown()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                vditorCoordinator?.setMarkdown(markdownText, forceUpdate: true)
-                isLoadingContent = false
+            // 异步修改状态避免在视图更新期间修改状态的警告
+            DispatchQueue.main.async {
+                currentNodeId = newId
+                isLoadingContent = true
+                // 当传入的node发生变化时，也要重新加载内容
+                loadMarkdown()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    vditorCoordinator?.setMarkdown(markdownText, forceUpdate: true)
+                    isLoadingContent = false
+                }
             }
         }
         .onChange(of: isEditing) { _, newValue in
@@ -303,8 +324,11 @@ struct NodeDetailView: View {
         }
         .onChange(of: colorScheme) { _, newValue in
             print("🎨 主题变化: \(newValue == .dark ? "dark" : "light")")
-            // 主题变化时立即强制刷新编辑器内容以应用新主题
-            vditorCoordinator?.setMarkdown(markdownText, forceUpdate: true)
+            // 异步修改状态避免在视图更新期间修改状态的警告
+            DispatchQueue.main.async {
+                // 主题变化时立即强制刷新编辑器内容以应用新主题
+                vditorCoordinator?.setMarkdown(markdownText, forceUpdate: true)
+            }
         }
         .onKeyPress(.init("/"), phases: .down) { keyPress in
             if keyPress.modifiers == .command {
@@ -322,7 +346,9 @@ struct NodeDetailView: View {
     }
     
     private func loadMarkdown() {
-        loadMarkdownFromFile()
+        Task {
+            await loadMarkdownFromFile()
+        }
     }
     
     private func saveMarkdown() {
@@ -361,14 +387,17 @@ struct NodeDetailView: View {
         print("🚨🚨🚨 SAVING MARKDOWN FILE...")
         print("🚨🚨🚨 为节点保存: \(node.text) (\(node.id))")
         
-        guard let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            print("❌ 无法获取Documents目录")
+        // 强制使用外部数据管理器获取Markdown路径
+        guard let markdownURL = await MainActor.run(body: { ExternalDataManager.shared.getMarkdownURL() }) else {
+            print("❌ 必须先设置外部数据存储路径才能保存Markdown文件")
             return
         }
         
-        // 创建WordTagger文件夹
-        let wordTaggerURL = documentsURL.appendingPathComponent("WordTagger")
-        let markdownURL = wordTaggerURL.appendingPathComponent("Markdown")
+        // 确保外部数据管理器有访问权限
+        guard await MainActor.run(body: { ExternalDataManager.shared.ensureAccess() }) else {
+            print("❌ 无法访问外部数据存储路径")
+            return
+        }
         
         do {
             try FileManager.default.createDirectory(at: markdownURL, withIntermediateDirectories: true)
@@ -395,16 +424,40 @@ struct NodeDetailView: View {
         }
     }
     
-    private func loadMarkdownFromFile() {
+    private func loadMarkdownFromFile() async {
         print("🚨🚨🚨 LOADING MARKDOWN FILE...")
         
-        guard let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            print("❌ 无法获取Documents目录")
+        // 强制使用外部数据管理器获取Markdown路径
+        var markdownURL: URL?
+        var hasAccess: Bool = false
+        
+        await MainActor.run {
+            markdownURL = ExternalDataManager.shared.getMarkdownURL()
+            hasAccess = ExternalDataManager.shared.ensureAccess()
+        }
+        
+        guard let markdownURL = markdownURL else {
+            print("❌ 必须先设置外部数据存储路径才能加载Markdown文件")
+            // 使用默认内容
+            let defaultContent = currentNode.markdown
+            markdownText = defaultContent
+            DispatchQueue.main.async {
+                self.vditorCoordinator?.setMarkdown(defaultContent, forceUpdate: true)
+            }
             return
         }
         
-        let wordTaggerURL = documentsURL.appendingPathComponent("WordTagger")
-        let markdownURL = wordTaggerURL.appendingPathComponent("Markdown")
+        // 确保外部数据管理器有访问权限
+        guard hasAccess else {
+            print("❌ 无法访问外部数据存储路径")
+            // 使用默认内容
+            let defaultContent = currentNode.markdown
+            markdownText = defaultContent
+            DispatchQueue.main.async {
+                self.vditorCoordinator?.setMarkdown(defaultContent, forceUpdate: true)
+            }
+            return
+        }
         
         // 创建安全的文件名
         let safeFileName = currentNode.text
@@ -1334,8 +1387,11 @@ struct NodeGraphView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("FullscreenGraphClosed"))) { _ in
             print("📝 通知: 收到 FullscreenGraphClosed 通知")
-            showingFullscreenGraph = false
-            print("📝 通知: showingFullscreenGraph 设置为 false")
+            // 异步修改状态避免在视图更新期间修改状态的警告
+            DispatchQueue.main.async {
+                showingFullscreenGraph = false
+                print("📝 通知: showingFullscreenGraph 设置为 false")
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("requestOpenFullscreenGraphFromDetail"))) { notification in
             if let node = notification.object as? Node,
@@ -1730,9 +1786,16 @@ class NodeImageManager: ObservableObject {
     
     private init() {}
     
+    @MainActor
     private var imagesDirectory: URL {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let imagesURL = documentsPath.appendingPathComponent("NodeImages")
+        // 强制使用外部数据管理器的Images路径，如果没有设置则使用临时目录
+        guard let imagesURL = ExternalDataManager.shared.getImagesURL(),
+              ExternalDataManager.shared.ensureAccess() else {
+            // 如果没有外部路径，使用临时目录作为后备（这样用户会知道需要设置外部路径）
+            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("WordTagger_NodeImages")
+            print("⚠️ 使用临时目录存储节点图片，请设置外部数据存储路径")
+            return tempURL
+        }
         
         // 确保目录存在
         if !FileManager.default.fileExists(atPath: imagesURL.path) {
@@ -1742,6 +1805,7 @@ class NodeImageManager: ObservableObject {
         return imagesURL
     }
     
+    @MainActor
     func selectAndCopyImage() -> String? {
         let panel = NSOpenPanel()
         panel.title = "选择图片"
@@ -1757,10 +1821,12 @@ class NodeImageManager: ObservableObject {
         return nil
     }
     
+    @MainActor
     func copyImageFromURL(_ sourceURL: URL) -> String? {
         return copyImageToAppDirectory(from: sourceURL)
     }
     
+    @MainActor
     private func copyImageToAppDirectory(from sourceURL: URL) -> String? {
         let fileExtension = sourceURL.pathExtension
         let fileName = "\(UUID().uuidString).\(fileExtension)"
@@ -1775,10 +1841,12 @@ class NodeImageManager: ObservableObject {
         }
     }
     
+    @MainActor
     func getImageURL(for fileName: String) -> URL {
         return imagesDirectory.appendingPathComponent(fileName)
     }
     
+    @MainActor
     func deleteImage(fileName: String) {
         let imageURL = imagesDirectory.appendingPathComponent(fileName)
         try? FileManager.default.removeItem(at: imageURL)
