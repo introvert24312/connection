@@ -859,17 +859,283 @@ struct VditorWebView: NSViewRepresentable {
               }
             }, true);
             
-            // 图片点击处理：只有 Command+点击 才在 Finder 中显示，普通点击不做任何操作
+            // 图片交互处理：支持双击放大、Command+点击在Finder中显示、在文档内缩放拖动
+            let imageClickTimeout = null;
+            let imageClickCount = 0;
+            
+            // 添加图片缩放状态管理
+            let scaledImages = new Map(); // 存储每个图片的缩放状态
+            
+            // 创建全屏覆盖层（用于退出缩放模式）
+            function createImageOverlay(img) {
+              const overlay = document.createElement('div');
+              overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background: rgba(0, 0, 0, 0.8);
+                z-index: 10000;
+                cursor: zoom-out;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              `;
+              
+              const clonedImg = img.cloneNode(true);
+              clonedImg.style.cssText = `
+                max-width: 90vw;
+                max-height: 90vh;
+                width: auto;
+                height: auto;
+                object-fit: contain;
+                transform-origin: center;
+                transition: transform 0.3s ease;
+                cursor: grab;
+              `;
+              
+              let scale = 1;
+              let translateX = 0;
+              let translateY = 0;
+              let isDragging = false;
+              let startX = 0;
+              let startY = 0;
+              
+              // 更新变换
+              function updateTransform() {
+                clonedImg.style.transform = `scale(${scale}) translate(${translateX}px, ${translateY}px)`;
+              }
+              
+              // 真正的捏合缩放支持
+              let initialDistance = 0;
+              let initialScale = 1;
+              let isGesturing = false;
+              
+              // Gesture事件支持（Safari/WebKit）
+              overlay.addEventListener('gesturestart', (e) => {
+                e.preventDefault();
+                isGesturing = true;
+                initialScale = scale;
+                clonedImg.style.transition = 'none';
+              });
+              
+              overlay.addEventListener('gesturechange', (e) => {
+                e.preventDefault();
+                if (isGesturing) {
+                  const newScale = initialScale * e.scale;
+                  scale = Math.max(0.5, Math.min(5, newScale));
+                  updateTransform();
+                }
+              });
+              
+              overlay.addEventListener('gestureend', (e) => {
+                e.preventDefault();
+                isGesturing = false;
+                clonedImg.style.transition = 'transform 0.3s ease';
+              });
+              
+              // 双指触摸捏合缩放（通用支持）
+              let touches = {};
+              
+              overlay.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (e.touches.length === 2) {
+                  // 双指捏合开始
+                  const touch1 = e.touches[0];
+                  const touch2 = e.touches[1];
+                  initialDistance = Math.sqrt(
+                    Math.pow(touch2.clientX - touch1.clientX, 2) + 
+                    Math.pow(touch2.clientY - touch1.clientY, 2)
+                  );
+                  initialScale = scale;
+                  clonedImg.style.transition = 'none';
+                  isGesturing = true;
+                } else if (e.touches.length === 1 && !isGesturing) {
+                  // 单指拖拽
+                  const touch = e.touches[0];
+                  lastTouchX = touch.clientX;
+                  lastTouchY = touch.clientY;
+                  isTouchDragging = true;
+                  clonedImg.style.transition = 'none';
+                }
+              });
+              
+              overlay.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                
+                if (e.touches.length === 2 && isGesturing) {
+                  // 双指捏合缩放
+                  const touch1 = e.touches[0];
+                  const touch2 = e.touches[1];
+                  const currentDistance = Math.sqrt(
+                    Math.pow(touch2.clientX - touch1.clientX, 2) + 
+                    Math.pow(touch2.clientY - touch1.clientY, 2)
+                  );
+                  
+                  if (initialDistance > 0) {
+                    const scaleRatio = currentDistance / initialDistance;
+                    const newScale = initialScale * scaleRatio;
+                    scale = Math.max(0.5, Math.min(5, newScale));
+                    updateTransform();
+                  }
+                } else if (e.touches.length === 1 && isTouchDragging && !isGesturing) {
+                  // 单指拖拽 - 降低灵敏度
+                  const touch = e.touches[0];
+                  const deltaX = (touch.clientX - lastTouchX) * 0.6;  // 降低到60%灵敏度
+                  const deltaY = (touch.clientY - lastTouchY) * 0.6;  // 降低到60%灵敏度
+                  
+                  translateX += deltaX;
+                  translateY += deltaY;
+                  
+                  lastTouchX = touch.clientX;
+                  lastTouchY = touch.clientY;
+                  updateTransform();
+                }
+              });
+              
+              overlay.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                if (e.touches.length < 2) {
+                  isGesturing = false;
+                  initialDistance = 0;
+                }
+                if (e.touches.length === 0) {
+                  isTouchDragging = false;
+                }
+                clonedImg.style.transition = 'transform 0.3s ease';
+              });
+              
+              // 鼠标滚轮缩放（支持触控板捏合）
+              overlay.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                
+                // 检测是否是触控板捏合手势（ctrlKey为true表示捏合）
+                if (e.ctrlKey) {
+                  // 触控板捏合缩放，更精细的控制
+                  const delta = -e.deltaY * 0.01;
+                  scale = Math.max(0.5, Math.min(5, scale * (1 + delta)));
+                } else {
+                  // 普通滚轮缩放
+                  const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                  scale = Math.max(0.5, Math.min(5, scale * delta));
+                }
+                updateTransform();
+              });
+              
+              // 触摸变量声明（用于上面的触摸事件）
+              let lastTouchX = 0;
+              let lastTouchY = 0;
+              let isTouchDragging = false;
+              
+              // 拖拽功能
+              clonedImg.addEventListener('mousedown', (e) => {
+                if (e.button === 0) {
+                  e.preventDefault();
+                  isDragging = true;
+                  startX = e.clientX - translateX;
+                  startY = e.clientY - translateY;
+                  clonedImg.style.cursor = 'grabbing';
+                  clonedImg.style.transition = 'none';
+                }
+              });
+              
+              overlay.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                  translateX = e.clientX - startX;
+                  translateY = e.clientY - startY;
+                  updateTransform();
+                }
+              });
+              
+              overlay.addEventListener('mouseup', () => {
+                if (isDragging) {
+                  isDragging = false;
+                  clonedImg.style.cursor = 'grab';
+                  clonedImg.style.transition = 'transform 0.3s ease';
+                }
+              });
+              
+              // 双击重置
+              clonedImg.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                scale = 1;
+                translateX = 0;
+                translateY = 0;
+                updateTransform();
+              });
+              
+              // 点击空白区域或ESC退出
+              overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                  document.body.removeChild(overlay);
+                }
+              });
+              
+              // 键盘快捷键
+              const handleKeyPress = (e) => {
+                e.preventDefault();
+                switch(e.key) {
+                  case 'Escape':
+                    // ESC退出
+                    overlay.style.transition = 'opacity 0.2s ease';
+                    overlay.style.opacity = '0';
+                    setTimeout(() => {
+                      if (document.body.contains(overlay)) {
+                        document.body.removeChild(overlay);
+                      }
+                    }, 200);
+                    document.removeEventListener('keydown', handleKeyPress);
+                    break;
+                  case '0':
+                    // 数字0重置缩放
+                    scale = 1;
+                    translateX = 0;
+                    translateY = 0;
+                    clonedImg.style.transition = 'transform 0.3s ease';
+                    updateTransform();
+                    break;
+                  case '=':
+                  case '+':
+                    // 放大
+                    scale = Math.min(5, scale * 1.2);
+                    updateTransform();
+                    break;
+                  case '-':
+                    // 缩小
+                    scale = Math.max(0.5, scale * 0.8);
+                    updateTransform();
+                    break;
+                  case '1':
+                    // 实际大小
+                    scale = 1;
+                    updateTransform();
+                    break;
+                }
+              };
+              document.addEventListener('keydown', handleKeyPress);
+              
+              overlay.appendChild(clonedImg);
+              return overlay;
+            }
+            
+            // 阻止所有图片的默认双击行为（包括vditor内置的）
+            document.addEventListener('dblclick', function(e) {
+              if (e.target.tagName === 'IMG') {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                e.stopPropagation();
+              }
+            }, true);
+            
             document.addEventListener('click', function(e) {
               if (e.target.tagName === 'IMG' && e.target.src.includes('Images/')) {
                 if (e.metaKey) {
                   // Command+点击：在 Finder 中显示图片
                   e.preventDefault();
                   e.stopPropagation();
-                  // 提取文件名
                   const src = e.target.src;
                   const filename = src.split('Images/').pop();
-                  // 发送消息给 Swift
                   try {
                     window.webkit?.messageHandlers?.bridge?.postMessage({ 
                       type: 'showImageInFinder',
@@ -879,9 +1145,35 @@ struct VditorWebView: NSViewRepresentable {
                     console.error('无法打开图片:', err);
                   }
                 } else {
-                  // 普通点击：阻止默认行为，避免误触
+                  // 普通点击：处理双击检测
                   e.preventDefault();
-                  console.log('普通点击图片，已阻止默认行为。使用 Command+点击 可在 Finder 中显示图片');
+                  e.stopPropagation();
+                  
+                  imageClickCount++;
+                  const currentImg = e.target;
+                  
+                  if (imageClickCount === 1) {
+                    imageClickTimeout = setTimeout(() => {
+                      // 单击：不做任何操作
+                      console.log('单击图片');
+                      imageClickCount = 0;
+                    }, 300);
+                  } else if (imageClickCount === 2) {
+                    // 双击：进入缩放模式
+                    clearTimeout(imageClickTimeout);
+                    imageClickCount = 0;
+                    
+                    console.log('双击图片，进入缩放模式');
+                    const overlay = createImageOverlay(currentImg);
+                    document.body.appendChild(overlay);
+                    
+                    // 淡入动画
+                    overlay.style.opacity = '0';
+                    requestAnimationFrame(() => {
+                      overlay.style.transition = 'opacity 0.3s ease';
+                      overlay.style.opacity = '1';
+                    });
+                  }
                 }
               }
             });
