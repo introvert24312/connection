@@ -127,8 +127,16 @@ struct CommandPaletteView: View {
                 let result = try await command.execute(with: context)
                 await MainActor.run {
                     handleCommandResult(result)
-                    // 只有在命令执行完成后才关闭面板，避免层切换时的输入框残留
-                    isPresented = false
+                    
+                    // 针对层切换操作使用快速关闭动画
+                    if case .layerSwitched(_) = result {
+                        withAnimation(.linear(duration: 0.05)) {
+                            isPresented = false
+                        }
+                    } else {
+                        // 其他命令使用正常关闭
+                        isPresented = false
+                    }
                 }
             } catch {
                 await MainActor.run {
@@ -196,8 +204,10 @@ struct CommandPaletteView: View {
                 await store.switchToLayer(newLayer)
                 await MainActor.run {
                     print("已创建并切换到新层: \(newLayer.displayName)")
-                    // 确保层切换操作完成后才关闭面板
-                    isPresented = false
+                    // 新建层完成后使用快速关闭动画
+                    withAnimation(.linear(duration: 0.05)) {
+                        isPresented = false
+                    }
                 }
             }
         } else {
