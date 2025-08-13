@@ -939,6 +939,15 @@ public struct SwitchLayerCommand: Command {
     }
     
     public func execute(with context: CommandContext) async throws -> CommandResult {
+        // 检查目标层是否为复合层
+        if let targetLayer = await context.store.layers.first(where: { $0.displayName == layerName || $0.name == layerName }) {
+            if targetLayer.isCompound {
+                // 复合层静默处理，不进行任何操作，返回成功状态
+                print("🔍 尝试切换到复合层 '\(layerName)'，静默忽略")
+                return .success(message: "已忽略复合层切换")
+            }
+        }
+        
         await context.store.switchToLayer(named: layerName)
         
         if let currentLayer = await context.store.currentLayer {

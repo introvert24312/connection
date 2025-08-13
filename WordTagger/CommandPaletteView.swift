@@ -244,10 +244,23 @@ struct CommandPaletteView: View {
                 await MainActor.run {
                     handleCommandResult(result)
                     
+                    // 如果是错误结果，不关闭面板
+                    if case .error(_) = result {
+                        print("🚨 CommandPaletteView: 命令执行出错，保持面板开启")
+                        return
+                    }
+                    
                     // 针对层切换操作使用快速关闭动画
                     if case .layerSwitched(_) = result {
                         print("🎯 CommandPaletteView: 层切换命令执行完成，准备关闭面板")
                         // 立即移除焦点，避免蓝框残留
+                        isTextFieldFocused = false
+                        withAnimation(.linear(duration: 0.05)) {
+                            isPresented = false
+                        }
+                    } else if case .success(_) = result {
+                        // 成功结果（包括复合层静默处理）也关闭面板
+                        print("🎯 CommandPaletteView: 命令执行成功，关闭面板")
                         isTextFieldFocused = false
                         withAnimation(.linear(duration: 0.05)) {
                             isPresented = false
@@ -288,6 +301,7 @@ struct CommandPaletteView: View {
             print("已切换到层: \(layer.displayName)")
         case .error(let message):
             print("Error: \(message)")
+            // 静默处理，不显示弹窗
         }
     }
     
