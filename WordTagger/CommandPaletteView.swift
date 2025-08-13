@@ -15,6 +15,9 @@ struct CommandPaletteView: View {
     // 添加安全关闭标志，防止意外关闭
     @State private var allowBackgroundDismiss: Bool = true
     
+    // 层过滤器状态 - 提升到CommandPaletteView级别
+    @State private var filteredLayerIds: Set<UUID> = []
+    
     var body: some View {
         // 最外层容器，只处理真正的背景点击
         ZStack {
@@ -67,31 +70,34 @@ struct CommandPaletteView: View {
             
             // 内容区域 - 添加事件拦截防止意外关闭
             HStack(spacing: 0) {
-                // 左侧：命令列表
+                // 左侧：层管理搜索
                 VStack(spacing: 0) {
                     // 搜索框
                     HStack {
                         Image(systemName: "magnifyingglass")
                             .foregroundColor(.secondary)
                         
-                        TextField("搜索命令...", text: $query, onCommit: {
-                            executeSelectedCommand()
-                        })
-                        .font(.title2)
-                        .focused($isTextFieldFocused)
-                        .onKeyPress(.upArrow) {
-                            selectedIndex = max(0, selectedIndex - 1)
-                            return .handled
-                        }
-                        .onKeyPress(.downArrow) {
-                            selectedIndex = min(availableCommands.count - 1, selectedIndex + 1)
-                            return .handled
-                        }
-                        .onKeyPress(.escape) {
-                            isTextFieldFocused = false
-                            shouldDismiss = true
-                            return .handled
-                        }
+                        TextField("搜索层名...", text: $query)
+                            .font(.title2)
+                            .focused($isTextFieldFocused)
+                            .onKeyPress(.escape) {
+                                isTextFieldFocused = false
+                                shouldDismiss = true
+                                return .handled
+                            }
+                            .onKeyPress(.init("j"), phases: .down) { keyPress in
+                                if keyPress.modifiers.contains(.command) {
+                                    if keyPress.modifiers.contains(.shift) {
+                                        // ⌘⇧J: 从过滤器中移除层
+                                        handleRemoveLayerFromFilter()
+                                    } else {
+                                        // ⌘J: 添加层到过滤器
+                                        handleAddLayerToFilter()
+                                    }
+                                    return .handled
+                                }
+                                return .ignored
+                            }
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
@@ -99,31 +105,111 @@ struct CommandPaletteView: View {
                     
                     Divider()
                     
-                    // 命令列表
-                    if availableCommands.isEmpty && !query.isEmpty {
-                        VStack {
-                            Text("未找到匹配的命令")
+                    // 层管理说明
+                    VStack(alignment: .leading, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("层管理")
+                                .font(.headline)
+                                .fontWeight(.semibold)
+                            
+                            Text("在上方搜索框中输入层名，然后使用快捷键管理图谱中显示的层。")
+                                .font(.body)
                                 .foregroundColor(.secondary)
-                                .padding(.vertical, 20)
                         }
-                        .frame(maxHeight: 60)
-                    } else {
-                        ScrollView {
-                            LazyVStack(spacing: 0) {
-                                ForEach(Array(availableCommands.enumerated()), id: \.offset) { index, command in
-                                    CommandRowView(
-                                        command: command,
-                                        isSelected: index == selectedIndex
-                                    ) {
-                                        executeCommand(command)
+                        
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack(spacing: 8) {
+                                Text("⌘J")
+                                    .font(.system(.body, design: .monospaced))
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.gray.opacity(0.2))
+                                    .cornerRadius(4)
+                                
+                                Text("添加层到图谱")
+                                    .font(.body)
+                            }
+                            
+                            HStack(spacing: 8) {
+                                Text("⌘⇧J")
+                                    .font(.system(.body, design: .monospaced))
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.gray.opacity(0.2))
+                                    .cornerRadius(4)
+                                
+                                Text("从图谱中移除层")
+                                    .font(.body)
+                            }
+                            
+                            HStack(spacing: 8) {
+                                Text("Esc")
+                                    .font(.system(.body, design: .monospaced))
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.gray.opacity(0.2))
+                                    .cornerRadius(4)
+                                
+                                Text("关闭面板")
+                                    .font(.body)
+                            }
+                        }
+                        
+                        if !query.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("搜索结果")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                
+                                let matchingLayers = store.layers.filter { layer in
+                                    layer.displayName.lowercased().contains(query.lowercased()) ||
+                                    layer.name.lowercased().contains(query.lowercased())
+                                }
+                                
+                                if matchingLayers.isEmpty {
+                                    Text("未找到匹配的层")
+                                        .font(.body)
+                                        .foregroundColor(.secondary)
+                                } else {
+                                    ForEach(matchingLayers.prefix(5), id: \.id) { layer in
+                                        HStack(spacing: 8) {
+                                            Circle()
+                                                .fill(layer.isCompound ? Color.purple : Color.blue)
+                                                .frame(width: 8, height: 8)
+                                            
+                                            Text(layer.displayName)
+                                                .font(.body)
+                                            
+                                            if layer.isCompound {
+                                                Text("(复合层)")
+                                                    .font(.caption)
+                                                    .foregroundColor(.secondary)
+                                            }
+                                            
+                                            Spacer()
+                                            
+                                            if filteredLayerIds.contains(layer.id) {
+                                                Image(systemName: "checkmark.circle.fill")
+                                                    .foregroundColor(.green)
+                                                    .font(.caption)
+                                            }
+                                        }
+                                        .padding(.vertical, 2)
                                     }
-                                    .id(index)
+                                    
+                                    if matchingLayers.count > 5 {
+                                        Text("... 还有 \(matchingLayers.count - 5) 个")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
                                 }
                             }
-                            .padding(.vertical, 6)
                         }
-                        .frame(minHeight: 400, maxHeight: .infinity)
+                        
+                        Spacer()
                     }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
                 .frame(width: 300)
                 
@@ -148,7 +234,7 @@ struct CommandPaletteView: View {
                     
                     Divider()
                     
-                    LayerStructureGraphViewSimple()
+                    LayerStructureGraphViewSimple(filteredLayerIds: $filteredLayerIds)
                         .environmentObject(store)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(Color.clear)
@@ -200,6 +286,9 @@ struct CommandPaletteView: View {
         .onAppear {
             setupView()
             
+            // 初始化层过滤器为显示所有层
+            filteredLayerIds = Set(store.layers.map { $0.id })
+            
             // 监听禁用背景关闭的通知
             NotificationCenter.default.addObserver(
                 forName: NSNotification.Name("disableBackgroundDismiss"),
@@ -248,6 +337,9 @@ struct CommandPaletteView: View {
     }
     
     private func dismissView() {
+        // 清除搜索框焦点，防止残留蓝色边框
+        isTextFieldFocused = false
+        
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             isPresented = false
             shouldDismiss = false
@@ -256,6 +348,9 @@ struct CommandPaletteView: View {
     
     @MainActor
     private func updateAvailableCommands() {
+        print("🔄 CommandPalette: 更新可用命令")
+        print("   - 当前查询: '\(query)'")
+        
         let context = CommandContext(
             store: store,
             currentNode: store.selectedNode,
@@ -263,18 +358,67 @@ struct CommandPaletteView: View {
         )
         
         Task {
-            availableCommands = await commandParser.parse(query, context: context)
+            let newCommands = await commandParser.parse(query, context: context)
+            await MainActor.run {
+                availableCommands = newCommands
+                print("   - 更新后命令数量: \(availableCommands.count)")
+                if !availableCommands.isEmpty {
+                    print("   - 第一个命令: \(availableCommands[0].title)")
+                }
+            }
         }
     }
     
     private func executeSelectedCommand() {
-        guard !availableCommands.isEmpty, selectedIndex < availableCommands.count else { return }
+        print("🎯 CommandPalette: executeSelectedCommand 被调用")
+        print("   - 可用命令数量: \(availableCommands.count)")
+        print("   - 选中索引: \(selectedIndex)")
+        print("   - 查询内容: '\(query)'")
+        print("   - 搜索框是否聚焦: \(isTextFieldFocused)")
+        
+        guard !availableCommands.isEmpty, selectedIndex < availableCommands.count else { 
+            print("❌ CommandPalette: 无效的命令选择，取消执行")
+            return 
+        }
+        
         let command = availableCommands[selectedIndex]
+        print("🎯 CommandPalette: 准备执行选中的命令 - \(command.title)")
+        
+        // 添加额外的安全检查
+        if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            print("⚠️ CommandPalette: 查询为空时执行命令，可能是意外触发")
+            
+            // 如果是层切换命令且查询为空，可能是意外触发
+            if command is SwitchLayerCommand {
+                print("🛡️ CommandPalette: 阻止空查询时的层切换命令执行")
+                return
+            }
+        }
+        
         executeCommand(command)
     }
     
     
     private func executeCommand(_ command: Command) {
+        // 添加调试日志来追踪命令执行
+        print("🚀 CommandPalette: 执行命令 - \(command.title)")
+        print("   - 命令类型: \(type(of: command))")
+        print("   - 命令ID: \(command.id)")
+        
+        // 如果是层切换命令，添加额外的保护
+        if let switchCommand = command as? SwitchLayerCommand {
+            print("⚠️ CommandPalette: 检测到层切换命令执行")
+            print("   - 目标层: \(switchCommand.title)")
+            print("   - 是否子层: \(switchCommand.isChildLayer)")
+            
+            // 检查是否是意外执行（例如，用户没有明确选择这个命令）
+            if !isTextFieldFocused && query.isEmpty {
+                print("🛡️ CommandPalette: 阻止意外的层切换命令执行")
+                print("   - 搜索框未聚焦且查询为空，可能是意外触发")
+                return
+            }
+        }
+        
         let context = CommandContext(
             store: store,
             currentNode: store.selectedNode,
@@ -340,17 +484,84 @@ struct CommandPaletteView: View {
             }
         }
     }
+    
+    // 处理⌘J: 添加层到过滤器
+    private func handleAddLayerToFilter() {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !trimmedQuery.isEmpty else {
+            print("🔍 CommandPalette: 查询为空，无法添加层到过滤器")
+            return
+        }
+        
+        // 查找匹配的层
+        let matchingLayers = store.layers.filter { layer in
+            layer.displayName.lowercased().contains(trimmedQuery) ||
+            layer.name.lowercased().contains(trimmedQuery)
+        }
+        
+        if let firstMatch = matchingLayers.first {
+            filteredLayerIds.insert(firstMatch.id)
+            print("✅ CommandPalette: 添加层 '\(firstMatch.displayName)' 到过滤器")
+            
+            // 如果是复合层，也添加其子层
+            if firstMatch.isCompound {
+                for childLayerId in firstMatch.childLayerIds {
+                    filteredLayerIds.insert(childLayerId)
+                    if let childLayer = store.layers.first(where: { $0.id == childLayerId }) {
+                        print("✅ CommandPalette: 同时添加子层 '\(childLayer.displayName)' 到过滤器")
+                    }
+                }
+            }
+        } else {
+            print("❌ CommandPalette: 未找到匹配的层: '\(trimmedQuery)'")
+        }
+    }
+    
+    // 处理⌘⇧J: 从过滤器中移除层
+    private func handleRemoveLayerFromFilter() {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !trimmedQuery.isEmpty else {
+            print("🔍 CommandPalette: 查询为空，无法从过滤器移除层")
+            return
+        }
+        
+        // 查找匹配的层
+        let matchingLayers = store.layers.filter { layer in
+            layer.displayName.lowercased().contains(trimmedQuery) ||
+            layer.name.lowercased().contains(trimmedQuery)
+        }
+        
+        if let firstMatch = matchingLayers.first {
+            filteredLayerIds.remove(firstMatch.id)
+            print("❌ CommandPalette: 从过滤器移除层 '\(firstMatch.displayName)'")
+            
+            // 如果是复合层，也移除其子层
+            if firstMatch.isCompound {
+                for childLayerId in firstMatch.childLayerIds {
+                    filteredLayerIds.remove(childLayerId)
+                    if let childLayer = store.layers.first(where: { $0.id == childLayerId }) {
+                        print("❌ CommandPalette: 同时移除子层 '\(childLayer.displayName)' 从过滤器")
+                    }
+                }
+            }
+        } else {
+            print("❌ CommandPalette: 未找到匹配的层: '\(trimmedQuery)'")
+        }
+    }
 }
 
 // MARK: - Simplified Layer Structure Graph View
 
 struct LayerStructureGraphViewSimple: View {
     @EnvironmentObject private var store: NodeStore
+    @Binding var filteredLayerIds: Set<UUID>
     @State private var cachedNodes: [LayerGraphNode] = []
     @State private var cachedEdges: [LayerGraphEdge] = []
     @State private var selectedLayerId: UUID?
-    @State private var filteredLayerIds: Set<UUID> = []
     @State private var layerSearchText: String = ""
+    
+    // 使用设置中的层结构图谱缩放级别
+    @AppStorage("layerStructureGraphInitialScale") private var layerGraphInitialScale: Double = 0.9
     
     var body: some View {
         VStack(spacing: 0) {
@@ -387,34 +598,122 @@ struct LayerStructureGraphViewSimple: View {
         .onChange(of: filteredLayerIds) { _, _ in
             updateLayerGraphData()
         }
+        .onKeyPress(.init("k"), phases: .down) { _ in
+            NotificationCenter.default.post(name: Notification.Name("fitGraph"), object: nil)
+            return .handled
+        }
     }
     
     private var filterControlSection: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 0) {
+            // 工具栏样式的过滤器控制
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("层过滤器")
-                        .font(.body)
-                        .fontWeight(.semibold)
-                    Text("选择要显示在图谱中的层")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
+                Text("层结构图谱")
+                    .font(.headline)
+                    .fontWeight(.semibold)
                 
                 Spacer()
                 
-                filterButtons
+                // 层选择器按钮
+                Button(action: {
+                    // 切换全选/清空状态
+                    if filteredLayerIds.count == store.layers.count {
+                        filteredLayerIds.removeAll()
+                    } else {
+                        filteredLayerIds = Set(store.layers.map { $0.id })
+                    }
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: filteredLayerIds.isEmpty ? "square" : (filteredLayerIds.count == store.layers.count ? "checkmark.square.fill" : "minus.square.fill"))
+                        Text("选择层")
+                        if !filteredLayerIds.isEmpty {
+                            Text("(\(filteredLayerIds.count))")
+                                .foregroundColor(.blue)
+                        }
+                    }
+                }
+                .buttonStyle(.bordered)
+                .help("选择要显示的层")
+                
+                // 层搜索框
+                TextField("搜索层名...", text: $layerSearchText)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 120)
+                    .onSubmit {
+                        // 搜索框回车不执行任何操作
+                        print("🛡️ 层搜索框回车被拦截")
+                    }
+                
+                // 快速过滤按钮
+                Menu("过滤") {
+                    Button("全选") {
+                        filteredLayerIds = Set(store.layers.map { $0.id })
+                    }
+                    
+                    Button("清空") {
+                        filteredLayerIds.removeAll()
+                    }
+                    
+                    Button("仅复合层") {
+                        filteredLayerIds = Set(store.layers.filter { $0.isCompound }.map { $0.id })
+                    }
+                    
+                    Button("仅普通层") {
+                        filteredLayerIds = Set(store.layers.filter { !$0.isCompound }.map { $0.id })
+                    }
+                    
+                    if let currentLayer = store.currentLayer {
+                        Button("当前层") {
+                            filteredLayerIds = [currentLayer.id]
+                        }
+                    }
+                }
+                .buttonStyle(.bordered)
+                
+
+                
+                // 重置按钮
+                if !filteredLayerIds.isEmpty && filteredLayerIds.count != store.layers.count {
+                    Button("显示全部") {
+                        filteredLayerIds = Set(store.layers.map { $0.id })
+                        layerSearchText = ""
+                    }
+                    .buttonStyle(.bordered)
+                }
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(Color(NSColor.controlBackgroundColor))
             
-            // 独立的层搜索框 - 完全隔离
-            IsolatedLayerSearchBox(searchText: $layerSearchText)
+            Divider()
             
-            // 过滤后的层列表
-            layerFilterScrollView
+            // 层标签显示区域（类似GraphView的节点选择器）
+            if !filteredLayers.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(filteredLayers.prefix(10), id: \.id) { layer in
+                            LayerFilterChip(
+                                layer: layer,
+                                isSelected: filteredLayerIds.contains(layer.id)
+                            ) {
+                                toggleLayerFilter(layer)
+                            }
+                        }
+                        
+                        if filteredLayers.count > 10 {
+                            Text("... +\(filteredLayers.count - 10)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal, 8)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                }
+                .frame(height: 40)
+                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+            }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
         .background(Color.clear)
         .allowsHitTesting(true)
         // 使用最高优先级手势拦截点击事件
@@ -422,51 +721,18 @@ struct LayerStructureGraphViewSimple: View {
             TapGesture()
                 .onEnded { _ in
                     print("🛡️ 层过滤器区域点击被拦截")
-                    // 不执行任何操作，只是拦截事件
+                    // 通知父视图禁用背景关闭
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("disableBackgroundDismiss"),
+                        object: nil
+                    )
                 }
         )
     }
     
-    private var filterButtons: some View {
-        HStack(spacing: 8) {
-            Button("全选") {
-                filteredLayerIds = Set(store.layers.map { $0.id })
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            
-            Button("清空") {
-                filteredLayerIds.removeAll()
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            
-            Button("当前层") {
-                if let currentLayer = store.currentLayer {
-                    filteredLayerIds = [currentLayer.id]
-                }
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-        }
-    }
+
     
-    private var layerFilterScrollView: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(filteredLayers) { layer in
-                    LayerFilterToggle(
-                        layer: layer,
-                        isSelected: filteredLayerIds.contains(layer.id)
-                    ) {
-                        toggleLayerFilter(layer)
-                    }
-                }
-            }
-            .padding(.horizontal, 4)
-        }
-        .frame(height: 40)
-    }
+
     
     // 根据搜索文本过滤层
     private var filteredLayers: [Layer] {
@@ -534,7 +800,7 @@ struct LayerStructureGraphViewSimple: View {
             nodes: cachedNodes,
             edges: cachedEdges,
             title: "层结构图谱",
-            initialScale: 0.9,
+            initialScale: layerGraphInitialScale,
             onNodeSelected: { nodeId in
                 if let selectedGraphNode = cachedNodes.first(where: { $0.id == nodeId }),
                    let layerId = selectedGraphNode.layerId,
@@ -698,31 +964,71 @@ extension GraphNodeIDGenerator {
     }
 }
 
-struct LayerFilterToggle: View {
+struct LayerFilterChip: View {
     let layer: Layer
     let isSelected: Bool
     let action: () -> Void
+    @EnvironmentObject private var store: NodeStore
+    
+    // 获取复合层的子层名称
+    private var childLayerNames: [String] {
+        guard layer.isCompound else { return [] }
+        return layer.childLayerIds.compactMap { childId in
+            store.layers.first(where: { $0.id == childId })?.displayName
+        }
+    }
+    
+    // 生成显示文本
+    private var displayText: String {
+        if layer.isCompound && !childLayerNames.isEmpty {
+            let childText = childLayerNames.joined(separator: ", ")
+            return "\(layer.displayName) (\(childText))"
+        } else {
+            return layer.displayName
+        }
+    }
+    
+    // 生成帮助文本
+    private var helpText: String {
+        if layer.isCompound && !childLayerNames.isEmpty {
+            let childText = childLayerNames.joined(separator: ", ")
+            return "复合层: \(layer.displayName)\n包含子层: \(childText)"
+        } else if layer.isCompound {
+            return "复合层: \(layer.displayName)"
+        } else {
+            return "普通层: \(layer.displayName)"
+        }
+    }
     
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(isSelected ? .blue : .gray)
-                    .font(.body)
+            HStack(spacing: 4) {
+                // 层类型指示器
+                Circle()
+                    .fill(layer.isCompound ? Color.purple : Color.blue)
+                    .frame(width: 6, height: 6)
                 
-                Text(layer.displayName)
-                    .font(.body)
-                    .foregroundColor(isSelected ? .primary : .secondary)
+                Text(displayText)
+                    .font(.caption)
+                    .fontWeight(isSelected ? .medium : .regular)
+                    .foregroundColor(isSelected ? .white : .primary)
+                    .lineLimit(1)
+                
+                if isSelected {
+                    Image(systemName: "xmark")
+                        .font(.caption2)
+                        .foregroundColor(.white)
+                }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
             .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isSelected ? Color.blue.opacity(0.1) : Color.gray.opacity(0.05))
-                    .stroke(isSelected ? Color.blue : Color.gray.opacity(0.3), lineWidth: 1)
+                Capsule()
+                    .fill(isSelected ? Color.blue : Color.gray.opacity(0.2))
             )
         }
         .buttonStyle(.plain)
+        .help(helpText)
     }
 }
 
@@ -813,83 +1119,7 @@ private struct CommandRowView: View {
     }
 }
 
-// MARK: - IsolatedLayerSearchBox
 
-private struct IsolatedLayerSearchBox: View {
-    @Binding var searchText: String
-    @State private var internalSearchText: String = ""
-    @FocusState private var isInternalFocused: Bool
-    
-    var body: some View {
-        HStack {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(.secondary)
-                .font(.caption)
-            
-            // 使用内部状态，完全隔离
-            TextField("搜索层名...", text: $internalSearchText)
-                .font(.caption)
-                .textFieldStyle(.plain)
-                .focused($isInternalFocused)
-                .onChange(of: internalSearchText) { _, newValue in
-                    // 只传递搜索文本，不传递任何焦点或命令事件
-                    searchText = newValue
-                }
-                .onAppear {
-                    internalSearchText = searchText
-                }
-                .onSubmit {
-                    // 完全阻止回车键的所有默认行为
-                    print("🛡️ 层搜索框回车键被按下，阻止事件传播")
-                    // 不执行任何操作，防止触发父级的命令执行
-                }
-                // 阻止所有键盘事件向上传播
-                .onKeyPress(.escape) {
-                    isInternalFocused = false
-                    return .handled
-                }
-                .onKeyPress(.return) {
-                    // 完全拦截回车键
-                    print("🛡️ 层搜索框拦截回车键")
-                    return .handled
-                }
-                .allowsHitTesting(true)
-            
-            if !internalSearchText.isEmpty {
-                Button(action: { 
-                    internalSearchText = ""
-                    searchText = ""
-                }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.secondary)
-                        .font(.caption)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(Color(NSColor.textBackgroundColor))
-        .cornerRadius(6)
-        .contentShape(Rectangle())
-        .allowsHitTesting(true)
-        // 使用最高优先级手势完全拦截所有点击事件
-        .simultaneousGesture(
-            TapGesture()
-                .onEnded { _ in
-                    print("🛡️ 层搜索框最高优先级手势拦截点击")
-                    isInternalFocused = true
-                    
-                    // 通知父视图禁用背景关闭
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("disableBackgroundDismiss"),
-                        object: nil
-                    )
-                }
-        )
-        // 移除可能导致事件冒泡的其他手势
-    }
-}
 
 // MARK: - Notification Extensions
 

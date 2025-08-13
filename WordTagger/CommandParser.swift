@@ -100,38 +100,9 @@ public final class CommandParser: ObservableObject {
     }
     
     public func getDefaultCommands(context: CommandContext? = nil) async -> [Command] {
-        guard let context = context else {
-            return [
-                SwitchLayerCommand(layerName: "英语单词"),
-                SwitchLayerCommand(layerName: "统计学"),
-                SwitchLayerCommand(layerName: "教育心理学")
-            ]
-        }
-        
-        // 按层次结构排列层命令
-        var commands: [Command] = []
-        
-        // 1. 首先添加复合层（顶层）（排除"它"）
-        let compoundLayers = await context.store.layers.filter { $0.isCompound && $0.displayName != "它" && $0.name != "它" }
-        for compoundLayer in compoundLayers {
-            commands.append(SwitchLayerCommand(layerName: compoundLayer.displayName))
-            
-            // 2. 然后添加该复合层的子层（缩进显示）
-            for childLayerId in compoundLayer.childLayerIds {
-                if let childLayer = await context.store.layers.first(where: { $0.id == childLayerId }) {
-                    commands.append(SwitchLayerCommand(layerName: childLayer.displayName, isChildLayer: true))
-                }
-            }
-        }
-        
-        // 3. 最后添加独立的普通层（不属于任何复合层）
-        let allChildLayerIds = Set(compoundLayers.flatMap { $0.childLayerIds })
-        let independentLayers = await context.store.layers.filter { !$0.isCompound && !allChildLayerIds.contains($0.id) }
-        for independentLayer in independentLayers {
-            commands.append(SwitchLayerCommand(layerName: independentLayer.displayName))
-        }
-        
-        return commands
+        // 命令面板现在专门用于层管理，不显示任何默认命令
+        // 用户通过搜索层名 + ⌘J/⌘⇧J 来管理层过滤器
+        return []
     }
     
     // MARK: - Command Setup
@@ -211,43 +182,9 @@ public final class CommandParser: ObservableObject {
     }
     
     private func findMatchingCommands(for input: String, context: CommandContext) async -> [Command] {
-        let searchTokens = nlpProcessor.tokenize(input)
-        
-        // 动态获取所有层相关命令
-        var layerCommands: [Command] = []
-        
-        // 层切换命令（排除"它"）
-        layerCommands += await context.store.layers
-            .filter { $0.displayName != "它" && $0.name != "它" }
-            .map { layer in
-                SwitchLayerCommand(layerName: layer.displayName)
-            }
-        
-        // 层过滤命令（添加到图谱）
-        layerCommands += await context.store.layers.map { layer in
-            AddToGraphFilterCommand(layerName: layer.displayName)
-        }
-        
-        // 层过滤命令（从图谱移除）
-        layerCommands += await context.store.layers.map { layer in
-            RemoveFromGraphFilterCommand(layerName: layer.displayName)
-        }
-        
-        // 合并所有命令（包括静态命令和动态层命令）
-        let allAvailableCommands = allCommands + layerCommands
-        
-        var scoredCommands: [(Command, Double)] = []
-        
-        for command in allAvailableCommands {
-            let score = calculateMatchScore(command: command, tokens: searchTokens, context: context)
-            if score > 0.1 { // 降低阈值让更多命令能被搜索到
-                scoredCommands.append((command, score))
-            }
-        }
-        
-        return scoredCommands
-            .sorted { $0.1 > $1.1 }
-            .map { $0.0 }
+        // 命令面板现在专门用于层管理，不显示搜索结果
+        // 用户通过输入层名 + ⌘J/⌘⇧J 来操作层过滤器
+        return []
     }
     
     private func calculateMatchScore(command: Command, tokens: [String], context: CommandContext) -> Double {

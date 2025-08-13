@@ -220,11 +220,30 @@ struct GraphView: View {
         guard !selectedNodeIdsData.isEmpty else { return }
         
         do {
-            let nodeIds = try JSONDecoder().decode([UUID].self, from: selectedNodeIdsData)
-            selectedNodeIds = Set(nodeIds)
-            print("🔄 GraphView: 加载选择状态 - \(selectedNodeIds.count) 个节点")
+            // 尝试解码为UUID数组
+            if let nodeIds = try? JSONDecoder().decode([UUID].self, from: selectedNodeIdsData) {
+                selectedNodeIds = Set(nodeIds)
+                print("🔄 GraphView: 加载选择状态 - \(selectedNodeIds.count) 个节点")
+                return
+            }
+            
+            // 如果失败，尝试解码为字符串数组（兼容旧格式）
+            if let nodeIdStrings = try? JSONDecoder().decode([String].self, from: selectedNodeIdsData) {
+                let nodeIds = nodeIdStrings.compactMap { UUID(uuidString: $0) }
+                selectedNodeIds = Set(nodeIds)
+                print("🔄 GraphView: 从字符串格式加载选择状态 - \(selectedNodeIds.count) 个节点")
+                
+                // 更新为新格式
+                saveSelectedNodeIds()
+                return
+            }
+            
+            print("⚠️ GraphView: 无法解析选择状态数据，清空数据")
+            selectedNodeIdsData = Data()
         } catch {
             print("❌ GraphView: 加载选择状态失败 - \(error)")
+            // 清空损坏的数据
+            selectedNodeIdsData = Data()
         }
     }
     
