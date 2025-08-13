@@ -852,7 +852,7 @@ struct QuickAddSheetView: View {
         
         // 打开地图窗口
         print("📍 QuickAddSheetView: Posting openMapWindow notification")
-        NotificationCenter.default.post(name: .openMapWindow, object: nil)
+        NotificationCenter.default.post(name: NSNotification.Name("openMapWindow"), object: nil)
         
         // 设置为位置选择模式
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -1032,7 +1032,7 @@ struct QuickAddView: View {
         print("📍 QuickAddView: Opening map for location selection...")
         
         // 打开地图窗口
-        NotificationCenter.default.post(name: .openMapWindow, object: nil)
+        NotificationCenter.default.post(name: NSNotification.Name("openMapWindow"), object: nil)
         
         // 设置为位置选择模式
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -1335,6 +1335,11 @@ struct WordTaggerApp: App {
                         // 背景遮罩 - 完全禁用点击响应，只通过ESC键关闭
                         Color.black.opacity(0.3)
                             .ignoresSafeArea()
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                // 点击背景时不做任何事，防止误关闭
+                                print("🛡️ 背景遮罩被点击，不关闭命令面板")
+                            }
                         
                         CommandPaletteView(isPresented: $showPalette)
                             .environmentObject(store)
@@ -1386,7 +1391,7 @@ struct WordTaggerApp: App {
                 CompoundNodeAddSheetView()
                     .environmentObject(store)
             }
-            .onReceive(NotificationCenter.default.publisher(for: .addNewNode)) { _ in
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("addNewNode"))) { _ in
                 showQuickAdd = true
             }
         }

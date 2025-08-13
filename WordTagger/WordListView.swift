@@ -612,7 +612,7 @@ struct TagChipsView: View {
                 
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 6) {
-                        ForEach(tags, id: \.id) { tag in
+                        ForEach(Array(tags.enumerated()), id: \.offset) { index, tag in
                             TagChip(tag: tag, searchQuery: searchQuery)
                         }
                     }

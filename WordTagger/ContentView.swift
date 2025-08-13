@@ -117,7 +117,7 @@ struct ContentView: View {
             
             // 注册通知监听器
             NotificationCenter.default.addObserver(
-                forName: .openMapWindow,
+                forName: NSNotification.Name("openMapWindow"),
                 object: nil,
                 queue: .main
             ) { _ in
@@ -125,7 +125,7 @@ struct ContentView: View {
             }
             
             NotificationCenter.default.addObserver(
-                forName: .openGraphWindow,
+                forName: NSNotification.Name("openGraphWindow"),
                 object: nil,
                 queue: .main
             ) { _ in

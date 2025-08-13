@@ -111,8 +111,8 @@ public final class CommandParser: ObservableObject {
         // 按层次结构排列层命令
         var commands: [Command] = []
         
-        // 1. 首先添加复合层（顶层）
-        let compoundLayers = await context.store.layers.filter { $0.isCompound }
+        // 1. 首先添加复合层（顶层）（排除"它"）
+        let compoundLayers = await context.store.layers.filter { $0.isCompound && $0.displayName != "它" && $0.name != "它" }
         for compoundLayer in compoundLayers {
             commands.append(SwitchLayerCommand(layerName: compoundLayer.displayName))
             
@@ -213,9 +213,24 @@ public final class CommandParser: ObservableObject {
     private func findMatchingCommands(for input: String, context: CommandContext) async -> [Command] {
         let searchTokens = nlpProcessor.tokenize(input)
         
-        // 动态获取所有层切换命令
-        let layerCommands = await context.store.layers.map { layer in
-            SwitchLayerCommand(layerName: layer.displayName)
+        // 动态获取所有层相关命令
+        var layerCommands: [Command] = []
+        
+        // 层切换命令（排除"它"）
+        layerCommands += await context.store.layers
+            .filter { $0.displayName != "它" && $0.name != "它" }
+            .map { layer in
+                SwitchLayerCommand(layerName: layer.displayName)
+            }
+        
+        // 层过滤命令（添加到图谱）
+        layerCommands += await context.store.layers.map { layer in
+            AddToGraphFilterCommand(layerName: layer.displayName)
+        }
+        
+        // 层过滤命令（从图谱移除）
+        layerCommands += await context.store.layers.map { layer in
+            RemoveFromGraphFilterCommand(layerName: layer.displayName)
         }
         
         // 合并所有命令（包括静态命令和动态层命令）
@@ -939,11 +954,15 @@ public struct SwitchLayerCommand: Command {
     }
     
     public func execute(with context: CommandContext) async throws -> CommandResult {
+        // 完全阻止切换到名为"它"的层
+        if layerName == "它" {
+            return .success(message: "已忽略层切换")
+        }
+        
         // 检查目标层是否为复合层
         if let targetLayer = await context.store.layers.first(where: { $0.displayName == layerName || $0.name == layerName }) {
             if targetLayer.isCompound {
                 // 复合层静默处理，不进行任何操作，返回成功状态
-                print("🔍 尝试切换到复合层 '\(layerName)'，静默忽略")
                 return .success(message: "已忽略复合层切换")
             }
         }
@@ -1049,6 +1068,56 @@ public struct TagRenameCommand: Command {
 }
 
 // MARK: - 复合层命令
+
+// MARK: - 层过滤命令
+
+public struct AddToGraphFilterCommand: Command {
+    public let id = UUID()
+    public let title: String
+    public let description: String
+    public let icon = "plus.rectangle.on.rectangle"
+    public let category = CommandCategory.layer
+    public let keywords: [String]
+    
+    private let layerName: String
+    
+    public init(layerName: String) {
+        self.layerName = layerName
+        self.title = "添加到图谱: \(layerName)"
+        self.description = "将 \(layerName) 层添加到图谱显示中"
+        self.keywords = ["添加", "图谱", "过滤", "显示", layerName] + layerName.map { String($0) }
+    }
+    
+    public func execute(with context: CommandContext) async throws -> CommandResult {
+        // 通过通知将层添加到图谱过滤器中
+        NotificationCenter.default.post(name: Notification.Name("addLayerToGraphFilter"), object: layerName)
+        return .success(message: "已将 '\(layerName)' 添加到图谱显示")
+    }
+}
+
+public struct RemoveFromGraphFilterCommand: Command {
+    public let id = UUID()
+    public let title: String
+    public let description: String
+    public let icon = "minus.rectangle"
+    public let category = CommandCategory.layer
+    public let keywords: [String]
+    
+    private let layerName: String
+    
+    public init(layerName: String) {
+        self.layerName = layerName
+        self.title = "从图谱移除: \(layerName)"
+        self.description = "将 \(layerName) 层从图谱显示中移除"
+        self.keywords = ["移除", "删除", "图谱", "过滤", "隐藏", layerName] + layerName.map { String($0) }
+    }
+    
+    public func execute(with context: CommandContext) async throws -> CommandResult {
+        // 通过通知将层从图谱过滤器中移除
+        NotificationCenter.default.post(name: Notification.Name("removeLayerFromGraphFilter"), object: layerName)
+        return .success(message: "已将 '\(layerName)' 从图谱显示中移除")
+    }
+}
 
 public struct CreateCompoundLayerCommand: Command {
     public let id = UUID()

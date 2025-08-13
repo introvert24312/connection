@@ -788,7 +788,7 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                             hover: true,
                             hoverConnectedEdges: true,
                             tooltipDelay: 200,
-                            dragNodes: false,  // 禁用节点拖拽，防止节点黏住鼠标
+                            dragNodes: true,   // 允许节点拖拽
                             navigationButtons: false,
                             hideEdgesOnDrag: false,
                             hideNodesOnDrag: false

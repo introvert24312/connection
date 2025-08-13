@@ -516,7 +516,7 @@ struct NodeManagerRowView: View {
         print("🎯 Previewing location: \(tag.displayName) at (\(latitude), \(longitude))")
         
         // 打开地图窗口
-        NotificationCenter.default.post(name: .openMapWindow, object: nil)
+        NotificationCenter.default.post(name: NSNotification.Name("openMapWindow"), object: nil)
         
         // 延迟发送位置预览通知，给地图窗口时间打开
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -1004,7 +1004,7 @@ struct TagEditCommandView: View {
     
     private func openMapForLocationSelection() {
         // 发送通知打开地图窗口并进入位置选择模式
-        NotificationCenter.default.post(name: .openMapWindow, object: nil)
+        NotificationCenter.default.post(name: NSNotification.Name("openMapWindow"), object: nil)
         // 延迟发送位置选择模式通知，给地图窗口时间打开
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             NotificationCenter.default.post(

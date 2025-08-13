@@ -15,7 +15,7 @@ struct MapWindow: View {
                 
                 // 监听打开地图窗口的通知
                 NotificationCenter.default.addObserver(
-                    forName: .openMapWindow,
+                    forName: NSNotification.Name("openMapWindow"),
                     object: nil,
                     queue: .main
                 ) { _ in
