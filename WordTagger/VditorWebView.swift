@@ -188,7 +188,8 @@ struct VditorWebView: NSViewRepresentable {
             case "commandD":
                 // 转发 Command+D 给原生 App - 全屏详情面板
                 DispatchQueue.main.async {
-                    NotificationCenter.default.post(name: Notification.Name("switchToGraphTab"), object: nil)
+                    // Command+D应该触发全屏详情面板，不是切换到图谱
+                    // 这里暂时不做任何操作，让DetailPanel自己的按键处理来处理Command+D
                 }
                 break
 

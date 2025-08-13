@@ -7,6 +7,19 @@ import SwiftUI
 public final class NodeStore: ObservableObject {
     @Published public private(set) var nodes: [Node] = []
     @Published public private(set) var layers: [Layer] = []
+    
+    // 排序后的层列表：复合层在前，普通层在后
+    public var sortedLayers: [Layer] {
+        return layers.sorted { layer1, layer2 in
+            if layer1.isCompound && !layer2.isCompound {
+                return true  // 复合层在前
+            } else if !layer1.isCompound && layer2.isCompound {
+                return false // 普通层在后
+            } else {
+                return layer1.displayName < layer2.displayName // 同类型按名称排序
+            }
+        }
+    }
     @Published public private(set) var currentLayer: Layer?
     @Published public private(set) var selectedNode: Node?
     @Published public private(set) var selectedTag: Tag?
@@ -292,6 +305,18 @@ public final class NodeStore: ObservableObject {
             print("❌ 无法添加节点：没有选中的当前层！")
             duplicateNodeAlert = DuplicateNodeAlert(
                 message: "无法添加节点：请先选择一个层",
+                isDuplicate: false,
+                existingNode: nil,
+                newNode: node
+            )
+            return false
+        }
+        
+        // 检查是否是复合层，复合层不允许创建节点
+        if currentLayer.isCompound {
+            print("❌ 无法添加节点：复合层不支持创建节点！")
+            duplicateNodeAlert = DuplicateNodeAlert(
+                message: "复合层不支持创建节点，请选择普通层",
                 isDuplicate: false,
                 existingNode: nil,
                 newNode: node

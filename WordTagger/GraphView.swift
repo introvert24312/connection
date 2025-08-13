@@ -4,6 +4,7 @@ import AppKit
 struct GraphView: View {
     @EnvironmentObject private var store: NodeStore
     @AppStorage("globalGraphInitialScale") private var globalGraphInitialScale: Double = 1.0
+    @AppStorage("globalGraphSelectedNodeIds") private var selectedNodeIdsData: Data = Data()
     @State private var searchQuery: String = ""
     @State private var displayedNodes: [Node] = []
     @State private var cachedNodes: [NodeGraphNode] = []
@@ -203,6 +204,30 @@ struct GraphView: View {
         return (nodes: nodes, edges: edges)
     }
     
+    // 保存选择状态到持久化存储
+    private func saveSelectedNodeIds() {
+        do {
+            let data = try JSONEncoder().encode(Array(selectedNodeIds))
+            selectedNodeIdsData = data
+            print("🔄 GraphView: 保存选择状态 - \(selectedNodeIds.count) 个节点")
+        } catch {
+            print("❌ GraphView: 保存选择状态失败 - \(error)")
+        }
+    }
+    
+    // 从持久化存储加载选择状态
+    private func loadSelectedNodeIds() {
+        guard !selectedNodeIdsData.isEmpty else { return }
+        
+        do {
+            let nodeIds = try JSONDecoder().decode([UUID].self, from: selectedNodeIdsData)
+            selectedNodeIds = Set(nodeIds)
+            print("🔄 GraphView: 加载选择状态 - \(selectedNodeIds.count) 个节点")
+        } catch {
+            print("❌ GraphView: 加载选择状态失败 - \(error)")
+        }
+    }
+    
     // 更新缓存的图数据
     private func updateGraphData() {
         let data = calculateGraphData()
@@ -295,6 +320,9 @@ struct GraphView: View {
             return .handled
         }
         .onAppear {
+            // 加载持久化的选择状态
+            loadSelectedNodeIds()
+            
             // 初始显示所有节点
             if displayedNodes.isEmpty && selectedNodeIds.isEmpty && !store.nodes.isEmpty {
                 displayedNodes = Array(store.nodes.prefix(20)) // 限制初始显示数量
@@ -309,6 +337,7 @@ struct GraphView: View {
         }
         .onChange(of: selectedNodeIds) {
             updateGraphData()
+            saveSelectedNodeIds()
         }
     }
     

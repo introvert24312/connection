@@ -9,44 +9,25 @@ struct CommandPaletteView: View {
     @State private var selectedIndex: Int = 0
     @StateObject private var commandParser = CommandParser.shared
     @FocusState private var isTextFieldFocused: Bool
-    @State private var showGraphView: Bool = false
     @State private var shouldDismiss: Bool = false
     
     var body: some View {
         VStack(spacing: 0) {
             // 顶部工具栏
             HStack {
-                // 视图切换按钮
-                HStack(spacing: 0) {
-                    Button(action: { showGraphView = false }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "command")
-                            Text("命令")
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(!showGraphView ? Color.blue : Color.clear)
-                        )
-                        .foregroundColor(!showGraphView ? .white : .primary)
+                // 只显示命令按钮，移除图谱选项
+                HStack {
+                    HStack(spacing: 4) {
+                        Image(systemName: "command")
+                        Text("命令")
                     }
-                    .buttonStyle(.plain)
-                    
-                    Button(action: { showGraphView = true }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "circle.hexagonpath")
-                            Text("图谱")
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(showGraphView ? Color.blue : Color.clear)
-                        )
-                        .foregroundColor(showGraphView ? .white : .primary)
-                    }
-                    .buttonStyle(.plain)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color.blue)
+                    )
+                    .foregroundColor(.white)
                 }
                 .background(
                     RoundedRectangle(cornerRadius: 8)
@@ -73,15 +54,8 @@ struct CommandPaletteView: View {
             
             Divider()
             
-            // 内容区域
-            if showGraphView {
-                // 图谱视图
-                LayerGraphView()
-                    .environmentObject(store)
-                    .frame(minHeight: 500, maxHeight: .infinity)
-            } else {
-                // 命令视图
-                HStack(spacing: 0) {
+            // 内容区域 - 直接显示命令视图内容
+            HStack(spacing: 0) {
                     // 左侧：命令列表
                     VStack(spacing: 0) {
                         // 搜索输入框
@@ -185,7 +159,6 @@ struct CommandPaletteView: View {
                         print("🔍 右侧面板被点击")
                     }
                 }
-            }
         }
         .frame(minWidth: 900, idealWidth: 1200, maxWidth: min(NSScreen.main?.frame.width ?? 1440 * 0.9, 1400), minHeight: 600, idealHeight: 800, maxHeight: min(NSScreen.main?.frame.height ?? 900 * 0.8, 900))
         .background(Color(NSColor.windowBackgroundColor))
@@ -197,7 +170,6 @@ struct CommandPaletteView: View {
             // 重置状态
             query = ""
             selectedIndex = 0
-            showGraphView = false
             updateAvailableCommands()
             
             // 立即聚焦到输入框
@@ -209,26 +181,11 @@ struct CommandPaletteView: View {
             updateAvailableCommands()
             selectedIndex = 0
         }
-        .onChange(of: showGraphView) { _, newValue in
-            if !newValue {
-                // 切换回命令视图时重新聚焦输入框
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    isTextFieldFocused = true
-                }
-            }
-        }
         .background(
             Button("") {
                 createNewLayer()
             }
             .keyboardShortcut("r", modifiers: .command)
-            .hidden()
-        )
-        .background(
-            Button("") {
-                showGraphView.toggle()
-            }
-            .keyboardShortcut("g", modifiers: .command)
             .hidden()
         )
         .onChange(of: shouldDismiss) { _, newValue in
@@ -564,7 +521,7 @@ struct LayerGraphView: View {
             // 层列表
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    ForEach(store.layers) { layer in
+                    ForEach(store.sortedLayers) { layer in
                         LayerToggleButton(
                             layer: layer,
                             isSelected: selectedLayerIds.contains(layer.id)
@@ -884,12 +841,16 @@ struct LayerStructureGraphView: View {
                     title: "层结构图谱",
                     initialScale: layerStructureGraphInitialScale,
                     onNodeSelected: { nodeId in
-                        // 当点击层节点时，只是选中它，不切换层
-                        print("🔍 LayerStructureGraphView: 节点被点击, nodeId = \(nodeId)")
+                        // 当点击层节点时，直接切换到该层，使整个节点区域都可点击
+                        print("🔍 LayerStructureGraphView: 层节点被点击, nodeId = \(nodeId)")
                         if let selectedGraphNode = cachedNodes.first(where: { $0.id == nodeId }),
-                           let layerId = selectedGraphNode.layerId {
-                            print("🔍 LayerStructureGraphView: 找到层ID = \(layerId)")
+                           let layerId = selectedGraphNode.layerId,
+                           let targetLayer = store.layers.first(where: { $0.id == layerId }) {
+                            print("🔍 LayerStructureGraphView: 找到层ID = \(layerId)，直接切换到层: \(targetLayer.displayName)")
                             selectedLayerId = layerId
+                            Task {
+                                await store.switchToLayer(targetLayer)
+                            }
                         }
                     },
                     onNodeDeselected: {
@@ -927,7 +888,7 @@ struct LayerStructureGraphView: View {
         for layer in store.layers {
             let nodeCount = store.nodes.filter { $0.layerId == layer.id }.count
             let isSelected = layer.id == selectedLayerId
-            nodes.append(LayerGraphNode(layer: layer, nodeCount: nodeCount, isSelected: isSelected))
+            nodes.append(LayerGraphNode(layer: layer, nodeCount: nodeCount, isSelected: isSelected, allLayers: store.layers))
         }
         
         // 创建复合层到子层的连接
@@ -963,7 +924,7 @@ struct LayerGraphNode: UniversalGraphNode {
     let isCompound: Bool
     let isSelected: Bool
     
-    init(layer: Layer, nodeCount: Int, isSelected: Bool = false) {
+    init(layer: Layer, nodeCount: Int, isSelected: Bool = false, allLayers: [Layer] = []) {
         self.id = GraphNodeIDGenerator.shared.idForLayer(layer)
         self.label = layer.displayName
         self.layerId = layer.id
@@ -971,7 +932,27 @@ struct LayerGraphNode: UniversalGraphNode {
         self.nodeCount = nodeCount
         self.isCompound = layer.isCompound
         self.isSelected = isSelected
-        self.subtitle = self.isCompound ? "复合层 (\(layer.childLayerIds.count)个子层)" : "\(nodeCount) 个节点"
+        
+        // 为复合层提供更详细的子层信息
+        if self.isCompound && !layer.childLayerIds.isEmpty {
+            // 从传入的层列表中获取子层名称
+            let childLayerNames = allLayers
+                .filter { childLayer in layer.childLayerIds.contains(childLayer.id) }
+                .map { $0.displayName }
+                .prefix(3) // 最多显示3个子层名称
+            
+            if childLayerNames.count > 0 {
+                let namesText = Array(childLayerNames).joined(separator: "、")
+                let moreText = layer.childLayerIds.count > 3 ? "等\(layer.childLayerIds.count)层" : ""
+                self.subtitle = "包含: \(namesText)\(moreText)"
+            } else {
+                self.subtitle = "复合层 (\(layer.childLayerIds.count)个子层)"
+            }
+        } else if self.isCompound {
+            self.subtitle = "复合层 (空)"
+        } else {
+            self.subtitle = "\(nodeCount) 个节点"
+        }
     }
 }
 
@@ -1041,17 +1022,23 @@ struct LayerToggleButton: View {
             .padding(.vertical, 6)
             .background(
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(isSelected ? Color.blue.opacity(0.2) : Color.clear)
+                    .fill(
+                        isSelected ? Color.blue.opacity(0.2) : 
+                        (layer.isCompound ? Color.purple.opacity(0.15) : Color.clear)
+                    )
                     .overlay(
                         RoundedRectangle(cornerRadius: 6)
                             .stroke(
                                 isSelected ? Color.blue : 
-                                (layer.isCompound ? Color.purple.opacity(0.5) : Color.secondary.opacity(0.3)), 
+                                (layer.isCompound ? Color.purple : Color.secondary.opacity(0.3)), 
                                 lineWidth: layer.isCompound ? 2 : 1
                             )
                     )
             )
-            .foregroundColor(isSelected ? .blue : .primary)
+            .foregroundColor(
+                isSelected ? .blue : 
+                (layer.isCompound ? .purple : .primary)
+            )
         }
         .buttonStyle(.plain)
     }

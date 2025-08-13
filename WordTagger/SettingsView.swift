@@ -137,6 +137,11 @@ struct GeneralSettingsView: View {
                                     .frame(width: 120)
                             }
                         }
+                        
+                        Divider()
+                        
+                        // 全局图谱选中状态管理
+                        GlobalGraphSelectionSettingsView()
                     }
                     .padding(12)
                 }
@@ -462,7 +467,7 @@ struct LayerManagementView: View {
                             )
                         } else {
                             LazyVStack(spacing: 12) {
-                                ForEach(store.layers, id: \.id) { layer in
+                                ForEach(store.sortedLayers, id: \.id) { layer in
                                     LayerRowView(
                                         layer: layer,
                                         wordCount: store.nodes.filter { $0.layerId == layer.id }.count,
@@ -1201,6 +1206,39 @@ struct FeatureRow: View {
                 .frame(width: 20)
             Text(text)
                 .font(.body)
+        }
+    }
+}
+
+// MARK: - 全局图谱选中状态设置
+struct GlobalGraphSelectionSettingsView: View {
+    @StateObject private var selectionManager = GlobalGraphSelectionManager.shared
+    
+    var body: some View {
+        SettingRow(
+            title: "全局图谱选中状态",
+            description: "管理全局图谱中的节点选中状态持久化"
+        ) {
+            VStack(alignment: .trailing, spacing: 8) {
+                HStack(spacing: 8) {
+                    Text("\(selectionManager.selectedNodeIds.count)个选中")
+                        .foregroundColor(.secondary)
+                        .font(.caption)
+                    
+                    Button("清除选中") {
+                        selectionManager.clearAllSelections()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+                
+                if selectionManager.selectedNodeIds.count > 0 {
+                    Text("选中的节点ID: \(selectionManager.selectedNodeIds.sorted().map(String.init).joined(separator: ", "))")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                }
+            }
         }
     }
 }

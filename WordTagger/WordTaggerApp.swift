@@ -1474,11 +1474,17 @@ struct WordTaggerApp: App {
                 }
                 .keyboardShortcut("d", modifiers: [.command])
                 
+                Button("切换到图谱视图") {
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("switchToGraphTab"), 
+                        object: nil
+                    )
+                }
+                .keyboardShortcut("l", modifiers: [.command])
+                
                 Divider()
                 
-                Button("Markdown编辑器") {
-                    NotificationCenter.default.post(name: Notification.Name("openMarkdownEditor"), object: nil)
-                }
+
             }
         }
         
@@ -1522,12 +1528,7 @@ struct WordTaggerApp: App {
         .defaultSize(width: 1200, height: 800)
         .windowToolbarStyle(.unified)
         
-        // Markdown编辑器窗口
-        WindowGroup("Markdown编辑器", id: "markdownEditor") {
-            MarkdownEditorWindow()
-                .frame(minWidth: 800, minHeight: 600)
-        }
-        .defaultSize(width: 1200, height: 800)
+
         
         // 设置窗口
         Settings {

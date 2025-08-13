@@ -199,7 +199,7 @@ public final class CommandParser: ObservableObject {
         }
         
         // 合并所有命令（包括静态命令和动态层命令）
-        var allAvailableCommands = allCommands + layerCommands
+        let allAvailableCommands = allCommands + layerCommands
         
         var scoredCommands: [(Command, Double)] = []
         
@@ -1056,22 +1056,7 @@ public struct CreateCompoundLayerCommand: Command {
         }
         
         // 查找子层
-        var childLayerIds: [UUID] = []
-        var notFoundLayers: [String] = []
-        
-        print("🔍 查找子层...")
-        for childLayerName in childLayerNames {
-            if let childLayer = await context.store.layers.first(where: { 
-                $0.name.lowercased() == childLayerName.lowercased() || 
-                $0.displayName.lowercased() == childLayerName.lowercased() 
-            }) {
-                childLayerIds.append(childLayer.id)
-                print("   ✅ 找到子层: \(childLayerName) -> \(childLayer.id)")
-            } else {
-                notFoundLayers.append(childLayerName)
-                print("   ❌ 未找到子层: \(childLayerName)")
-            }
-        }
+        let (foundChildLayerIds, notFoundLayers) = await findChildLayers(childLayerNames, in: context.store)
         
         // 检查是否所有子层都找到了
         if !notFoundLayers.isEmpty {
@@ -1094,7 +1079,7 @@ public struct CreateCompoundLayerCommand: Command {
             context.store.createCompoundLayer(
                 name: layerName.lowercased(),
                 displayName: layerName,
-                childLayerIds: childLayerIds,
+                childLayerIds: foundChildLayerIds,
                 color: "purple"
             )
         }
@@ -1104,6 +1089,27 @@ public struct CreateCompoundLayerCommand: Command {
         // 切换到新创建的复合层
         await context.store.switchToLayer(compoundLayer)
         
-        return .success(message: "成功创建复合层 '\(layerName)'，包含 \(childLayerIds.count) 个子层")
+        return .success(message: "成功创建复合层 '\(layerName)'，包含 \(foundChildLayerIds.count) 个子层")
+    }
+    
+    private func findChildLayers(_ childLayerNames: [String], in store: NodeStore) async -> (foundIds: [UUID], notFound: [String]) {
+        var childLayerIds: [UUID] = []
+        var notFoundLayers: [String] = []
+        
+        print("🔍 查找子层...")
+        for childLayerName in childLayerNames {
+            if let childLayer = await store.layers.first(where: { 
+                $0.name.lowercased() == childLayerName.lowercased() || 
+                $0.displayName.lowercased() == childLayerName.lowercased() 
+            }) {
+                childLayerIds.append(childLayer.id)
+                print("   ✅ 找到子层: \(childLayerName) -> \(childLayer.id)")
+            } else {
+                notFoundLayers.append(childLayerName)
+                print("   ❌ 未找到子层: \(childLayerName)")
+            }
+        }
+        
+        return (childLayerIds, notFoundLayers)
     }
 }

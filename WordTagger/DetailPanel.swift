@@ -9,7 +9,7 @@ struct DetailPanel: View {
     @EnvironmentObject private var store: NodeStore
     @State private var tab: Tab = .related
     @State private var showingEditSheet = false
-    @FocusState private var isPanelFocused: Bool
+
     
     // 从store中获取最新的节点数据
     private var currentNode: Node {
@@ -101,12 +101,10 @@ struct DetailPanel: View {
             }
             return .ignored
         }
+        .focusable(false)
         .onAppear {
             setupNotificationObservers()
-            // 尝试获取焦点
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                isPanelFocused = true
-            }
+
         }
     }
     
@@ -117,10 +115,7 @@ struct DetailPanel: View {
             withAnimation(.easeInOut(duration: 0.2)) {
                 tab = .detail
             }
-            // 请求焦点 - 延迟执行避免在视图更新期间修改状态
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                self.isPanelFocused = true
-            }
+            // 焦点功能已移除
         }
     }
     
@@ -130,10 +125,7 @@ struct DetailPanel: View {
             withAnimation(.easeInOut(duration: 0.2)) {
                 tab = .related
             }
-            // 请求焦点 - 延迟执行避免在视图更新期间修改状态
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                self.isPanelFocused = true
-            }
+            // 焦点功能已移除
         }
     }
     
@@ -176,7 +168,7 @@ struct NodeDetailView: View {
     @State private var saveTask: Task<Void, Never>?
     @State private var isEditing: Bool = false
     @State private var vditorCoordinator: VditorWebView.Coordinator?
-    @FocusState private var isTextEditorFocused: Bool
+
     @State private var currentNodeId: UUID = UUID()
     @State private var isLoadingContent: Bool = false
     
@@ -1546,7 +1538,7 @@ struct FullscreenGraphView: View {
     @EnvironmentObject private var store: NodeStore
     @StateObject private var windowManager = FullscreenGraphWindowManager.shared
     @Environment(\.dismissWindow) private var dismissWindow
-    @FocusState private var isFocused: Bool
+
     @AppStorage("fullscreenGraphInitialScale") private var fullscreenGraphInitialScale: Double = 1.0
     
     var body: some View {
@@ -1640,7 +1632,7 @@ struct FullscreenGraphView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(.windowBackgroundColor))
-        .focused($isFocused)  // 使用 @FocusState
+        .focusable(false)
         .onKeyPress(.escape) {
             Swift.print("🎯 FullscreenGraphView: ESC键按下，关闭窗口")
             closeWindow()
@@ -1658,9 +1650,7 @@ struct FullscreenGraphView: View {
         .onAppear {
             Swift.print("🖥️ 全屏图谱视图已显示")
             
-            // 立即设置 SwiftUI 焦点
-            isFocused = true
-            Swift.print("🎯 SwiftUI 焦点已设置: isFocused=\(isFocused)")
+            // 焦点功能已移除
             
             // 显示图谱结构信息
             if let graphData = windowManager.currentGraphData {
@@ -1682,14 +1672,14 @@ struct FullscreenGraphView: View {
             // 确保窗口获得键盘焦点（多重保障）
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 Swift.print("🎯 第一次尝试激活全屏图谱窗口...")
-                isFocused = true  // 再次设置 SwiftUI 焦点
+                // 焦点功能已移除
                 FullscreenGraphWindowManager.shared.activateFullscreenWindow()
             }
             
             // 添加额外的焦点设置延迟
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 Swift.print("🎯 第二次尝试激活全屏图谱窗口...")
-                isFocused = true  // 第三次设置 SwiftUI 焦点
+                // 焦点功能已移除
                 FullscreenGraphWindowManager.shared.activateFullscreenWindow()
             }
         }
@@ -1856,6 +1846,7 @@ class NodeImageManager: ObservableObject {
         return "![\(description)](NodeImages/\(fileName))"
     }
 }
+
 
 
 #Preview {

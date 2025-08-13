@@ -29,8 +29,7 @@
 		A018 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B118 /* SettingsView.swift */; };
 		A020 /* UniversalRelationshipGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B121 /* UniversalRelationshipGraphView.swift */; };
 		A021 /* WordManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B122 /* WordManagerView.swift */; };
-		A022 /* DocumentState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B123 /* DocumentState.swift */; };
-		A023 /* MarkdownEditorWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B124 /* MarkdownEditorWindow.swift */; };
+
 		R001 /* Resources in Resources */ = {isa = PBXBuildFile; fileRef = R100 /* Resources */; };
 		R002 /* ResourceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = R101 /* ResourceManager.swift */; };
 		V001 /* VditorWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = V100 /* VditorWebView.swift */; };
@@ -60,8 +59,7 @@
 		B120 /* WordTagger.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WordTagger.entitlements; sourceTree = "<group>"; };
 		B121 /* UniversalRelationshipGraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UniversalRelationshipGraphView.swift; sourceTree = "<group>"; };
 		B122 /* WordManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordManagerView.swift; sourceTree = "<group>"; };
-		B123 /* DocumentState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentState.swift; sourceTree = "<group>"; };
-		B124 /* MarkdownEditorWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownEditorWindow.swift; sourceTree = "<group>"; };
+
 		C100 /* WordTagger.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WordTagger.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		R100 /* Resources */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Resources; sourceTree = "<group>"; };
 		R101 /* ResourceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceManager.swift; sourceTree = "<group>"; };
@@ -119,8 +117,6 @@
 				B118 /* SettingsView.swift */,
 				B121 /* UniversalRelationshipGraphView.swift */,
 				B122 /* WordManagerView.swift */,
-				B123 /* DocumentState.swift */,
-				B124 /* MarkdownEditorWindow.swift */,
 				B103 /* Assets.xcassets */,
 				B120 /* WordTagger.entitlements */,
 				R100 /* Resources */,
@@ -221,8 +217,6 @@
 				54209B7C2E3F248300388A1B /* ExternalDataService.swift in Sources */,
 				54209B7D2E3F248300388A1B /* ExternalDataManager.swift in Sources */,
 				A021 /* WordManagerView.swift in Sources */,
-				A022 /* DocumentState.swift in Sources */,
-				A023 /* MarkdownEditorWindow.swift in Sources */,
 				R002 /* ResourceManager.swift in Sources */,
 				V001 /* VditorWebView.swift in Sources */,
 			);

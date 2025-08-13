@@ -41,6 +41,77 @@ class GraphManager: ObservableObject {
     }
 }
 
+// MARK: - 全局图谱选中状态管理器
+class GlobalGraphSelectionManager: ObservableObject {
+    static let shared = GlobalGraphSelectionManager()
+    
+    // 使用 AppStorage 持久化存储选中节点的ID集合
+    @Published var selectedNodeIds: Set<Int> = []
+    
+    private let storageKey = "globalGraphSelectedNodeIds"
+    
+    private init() {
+        loadSelectedNodes()
+    }
+    
+    // 从 UserDefaults 加载选中状态
+    private func loadSelectedNodes() {
+        if let data = UserDefaults.standard.data(forKey: storageKey),
+           let nodeIds = try? JSONDecoder().decode(Set<Int>.self, from: data) {
+            selectedNodeIds = nodeIds
+            print("🔄 加载全局图谱选中状态: \(nodeIds.count)个节点")
+        }
+    }
+    
+    // 保存选中状态到 UserDefaults
+    private func saveSelectedNodes() {
+        if let data = try? JSONEncoder().encode(selectedNodeIds) {
+            UserDefaults.standard.set(data, forKey: storageKey)
+            print("💾 保存全局图谱选中状态: \(selectedNodeIds.count)个节点")
+        }
+    }
+    
+    // 选中节点
+    func selectNode(_ nodeId: Int) {
+        selectedNodeIds.insert(nodeId)
+        saveSelectedNodes()
+        print("✅ 选中节点: \(nodeId)")
+    }
+    
+    // 取消选中节点
+    func deselectNode(_ nodeId: Int) {
+        selectedNodeIds.remove(nodeId)
+        saveSelectedNodes()
+        print("❌ 取消选中节点: \(nodeId)")
+    }
+    
+    // 切换节点选中状态
+    func toggleNodeSelection(_ nodeId: Int) {
+        if selectedNodeIds.contains(nodeId) {
+            deselectNode(nodeId)
+        } else {
+            selectNode(nodeId)
+        }
+    }
+    
+    // 清除所有选中状态
+    func clearAllSelections() {
+        selectedNodeIds.removeAll()
+        saveSelectedNodes()
+        print("🗑️ 清除所有选中状态")
+    }
+    
+    // 检查节点是否被选中
+    func isNodeSelected(_ nodeId: Int) -> Bool {
+        return selectedNodeIds.contains(nodeId)
+    }
+    
+    // 获取选中的节点ID列表（用于JavaScript）
+    func getSelectedNodeIdsArray() -> [Int] {
+        return Array(selectedNodeIds)
+    }
+}
+
 // MARK: - 自动颜色管理器
 class AutoColorManager {
     static let shared = AutoColorManager()
@@ -159,6 +230,7 @@ struct UniversalRelationshipGraphView<Node: UniversalGraphNode, Edge: UniversalG
     let onFitGraph: (() -> Void)?
     @State private var debugInfo = ""
     @State private var viewId = ObjectIdentifier(UUID() as AnyObject)
+    @StateObject private var selectionManager = GlobalGraphSelectionManager.shared
     
     
     init(nodes: [Node], edges: [Edge], title: String = "节点关系图", initialScale: Double = 1.0, onNodeSelected: ((Int) -> Void)? = nil, onNodeDeselected: (() -> Void)? = nil, onFitGraph: (() -> Void)? = nil) {
@@ -185,9 +257,18 @@ struct UniversalRelationshipGraphView<Node: UniversalGraphNode, Edge: UniversalG
                             debugInfo = info
                         }
                     },
-                    onNodeSelected: onNodeSelected,
-                    onNodeDeselected: onNodeDeselected,
-                    onFitGraph: onFitGraph
+                    onNodeSelected: { nodeId in
+                        // 更新全局选中状态
+                        selectionManager.selectNode(nodeId)
+                        // 调用原始回调
+                        onNodeSelected?(nodeId)
+                    },
+                    onNodeDeselected: {
+                        // 调用原始回调
+                        onNodeDeselected?()
+                    },
+                    onFitGraph: onFitGraph,
+                    selectionManager: selectionManager
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .onReceive(NotificationCenter.default.publisher(for: Notification.Name("fitGraph"))) { _ in
@@ -227,8 +308,9 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
     let onNodeSelected: ((Int) -> Void)?
     let onNodeDeselected: (() -> Void)?
     let onFitGraph: (() -> Void)?
+    let selectionManager: GlobalGraphSelectionManager
     
-    init(nodes: [Node], edges: [Edge], initialScale: Double = 1.0, onDebugInfo: @escaping (String) -> Void, onNodeSelected: ((Int) -> Void)? = nil, onNodeDeselected: (() -> Void)? = nil, onFitGraph: (() -> Void)? = nil) {
+    init(nodes: [Node], edges: [Edge], initialScale: Double = 1.0, onDebugInfo: @escaping (String) -> Void, onNodeSelected: ((Int) -> Void)? = nil, onNodeDeselected: (() -> Void)? = nil, onFitGraph: (() -> Void)? = nil, selectionManager: GlobalGraphSelectionManager = GlobalGraphSelectionManager.shared) {
         self.nodes = nodes
         self.edges = edges
         self.initialScale = initialScale
@@ -236,6 +318,7 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         self.onNodeSelected = onNodeSelected
         self.onNodeDeselected = onNodeDeselected
         self.onFitGraph = onFitGraph
+        self.selectionManager = selectionManager
     }
     
     func makeNSView(context: Context) -> WKWebView {
@@ -270,7 +353,7 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         let initialDataSignature = "\(nodeIds)-\(edgeSignature)"
         context.coordinator.lastDataSignature = initialDataSignature
         
-        let htmlContent = generateGraphHTML(initialScale: initialScale)
+        let htmlContent = generateGraphHTML(initialScale: initialScale, selectionManager: selectionManager)
         let baseURL = URL(string: "about:blank")
         webView.loadHTMLString(htmlContent, baseURL: baseURL)
         onDebugInfo("初始加载: \(nodes.count)个节点, \(edges.count)条边")
@@ -288,6 +371,7 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
             context.coordinator.onNodeSelected = onNodeSelected
             context.coordinator.onNodeDeselected = onNodeDeselected
             context.coordinator.onFitGraph = onFitGraph
+            context.coordinator.selectionManager = selectionManager
             
             // 注册coordinator到全局管理器
             let viewId = ObjectIdentifier(webView)
@@ -324,7 +408,7 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         }
         #endif
         
-        let htmlContent = self.generateGraphHTML(initialScale: self.initialScale)
+        let htmlContent = self.generateGraphHTML(initialScale: self.initialScale, selectionManager: self.selectionManager)
         self.onDebugInfo("更新图形: \(self.nodes.count)个节点, \(self.edges.count)条边")
         
         // 使用简单的baseURL，避免缓存问题
@@ -341,6 +425,7 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         var onNodeSelected: ((Int) -> Void)?
         var onNodeDeselected: (() -> Void)?
         var onFitGraph: (() -> Void)?
+        var selectionManager: GlobalGraphSelectionManager?
         weak var webView: WKWebView?
         var lastDataSignature: String = ""
         
@@ -367,7 +452,15 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
             
             switch message.name {
             case "nodeSelected":
-                if let nodeId = body["nodeId"] as? Int {
+                if let nodeId = body["nodeId"] as? Int,
+                   let selected = body["selected"] as? Bool {
+                    // 使用全局选择管理器来切换状态
+                    if selected {
+                        selectionManager?.selectNode(nodeId)
+                    } else {
+                        selectionManager?.deselectNode(nodeId)
+                    }
+                    // 调用原始回调
                     onNodeSelected?(nodeId)
                 }
             case "nodeDeselected":
@@ -394,7 +487,7 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         return "\(nodeStrings)|\(edgeStrings)"
     }
     
-    private func generateGraphHTML(initialScale: Double = 1.0) -> String {
+    private func generateGraphHTML(initialScale: Double = 1.0, selectionManager: GlobalGraphSelectionManager) -> String {
         // 安全检查：确保initialScale值在合理范围内
         let safeInitialScale = max(0.1, min(10.0, initialScale.isNaN ? 1.0 : initialScale))
         // 获取调试设置
@@ -564,6 +657,10 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                     \(edgeStrings.joined(separator: ",\n                    "))
                 ];
                 
+                // 全局选中的节点ID列表
+                var selectedNodeIds = \(selectionManager.getSelectedNodeIdsArray());
+                console.log('🎯 加载全局选中状态:', selectedNodeIds);
+                
                 // 显示调试信息或加载图谱
                 function initializeView() {
                     var debugMode = \(enableGraphDebug ? "true" : "false");
@@ -671,7 +768,11 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                             selectConnectedEdges: false,
                             hover: true,
                             hoverConnectedEdges: true,
-                            tooltipDelay: 200
+                            tooltipDelay: 200,
+                            dragNodes: false,  // 禁用节点拖拽，防止节点黏住鼠标
+                            navigationButtons: false,
+                            hideEdgesOnDrag: false,
+                            hideNodesOnDrag: false
                         }
                     };
                     
@@ -694,12 +795,43 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                             params.event.srcEvent.stopPropagation();
                         }
                         
-                        // 如果点击了节点，发送选择消息
+                        // 如果点击了节点，处理选择状态但不锁定鼠标
                         if (params.nodes.length > 0) {
                             var nodeId = params.nodes[0];
-                            window.webkit.messageHandlers.nodeSelected.postMessage({nodeId: nodeId});
+                            console.log('🖱️ 节点被点击:', nodeId);
+                            
+                            // 检查是否已选中
+                            var isSelected = selectedNodeIds.indexOf(nodeId) !== -1;
+                            
+                            if (isSelected) {
+                                // 取消选中
+                                var index = selectedNodeIds.indexOf(nodeId);
+                                selectedNodeIds.splice(index, 1);
+                                console.log('❌ 取消选中节点:', nodeId);
+                            } else {
+                                // 选中节点
+                                selectedNodeIds.push(nodeId);
+                                console.log('✅ 选中节点:', nodeId);
+                            }
+                            
+                            // 更新视觉状态，但不要让节点跟随鼠标
+                            // 使用短暂延迟确保点击完成后再更新选中状态
+                            setTimeout(function() {
+                                network.selectNodes(selectedNodeIds, false);
+                                // 立即取消网络的拖拽模式，避免节点黏住鼠标
+                                network.redraw();
+                            }, 50);
+                            
+                            // 通知Swift层
+                            window.webkit.messageHandlers.nodeSelected.postMessage({
+                                nodeId: nodeId,
+                                selected: !isSelected,
+                                allSelected: selectedNodeIds
+                            });
                         } else {
-                            window.webkit.messageHandlers.nodeDeselected.postMessage({});
+                            // 点击空白区域时清除所有选中状态，释放任何可能黏住的节点
+                            network.unselectAll();
+                            console.log('🖱️ 点击空白区域，清除选中状态');
                         }
                     });
                     
@@ -738,6 +870,17 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                                 console.log('成功应用初始缩放:', initialScale);
                             } catch (error) {
                                 console.error('应用初始缩放失败:', error);
+                            }
+                        }
+                        
+                        // 恢复选中状态
+                        if (selectedNodeIds.length > 0) {
+                            try {
+                                console.log('🔄 恢复选中状态:', selectedNodeIds);
+                                network.selectNodes(selectedNodeIds, false);
+                                console.log('✅ 选中状态恢复成功');
+                            } catch (error) {
+                                console.error('❌ 恢复选中状态失败:', error);
                             }
                         }
                     });
