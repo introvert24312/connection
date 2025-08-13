@@ -1472,7 +1472,7 @@ struct WordTaggerApp: App {
                         object: nil
                     )
                 }
-                .keyboardShortcut("l", modifiers: [.command])
+                .keyboardShortcut("d", modifiers: [.command])
                 
                 Divider()
                 

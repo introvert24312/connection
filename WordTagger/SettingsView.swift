@@ -110,7 +110,7 @@ struct GeneralSettingsView: View {
                         
                         SettingRow(
                             title: "全屏图谱初始缩放",
-                            description: "Command+L打开的全屏图谱默认缩放级别"
+                            description: "Command+D打开的全屏图谱默认缩放级别"
                         ) {
                             HStack(spacing: 8) {
                                 Text("\(String(format: "%.1f", fullscreenGraphInitialScale))x")

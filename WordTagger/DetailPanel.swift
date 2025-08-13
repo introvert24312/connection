@@ -1348,7 +1348,7 @@ struct NodeGraphView: View {
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contextMenu {
-                    Button("全屏显示 (⌘L) - 已禁用") {
+                    Button("全屏显示 (⌘D) - 已禁用") {
                         Swift.print("🖥️ 右键菜单: 全屏功能已禁用用于调试")
                         // 禁用全屏功能来测试崩溃
                     }
@@ -1356,17 +1356,17 @@ struct NodeGraphView: View {
             }
         }
         .focusable(false)
-        .onKeyPress(.init("l"), phases: .down) { keyPress in
+        .onKeyPress(.init("d"), phases: .down) { keyPress in
             if keyPress.modifiers == .command {
-                Swift.print("🎯 Command+L 检测到，开始处理...")
+                Swift.print("🎯 Command+D 检测到，开始处理...")
                 let windowManager = FullscreenGraphWindowManager.shared
                 
                 // 检查是否已经有全屏图谱窗口打开
                 if windowManager.isWindowActive() {
-                    Swift.print("📝 NodeGraphView: Command+L - 关闭现有全屏图谱窗口")
+                    Swift.print("📝 NodeGraphView: Command+D - 关闭现有全屏图谱窗口")
                     windowManager.hideFullscreenGraph()
                 } else {
-                    Swift.print("📝 NodeGraphView: Command+L - 打开全屏图谱窗口")
+                    Swift.print("📝 NodeGraphView: Command+D - 打开全屏图谱窗口")
                     Swift.print("🎯 当前节点: \(currentNode.text)")
                     Swift.print("🎯 图谱数据: \(graphData.nodes.count)个节点, \(graphData.edges.count)条边")
                     
@@ -1396,7 +1396,7 @@ struct NodeGraphView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("requestOpenFullscreenGraphFromDetail"))) { notification in
             if let node = notification.object as? Node,
                node.id == currentNode.id {
-                print("📝 NodeGraphView: 收到Command+L触发的全屏图谱请求")
+                print("📝 NodeGraphView: 收到Command+D触发的全屏图谱请求")
                 
                 let windowManager = FullscreenGraphWindowManager.shared
                 if !windowManager.isWindowActive() {
@@ -1576,10 +1576,10 @@ struct FullscreenGraphView: View {
                                 .foregroundColor(.secondary)
                         }
                         .buttonStyle(.plain)
-                        .help("关闭 (ESC 或 Command+L)")
+                        .help("关闭 (ESC 或 Command+D)")
                     }
                     
-                    Text("复合节点层级图谱 • 按 ESC 或 Command+L 关闭")
+                    Text("复合节点层级图谱 • 按 ESC 或 Command+D 关闭")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -1646,10 +1646,10 @@ struct FullscreenGraphView: View {
             closeWindow()
             return .handled
         }
-        .onKeyPress(.init("l"), phases: .down) { keyPress in
-            Swift.print("🎯 FullscreenGraphView: L键按下，修饰符: \(keyPress.modifiers)")
+        .onKeyPress(.init("d"), phases: .down) { keyPress in
+            Swift.print("🎯 FullscreenGraphView: D键按下，修饰符: \(keyPress.modifiers)")
             if keyPress.modifiers == .command {
-                Swift.print("🎯 FullscreenGraphView: Command+L检测到，关闭窗口")
+                Swift.print("🎯 FullscreenGraphView: Command+D检测到，关闭窗口")
                 closeWindow()
                 return .handled
             }

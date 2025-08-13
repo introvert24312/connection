@@ -184,6 +184,13 @@ struct VditorWebView: NSViewRepresentable {
                     NotificationCenter.default.post(name: Notification.Name("switchToGraphTab"), object: nil)
                 }
                 break
+                
+            case "commandD":
+                // 转发 Command+D 给原生 App - 全屏详情面板
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: Notification.Name("switchToGraphTab"), object: nil)
+                }
+                break
 
             default:
                 break
@@ -612,9 +619,11 @@ struct VditorWebView: NSViewRepresentable {
                 'Ctrl+Alt+E': '',
                 'Shift+Ctrl+E': '',
                 'Ctrl+E': '',
-                // 🔥 禁用 Command+O 和 Command+L，让应用层接管
+                // 🔥 禁用 Command+O、Command+L 和 Command+D，让应用层接管
                 'Cmd+O': '',
                 'Ctrl+O': '',
+                'Cmd+D': '',
+                'Ctrl+D': '',
                 'Cmd+L': '',
                 'Ctrl+L': '',
                 // 禁用可能的组合键
@@ -674,6 +683,22 @@ struct VditorWebView: NSViewRepresentable {
                       });
                     } catch(err) {
                       console.error('无法发送 Command+L 事件:', err);
+                    }
+                    return false;
+                  }
+                  
+                  // Command+D: 转发给原生App处理 (全屏详情面板)
+                  if (e.metaKey && (e.key === 'd' || e.key === 'D')) {
+                    console.log('🔥 拦截 Command+D 快捷键，转发给App处理');
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    
+                    try {
+                      window.webkit?.messageHandlers?.bridge?.postMessage({ 
+                        type: 'commandD'
+                      });
+                    } catch(err) {
+                      console.error('无法发送 Command+D 事件:', err);
                     }
                     return false;
                   }
