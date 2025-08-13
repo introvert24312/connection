@@ -834,6 +834,7 @@ struct LayerGraphView: View {
 
 struct LayerStructureGraphView: View {
     @EnvironmentObject private var store: NodeStore
+    @AppStorage("layerStructureGraphInitialScale") private var layerStructureGraphInitialScale: Double = 0.9
     @State private var cachedNodes: [LayerGraphNode] = []
     @State private var cachedEdges: [LayerGraphEdge] = []
     @State private var selectedLayerId: UUID?
@@ -881,7 +882,7 @@ struct LayerStructureGraphView: View {
                     nodes: cachedNodes,
                     edges: cachedEdges,
                     title: "层结构图谱",
-                    initialScale: 0.9,
+                    initialScale: layerStructureGraphInitialScale,
                     onNodeSelected: { nodeId in
                         // 当点击层节点时，只是选中它，不切换层
                         print("🔍 LayerStructureGraphView: 节点被点击, nodeId = \(nodeId)")

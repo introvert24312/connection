@@ -60,6 +60,7 @@ struct GeneralSettingsView: View {
     @AppStorage("globalGraphInitialScale") private var globalGraphInitialScale: Double = 1.0
     @AppStorage("detailGraphInitialScale") private var detailGraphInitialScale: Double = 1.0
     @AppStorage("fullscreenGraphInitialScale") private var fullscreenGraphInitialScale: Double = 1.0
+    @AppStorage("layerStructureGraphInitialScale") private var layerStructureGraphInitialScale: Double = 0.9
     
     var body: some View {
         ScrollView {
@@ -117,6 +118,22 @@ struct GeneralSettingsView: View {
                                     .frame(width: 40, alignment: .trailing)
                                 
                                 Slider(value: $fullscreenGraphInitialScale, in: 0.5...3.0, step: 0.1)
+                                    .frame(width: 120)
+                            }
+                        }
+                        
+                        Divider()
+                        
+                        SettingRow(
+                            title: "层结构图谱初始缩放",
+                            description: "命令面板中层结构图谱的默认缩放级别"
+                        ) {
+                            HStack(spacing: 8) {
+                                Text("\(String(format: "%.1f", layerStructureGraphInitialScale))x")
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 40, alignment: .trailing)
+                                
+                                Slider(value: $layerStructureGraphInitialScale, in: 0.5...3.0, step: 0.1)
                                     .frame(width: 120)
                             }
                         }
