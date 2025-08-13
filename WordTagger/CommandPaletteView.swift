@@ -1109,10 +1109,6 @@ private struct CommandRowView: View {
     
     private var iconColor: Color {
         switch command.category {
-        case .node: return .green
-        case .tag: return .orange
-        case .search: return .blue
-        case .navigation: return .red
         case .system: return .gray
         case .layer: return .purple
         }
