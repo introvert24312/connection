@@ -78,7 +78,7 @@ struct CommandPaletteView: View {
                 // 图谱视图
                 LayerGraphView()
                     .environmentObject(store)
-                    .frame(height: 400)
+                    .frame(height: 500)
             } else {
                 // 命令视图
                 HStack(spacing: 0) {
@@ -131,7 +131,7 @@ struct CommandPaletteView: View {
                             }
                             .padding(.vertical, 8)
                         }
-                        .frame(height: 400)
+                        .frame(height: 500)
                         
                         if availableCommands.isEmpty && !query.isEmpty {
                             VStack {
@@ -142,7 +142,7 @@ struct CommandPaletteView: View {
                             .frame(height: 100)
                         }
                     }
-                    .frame(width: 400)
+                    .frame(width: 350)
                     
                     Divider()
                     
@@ -176,7 +176,7 @@ struct CommandPaletteView: View {
                                 print("🔍 LayerStructureGraphView容器被点击，阻止事件穿透")
                             }
                     }
-                    .frame(width: 480)
+                    .frame(width: 840)
                     .background(Color.clear)
                     .allowsHitTesting(true) // 确保可以接收点击事件
                     .onTapGesture {
@@ -186,7 +186,7 @@ struct CommandPaletteView: View {
                 }
             }
         }
-        .frame(width: 900, height: 650)
+        .frame(width: 1200, height: 800)
         .background(Color(NSColor.windowBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(radius: 20)

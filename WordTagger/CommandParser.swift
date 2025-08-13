@@ -379,6 +379,19 @@ private class NLPProcessor {
             return extractCreateCompoundLayerIntent(from: tokens)
         }
         
+        // Simple compound layer syntax detection: "层C 层A 层B"
+        // Check if input could be compound layer creation without keywords
+        if tokens.count >= 2 {
+            // If the first token could be a layer name and there are more tokens after it,
+            // it might be the simple compound layer syntax
+            // We'll let the parser try to interpret it as compound layer creation
+            let compoundIntent = extractCreateCompoundLayerIntent(from: tokens)
+            if case .createCompoundLayer(let name, let children) = compoundIntent,
+               !name.isEmpty && !children.isEmpty {
+                return compoundIntent
+            }
+        }
+        
         // Direct layer name detection - 移除硬编码，依赖 findMatchingCommands 中的动态层检测
         // 这样确保只有实际存在的层才能被切换
         
@@ -422,40 +435,54 @@ private class NLPProcessor {
     
     private func extractCreateCompoundLayerIntent(from tokens: [String]) -> CommandIntent {
         // 解析复合层创建命令
-        // 格式: "复合层 [名称] 包含 [子层1] [子层2] ..."
-        // 或: "创建复合层 [名称] 包含 [子层1] [子层2] ..."
+        // 支持两种格式:
+        // 1. 简单格式: "层C 层A 层B" - 第一个是复合层名，后面的是子层
+        // 2. 传统格式: "复合层 [名称] 包含 [子层1] [子层2] ..."
         
         var layerName = ""
         var childLayers: [String] = []
-        var isParsingName = false
-        var isParsingChildren = false
         
-        for token in tokens {
-            if token == "复合层" || (token == "复合" && tokens.contains("层")) {
-                isParsingName = true
-                continue
-            }
+        // 检查是否是传统格式
+        if tokens.contains("复合层") || (tokens.contains("复合") && tokens.contains("层")) {
+            // 使用传统解析逻辑
+            var isParsingName = false
+            var isParsingChildren = false
             
-            if token == "包含" || token == "含有" || token == "包括" {
-                isParsingName = false
-                isParsingChildren = true
-                continue
+            for token in tokens {
+                if token == "复合层" || (token == "复合" && tokens.contains("层")) {
+                    isParsingName = true
+                    continue
+                }
+                
+                if token == "包含" || token == "含有" || token == "包括" {
+                    isParsingName = false
+                    isParsingChildren = true
+                    continue
+                }
+                
+                if ["创建", "新建", "添加", "层"].contains(token) {
+                    continue
+                }
+                
+                if isParsingName && !layerName.isEmpty {
+                    layerName += " " + token
+                } else if isParsingName {
+                    layerName = token
+                } else if isParsingChildren {
+                    childLayers.append(token)
+                }
             }
-            
-            if ["创建", "新建", "添加", "层"].contains(token) {
-                continue
-            }
-            
-            if isParsingName && !layerName.isEmpty {
-                layerName += " " + token
-            } else if isParsingName {
-                layerName = token
-            } else if isParsingChildren {
-                childLayers.append(token)
+        } else {
+            // 使用简单格式解析：第一个token是复合层名，其余是子层
+            if tokens.count >= 2 {
+                layerName = tokens[0]
+                childLayers = Array(tokens[1...])
+            } else if tokens.count == 1 {
+                layerName = tokens[0]
             }
         }
         
-        // 如果没有明确的分隔符，尝试智能解析
+        // 如果还是没有解析出内容，使用智能解析作为后备
         if layerName.isEmpty && childLayers.isEmpty {
             let relevantTokens = tokens.filter { 
                 !["复合层", "复合", "层", "创建", "新建", "添加", "包含", "含有", "包括"].contains($0) 
