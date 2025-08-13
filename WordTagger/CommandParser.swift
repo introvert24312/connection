@@ -199,11 +199,14 @@ public final class CommandParser: ObservableObject {
             SwitchLayerCommand(layerName: layer.displayName)
         }
         
+        // 合并所有命令（包括静态命令和动态层命令）
+        var allAvailableCommands = allCommands + layerCommands
+        
         var scoredCommands: [(Command, Double)] = []
         
-        for command in layerCommands {
+        for command in allAvailableCommands {
             let score = calculateMatchScore(command: command, tokens: searchTokens, context: context)
-            if score > 0.1 { // 降低阈值让更多层能被搜索到
+            if score > 0.1 { // 降低阈值让更多命令能被搜索到
                 scoredCommands.append((command, score))
             }
         }
@@ -1056,23 +1059,30 @@ public struct CreateCompoundLayerCommand: Command {
     }
     
     public func execute(with context: CommandContext) async throws -> CommandResult {
+        print("🏗️ CreateCompoundLayerCommand.execute - 开始执行")
+        print("   复合层名: \(compoundLayerName ?? "nil")")
+        print("   子层名: \(childLayerNames)")
+        
         // 如果没有指定参数，返回错误提示用法
         guard let layerName = compoundLayerName, !childLayerNames.isEmpty else {
-            return .error("用法: 复合层 [复合层名称] 包含 [子层1] [子层2] ...")
+            return .error("用法: 层C 层A 层B  或  复合层 [复合层名称] 包含 [子层1] [子层2] ...")
         }
         
         // 查找子层
         var childLayerIds: [UUID] = []
         var notFoundLayers: [String] = []
         
+        print("🔍 查找子层...")
         for childLayerName in childLayerNames {
             if let childLayer = await context.store.layers.first(where: { 
                 $0.name.lowercased() == childLayerName.lowercased() || 
                 $0.displayName.lowercased() == childLayerName.lowercased() 
             }) {
                 childLayerIds.append(childLayer.id)
+                print("   ✅ 找到子层: \(childLayerName) -> \(childLayer.id)")
             } else {
                 notFoundLayers.append(childLayerName)
+                print("   ❌ 未找到子层: \(childLayerName)")
             }
         }
         
@@ -1091,6 +1101,7 @@ public struct CreateCompoundLayerCommand: Command {
             return .error("层 '\(layerName)' 已存在")
         }
         
+        print("🏗️ 创建复合层...")
         // 创建复合层
         let compoundLayer = await MainActor.run {
             context.store.createCompoundLayer(
@@ -1100,6 +1111,8 @@ public struct CreateCompoundLayerCommand: Command {
                 color: "purple"
             )
         }
+        
+        print("✅ 复合层创建成功: \(compoundLayer.displayName) (ID: \(compoundLayer.id))")
         
         // 切换到新创建的复合层
         await context.store.switchToLayer(compoundLayer)

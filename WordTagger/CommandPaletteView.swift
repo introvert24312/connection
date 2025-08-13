@@ -186,7 +186,7 @@ struct CommandPaletteView: View {
                 }
             }
         }
-        .frame(width: 1200, height: 800)
+        .frame(minWidth: 1000, idealWidth: 1200, maxWidth: .infinity, minHeight: 700, idealHeight: 800, maxHeight: .infinity)
         .background(Color(NSColor.windowBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(radius: 20)
