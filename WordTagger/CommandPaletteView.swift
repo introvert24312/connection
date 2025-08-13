@@ -78,7 +78,7 @@ struct CommandPaletteView: View {
                 // 图谱视图
                 LayerGraphView()
                     .environmentObject(store)
-                    .frame(minHeight: 800, maxHeight: .infinity)
+                    .frame(minHeight: 500, maxHeight: .infinity)
             } else {
                 // 命令视图
                 HStack(spacing: 0) {
@@ -132,7 +132,7 @@ struct CommandPaletteView: View {
                             }
                             .padding(.vertical, 6)
                         }
-                        .frame(minHeight: 600, maxHeight: .infinity)
+                        .frame(minHeight: 400, maxHeight: .infinity)
                         
                         if availableCommands.isEmpty && !query.isEmpty {
                             VStack {
@@ -143,7 +143,7 @@ struct CommandPaletteView: View {
                             .frame(maxHeight: 60)
                         }
                     }
-                    .frame(width: 320)
+                    .frame(width: 300)
                     
                     Divider()
                     
@@ -177,7 +177,7 @@ struct CommandPaletteView: View {
                                 print("🔍 LayerStructureGraphView容器被点击，阻止事件穿透")
                             }
                     }
-                    .frame(minWidth: 1000, maxWidth: .infinity)
+                    .frame(minWidth: 500, maxWidth: .infinity)
                     .background(Color.clear)
                     .allowsHitTesting(true) // 确保可以接收点击事件
                     .onTapGesture {
@@ -187,7 +187,7 @@ struct CommandPaletteView: View {
                 }
             }
         }
-        .frame(minWidth: 1400, idealWidth: 1600, maxWidth: .infinity, minHeight: 900, idealHeight: 1000, maxHeight: .infinity)
+        .frame(minWidth: 900, idealWidth: 1200, maxWidth: min(NSScreen.main?.frame.width ?? 1440 * 0.9, 1400), minHeight: 600, idealHeight: 800, maxHeight: min(NSScreen.main?.frame.height ?? 900 * 0.8, 900))
         .background(Color(NSColor.windowBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(radius: 20)
