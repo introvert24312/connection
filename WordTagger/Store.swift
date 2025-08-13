@@ -589,10 +589,23 @@ public final class NodeStore: ObservableObject {
     public func deleteLayer(_ layer: Layer) {
         print("🗑️ 删除层: \(layer.displayName) (ID: \(layer.id))")
         
+        // 如果是复合层，需要处理子层引用
+        if layer.isCompound {
+            print("   - 这是一个复合层，包含 \(layer.childLayerIds.count) 个子层")
+        }
+        
         // 删除该层中的所有节点
         let nodesToDelete = nodes.filter { $0.layerId == layer.id }
         print("🗑️ 将删除 \(nodesToDelete.count) 个节点")
         nodes.removeAll { $0.layerId == layer.id }
+        
+        // 从其他复合层中移除对此层的引用
+        for i in layers.indices {
+            if layers[i].isCompound && layers[i].childLayerIds.contains(layer.id) {
+                layers[i].childLayerIds.removeAll { $0 == layer.id }
+                print("   - 从复合层 '\(layers[i].displayName)' 中移除引用")
+            }
+        }
         
         // 检查孤儿节点（layerId不对应任何现有层的节点）
         let validLayerIds = Set(layers.map { $0.id })
@@ -621,6 +634,80 @@ public final class NodeStore: ObservableObject {
         objectWillChange.send()
         
         print("✅ 层删除完成，剩余 \(layers.count) 个层，\(nodes.count) 个节点")
+    }
+    
+    // MARK: - 复合层管理
+    
+    @MainActor
+    public func createCompoundLayer(name: String, displayName: String, childLayerIds: [UUID], color: String = "purple") -> Layer {
+        print("🏗️ 创建复合层: \(displayName)")
+        print("   - 包含子层: \(childLayerIds.count) 个")
+        
+        let compoundLayer = Layer(
+            name: name,
+            displayName: displayName,
+            color: color,
+            isCompound: true,
+            childLayerIds: childLayerIds
+        )
+        
+        addLayer(compoundLayer)
+        
+        // 验证子层是否存在
+        let validChildLayers = layers.filter { childLayerIds.contains($0.id) }
+        print("   - 有效子层: \(validChildLayers.map { $0.displayName }.joined(separator: ", "))")
+        
+        return compoundLayer
+    }
+    
+    @MainActor
+    public func updateCompoundLayer(_ layer: Layer, childLayerIds: [UUID]) {
+        guard layer.isCompound else {
+            print("⚠️ 尝试更新非复合层的子层列表")
+            return
+        }
+        
+        if let index = layers.firstIndex(where: { $0.id == layer.id }) {
+            layers[index].childLayerIds = childLayerIds
+            print("🔄 更新复合层 '\(layer.displayName)' 的子层列表")
+            print("   - 新子层数量: \(childLayerIds.count)")
+        }
+    }
+    
+    @MainActor
+    public func getNodesInCompoundLayer(_ layer: Layer) -> [Node] {
+        guard layer.isCompound else {
+            // 如果不是复合层，返回该层的直接节点
+            return nodes.filter { $0.layerId == layer.id }
+        }
+        
+        var allNodes: [Node] = []
+        
+        // 收集所有子层的节点
+        for childLayerId in layer.childLayerIds {
+            let childNodes = nodes.filter { $0.layerId == childLayerId }
+            allNodes.append(contentsOf: childNodes)
+        }
+        
+        // 也包含复合层本身的直接节点（如果有的话）
+        let directNodes = nodes.filter { $0.layerId == layer.id }
+        allNodes.append(contentsOf: directNodes)
+        
+        return allNodes
+    }
+    
+    @MainActor
+    public func getChildLayers(of compoundLayer: Layer) -> [Layer] {
+        guard compoundLayer.isCompound else { return [] }
+        
+        return layers.filter { compoundLayer.childLayerIds.contains($0.id) }
+    }
+    
+    @MainActor
+    public func isLayerUsedInCompound(_ layer: Layer) -> Bool {
+        return layers.contains { compoundLayer in
+            compoundLayer.isCompound && compoundLayer.childLayerIds.contains(layer.id)
+        }
     }
     
     // MARK: - 数据清理功能

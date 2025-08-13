@@ -1331,17 +1331,16 @@ struct WordTaggerApp: App {
                     .frame(minWidth: 800, minHeight: 600)
                 
                 if showPalette {
-                    Color.black.opacity(0.3)
-                        .ignoresSafeArea()
-                        .onTapGesture {
-                            showPalette = false
-                        }
-                    
-                    CommandPaletteView(isPresented: $showPalette)
-                        .environmentObject(store)
-                        .transition(.asymmetric(insertion: AnyTransition.scale.combined(with: .opacity), removal: .opacity))
+                    ZStack {
+                        // 背景遮罩 - 完全禁用点击响应，只通过ESC键关闭
+                        Color.black.opacity(0.3)
+                            .ignoresSafeArea()
+                        
+                        CommandPaletteView(isPresented: $showPalette)
+                            .environmentObject(store)
+                            .transition(.asymmetric(insertion: AnyTransition.scale.combined(with: .opacity), removal: .opacity))
+                    }
                 }
-                
                 
                 if showQuickSearch {
                     QuickSearchView(
@@ -2275,4 +2274,5 @@ struct CompoundNodeAddSheetView: View {
         print("  子节点: \(childNames.joined(separator: ", "))")
     }
 }
+
 

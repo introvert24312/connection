@@ -144,6 +144,7 @@ public final class CommandParser: ObservableObject {
             
             // Layer commands - 动态生成，不使用硬编码
             // 注意：实际的层切换命令现在在 getDefaultCommands 和 findMatchingCommands 中动态生成
+            CreateCompoundLayerCommand(),
             
             // System commands
             ClearCacheCommand(),
@@ -181,6 +182,9 @@ public final class CommandParser: ObservableObject {
             
         case .switchLayer(let layerName):
             return SwitchLayerCommand(layerName: layerName)
+            
+        case .createCompoundLayer(let layerName, let childLayers):
+            return CreateCompoundLayerCommand(compoundLayerName: layerName, childLayerNames: childLayers)
             
         case .unknown:
             return nil
@@ -370,6 +374,11 @@ private class NLPProcessor {
             }
         }
         
+        // Compound layer creation patterns
+        if tokens.contains("复合层") || (tokens.contains("复合") && tokens.contains("层")) {
+            return extractCreateCompoundLayerIntent(from: tokens)
+        }
+        
         // Direct layer name detection - 移除硬编码，依赖 findMatchingCommands 中的动态层检测
         // 这样确保只有实际存在的层才能被切换
         
@@ -410,6 +419,58 @@ private class NLPProcessor {
         
         return .addTag(tagType: tagType, value: value)
     }
+    
+    private func extractCreateCompoundLayerIntent(from tokens: [String]) -> CommandIntent {
+        // 解析复合层创建命令
+        // 格式: "复合层 [名称] 包含 [子层1] [子层2] ..."
+        // 或: "创建复合层 [名称] 包含 [子层1] [子层2] ..."
+        
+        var layerName = ""
+        var childLayers: [String] = []
+        var isParsingName = false
+        var isParsingChildren = false
+        
+        for token in tokens {
+            if token == "复合层" || (token == "复合" && tokens.contains("层")) {
+                isParsingName = true
+                continue
+            }
+            
+            if token == "包含" || token == "含有" || token == "包括" {
+                isParsingName = false
+                isParsingChildren = true
+                continue
+            }
+            
+            if ["创建", "新建", "添加", "层"].contains(token) {
+                continue
+            }
+            
+            if isParsingName && !layerName.isEmpty {
+                layerName += " " + token
+            } else if isParsingName {
+                layerName = token
+            } else if isParsingChildren {
+                childLayers.append(token)
+            }
+        }
+        
+        // 如果没有明确的分隔符，尝试智能解析
+        if layerName.isEmpty && childLayers.isEmpty {
+            let relevantTokens = tokens.filter { 
+                !["复合层", "复合", "层", "创建", "新建", "添加", "包含", "含有", "包括"].contains($0) 
+            }
+            
+            if relevantTokens.count >= 2 {
+                layerName = relevantTokens[0]
+                childLayers = Array(relevantTokens[1...])
+            } else if relevantTokens.count == 1 {
+                layerName = relevantTokens[0]
+            }
+        }
+        
+        return .createCompoundLayer(layerName: layerName, childLayers: childLayers)
+    }
 }
 
 // MARK: - Command Intent
@@ -420,6 +481,7 @@ private enum CommandIntent {
     case addTag(tagType: Tag.TagType?, value: String?)
     case navigateTo(NavigationDestination)
     case switchLayer(layerName: String)
+    case createCompoundLayer(layerName: String, childLayers: [String])
     case unknown
 }
 
@@ -935,5 +997,86 @@ public struct TagRenameCommand: Command {
         } else {
             return .error("未找到可重命名的标签")
         }
+    }
+}
+
+// MARK: - 复合层命令
+
+public struct CreateCompoundLayerCommand: Command {
+    public let id = UUID()
+    public let title: String
+    public let description: String
+    public let icon = "square.stack.3d.up"
+    public let category = CommandCategory.layer
+    public let keywords: [String]
+    
+    private let compoundLayerName: String?
+    private let childLayerNames: [String]
+    
+    public init(compoundLayerName: String? = nil, childLayerNames: [String] = []) {
+        self.compoundLayerName = compoundLayerName
+        self.childLayerNames = childLayerNames
+        
+        if let name = compoundLayerName {
+            self.title = "创建复合层: \(name)"
+            self.description = "创建包含 \(childLayerNames.count) 个子层的复合层"
+            self.keywords = ["复合层", "创建", "compound", name] + childLayerNames
+        } else {
+            self.title = "创建复合层"
+            self.description = "创建一个包含多个子层的复合层"
+            self.keywords = ["复合层", "创建", "compound", "层组合"]
+        }
+    }
+    
+    public func execute(with context: CommandContext) async throws -> CommandResult {
+        // 如果没有指定参数，返回错误提示用法
+        guard let layerName = compoundLayerName, !childLayerNames.isEmpty else {
+            return .error("用法: 复合层 [复合层名称] 包含 [子层1] [子层2] ...")
+        }
+        
+        // 查找子层
+        var childLayerIds: [UUID] = []
+        var notFoundLayers: [String] = []
+        
+        for childLayerName in childLayerNames {
+            if let childLayer = await context.store.layers.first(where: { 
+                $0.name.lowercased() == childLayerName.lowercased() || 
+                $0.displayName.lowercased() == childLayerName.lowercased() 
+            }) {
+                childLayerIds.append(childLayer.id)
+            } else {
+                notFoundLayers.append(childLayerName)
+            }
+        }
+        
+        // 检查是否所有子层都找到了
+        if !notFoundLayers.isEmpty {
+            return .error("未找到以下层: \(notFoundLayers.joined(separator: ", "))")
+        }
+        
+        // 检查是否已存在同名层
+        let existingLayer = await context.store.layers.first { 
+            $0.name.lowercased() == layerName.lowercased() || 
+            $0.displayName.lowercased() == layerName.lowercased() 
+        }
+        
+        if existingLayer != nil {
+            return .error("层 '\(layerName)' 已存在")
+        }
+        
+        // 创建复合层
+        let compoundLayer = await MainActor.run {
+            context.store.createCompoundLayer(
+                name: layerName.lowercased(),
+                displayName: layerName,
+                childLayerIds: childLayerIds,
+                color: "purple"
+            )
+        }
+        
+        // 切换到新创建的复合层
+        await context.store.switchToLayer(compoundLayer)
+        
+        return .success(message: "成功创建复合层 '\(layerName)'，包含 \(childLayerIds.count) 个子层")
     }
 }

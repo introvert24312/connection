@@ -8,15 +8,39 @@ public struct Layer: Identifiable, Hashable, Codable {
     public var displayName: String
     public var color: String
     public var isActive: Bool
+    public var isCompound: Bool
+    public var childLayerIds: [UUID]
     public var createdAt: Date
     
-    public init(name: String, displayName: String, color: String = "blue") {
+    public init(name: String, displayName: String, color: String = "blue", isCompound: Bool = false, childLayerIds: [UUID] = []) {
         self.id = UUID()
         self.name = name
         self.displayName = displayName
         self.color = color
         self.isActive = false
+        self.isCompound = isCompound
+        self.childLayerIds = childLayerIds
         self.createdAt = Date()
+    }
+    
+    // 自定义解码器，确保向后兼容现有数据
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        displayName = try container.decode(String.self, forKey: .displayName)
+        color = try container.decode(String.self, forKey: .color)
+        isActive = try container.decode(Bool.self, forKey: .isActive)
+        // 为复合层字段提供默认值，确保向后兼容
+        isCompound = try container.decodeIfPresent(Bool.self, forKey: .isCompound) ?? false
+        childLayerIds = try container.decodeIfPresent([UUID].self, forKey: .childLayerIds) ?? []
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+    }
+    
+    // 编码键
+    private enum CodingKeys: String, CodingKey {
+        case id, name, displayName, color, isActive, isCompound, childLayerIds, createdAt
     }
     
     public static func == (lhs: Layer, rhs: Layer) -> Bool {

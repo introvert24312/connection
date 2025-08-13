@@ -254,6 +254,10 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         webView.configuration.userContentController.add(context.coordinator, name: "nodeSelected")
         webView.configuration.userContentController.add(context.coordinator, name: "nodeDeselected")
         
+        // 阻止WebView的某些默认行为，防止事件冒泡
+        webView.allowsBackForwardNavigationGestures = false
+        webView.allowsMagnification = false
+        
         context.coordinator.onDebugInfo = onDebugInfo
         context.coordinator.onNodeSelected = onNodeSelected
         context.coordinator.onNodeDeselected = onNodeDeselected
@@ -683,6 +687,27 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                     }
                     
                     
+                    // 添加事件监听器来阻止事件冒泡
+                    network.on('click', function(params) {
+                        // 阻止事件冒泡到父级元素
+                        if (params.event && params.event.srcEvent) {
+                            params.event.srcEvent.stopPropagation();
+                        }
+                        
+                        // 如果点击了节点，发送选择消息
+                        if (params.nodes.length > 0) {
+                            var nodeId = params.nodes[0];
+                            window.webkit.messageHandlers.nodeSelected.postMessage({nodeId: nodeId});
+                        } else {
+                            window.webkit.messageHandlers.nodeDeselected.postMessage({});
+                        }
+                    });
+                    
+                    // 阻止容器的所有点击事件冒泡
+                    container.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                    }, true);
+                    
                     network.once('stabilized', function() {
                         document.getElementById('loading').style.display = 'none';
                         container.style.display = 'block';
@@ -796,6 +821,30 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
     }
     
     private func getNodeColor<T: UniversalGraphNode>(for node: T) -> String {
+        // 检查是否是LayerGraphNode（层图谱节点）
+        if let layerNode = node as? LayerGraphNode {
+            if layerNode.isSelected {
+                return "#FFD700" // 金色表示选中的层
+            } else if layerNode.isCompound {
+                return "#9B59B6" // 紫色表示复合层
+            } else {
+                // 根据层的颜色属性返回对应颜色
+                if let layer = layerNode.layer {
+                    switch layer.color {
+                    case "blue": return "#3498DB"
+                    case "green": return "#2ECC71"
+                    case "orange": return "#E67E22"
+                    case "red": return "#E74C3C"
+                    case "purple": return "#9B59B6"
+                    case "yellow": return "#F1C40F"
+                    case "cyan": return "#1ABC9C"
+                    default: return "#34495E"
+                    }
+                }
+                return "#34495E" // 默认深灰色
+            }
+        }
+        
         // 检查是否是NodeGraphNode，如果是的话根据节点类型分配颜色
         if let wordNode = node as? NodeGraphNode {
             switch wordNode.nodeType {

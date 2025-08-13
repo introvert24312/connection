@@ -9,63 +9,184 @@ struct CommandPaletteView: View {
     @State private var selectedIndex: Int = 0
     @StateObject private var commandParser = CommandParser.shared
     @FocusState private var isTextFieldFocused: Bool
+    @State private var showGraphView: Bool = false
+    @State private var shouldDismiss: Bool = false
     
     var body: some View {
         VStack(spacing: 0) {
-            // 搜索输入框
+            // 顶部工具栏
             HStack {
-                Image(systemName: "command")
-                    .foregroundColor(.blue)
+                // 视图切换按钮
+                HStack(spacing: 0) {
+                    Button(action: { showGraphView = false }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "command")
+                            Text("命令")
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(!showGraphView ? Color.blue : Color.clear)
+                        )
+                        .foregroundColor(!showGraphView ? .white : .primary)
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Button(action: { showGraphView = true }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "circle.hexagonpath")
+                            Text("图谱")
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(showGraphView ? Color.blue : Color.clear)
+                        )
+                        .foregroundColor(showGraphView ? .white : .primary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(NSColor.controlBackgroundColor))
+                )
                 
-                TextField("输入层名称 (⌘+R创建新层)...", text: $query, onCommit: executeSelectedCommand)
-                    .font(.title2)
-                    .focused($isTextFieldFocused)
-                    .onKeyPress(.upArrow) {
-                        selectedIndex = max(0, selectedIndex - 1)
-                        return .handled
+                Spacer()
+                
+                // 当前层信息
+                if let currentLayer = store.currentLayer {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(Color.blue)
+                            .frame(width: 8, height: 8)
+                        Text(currentLayer.displayName)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
-                    .onKeyPress(.downArrow) {
-                        selectedIndex = min(availableCommands.count - 1, selectedIndex + 1)
-                        return .handled
-                    }
-                    .onKeyPress(.escape) {
-                        isTextFieldFocused = false
-                        isPresented = false
-                        return .handled
-                    }
+                }
             }
-            .padding(16)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
             .background(Color(NSColor.controlBackgroundColor))
             
             Divider()
             
-            // 命令列表
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(Array(availableCommands.enumerated()), id: \.offset) { index, command in
-                        NewCommandRowView(
-                            command: command,
-                            isSelected: index == selectedIndex
-                        ) {
-                            executeCommand(command)
+            // 内容区域
+            if showGraphView {
+                // 图谱视图
+                LayerGraphView()
+                    .environmentObject(store)
+                    .frame(height: 400)
+            } else {
+                // 命令视图
+                HStack(spacing: 0) {
+                    // 左侧：命令列表
+                    VStack(spacing: 0) {
+                        // 搜索输入框
+                        HStack {
+                            Image(systemName: "magnifyingglass")
+                                .foregroundColor(.secondary)
+                            
+                            TextField("输入层名称 (⌘+R创建新层)...", text: $query, onCommit: {
+                                    print("🔍 TextField onCommit 被触发")
+                                    if isTextFieldFocused {
+                                        executeSelectedCommand()
+                                    }
+                                })
+                                .font(.title2)
+                                .focused($isTextFieldFocused)
+                                .onKeyPress(.upArrow) {
+                                    selectedIndex = max(0, selectedIndex - 1)
+                                    return .handled
+                                }
+                                .onKeyPress(.downArrow) {
+                                    selectedIndex = min(availableCommands.count - 1, selectedIndex + 1)
+                                    return .handled
+                                }
+                                .onKeyPress(.escape) {
+                                    isTextFieldFocused = false
+                                    shouldDismiss = true
+                                    return .handled
+                                }
                         }
-                        .id(index)
+                        .padding(16)
+                        .background(Color(NSColor.textBackgroundColor))
+                        
+                        Divider()
+                        
+                        // 命令列表
+                        ScrollView {
+                            LazyVStack(spacing: 0) {
+                                ForEach(Array(availableCommands.enumerated()), id: \.offset) { index, command in
+                                    NewCommandRowView(
+                                        command: command,
+                                        isSelected: index == selectedIndex
+                                    ) {
+                                        executeCommand(command)
+                                    }
+                                    .id(index)
+                                }
+                            }
+                            .padding(.vertical, 8)
+                        }
+                        .frame(height: 400)
+                        
+                        if availableCommands.isEmpty && !query.isEmpty {
+                            VStack {
+                                Text("未找到匹配的命令")
+                                    .foregroundColor(.secondary)
+                                    .padding()
+                            }
+                            .frame(height: 100)
+                        }
+                    }
+                    .frame(width: 400)
+                    
+                    Divider()
+                    
+                    // 右侧：层关系图谱
+                    VStack(spacing: 0) {
+                        // 图谱标题
+                        HStack {
+                            Text("层结构图谱")
+                                .font(.headline)
+                                .fontWeight(.semibold)
+                            
+                            Spacer()
+                            
+                            Text("\(store.layers.count) 个层")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 12)
+                        .padding(.bottom, 8)
+                        
+                        Divider()
+                        
+                        // 层关系图谱
+                        LayerStructureGraphView()
+                            .environmentObject(store)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                // 阻止点击事件穿透到父视图
+                                print("🔍 LayerStructureGraphView容器被点击，阻止事件穿透")
+                            }
+                    }
+                    .frame(width: 480)
+                    .background(Color.clear)
+                    .allowsHitTesting(true) // 确保可以接收点击事件
+                    .onTapGesture {
+                        // 右侧面板的点击事件处理
+                        print("🔍 右侧面板被点击")
                     }
                 }
-                .padding(.vertical, 8)
-            }
-            .frame(height: 300)
-            
-            if availableCommands.isEmpty && !query.isEmpty {
-                VStack {
-                    Text("未找到匹配的命令")
-                        .foregroundColor(.secondary)
-                        .padding()
-                }
-                .frame(height: 100)
             }
         }
-        .frame(width: 600)
+        .frame(width: 900, height: 650)
         .background(Color(NSColor.windowBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(radius: 20)
@@ -74,6 +195,7 @@ struct CommandPaletteView: View {
             // 重置状态
             query = ""
             selectedIndex = 0
+            showGraphView = false
             updateAvailableCommands()
             
             // 立即聚焦到输入框
@@ -85,14 +207,44 @@ struct CommandPaletteView: View {
             updateAvailableCommands()
             selectedIndex = 0
         }
+        .onChange(of: showGraphView) { _, newValue in
+            if !newValue {
+                // 切换回命令视图时重新聚焦输入框
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    isTextFieldFocused = true
+                }
+            }
+        }
         .background(
             Button("") {
                 createNewLayer()
-    
             }
             .keyboardShortcut("r", modifiers: .command)
             .hidden()
         )
+        .background(
+            Button("") {
+                showGraphView.toggle()
+            }
+            .keyboardShortcut("g", modifiers: .command)
+            .hidden()
+        )
+        .onChange(of: shouldDismiss) { _, newValue in
+            if newValue {
+                print("🚨 CommandPaletteView: 延迟关闭面板")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    isPresented = false
+                    shouldDismiss = false
+                }
+            }
+        }
+        .onChange(of: isPresented) { oldValue, newValue in
+            if !newValue && !shouldDismiss {
+                print("🚨 CommandPaletteView: isPresented changed from \(oldValue) to \(newValue)")
+                print("🚨 Stack trace:")
+                Thread.callStackSymbols.forEach { print("  \($0)") }
+            }
+        }
     }
     
     @State private var availableCommands: [Command] = []
@@ -117,6 +269,10 @@ struct CommandPaletteView: View {
     }
     
     private func executeCommand(_ command: Command) {
+        print("🎯 CommandPaletteView: 执行命令 - \(command.title)")
+        print("   命令类型: \(type(of: command))")
+        print("   命令分类: \(command.category)")
+        
         let context = CommandContext(
             store: store,
             currentNode: store.selectedNode,
@@ -131,6 +287,7 @@ struct CommandPaletteView: View {
                     
                     // 针对层切换操作使用快速关闭动画
                     if case .layerSwitched(_) = result {
+                        print("🎯 CommandPaletteView: 层切换命令执行完成，准备关闭面板")
                         // 立即移除焦点，避免蓝框残留
                         isTextFieldFocused = false
                         withAnimation(.linear(duration: 0.05)) {
@@ -300,6 +457,556 @@ extension Notification.Name {
     static let focusSearch = Notification.Name("focusSearch")
 }
 
+
+// MARK: - 层图谱视图
+
+struct LayerGraphView: View {
+    @EnvironmentObject private var store: NodeStore
+    @State private var selectedLayerIds: Set<UUID> = []
+    @State private var cachedNodes: [NodeGraphNode] = []
+    @State private var cachedEdges: [NodeGraphEdge] = []
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // 层选择器
+            HStack {
+                Text("层图谱")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+                
+                // 快速选择按钮
+                HStack(spacing: 8) {
+                    Button("当前层") {
+                        if let currentLayer = store.currentLayer {
+                            selectedLayerIds = [currentLayer.id]
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    
+                    Button("全部层") {
+                        selectedLayerIds = Set(store.layers.map { $0.id })
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    
+                    Button("清空") {
+                        selectedLayerIds.removeAll()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.top, 8)
+            
+            // 层列表
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(store.layers) { layer in
+                        LayerToggleButton(
+                            layer: layer,
+                            isSelected: selectedLayerIds.contains(layer.id)
+                        ) {
+                            toggleLayer(layer)
+                        }
+                    }
+                }
+                .padding(.horizontal)
+            }
+            .frame(height: 40)
+            
+            Divider()
+            
+            // 图谱内容
+            if cachedNodes.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "circle.hexagonpath")
+                        .font(.system(size: 48))
+                        .foregroundColor(.gray)
+                    
+                    Text("选择层来显示图谱")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                    
+                    Text("使用上方按钮选择要显示的层")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                UniversalRelationshipGraphView(
+                    nodes: cachedNodes,
+                    edges: cachedEdges,
+                    title: "层图谱",
+                    initialScale: 0.8,
+                    onNodeSelected: { nodeId in
+                        // 当点击节点时，选择对应的节点
+                        if let selectedGraphNode = cachedNodes.first(where: { $0.id == nodeId }),
+                           let selectedNode = selectedGraphNode.node {
+                            store.selectNode(selectedNode)
+                        }
+                    }
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .onAppear {
+            // 默认显示当前层
+            if let currentLayer = store.currentLayer {
+                selectedLayerIds = [currentLayer.id]
+            }
+            updateGraphData()
+        }
+        .onChange(of: selectedLayerIds) { _, _ in
+            updateGraphData()
+        }
+        .onChange(of: store.nodes) { _, _ in
+            updateGraphData()
+        }
+        .onChange(of: store.layers) { _, _ in
+            updateGraphData()
+        }
+    }
+    
+    private func toggleLayer(_ layer: Layer) {
+        if selectedLayerIds.contains(layer.id) {
+            selectedLayerIds.remove(layer.id)
+        } else {
+            selectedLayerIds.insert(layer.id)
+        }
+    }
+    
+    private func updateGraphData() {
+        let data = calculateLayerGraphData()
+        cachedNodes = data.nodes
+        cachedEdges = data.edges
+    }
+    
+    private func calculateLayerGraphData() -> (nodes: [NodeGraphNode], edges: [NodeGraphEdge]) {
+        var nodes: [NodeGraphNode] = []
+        var edges: [NodeGraphEdge] = []
+        var addedTagKeys: Set<String> = []
+        var addedNodeIds: Set<UUID> = []
+        
+        // 获取选中层的节点（包括复合层的子层节点）
+        var allSelectedNodes: [Node] = []
+        
+        for layerId in selectedLayerIds {
+            if let layer = store.layers.first(where: { $0.id == layerId }) {
+                if layer.isCompound {
+                    // 如果是复合层，获取所有子层的节点
+                    let compoundNodes = store.getNodesInCompoundLayer(layer)
+                    allSelectedNodes.append(contentsOf: compoundNodes)
+                } else {
+                    // 如果是普通层，获取该层的节点
+                    let layerNodes = store.nodes.filter { $0.layerId == layerId }
+                    allSelectedNodes.append(contentsOf: layerNodes)
+                }
+            }
+        }
+        
+        // 去重（避免同一个节点被多次添加）
+        let uniqueNodes = Array(Set(allSelectedNodes))
+        
+        // 添加节点
+        for node in uniqueNodes {
+            nodes.append(NodeGraphNode(node: node))
+            addedNodeIds.insert(node.id)
+            
+            // 如果是复合节点，递归添加其子节点结构
+            if node.isCompound {
+                addChildNodesForLayerGraph(
+                    for: node,
+                    nodes: &nodes,
+                    addedTagKeys: &addedTagKeys,
+                    addedNodeIds: &addedNodeIds,
+                    depth: 1
+                )
+            }
+        }
+        
+        // 添加标签节点
+        let allAddedNodes = nodes.compactMap { $0.node }
+        for node in allAddedNodes {
+            for tag in node.tags {
+                // 过滤掉复合节点的内部管理标签
+                if case .custom(let key) = tag.type {
+                    if key == "compound" || 
+                       key == "child" ||
+                       key.hasSuffix("复合节点") ||
+                       key.hasSuffix("compound") {
+                        continue
+                    }
+                }
+                
+                let tagKey = "\(tag.type.rawValue):\(tag.value)"
+                if !addedTagKeys.contains(tagKey) {
+                    nodes.append(NodeGraphNode(tag: tag))
+                    addedTagKeys.insert(tagKey)
+                }
+            }
+            
+            // 添加位置标签
+            for locationTag in node.locationTags {
+                let locationTagKey = "\(locationTag.type.rawValue):\(locationTag.value)"
+                if !addedTagKeys.contains(locationTagKey) {
+                    nodes.append(NodeGraphNode(tag: locationTag))
+                    addedTagKeys.insert(locationTagKey)
+                }
+            }
+        }
+        
+        // 创建边
+        for node in allAddedNodes {
+            guard let nodeGraphNode = nodes.first(where: { $0.node?.id == node.id }) else { continue }
+            
+            // 如果是复合节点，创建到子节点的连接
+            if node.isCompound {
+                let childReferenceTags = node.tags.filter {
+                    if case .custom(let key) = $0.type, key == "child" {
+                        return true
+                    }
+                    return false
+                }
+                
+                for childRefTag in childReferenceTags {
+                    let childNodeName = childRefTag.value
+                    if let childNodeGraphNode = nodes.first(where: { 
+                        $0.node?.text.lowercased() == childNodeName.lowercased() 
+                    }) {
+                        edges.append(NodeGraphEdge(
+                            from: nodeGraphNode,
+                            to: childNodeGraphNode,
+                            relationshipType: "子节点"
+                        ))
+                    }
+                }
+            }
+            
+            // 创建节点到标签的连接
+            for tag in node.tags {
+                // 过滤掉复合节点的内部管理标签
+                if case .custom(let key) = tag.type {
+                    if key == "compound" || 
+                       key == "child" ||
+                       key.hasSuffix("复合节点") ||
+                       key.hasSuffix("compound") {
+                        continue
+                    }
+                }
+                
+                if let tagNode = nodes.first(where: { 
+                    $0.tag?.type.rawValue == tag.type.rawValue && $0.tag?.value == tag.value 
+                }) {
+                    edges.append(NodeGraphEdge(
+                        from: nodeGraphNode,
+                        to: tagNode,
+                        relationshipType: tag.type.displayName
+                    ))
+                }
+            }
+            
+            // 创建节点到位置标签的连接
+            for locationTag in node.locationTags {
+                if let tagNode = nodes.first(where: { 
+                    $0.tag?.type.rawValue == locationTag.type.rawValue && $0.tag?.value == locationTag.value 
+                }) {
+                    edges.append(NodeGraphEdge(
+                        from: nodeGraphNode,
+                        to: tagNode,
+                        relationshipType: locationTag.type.displayName
+                    ))
+                }
+            }
+        }
+        
+        return (nodes: nodes, edges: edges)
+    }
+    
+    // 递归添加复合节点的子节点结构
+    private func addChildNodesForLayerGraph(
+        for node: Node, 
+        nodes: inout [NodeGraphNode], 
+        addedTagKeys: inout Set<String>, 
+        addedNodeIds: inout Set<UUID>,
+        depth: Int
+    ) {
+        // 防止无限递归
+        guard depth <= 10 else { return }
+        
+        // 查找子节点引用标签
+        let childReferenceTags = node.tags.filter {
+            if case .custom(let key) = $0.type, key == "child" {
+                return true
+            }
+            return false
+        }
+        
+        for childRefTag in childReferenceTags {
+            let childNodeName = childRefTag.value
+            
+            // 从store中查找实际的子节点
+            if let childNode = store.nodes.first(where: { $0.text.lowercased() == childNodeName.lowercased() }) {
+                // 如果子节点还没被添加，则添加它
+                if !addedNodeIds.contains(childNode.id) {
+                    nodes.append(NodeGraphNode(node: childNode))
+                    addedNodeIds.insert(childNode.id)
+                    
+                    // 如果子节点也是复合节点，递归添加其子节点
+                    if childNode.isCompound {
+                        addChildNodesForLayerGraph(
+                            for: childNode, 
+                            nodes: &nodes, 
+                            addedTagKeys: &addedTagKeys, 
+                            addedNodeIds: &addedNodeIds,
+                            depth: depth + 1
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - 层结构图谱视图
+
+struct LayerStructureGraphView: View {
+    @EnvironmentObject private var store: NodeStore
+    @State private var cachedNodes: [LayerGraphNode] = []
+    @State private var cachedEdges: [LayerGraphEdge] = []
+    @State private var selectedLayerId: UUID?
+    @State private var hoveredLayerId: UUID?
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // 顶部信息栏
+            if let selectedLayerId = selectedLayerId,
+               let selectedLayer = store.layers.first(where: { $0.id == selectedLayerId }) {
+                HStack {
+                    Text("选中层: \(selectedLayer.displayName)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    Button("切换到此层") {
+                        print("🔍 LayerStructureGraphView: 切换层按钮被点击")
+                        Task {
+                            await store.switchToLayer(selectedLayer)
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color(NSColor.controlBackgroundColor))
+            }
+            
+            if cachedNodes.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "rectangle.stack")
+                        .font(.system(size: 48))
+                        .foregroundColor(.gray)
+                    
+                    Text("暂无层数据")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                UniversalRelationshipGraphView(
+                    nodes: cachedNodes,
+                    edges: cachedEdges,
+                    title: "层结构图谱",
+                    initialScale: 0.9,
+                    onNodeSelected: { nodeId in
+                        // 当点击层节点时，只是选中它，不切换层
+                        print("🔍 LayerStructureGraphView: 节点被点击, nodeId = \(nodeId)")
+                        if let selectedGraphNode = cachedNodes.first(where: { $0.id == nodeId }),
+                           let layerId = selectedGraphNode.layerId {
+                            print("🔍 LayerStructureGraphView: 找到层ID = \(layerId)")
+                            selectedLayerId = layerId
+                        }
+                    },
+                    onNodeDeselected: {
+                        // 点击空白处取消选中
+                        selectedLayerId = nil
+                    }
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .onAppear {
+            updateLayerGraphData()
+            // 默认选中当前层
+            selectedLayerId = store.currentLayer?.id
+        }
+        .onChange(of: store.layers) { _, _ in
+            updateLayerGraphData()
+        }
+        .onChange(of: selectedLayerId) { _, _ in
+            updateLayerGraphData()
+        }
+    }
+    
+    private func updateLayerGraphData() {
+        let data = calculateLayerGraphData()
+        cachedNodes = data.nodes
+        cachedEdges = data.edges
+    }
+    
+    private func calculateLayerGraphData() -> (nodes: [LayerGraphNode], edges: [LayerGraphEdge]) {
+        var nodes: [LayerGraphNode] = []
+        var edges: [LayerGraphEdge] = []
+        
+        // 添加所有层作为节点
+        for layer in store.layers {
+            let nodeCount = store.nodes.filter { $0.layerId == layer.id }.count
+            let isSelected = layer.id == selectedLayerId
+            nodes.append(LayerGraphNode(layer: layer, nodeCount: nodeCount, isSelected: isSelected))
+        }
+        
+        // 创建复合层到子层的连接
+        for layer in store.layers {
+            if layer.isCompound {
+                guard let parentNode = nodes.first(where: { $0.layerId == layer.id }) else { continue }
+                
+                for childLayerId in layer.childLayerIds {
+                    if let childNode = nodes.first(where: { $0.layerId == childLayerId }) {
+                        edges.append(LayerGraphEdge(
+                            from: parentNode,
+                            to: childNode,
+                            relationshipType: "包含"
+                        ))
+                    }
+                }
+            }
+        }
+        
+        return (nodes: nodes, edges: edges)
+    }
+}
+
+// MARK: - 层图谱数据模型
+
+struct LayerGraphNode: UniversalGraphNode {
+    let id: Int
+    let label: String
+    let subtitle: String?
+    let layerId: UUID?
+    let layer: Layer?
+    let nodeCount: Int
+    let isCompound: Bool
+    let isSelected: Bool
+    
+    init(layer: Layer, nodeCount: Int, isSelected: Bool = false) {
+        self.id = GraphNodeIDGenerator.shared.idForLayer(layer)
+        self.label = layer.displayName
+        self.layerId = layer.id
+        self.layer = layer
+        self.nodeCount = nodeCount
+        self.isCompound = layer.isCompound
+        self.isSelected = isSelected
+        self.subtitle = self.isCompound ? "复合层 (\(layer.childLayerIds.count)个子层)" : "\(nodeCount) 个节点"
+    }
+}
+
+struct LayerGraphEdge: UniversalGraphEdge {
+    let fromId: Int
+    let toId: Int
+    let label: String?
+    
+    init(from: LayerGraphNode, to: LayerGraphNode, relationshipType: String) {
+        self.fromId = from.id
+        self.toId = to.id
+        self.label = relationshipType
+    }
+}
+
+// MARK: - GraphNodeIDGenerator 扩展
+
+extension GraphNodeIDGenerator {
+    func idForLayer(_ layer: Layer) -> Int {
+        let layerKey = "layer:\(layer.id.uuidString)"
+        lock.lock()
+        defer { lock.unlock() }
+        
+        if let existingID = tagIDMap[layerKey] {
+            return existingID
+        }
+        
+        currentID += 1
+        tagIDMap[layerKey] = currentID
+        return currentID
+    }
+}
+
+// MARK: - 层切换按钮
+
+struct LayerToggleButton: View {
+    let layer: Layer
+    let isSelected: Bool
+    let onToggle: () -> Void
+    
+    var body: some View {
+        Button(action: onToggle) {
+            HStack(spacing: 6) {
+                // 层类型指示器
+                if layer.isCompound {
+                    Image(systemName: "square.stack.3d.up")
+                        .font(.caption2)
+                        .foregroundColor(layerColor)
+                } else {
+                    Circle()
+                        .fill(layerColor)
+                        .frame(width: 8, height: 8)
+                }
+                
+                Text(layer.displayName)
+                    .font(.caption)
+                    .fontWeight(isSelected ? .semibold : .regular)
+                
+                // 复合层子层数量指示
+                if layer.isCompound && !layer.childLayerIds.isEmpty {
+                    Text("(\(layer.childLayerIds.count))")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(isSelected ? Color.blue.opacity(0.2) : Color.clear)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(
+                                isSelected ? Color.blue : 
+                                (layer.isCompound ? Color.purple.opacity(0.5) : Color.secondary.opacity(0.3)), 
+                                lineWidth: layer.isCompound ? 2 : 1
+                            )
+                    )
+            )
+            .foregroundColor(isSelected ? .blue : .primary)
+        }
+        .buttonStyle(.plain)
+    }
+    
+    private var layerColor: Color {
+        switch layer.color {
+        case "blue": return .blue
+        case "green": return .green
+        case "orange": return .orange
+        case "red": return .red
+        case "purple": return .purple
+        default: return .blue
+        }
+    }
+}
 
 #Preview {
     CommandPaletteView(isPresented: .constant(true))

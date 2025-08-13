@@ -811,9 +811,9 @@ struct MapPinView: View {
 // MARK: - 全局ID生成器
 class GraphNodeIDGenerator {
     static let shared = GraphNodeIDGenerator()
-    private var currentID: Int = 1000000 // 从一个大数开始避免冲突
-    private var tagIDMap: [String: Int] = [:] // 缓存标签的ID
-    private let lock = NSLock()
+    internal var currentID: Int = 1000000 // 从一个大数开始避免冲突
+    internal var tagIDMap: [String: Int] = [:] // 缓存标签的ID
+    internal let lock = NSLock()
     
     private init() {}
     
