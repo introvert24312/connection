@@ -405,16 +405,24 @@ private struct NewCommandRowView: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 12) {
-                Image(systemName: command.icon)
-                    .font(.title2)
-                    .foregroundColor(iconColor)
-                    .frame(width: 28)
+                // 子层命令使用不同的图标和颜色
+                if isChildLayer {
+                    Image(systemName: "arrow.turn.down.right")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                        .frame(width: 28)
+                } else {
+                    Image(systemName: command.icon)
+                        .font(.title2)
+                        .foregroundColor(iconColor)
+                        .frame(width: 28)
+                }
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(command.title)
                         .font(.title3)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.primary)
+                        .fontWeight(isChildLayer ? .regular : .semibold)
+                        .foregroundColor(isChildLayer ? .secondary : .primary)
                         .lineLimit(1)
                     
                     Text(command.description)
@@ -425,16 +433,18 @@ private struct NewCommandRowView: View {
                 
                 Spacer()
                 
-                // Category badge
-                Text(command.category.rawValue)
-                    .font(.caption2)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(
-                        Capsule()
-                            .fill(iconColor.opacity(0.2))
-                    )
-                    .foregroundColor(iconColor)
+                // Category badge - 子层使用不同样式
+                if !isChildLayer {
+                    Text(command.category.rawValue)
+                        .font(.caption2)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule()
+                                .fill(iconColor.opacity(0.2))
+                        )
+                        .foregroundColor(iconColor)
+                }
                 
                 if isSelected {
                     Image(systemName: "return")
@@ -443,13 +453,21 @@ private struct NewCommandRowView: View {
                 }
             }
             .padding(.vertical, 6)
-            .padding(.horizontal, 10)
+            .padding(.horizontal, isChildLayer ? 16 : 10)  // 子层增加左边距
         }
         .buttonStyle(.plain)
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .fill(isSelected ? Color.blue.opacity(0.15) : Color.clear)
         )
+    }
+    
+    // 检查是否为子层命令
+    private var isChildLayer: Bool {
+        if let switchCommand = command as? SwitchLayerCommand {
+            return switchCommand.isChildLayer
+        }
+        return false
     }
     
     private var iconColor: Color {
@@ -884,26 +902,46 @@ struct LayerStructureGraphView: View {
         var nodes: [LayerGraphNode] = []
         var edges: [LayerGraphEdge] = []
         
-        // 添加所有层作为节点
-        for layer in store.layers {
+        // 分离复合层和普通层
+        let compoundLayers = store.layers.filter { $0.isCompound }
+        let regularLayers = store.layers.filter { !$0.isCompound }
+        
+        // 首先添加复合层（顶层）
+        for layer in compoundLayers {
+            let nodeCount = store.nodes.filter { $0.layerId == layer.id }.count
+            let isSelected = layer.id == selectedLayerId
+            nodes.append(LayerGraphNode(layer: layer, nodeCount: nodeCount, isSelected: isSelected, allLayers: store.layers))
+        }
+        
+        // 然后添加独立的普通层（不属于任何复合层的层）
+        let childLayerIds = Set(compoundLayers.flatMap { $0.childLayerIds })
+        let independentLayers = regularLayers.filter { !childLayerIds.contains($0.id) }
+        
+        for layer in independentLayers {
+            let nodeCount = store.nodes.filter { $0.layerId == layer.id }.count
+            let isSelected = layer.id == selectedLayerId
+            nodes.append(LayerGraphNode(layer: layer, nodeCount: nodeCount, isSelected: isSelected, allLayers: store.layers))
+        }
+        
+        // 最后添加作为子层的普通层
+        let childLayers = regularLayers.filter { childLayerIds.contains($0.id) }
+        for layer in childLayers {
             let nodeCount = store.nodes.filter { $0.layerId == layer.id }.count
             let isSelected = layer.id == selectedLayerId
             nodes.append(LayerGraphNode(layer: layer, nodeCount: nodeCount, isSelected: isSelected, allLayers: store.layers))
         }
         
         // 创建复合层到子层的连接
-        for layer in store.layers {
-            if layer.isCompound {
-                guard let parentNode = nodes.first(where: { $0.layerId == layer.id }) else { continue }
-                
-                for childLayerId in layer.childLayerIds {
-                    if let childNode = nodes.first(where: { $0.layerId == childLayerId }) {
-                        edges.append(LayerGraphEdge(
-                            from: parentNode,
-                            to: childNode,
-                            relationshipType: "包含"
-                        ))
-                    }
+        for layer in compoundLayers {
+            guard let parentNode = nodes.first(where: { $0.layerId == layer.id }) else { continue }
+            
+            for childLayerId in layer.childLayerIds {
+                if let childNode = nodes.first(where: { $0.layerId == childLayerId }) {
+                    edges.append(LayerGraphEdge(
+                        from: parentNode,
+                        to: childNode,
+                        relationshipType: "包含"
+                    ))
                 }
             }
         }

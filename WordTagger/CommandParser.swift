@@ -108,10 +108,30 @@ public final class CommandParser: ObservableObject {
             ]
         }
         
-        // 动态获取所有层
-        return await context.store.layers.map { layer in
-            SwitchLayerCommand(layerName: layer.displayName)
+        // 按层次结构排列层命令
+        var commands: [Command] = []
+        
+        // 1. 首先添加复合层（顶层）
+        let compoundLayers = await context.store.layers.filter { $0.isCompound }
+        for compoundLayer in compoundLayers {
+            commands.append(SwitchLayerCommand(layerName: compoundLayer.displayName))
+            
+            // 2. 然后添加该复合层的子层（缩进显示）
+            for childLayerId in compoundLayer.childLayerIds {
+                if let childLayer = await context.store.layers.first(where: { $0.id == childLayerId }) {
+                    commands.append(SwitchLayerCommand(layerName: childLayer.displayName, isChildLayer: true))
+                }
+            }
         }
+        
+        // 3. 最后添加独立的普通层（不属于任何复合层）
+        let allChildLayerIds = Set(compoundLayers.flatMap { $0.childLayerIds })
+        let independentLayers = await context.store.layers.filter { !$0.isCompound && !allChildLayerIds.contains($0.id) }
+        for independentLayer in independentLayers {
+            commands.append(SwitchLayerCommand(layerName: independentLayer.displayName))
+        }
+        
+        return commands
     }
     
     // MARK: - Command Setup
@@ -905,12 +925,14 @@ public struct SwitchLayerCommand: Command {
     public let icon = "rectangle.stack"
     public let category = CommandCategory.layer
     public let keywords: [String]
+    public let isChildLayer: Bool
     
     private let layerName: String
     
-    public init(layerName: String) {
+    public init(layerName: String, isChildLayer: Bool = false) {
         self.layerName = layerName
-        self.title = layerName
+        self.isChildLayer = isChildLayer
+        self.title = isChildLayer ? "  \(layerName)" : layerName  // 子层前面加两个空格缩进
         self.description = "切换到 \(layerName) 学科层"
         // 包含层名和相关关键词，支持模糊搜索
         self.keywords = ["切换", "层", "学科", "分类", layerName] + layerName.map { String($0) }

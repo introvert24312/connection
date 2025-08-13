@@ -225,6 +225,7 @@ struct UniversalRelationshipGraphView<Node: UniversalGraphNode, Edge: UniversalG
     let edges: [Edge]
     let title: String
     let initialScale: Double
+    let useHierarchicalLayout: Bool
     let onNodeSelected: ((Int) -> Void)?
     let onNodeDeselected: (() -> Void)?
     let onFitGraph: (() -> Void)?
@@ -233,11 +234,12 @@ struct UniversalRelationshipGraphView<Node: UniversalGraphNode, Edge: UniversalG
     @StateObject private var selectionManager = GlobalGraphSelectionManager.shared
     
     
-    init(nodes: [Node], edges: [Edge], title: String = "节点关系图", initialScale: Double = 1.0, onNodeSelected: ((Int) -> Void)? = nil, onNodeDeselected: (() -> Void)? = nil, onFitGraph: (() -> Void)? = nil) {
+    init(nodes: [Node], edges: [Edge], title: String = "节点关系图", initialScale: Double = 1.0, useHierarchicalLayout: Bool = false, onNodeSelected: ((Int) -> Void)? = nil, onNodeDeselected: (() -> Void)? = nil, onFitGraph: (() -> Void)? = nil) {
         self.nodes = nodes
         self.edges = edges
         self.title = title
         self.initialScale = initialScale
+        self.useHierarchicalLayout = useHierarchicalLayout
         self.onNodeSelected = onNodeSelected
         self.onNodeDeselected = onNodeDeselected
         self.onFitGraph = onFitGraph
@@ -252,6 +254,7 @@ struct UniversalRelationshipGraphView<Node: UniversalGraphNode, Edge: UniversalG
                     nodes: nodes, 
                     edges: edges,
                     initialScale: initialScale,
+                    useHierarchicalLayout: useHierarchicalLayout,
                     onDebugInfo: { info in
                         DispatchQueue.main.async {
                             debugInfo = info
@@ -304,16 +307,18 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
     let nodes: [Node]
     let edges: [Edge]
     let initialScale: Double
+    let useHierarchicalLayout: Bool
     let onDebugInfo: (String) -> Void
     let onNodeSelected: ((Int) -> Void)?
     let onNodeDeselected: (() -> Void)?
     let onFitGraph: (() -> Void)?
     let selectionManager: GlobalGraphSelectionManager
     
-    init(nodes: [Node], edges: [Edge], initialScale: Double = 1.0, onDebugInfo: @escaping (String) -> Void, onNodeSelected: ((Int) -> Void)? = nil, onNodeDeselected: (() -> Void)? = nil, onFitGraph: (() -> Void)? = nil, selectionManager: GlobalGraphSelectionManager = GlobalGraphSelectionManager.shared) {
+    init(nodes: [Node], edges: [Edge], initialScale: Double = 1.0, useHierarchicalLayout: Bool = false, onDebugInfo: @escaping (String) -> Void, onNodeSelected: ((Int) -> Void)? = nil, onNodeDeselected: (() -> Void)? = nil, onFitGraph: (() -> Void)? = nil, selectionManager: GlobalGraphSelectionManager = GlobalGraphSelectionManager.shared) {
         self.nodes = nodes
         self.edges = edges
         self.initialScale = initialScale
+        self.useHierarchicalLayout = useHierarchicalLayout
         self.onDebugInfo = onDebugInfo
         self.onNodeSelected = onNodeSelected
         self.onNodeDeselected = onNodeDeselected
@@ -353,7 +358,7 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         let initialDataSignature = "\(nodeIds)-\(edgeSignature)"
         context.coordinator.lastDataSignature = initialDataSignature
         
-        let htmlContent = generateGraphHTML(initialScale: initialScale, selectionManager: selectionManager)
+        let htmlContent = generateGraphHTML(initialScale: initialScale, useHierarchicalLayout: useHierarchicalLayout, selectionManager: selectionManager)
         let baseURL = URL(string: "about:blank")
         webView.loadHTMLString(htmlContent, baseURL: baseURL)
         onDebugInfo("初始加载: \(nodes.count)个节点, \(edges.count)条边")
@@ -408,7 +413,7 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         }
         #endif
         
-        let htmlContent = self.generateGraphHTML(initialScale: self.initialScale, selectionManager: self.selectionManager)
+        let htmlContent = self.generateGraphHTML(initialScale: self.initialScale, useHierarchicalLayout: self.useHierarchicalLayout, selectionManager: self.selectionManager)
         self.onDebugInfo("更新图形: \(self.nodes.count)个节点, \(self.edges.count)条边")
         
         // 使用简单的baseURL，避免缓存问题
@@ -487,7 +492,7 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         return "\(nodeStrings)|\(edgeStrings)"
     }
     
-    private func generateGraphHTML(initialScale: Double = 1.0, selectionManager: GlobalGraphSelectionManager) -> String {
+    private func generateGraphHTML(initialScale: Double = 1.0, useHierarchicalLayout: Bool = false, selectionManager: GlobalGraphSelectionManager) -> String {
         // 安全检查：确保initialScale值在合理范围内
         let safeInitialScale = max(0.1, min(10.0, initialScale.isNaN ? 1.0 : initialScale))
         // 获取调试设置
@@ -714,9 +719,23 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                     var edges = new vis.DataSet(edgeData);
                     var container = document.getElementById('mynetworkid');
                     var data = { nodes: nodes, edges: edges };
+                    
+                    // 根据是否需要分层布局来配置选项
+                    var useHierarchical = \(useHierarchicalLayout ? "true" : "false");
+                    
                     var options = {
+                        layout: useHierarchical ? {
+                            hierarchical: {
+                                enabled: true,
+                                direction: 'UD',        // Up-Down: 从上到下
+                                sortMethod: 'directed',  // 根据边的方向排列
+                                nodeSpacing: 120,       // 节点水平间距
+                                levelSeparation: 100,   // 层级垂直间距
+                                treeSpacing: 150        // 树之间的间距
+                            }
+                        } : undefined,
                         physics: {
-                            enabled: true,
+                            enabled: !useHierarchical,  // 分层布局时禁用物理引擎
                             stabilization: { 
                                 iterations: 200,
                                 updateInterval: 25
