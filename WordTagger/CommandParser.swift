@@ -150,7 +150,6 @@ public final class CommandParser: ObservableObject {
             ClearCacheCommand(),
             ExportDataCommand(),
             ImportDataCommand(),
-            ShowStatsCommand(),
             ResetSampleDataCommand()
         ]
     }
@@ -856,18 +855,6 @@ public struct ImportDataCommand: Command {
     }
 }
 
-public struct ShowStatsCommand: Command {
-    public let id = UUID()
-    public let title = "显示统计"
-    public let description = "显示应用使用统计"
-    public let icon = "chart.bar"
-    public let category = CommandCategory.system
-    public let keywords = ["统计", "数据", "分析"]
-    
-    public func execute(with context: CommandContext) async throws -> CommandResult {
-        return .error("功能待实现")
-    }
-}
 
 public struct NavigationCommand: Command {
     public let id = UUID()

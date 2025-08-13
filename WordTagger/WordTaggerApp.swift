@@ -1399,6 +1399,11 @@ struct WordTaggerApp: App {
                 }
                 .keyboardShortcut("k", modifiers: [.command])
                 
+                Button("创建新层或复合层") { 
+                    showPalette = true 
+                }
+                .keyboardShortcut("r", modifiers: [.command])
+                
                 Divider()
                 
                 Button("快速添加节点") {

@@ -68,7 +68,7 @@ struct CommandPaletteView: View {
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.vertical, 6)
             .background(Color(NSColor.controlBackgroundColor))
             
             Divider()
@@ -78,7 +78,7 @@ struct CommandPaletteView: View {
                 // 图谱视图
                 LayerGraphView()
                     .environmentObject(store)
-                    .frame(height: 500)
+                    .frame(minHeight: 800, maxHeight: .infinity)
             } else {
                 // 命令视图
                 HStack(spacing: 0) {
@@ -89,7 +89,7 @@ struct CommandPaletteView: View {
                             Image(systemName: "magnifyingglass")
                                 .foregroundColor(.secondary)
                             
-                            TextField("输入层名称 (⌘+R创建新层)...", text: $query, onCommit: {
+                            TextField("输入层名称...", text: $query, onCommit: {
                                     print("🔍 TextField onCommit 被触发")
                                     if isTextFieldFocused {
                                         executeSelectedCommand()
@@ -111,7 +111,8 @@ struct CommandPaletteView: View {
                                     return .handled
                                 }
                         }
-                        .padding(16)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
                         .background(Color(NSColor.textBackgroundColor))
                         
                         Divider()
@@ -129,20 +130,20 @@ struct CommandPaletteView: View {
                                     .id(index)
                                 }
                             }
-                            .padding(.vertical, 8)
+                            .padding(.vertical, 6)
                         }
-                        .frame(height: 500)
+                        .frame(minHeight: 600, maxHeight: .infinity)
                         
                         if availableCommands.isEmpty && !query.isEmpty {
                             VStack {
                                 Text("未找到匹配的命令")
                                     .foregroundColor(.secondary)
-                                    .padding()
+                                    .padding(.vertical, 20)
                             }
-                            .frame(height: 100)
+                            .frame(maxHeight: 60)
                         }
                     }
-                    .frame(width: 350)
+                    .frame(width: 320)
                     
                     Divider()
                     
@@ -161,8 +162,8 @@ struct CommandPaletteView: View {
                                 .foregroundColor(.secondary)
                         }
                         .padding(.horizontal, 16)
-                        .padding(.top, 12)
-                        .padding(.bottom, 8)
+                        .padding(.top, 10)
+                        .padding(.bottom, 6)
                         
                         Divider()
                         
@@ -176,7 +177,7 @@ struct CommandPaletteView: View {
                                 print("🔍 LayerStructureGraphView容器被点击，阻止事件穿透")
                             }
                     }
-                    .frame(width: 840)
+                    .frame(minWidth: 1000, maxWidth: .infinity)
                     .background(Color.clear)
                     .allowsHitTesting(true) // 确保可以接收点击事件
                     .onTapGesture {
@@ -186,11 +187,12 @@ struct CommandPaletteView: View {
                 }
             }
         }
-        .frame(minWidth: 1000, idealWidth: 1200, maxWidth: .infinity, minHeight: 700, idealHeight: 800, maxHeight: .infinity)
+        .frame(minWidth: 1400, idealWidth: 1600, maxWidth: .infinity, minHeight: 900, idealHeight: 1000, maxHeight: .infinity)
         .background(Color(NSColor.windowBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(radius: 20)
-        .padding()
+        .padding(.horizontal, 15)
+        .padding(.vertical, 8)
         .onAppear {
             // 重置状态
             query = ""
@@ -351,30 +353,87 @@ struct CommandPaletteView: View {
     private func createNewLayer() {
         guard !query.isEmpty else { return }
         
-        // 检查是否已存在同名层
-        let existingLayer = store.layers.first { 
-            $0.name.lowercased() == query.lowercased() || 
-            $0.displayName.lowercased() == query.lowercased() 
-        }
+        let tokens = query.split(separator: " ").map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
         
-        if existingLayer == nil {
-            // 创建新层
-            let newLayer = store.createLayer(name: query.lowercased(), displayName: query)
+        if tokens.count >= 2 {
+            // 检测复合层创建语法: "层C 层A 层B"
+            let compoundLayerName = tokens[0]
+            let childLayerNames = Array(tokens[1...])
             
-            // 切换到新层
+            print("🎯 CommandPalette: 检测到复合层创建 - 复合层: \(compoundLayerName), 子层: \(childLayerNames)")
+            
+            // 创建复合层命令并执行
+            let compoundCommand = CreateCompoundLayerCommand(
+                compoundLayerName: compoundLayerName, 
+                childLayerNames: childLayerNames
+            )
+            
+            let context = CommandContext(
+                store: store,
+                currentNode: store.selectedNode,
+                selectedTag: store.selectedTag
+            )
+            
             Task {
-                await store.switchToLayer(newLayer)
-                await MainActor.run {
-                    print("已创建并切换到新层: \(newLayer.displayName)")
-                    // 新建层完成后移除焦点并使用快速关闭动画
-                    isTextFieldFocused = false
-                    withAnimation(.linear(duration: 0.05)) {
+                do {
+                    let result = try await compoundCommand.execute(with: context)
+                    await MainActor.run {
+                        handleCommandResult(result)
+                        // 复合层创建完成后关闭面板
+                        isTextFieldFocused = false
+                        withAnimation(.linear(duration: 0.05)) {
+                            isPresented = false
+                        }
+                    }
+                } catch {
+                    await MainActor.run {
+                        print("复合层创建失败: \(error)")
+                        // 即使失败也关闭面板
+                        isTextFieldFocused = false
                         isPresented = false
                     }
                 }
             }
         } else {
-            print("层 '\(query)' 已存在")
+            // 单个层名，创建普通层
+            let layerName = tokens[0]
+            
+            // 检查是否已存在同名层
+            let existingLayer = store.layers.first { 
+                $0.name.lowercased() == layerName.lowercased() || 
+                $0.displayName.lowercased() == layerName.lowercased() 
+            }
+            
+            if existingLayer == nil {
+                // 创建新层
+                let newLayer = store.createLayer(name: layerName.lowercased(), displayName: layerName)
+                
+                // 切换到新层
+                Task {
+                    await store.switchToLayer(newLayer)
+                    await MainActor.run {
+                        print("已创建并切换到新层: \(newLayer.displayName)")
+                        // 新建层完成后移除焦点并使用快速关闭动画
+                        isTextFieldFocused = false
+                        withAnimation(.linear(duration: 0.05)) {
+                            isPresented = false
+                        }
+                    }
+                }
+            } else {
+                print("层 '\(layerName)' 已存在")
+                // 如果层已存在，切换到现有层
+                Task {
+                    await store.switchToLayer(existingLayer!)
+                    await MainActor.run {
+                        print("已切换到现有层: \(existingLayer!.displayName)")
+                        isTextFieldFocused = false
+                        withAnimation(.linear(duration: 0.05)) {
+                            isPresented = false
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -426,8 +485,8 @@ private struct NewCommandRowView: View {
                         .foregroundColor(.secondary)
                 }
             }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 10)
         }
         .buttonStyle(.plain)
         .background(
