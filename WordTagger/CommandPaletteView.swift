@@ -271,7 +271,7 @@ struct CommandPaletteView: View {
                 }
             }
         } // 结束最外层ZStack
-        .frame(minWidth: 800, minHeight: 500)
+        .frame(minWidth: 750, minHeight: 450)
         .background(Color(NSColor.windowBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(radius: 20)

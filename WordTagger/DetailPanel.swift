@@ -1927,7 +1927,7 @@ struct EditNodeSheet: View {
             .padding(.vertical, 16)
             .background(Color(NSColor.controlBackgroundColor))
         }
-        .frame(width: 450, height: 500)
+        .frame(width: 400, height: 450)
         .onAppear {
             // 自动聚焦到第一个空字段
             if phonetic.isEmpty {
