@@ -1328,7 +1328,7 @@ struct WordTaggerApp: App {
             ZStack {
                 ContentView()
                     .environmentObject(store)
-                    .frame(minWidth: 800, minHeight: 600)
+                    .frame(minWidth: 960, minHeight: 540)
                 
                 if showPalette {
                     ZStack {
@@ -1497,7 +1497,7 @@ struct WordTaggerApp: App {
         WindowGroup("地图视图", id: "map") {
             MapWindow()
                 .environmentObject(store)
-                .frame(minWidth: 800, minHeight: 600)
+                .frame(minWidth: 800, minHeight: 540)
         }
         .defaultSize(width: 1000, height: 700)
         
@@ -1505,7 +1505,7 @@ struct WordTaggerApp: App {
         WindowGroup("全局图谱", id: "graph") {
             GraphView()
                 .environmentObject(store)
-                .frame(minWidth: 1000, minHeight: 700)
+                .frame(minWidth: 960, minHeight: 640)
         }
         .defaultSize(width: 1200, height: 800)
         
@@ -1513,7 +1513,7 @@ struct WordTaggerApp: App {
         WindowGroup("节点管理", id: "nodeManager") {
             NodeManagerView()
                 .environmentObject(store)
-                .frame(minWidth: 800, minHeight: 600)
+                .frame(minWidth: 800, minHeight: 540)
         }
         .defaultSize(width: 1000, height: 700)
         
@@ -1521,7 +1521,7 @@ struct WordTaggerApp: App {
         WindowGroup("全屏图谱", id: "fullscreenGraph") {
             FullscreenGraphView()
                 .environmentObject(store)
-                .frame(minWidth: 800, minHeight: 600)
+                .frame(minWidth: 960, minHeight: 540)
                 .onAppear {
                     // 窗口级别的焦点设置
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {

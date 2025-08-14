@@ -17,7 +17,7 @@ struct ContentView: View {
             // 左侧：标签和搜索
             if showSidebar {
                 TagSidebarView(selectedNode: $selectedNode)
-                    .frame(width: 300)
+                    .frame(width: 250)
                     .transition(.move(edge: .leading).combined(with: .opacity))
             }
             
@@ -29,14 +29,14 @@ struct ContentView: View {
             ResizableDivider(
                 width: $wordListWidth,
                 isDragging: $isDraggingDivider,
-                minWidth: showSidebar ? 200 : 250,
-                maxWidth: showSidebar ? 450 : 500
+                minWidth: showSidebar ? 180 : 220,
+                maxWidth: showSidebar ? 400 : 450
             )
             
             // 右侧：详情面板 (图谱区域)
             if let node = selectedNode {
                 DetailPanel(node: node)
-                    .frame(minWidth: 400, maxWidth: .infinity)
+                    .frame(minWidth: 350, maxWidth: .infinity)
             } else {
                 WelcomeView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -45,8 +45,8 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.3), value: showSidebar)
         .onChange(of: showSidebar) { _, newValue in
             // 当侧边栏状态改变时，调整WordList宽度以适应新的约束
-            let minWidth: CGFloat = newValue ? 200 : 250
-            let maxWidth: CGFloat = newValue ? 450 : 500
+            let minWidth: CGFloat = newValue ? 180 : 220
+            let maxWidth: CGFloat = newValue ? 400 : 450
             wordListWidth = max(minWidth, min(maxWidth, wordListWidth))
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("requestOpenFullscreenGraph"))) { _ in

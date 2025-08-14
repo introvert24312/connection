@@ -1771,32 +1771,30 @@ struct EditNodeSheet: View {
             // 表单内容
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    // 节点名称
+                    // 节点名称（只读显示）
                     VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("节点名称")
-                                .font(.headline)
-                                .foregroundColor(.primary)
-                            Text("*")
-                                .foregroundColor(.red)
-                        }
+                        Text("节点名称")
+                            .font(.headline)
+                            .foregroundColor(.primary)
                         
-                        TextField("输入节点名称", text: $text)
-                            .textFieldStyle(.roundedBorder)
-                            .focused($focusedField, equals: .text)
-                            .font(.body)
+                        Text(text)
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(Color(NSColor.controlBackgroundColor))
+                                    .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+                            )
                     }
                     
-                    // 音标
+                    // Preview
                     VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("音标")
-                                .font(.headline)
-                                .foregroundColor(.primary)
-                            Text("(可选)")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
+                        Text("Preview")
+                            .font(.headline)
+                            .foregroundColor(.primary)
                         
                         TextField("例如：/ɪɡˈzæmpəl/", text: $phonetic)
                             .textFieldStyle(.roundedBorder)
@@ -1825,18 +1823,13 @@ struct EditNodeSheet: View {
                         }
                     }
                     
-                    // 含义
+                    // 解释
                     VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("含义")
-                                .font(.headline)
-                                .foregroundColor(.primary)
-                            Text("(可选)")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
+                        Text("解释")
+                            .font(.headline)
+                            .foregroundColor(.primary)
                         
-                        TextField("输入节点含义或解释", text: $meaning, axis: .vertical)
+                        TextField("输入节点解释", text: $meaning, axis: .vertical)
                             .textFieldStyle(.roundedBorder)
                             .focused($focusedField, equals: .meaning)
                             .lineLimit(3...6)
@@ -1847,7 +1840,7 @@ struct EditNodeSheet: View {
                                 Image(systemName: "text.quote")
                                     .foregroundColor(.green)
                                     .font(.caption)
-                                Text("含义预览：")
+                                Text("解释预览：")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 Text(meaning)
@@ -1921,7 +1914,7 @@ struct EditNodeSheet: View {
                 Button("保存") {
                     store.updateNode(
                         node.id,
-                        text: text.isEmpty ? nil : text,
+                        text: nil, // 不修改节点名称
                         phonetic: phonetic.isEmpty ? nil : phonetic,
                         meaning: meaning.isEmpty ? nil : meaning
                     )
@@ -1929,21 +1922,20 @@ struct EditNodeSheet: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .disabled(text.isEmpty)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
             .background(Color(NSColor.controlBackgroundColor))
         }
-        .frame(width: 500, height: 600)
+        .frame(width: 450, height: 500)
         .onAppear {
             // 自动聚焦到第一个空字段
-            if text.isEmpty {
-                focusedField = .text
-            } else if phonetic.isEmpty {
+            if phonetic.isEmpty {
                 focusedField = .phonetic
             } else if meaning.isEmpty {
                 focusedField = .meaning
+            } else {
+                focusedField = .phonetic
             }
         }
         .onKeyPress(.escape) {
@@ -1951,17 +1943,14 @@ struct EditNodeSheet: View {
             return .handled
         }
         .onKeyPress(.return) {
-            if !text.isEmpty {
-                store.updateNode(
-                    node.id,
-                    text: text.isEmpty ? nil : text,
-                    phonetic: phonetic.isEmpty ? nil : phonetic,
-                    meaning: meaning.isEmpty ? nil : meaning
-                )
-                dismiss()
-                return .handled
-            }
-            return .ignored
+            store.updateNode(
+                node.id,
+                text: nil, // 不修改节点名称
+                phonetic: phonetic.isEmpty ? nil : phonetic,
+                meaning: meaning.isEmpty ? nil : meaning
+            )
+            dismiss()
+            return .handled
         }
     }
 }
