@@ -852,7 +852,17 @@ struct NodeGraphNode: UniversalGraphNode {
         // 使用全局ID生成器确保绝对唯一
         self.id = GraphNodeIDGenerator.shared.nextID()
         self.label = node.text
-        self.subtitle = node.meaning
+        
+        // 构建更丰富的subtitle，包含音标和含义
+        var subtitleParts: [String] = []
+        if let phonetic = node.phonetic, !phonetic.isEmpty {
+            subtitleParts.append(phonetic)
+        }
+        if let meaning = node.meaning, !meaning.isEmpty {
+            subtitleParts.append(meaning)
+        }
+        self.subtitle = subtitleParts.isEmpty ? nil : subtitleParts.joined(separator: " • ")
+        
         self.node = node
         self.tag = nil
         self.nodeType = .node
@@ -1723,6 +1733,11 @@ struct EditNodeSheet: View {
     @State private var text: String
     @State private var phonetic: String
     @State private var meaning: String
+    @FocusState private var focusedField: Field?
+    
+    enum Field {
+        case text, phonetic, meaning
+    }
     
     init(node: Node) {
         self.node = node
@@ -1732,36 +1747,222 @@ struct EditNodeSheet: View {
     }
     
     var body: some View {
-        NavigationView {
-            Form {
-                Section("节点信息") {
-                    TextField("节点", text: $text)
-                    TextField("音标（可选）", text: $phonetic)
-                    TextField("含义（可选）", text: $meaning, axis: .vertical)
-                        .lineLimit(3)
-                }
-            }
-            .navigationTitle("编辑节点")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                }
+        VStack(spacing: 0) {
+            // 标题栏
+            HStack {
+                Text("编辑节点")
+                    .font(.title2)
+                    .fontWeight(.semibold)
                 
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
-                        store.updateNode(
-                            node.id,
-                            text: text.isEmpty ? nil : text,
-                            phonetic: phonetic.isEmpty ? nil : phonetic,
-                            meaning: meaning.isEmpty ? nil : meaning
-                        )
-                        dismiss()
-                    }
-                    .disabled(text.isEmpty)
+                Spacer()
+                
+                Button("取消") {
+                    dismiss()
                 }
+                .buttonStyle(.borderless)
+                .foregroundColor(.secondary)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .background(Color(NSColor.controlBackgroundColor))
+            
+            Divider()
+            
+            // 表单内容
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    // 节点名称
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("节点名称")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                            Text("*")
+                                .foregroundColor(.red)
+                        }
+                        
+                        TextField("输入节点名称", text: $text)
+                            .textFieldStyle(.roundedBorder)
+                            .focused($focusedField, equals: .text)
+                            .font(.body)
+                    }
+                    
+                    // 音标
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("音标")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                            Text("(可选)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        TextField("例如：/ɪɡˈzæmpəl/", text: $phonetic)
+                            .textFieldStyle(.roundedBorder)
+                            .focused($focusedField, equals: .phonetic)
+                            .font(.body)
+                        
+                        if !phonetic.isEmpty {
+                            HStack {
+                                Image(systemName: "speaker.wave.2")
+                                    .foregroundColor(.blue)
+                                    .font(.caption)
+                                Text("音标预览：")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text(phonetic)
+                                    .font(.caption)
+                                    .foregroundColor(.blue)
+                                    .fontWeight(.medium)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(Color.blue.opacity(0.1))
+                            )
+                        }
+                    }
+                    
+                    // 含义
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("含义")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                            Text("(可选)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        TextField("输入节点含义或解释", text: $meaning, axis: .vertical)
+                            .textFieldStyle(.roundedBorder)
+                            .focused($focusedField, equals: .meaning)
+                            .lineLimit(3...6)
+                            .font(.body)
+                        
+                        if !meaning.isEmpty {
+                            HStack {
+                                Image(systemName: "text.quote")
+                                    .foregroundColor(.green)
+                                    .font(.caption)
+                                Text("含义预览：")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Text(meaning)
+                                    .font(.caption)
+                                    .foregroundColor(.green)
+                                    .fontWeight(.medium)
+                                    .lineLimit(2)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(Color.green.opacity(0.1))
+                            )
+                        }
+                    }
+                    
+                    // 预览区域
+                    if !text.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("节点预览")
+                                .font(.headline)
+                                .foregroundColor(.primary)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(text)
+                                    .font(.title3)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.primary)
+                                
+                                if !phonetic.isEmpty {
+                                    Text(phonetic)
+                                        .font(.body)
+                                        .foregroundColor(.blue)
+                                        .fontWeight(.medium)
+                                }
+                                
+                                if !meaning.isEmpty {
+                                    Text(meaning)
+                                        .font(.body)
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(3)
+                                }
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color(NSColor.controlBackgroundColor))
+                                    .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+                            )
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+            }
+            
+            Divider()
+            
+            // 底部按钮
+            HStack {
+                Spacer()
+                
+                Button("取消") {
+                    dismiss()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                
+                Button("保存") {
+                    store.updateNode(
+                        node.id,
+                        text: text.isEmpty ? nil : text,
+                        phonetic: phonetic.isEmpty ? nil : phonetic,
+                        meaning: meaning.isEmpty ? nil : meaning
+                    )
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(text.isEmpty)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .background(Color(NSColor.controlBackgroundColor))
+        }
+        .frame(width: 500, height: 600)
+        .onAppear {
+            // 自动聚焦到第一个空字段
+            if text.isEmpty {
+                focusedField = .text
+            } else if phonetic.isEmpty {
+                focusedField = .phonetic
+            } else if meaning.isEmpty {
+                focusedField = .meaning
             }
         }
-        .frame(width: 400, height: 300)
+        .onKeyPress(.escape) {
+            dismiss()
+            return .handled
+        }
+        .onKeyPress(.return) {
+            if !text.isEmpty {
+                store.updateNode(
+                    node.id,
+                    text: text.isEmpty ? nil : text,
+                    phonetic: phonetic.isEmpty ? nil : phonetic,
+                    meaning: meaning.isEmpty ? nil : meaning
+                )
+                dismiss()
+                return .handled
+            }
+            return .ignored
+        }
     }
 }
 
