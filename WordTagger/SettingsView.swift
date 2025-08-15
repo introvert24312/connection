@@ -728,7 +728,48 @@ struct CreateLayerSheet: View {
     }
     
     var body: some View {
-        NavigationView {
+        VStack(spacing: 0) {
+            // 顶部标题栏
+            HStack {
+                Text("创建新层")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                
+                Spacer()
+                
+                HStack(spacing: 12) {
+                    Button("取消") {
+                        dismiss()
+                    }
+                    .buttonStyle(.bordered)
+                    
+                    Button("创建") {
+                        let newLayer = store.createLayer(
+                            name: name.isEmpty ? displayName.lowercased().replacingOccurrences(of: " ", with: "_") : name,
+                            displayName: displayName.isEmpty ? name : displayName,
+                            color: selectedColor
+                        )
+                        
+                        // 如果这是第一个层，自动激活
+                        if store.layers.count == 1 {
+                            Task {
+                                await store.switchToLayer(newLayer)
+                            }
+                        }
+                        
+                        dismiss()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!isFormValid)
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
+            .background(Color(NSColor.controlBackgroundColor))
+            
+            Divider()
+            
+            // 主内容区域
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     // 层信息区域
@@ -789,38 +830,12 @@ struct CreateLayerSheet: View {
                     
                     Spacer(minLength: 20)
                 }
-                .padding(20)
+                .padding(24)
             }
-            .navigationTitle("创建新层")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") {
-                        dismiss()
-                    }
-                }
-                
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("创建") {
-                        let newLayer = store.createLayer(
-                            name: name.isEmpty ? displayName.lowercased().replacingOccurrences(of: " ", with: "_") : name,
-                            displayName: displayName.isEmpty ? name : displayName,
-                            color: selectedColor
-                        )
-                        
-                        // 如果这是第一个层，自动激活
-                        if store.layers.count == 1 {
-                            Task {
-                                await store.switchToLayer(newLayer)
-                            }
-                        }
-                        
-                        dismiss()
-                    }
-                    .disabled(!isFormValid)
-                }
-            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(width: 480, height: 500)
+        .frame(width: 500, height: 550)
+        .background(Color(NSColor.windowBackgroundColor))
     }
 }
 
@@ -1157,7 +1172,7 @@ struct AboutView: View {
                     .font(.system(size: 60))
                     .foregroundColor(.blue)
                 
-                Text("节点标签管理器")
+                Text("Connection")
                     .font(.title)
                     .fontWeight(.bold)
                 
@@ -1186,7 +1201,7 @@ struct AboutView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                 
-                Text("© 2024 WordTagger. All rights reserved.")
+                Text("© 2024 Connection. All rights reserved.")
                     .font(.caption2)
                     .foregroundColor(Color.secondary)
             }
@@ -1400,7 +1415,7 @@ struct DataFolderSetupView: View {
                     .font(.title)
                     .fontWeight(.bold)
                 
-                Text("选择一个文件夹来存储WordTagger的数据")
+                Text("选择一个文件夹来存储Connection的数据")
                     .font(.body)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)

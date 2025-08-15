@@ -112,7 +112,7 @@ public final class CommandParser: ObservableObject {
     
     // MARK: - Command Parsing Logic
     
-    private func parseDirectCommand(_ input: String, context: CommandContext) -> Command? {
+    public func parseDirectCommand(_ input: String, context: CommandContext) -> Command? {
         let tokens = nlpProcessor.tokenize(input)
         let intent = nlpProcessor.detectIntent(from: tokens)
         

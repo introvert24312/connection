@@ -111,6 +111,20 @@ struct CommandPaletteView: View {
                                     }
                                     return .ignored
                                 }
+                                .onKeyPress(.init("r"), phases: .down) { keyPress in
+                                    if keyPress.modifiers.contains(.command) {
+                                        handleCreateNewLayer()
+                                        return .handled
+                                    }
+                                    return .ignored
+                                }
+                                .onKeyPress(.init("R"), phases: .down) { keyPress in
+                                    if keyPress.modifiers.contains(.command) {
+                                        handleCreateNewLayer()
+                                        return .handled
+                                    }
+                                    return .ignored
+                                }
                             
                             if !query.isEmpty {
                                 Button(action: {
@@ -329,7 +343,7 @@ struct CommandPaletteView: View {
                 }
             }
             
-            // 添加NSEvent监听来处理ESC键，绕过SwiftUI的默认处理
+            // 添加NSEvent监听来处理ESC键和Command+R，绕过SwiftUI的默认处理
             keyEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                 print("🎹 NSEvent监听到键盘事件: keyCode=\(event.keyCode), characters=\(event.characters ?? "nil"), 焦点状态: \(isTextFieldFocused)")
                 
@@ -366,7 +380,16 @@ struct CommandPaletteView: View {
                     }
                 }
                 
-                return event // 不是ESC键，传递事件
+                // R键的keyCode是15，检查Command+R
+                if event.keyCode == 15 && event.modifierFlags.contains(.command) && isTextFieldFocused {
+                    print("🎹 NSEvent检测到Command+R，当前query: '\(query)'")
+                    DispatchQueue.main.async {
+                        handleCreateNewLayer()
+                    }
+                    return nil // 消费事件
+                }
+                
+                return event // 不是目标键，传递事件
             }
         }
         .sheet(isPresented: $showFilterSheet) {
@@ -516,6 +539,70 @@ struct CommandPaletteView: View {
             }
         } else {
             print("❌ CommandPalette: 未找到匹配的层: '\(trimmedQuery)'")
+        }
+    }
+    
+    // 处理⌘R: 创建新层
+    private func handleCreateNewLayer() {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedQuery.isEmpty else {
+            print("🔍 CommandPalette: 查询为空，无法创建新层")
+            return
+        }
+        
+        // 首先检查是否是复合层格式
+        let context = CommandContext(store: store)
+        if let command = commandParser.parseDirectCommand(trimmedQuery, context: context) {
+            // 如果解析出了命令，执行它
+            Task {
+                do {
+                    let result = try await command.execute(with: context)
+                    await MainActor.run {
+                        handleCommandResult(result)
+                        // 清空搜索框
+                        query = ""
+                        showSearchDropdown = false
+                    }
+                } catch {
+                    print("❌ CommandPalette: 执行命令失败: \(error)")
+                }
+            }
+            return
+        }
+        
+        // 如果不是复合层格式，创建普通层
+        // 检查是否已存在同名层
+        let existingLayer = store.layers.first { layer in
+            layer.displayName.lowercased() == trimmedQuery.lowercased() ||
+            layer.name.lowercased() == trimmedQuery.lowercased()
+        }
+        
+        if existingLayer != nil {
+            print("⚠️ CommandPalette: 层 '\(trimmedQuery)' 已存在")
+            return
+        }
+        
+        // 创建新层
+        let newLayer = store.createLayer(
+            name: trimmedQuery.lowercased().replacingOccurrences(of: " ", with: "_"),
+            displayName: trimmedQuery,
+            color: "blue"
+        )
+        
+        print("✅ CommandPalette: 成功创建新层 '\(newLayer.displayName)'")
+        
+        // 自动添加新层到过滤器
+        filteredLayerIds.insert(newLayer.id)
+        
+        // 清空搜索框
+        query = ""
+        showSearchDropdown = false
+        
+        // 如果这是第一个层，自动激活
+        if store.layers.count == 1 {
+            Task {
+                await store.switchToLayer(newLayer)
+            }
         }
     }
 }
