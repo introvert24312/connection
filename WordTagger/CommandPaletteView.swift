@@ -8,6 +8,7 @@ struct CommandPaletteView: View {
     @State private var query: String = ""
 
     @StateObject private var commandParser = CommandParser.shared
+    @StateObject private var keyboardManager = KeyboardEventManager()
     @FocusState private var isTextFieldFocused: Bool
     @State private var shouldDismiss: Bool = false
 
@@ -47,20 +48,32 @@ struct CommandPaletteView: View {
                 VStack(spacing: 0) {
                     // 统一的顶部工具栏 - 合并为一行
                     HStack(spacing: 12) {
-                        // 左侧标题
+                        // 左侧标题 - 带错误恢复指示器
                         HStack(spacing: 4) {
-                            Image(systemName: "command")
-                                .font(.system(size: 14, weight: .medium))
-                            Text("层管理")
+                            if keyboardManager.isInErrorRecovery {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(.orange)
+                            } else {
+                                Image(systemName: "command")
+                                    .font(.system(size: 14, weight: .medium))
+                            }
+                            Text(keyboardManager.isInErrorRecovery ? "恢复中" : "层管理")
                                 .font(.system(size: 14, weight: .semibold))
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(
                             RoundedRectangle(cornerRadius: 6)
-                                .fill(Color.blue)
+                                .fill(keyboardManager.isInErrorRecovery ? Color.orange : Color.blue)
                         )
                         .foregroundColor(.white)
+                        .onTapGesture {
+                            if keyboardManager.isInErrorRecovery {
+                                // Allow manual error recovery reset
+                                keyboardManager.resetErrorState()
+                            }
+                        }
                         
                         // 中间搜索框 - 适中尺寸，移除焦点框
                         HStack(spacing: 8) {
@@ -317,6 +330,45 @@ struct CommandPaletteView: View {
             shouldDismiss = true
             return .handled
         }
+        .onKeyPress(.init("g"), phases: .down) { keyPress in
+            if keyPress.modifiers.contains(.command) {
+                guard keyboardManager.canExecuteCommand(KeyboardEventManager.Commands.commandG) else {
+                    print("🎹 Command+G blocked by keyboard manager")
+                    return .handled
+                }
+                
+                keyboardManager.markCommandExecuted(KeyboardEventManager.Commands.commandG)
+                Task {
+                    do {
+                        try await handleCommandGWithErrorHandling()
+                    } catch {
+                        keyboardManager.markCommandFailed(KeyboardEventManager.Commands.commandG, error: error as? KeyboardError ?? .unexpectedState)
+                    }
+                }
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(.init("w"), phases: .down) { keyPress in
+            if keyPress.modifiers.contains(.command) {
+                guard keyboardManager.canExecuteCommand(KeyboardEventManager.Commands.commandW) else {
+                    print("🎹 Command+W blocked by keyboard manager")
+                    return .handled
+                }
+                
+                print("🎹 Command+W detected, marking execution and clearing command states")
+                keyboardManager.markCommandExecuted(KeyboardEventManager.Commands.commandW)
+                
+                // Clear any pending command states before closing to prevent interference
+                // This ensures Command+W doesn't trigger Command+G functionality
+                keyboardManager.clearCommandState()
+                print("✅ Command states cleared before executing Command+W")
+                
+                handleCommandW()
+                return .handled
+            }
+            return .ignored
+        }
         .onAppear {
             setupView()
             
@@ -432,6 +484,9 @@ struct CommandPaletteView: View {
     }
     
     private func dismissView() {
+        // Clear keyboard event state before closing
+        keyboardManager.clearCommandState()
+        
         // 立即清除搜索框焦点，防止残留蓝色边框
         isTextFieldFocused = false
         
@@ -605,6 +660,92 @@ struct CommandPaletteView: View {
             }
         }
     }
+    
+    // 处理⌘G: 打开图谱窗口
+    private func handleCommandG() {
+        print("🎹 CommandPalette: 执行Command+G - 打开图谱窗口")
+        
+        // Verify that Command+W is not active to prevent interference
+        if keyboardManager.isCommandActive(KeyboardEventManager.Commands.commandW) {
+            print("⚠️ CommandPalette: Command+W is active, skipping Command+G execution")
+            return
+        }
+        
+        NotificationCenter.default.post(name: .openGraphWindow, object: nil)
+    }
+    
+    // Enhanced Command+G handler with error handling
+    private func handleCommandGWithErrorHandling() async throws {
+        print("🎹 CommandPalette: 执行Command+G (with error handling) - 打开图谱窗口")
+        
+        // Check for focus issues
+        guard NSApplication.shared.isActive else {
+            throw KeyboardError.focusLost
+        }
+        
+        // Verify that Command+W is not active to prevent interference
+        if keyboardManager.isCommandActive(KeyboardEventManager.Commands.commandW) {
+            print("⚠️ CommandPalette: Command+W is active, skipping Command+G execution")
+            throw KeyboardError.eventConflict
+        }
+        
+        // Check if we're in error recovery mode
+        if keyboardManager.isInErrorRecovery {
+            print("⚠️ CommandPalette: In error recovery mode, cannot execute Command+G")
+            throw KeyboardError.unexpectedState
+        }
+        
+        // Execute the command with timeout protection
+        let timeoutTask = Task {
+            try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+            throw KeyboardError.timeout
+        }
+        
+        let commandTask = Task {
+            NotificationCenter.default.post(name: .openGraphWindow, object: nil)
+        }
+        
+        // Wait for either completion or timeout
+        _ = try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask {
+                _ = await commandTask.value
+            }
+            group.addTask {
+                try await timeoutTask.value
+            }
+            
+            // Return when first task completes
+            try await group.next()
+            group.cancelAll()
+        }
+        print("✅ Command+G executed successfully")
+    }
+    
+    // 处理⌘W: 关闭窗口
+    private func handleCommandW() {
+        print("🎹 CommandPalette: 执行Command+W - 关闭窗口")
+        
+        // Verify that Command+G is not active before proceeding
+        if keyboardManager.isCommandActive(KeyboardEventManager.Commands.commandG) {
+            print("⚠️ CommandPalette: Command+G is still active, clearing state before closing")
+            // Clear the state again to ensure clean closure
+            keyboardManager.clearCommandState()
+        }
+        
+        // Verify that no other commands are active before closing
+        if keyboardManager.isCommandActive(KeyboardEventManager.Commands.commandG) {
+            print("⚠️ CommandPalette: Command+G still active after clearing, aborting window close")
+            return
+        }
+        
+        // Ensure Command+W doesn't trigger Command+G functionality by clearing all states
+        keyboardManager.clearCommandState()
+        
+        print("✅ CommandPalette: All command states cleared, proceeding with window close")
+        
+        // Close the command palette
+        shouldDismiss = true
+    }
 }
 
 // MARK: - Simplified Layer Structure Graph View
@@ -698,7 +839,7 @@ struct LayerStructureGraphViewSimple: View {
     }
     
     private var layerGraph: some View {
-        UniversalRelationshipGraphView(
+        NodeContextGraphView(
             nodes: cachedNodes,
             edges: cachedEdges,
             title: "层结构图谱",
@@ -739,6 +880,7 @@ struct LayerStructureGraphViewSimple: View {
                 // 不执行任何操作，包括状态变化
             }
         )
+        .environmentObject(store)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
         // 移除可能导致事件冒泡的手势处理
@@ -1317,7 +1459,8 @@ struct LayerFilterRow: View {
     }
 }
 
-#Preview {
-    CommandPaletteView(isPresented: .constant(true))
-        .environmentObject(NodeStore.shared)
-}
+// Preview temporarily disabled due to @FocusState initialization complexity
+// #Preview {
+//     CommandPaletteView(isPresented: .constant(true))
+//         .environmentObject(NodeStore.shared)
+// }

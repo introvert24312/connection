@@ -1,0 +1,507 @@
+{
+  "testSuite": {
+    "name": "Node Interaction and Git Integration",
+    "version": "1.0",
+    "description": "Comprehensive test scenarios for new WordTagger features",
+    "categories": [
+      {
+        "name": "Node Context Menu",
+        "description": "Testing right-click context menu functionality",
+        "scenarios": [
+          {
+            "id": "NCM-001",
+            "title": "Right-Click Detection",
+            "priority": "High",
+            "estimatedTime": "5 minutes",
+            "prerequisites": [
+              "WordTagger is running",
+              "Graph view contains visible nodes"
+            ],
+            "steps": [
+              {
+                "step": 1,
+                "action": "Right-click on any node in the graph",
+                "expected": "Context menu appears at cursor position within 200ms"
+              },
+              {
+                "step": 2,
+                "action": "Verify menu options",
+                "expected": "Menu contains 'Edit Command Label', 'Edit Node Name', and 'Delete' options"
+              },
+              {
+                "step": 3,
+                "action": "Click outside menu to dismiss",
+                "expected": "Menu disappears cleanly"
+              }
+            ],
+            "passCriteria": "Context menu appears with all expected options and dismisses properly",
+            "failureActions": [
+              "Check console for JavaScript errors",
+              "Verify WebView message handlers are working",
+              "Test with different node types"
+            ]
+          },
+          {
+            "id": "NCM-002",
+            "title": "Node Editor Integration",
+            "priority": "High",
+            "estimatedTime": "10 minutes",
+            "prerequisites": [
+              "Context menu is working (NCM-001 passed)"
+            ],
+            "steps": [
+              {
+                "step": 1,
+                "action": "Right-click node and select 'Edit Node Name'",
+                "expected": "Node editor sheet opens with name field focused"
+              },
+              {
+                "step": 2,
+                "action": "Modify node name to 'Test Node Modified'",
+                "expected": "Text field accepts input and shows changes"
+              },
+              {
+                "step": 3,
+                "action": "Add command label 'test command'",
+                "expected": "Command field accepts input"
+              },
+              {
+                "step": 4,
+                "action": "Click Save",
+                "expected": "Editor closes and node displays updated name"
+              },
+              {
+                "step": 5,
+                "action": "Restart application",
+                "expected": "Changes persist after restart"
+              }
+            ],
+            "passCriteria": "Node data is successfully modified and persisted",
+            "failureActions": [
+              "Check data validation logic",
+              "Verify save callback is working",
+              "Test with different node types"
+            ]
+          },
+          {
+            "id": "NCM-003",
+            "title": "Input Validation",
+            "priority": "Medium",
+            "estimatedTime": "8 minutes",
+            "prerequisites": [
+              "Node editor is accessible"
+            ],
+            "steps": [
+              {
+                "step": 1,
+                "action": "Open node editor and clear name field",
+                "expected": "Validation error appears for empty name"
+              },
+              {
+                "step": 2,
+                "action": "Enter name with 300+ characters",
+                "expected": "Character limit validation triggers"
+              },
+              {
+                "step": 3,
+                "action": "Enter command with 400+ characters",
+                "expected": "Command length validation triggers"
+              },
+              {
+                "step": 4,
+                "action": "Verify Save button state",
+                "expected": "Save button is disabled for invalid input"
+              }
+            ],
+            "passCriteria": "Validation prevents invalid data and shows helpful messages",
+            "failureActions": [
+              "Review validation logic",
+              "Check error message display",
+              "Test edge cases"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Keyboard Shortcuts",
+        "description": "Testing keyboard shortcut functionality and conflict resolution",
+        "scenarios": [
+          {
+            "id": "KS-001",
+            "title": "Command+G Functionality",
+            "priority": "High",
+            "estimatedTime": "5 minutes",
+            "prerequisites": [
+              "WordTagger is running",
+              "Command palette is accessible"
+            ],
+            "steps": [
+              {
+                "step": 1,
+                "action": "Press Command+G",
+                "expected": "Graph-related function executes"
+              },
+              {
+                "step": 2,
+                "action": "Immediately press Command+G again",
+                "expected": "Second execution is blocked by cooldown"
+              },
+              {
+                "step": 3,
+                "action": "Wait 1 second and press Command+G",
+                "expected": "Function executes after cooldown period"
+              }
+            ],
+            "passCriteria": "Command+G works reliably with proper cooldown",
+            "failureActions": [
+              "Check KeyboardEventManager state",
+              "Verify cooldown timing",
+              "Test with different timing intervals"
+            ]
+          },
+          {
+            "id": "KS-002",
+            "title": "Command+W Window Closing",
+            "priority": "High",
+            "estimatedTime": "5 minutes",
+            "prerequisites": [
+              "Multiple windows are open"
+            ],
+            "steps": [
+              {
+                "step": 1,
+                "action": "Press Command+G to activate graph function",
+                "expected": "Graph function executes"
+              },
+              {
+                "step": 2,
+                "action": "Immediately press Command+W",
+                "expected": "Window closes without triggering Command+G"
+              },
+              {
+                "step": 3,
+                "action": "Verify other windows remain open",
+                "expected": "Only active window closes"
+              }
+            ],
+            "passCriteria": "Command+W closes windows without triggering other commands",
+            "failureActions": [
+              "Check command state clearing",
+              "Verify window close handling",
+              "Test with different window types"
+            ]
+          },
+          {
+            "id": "KS-003",
+            "title": "Error Recovery",
+            "priority": "Medium",
+            "estimatedTime": "10 minutes",
+            "prerequisites": [
+              "Keyboard event manager is active"
+            ],
+            "steps": [
+              {
+                "step": 1,
+                "action": "Rapidly press multiple keyboard shortcuts",
+                "expected": "Error recovery mode may activate"
+              },
+              {
+                "step": 2,
+                "action": "Press Escape key",
+                "expected": "Recovery command is accepted"
+              },
+              {
+                "step": 3,
+                "action": "Test normal keyboard shortcuts",
+                "expected": "Normal operation resumes"
+              }
+            ],
+            "passCriteria": "Error recovery restores normal keyboard functionality",
+            "failureActions": [
+              "Check error recovery logic",
+              "Verify state reset mechanism",
+              "Test different error scenarios"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Git Integration",
+        "description": "Testing Git repository connectivity and operations",
+        "scenarios": [
+          {
+            "id": "GIT-001",
+            "title": "Repository Configuration",
+            "priority": "High",
+            "estimatedTime": "10 minutes",
+            "prerequisites": [
+              "Valid Git repository URL available",
+              "Personal access token ready"
+            ],
+            "steps": [
+              {
+                "step": 1,
+                "action": "Open Settings and navigate to Git tab",
+                "expected": "Git settings interface is displayed"
+              },
+              {
+                "step": 2,
+                "action": "Enter valid repository URL",
+                "expected": "URL field accepts input and validates format"
+              },
+              {
+                "step": 3,
+                "action": "Click 'Configure Credentials'",
+                "expected": "Credential input dialog opens"
+              },
+              {
+                "step": 4,
+                "action": "Enter username and token",
+                "expected": "Credentials are accepted and token is masked"
+              },
+              {
+                "step": 5,
+                "action": "Click 'Connect'",
+                "expected": "Connection test succeeds and status updates"
+              }
+            ],
+            "passCriteria": "Repository configuration completes successfully",
+            "failureActions": [
+              "Check network connectivity",
+              "Verify repository permissions",
+              "Test with different repository types"
+            ]
+          },
+          {
+            "id": "GIT-002",
+            "title": "Commit Operations",
+            "priority": "High",
+            "estimatedTime": "8 minutes",
+            "prerequisites": [
+              "Git repository is configured (GIT-001 passed)",
+              "Changes exist in WordTagger data"
+            ],
+            "steps": [
+              {
+                "step": 1,
+                "action": "Make changes to node data",
+                "expected": "Pending changes counter updates"
+              },
+              {
+                "step": 2,
+                "action": "Enter commit message 'Test commit'",
+                "expected": "Commit message field accepts input"
+              },
+              {
+                "step": 3,
+                "action": "Click 'Commit Changes'",
+                "expected": "Commit operation starts with progress indicator"
+              },
+              {
+                "step": 4,
+                "action": "Wait for completion",
+                "expected": "Success message appears and pending changes reset"
+              }
+            ],
+            "passCriteria": "Changes are successfully committed to repository",
+            "failureActions": [
+              "Check Git repository status",
+              "Verify commit message format",
+              "Test with different change types"
+            ]
+          },
+          {
+            "id": "GIT-003",
+            "title": "Push Operations",
+            "priority": "High",
+            "estimatedTime": "8 minutes",
+            "prerequisites": [
+              "Commits exist locally (GIT-002 passed)"
+            ],
+            "steps": [
+              {
+                "step": 1,
+                "action": "Click 'Push to Remote'",
+                "expected": "Push operation starts immediately"
+              },
+              {
+                "step": 2,
+                "action": "Monitor progress indicator",
+                "expected": "Progress shows push status"
+              },
+              {
+                "step": 3,
+                "action": "Wait for completion",
+                "expected": "Success message and last sync date update"
+              },
+              {
+                "step": 4,
+                "action": "Check remote repository",
+                "expected": "Changes appear in remote repository"
+              }
+            ],
+            "passCriteria": "Commits are successfully pushed to remote repository",
+            "failureActions": [
+              "Check network connectivity",
+              "Verify push permissions",
+              "Test with different branch configurations"
+            ]
+          },
+          {
+            "id": "GIT-004",
+            "title": "Error Handling",
+            "priority": "Medium",
+            "estimatedTime": "15 minutes",
+            "prerequisites": [
+              "Git integration is configured"
+            ],
+            "steps": [
+              {
+                "step": 1,
+                "action": "Enter invalid repository URL",
+                "expected": "Appropriate error message displays"
+              },
+              {
+                "step": 2,
+                "action": "Enter invalid credentials",
+                "expected": "Authentication error is shown"
+              },
+              {
+                "step": 3,
+                "action": "Disconnect network and attempt push",
+                "expected": "Network error with retry option"
+              },
+              {
+                "step": 4,
+                "action": "Reconnect and retry",
+                "expected": "Operation succeeds after network restoration"
+              }
+            ],
+            "passCriteria": "Errors are handled gracefully with helpful messages",
+            "failureActions": [
+              "Review error handling logic",
+              "Check retry mechanisms",
+              "Test different error scenarios"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "Integration Testing",
+        "description": "Testing interactions between all features",
+        "scenarios": [
+          {
+            "id": "INT-001",
+            "title": "End-to-End Workflow",
+            "priority": "Critical",
+            "estimatedTime": "20 minutes",
+            "prerequisites": [
+              "All individual features are working",
+              "Git repository is configured"
+            ],
+            "steps": [
+              {
+                "step": 1,
+                "action": "Right-click node and edit name",
+                "expected": "Node editor opens and accepts changes"
+              },
+              {
+                "step": 2,
+                "action": "Save node changes",
+                "expected": "Changes are saved and node updates"
+              },
+              {
+                "step": 3,
+                "action": "Check Git pending changes",
+                "expected": "Counter reflects new changes"
+              },
+              {
+                "step": 4,
+                "action": "Commit changes with message",
+                "expected": "Commit operation succeeds"
+              },
+              {
+                "step": 5,
+                "action": "Push to remote repository",
+                "expected": "Push operation succeeds"
+              },
+              {
+                "step": 6,
+                "action": "Verify in remote repository",
+                "expected": "All changes are reflected remotely"
+              }
+            ],
+            "passCriteria": "Complete workflow executes successfully",
+            "failureActions": [
+              "Identify which step failed",
+              "Check data flow between components",
+              "Verify state management"
+            ]
+          },
+          {
+            "id": "INT-002",
+            "title": "Performance Under Load",
+            "priority": "Medium",
+            "estimatedTime": "30 minutes",
+            "prerequisites": [
+              "Large dataset available (50+ nodes)"
+            ],
+            "steps": [
+              {
+                "step": 1,
+                "action": "Create 50+ nodes in graph",
+                "expected": "Graph renders all nodes correctly"
+              },
+              {
+                "step": 2,
+                "action": "Rapidly right-click different nodes",
+                "expected": "Context menus appear quickly (<200ms)"
+              },
+              {
+                "step": 3,
+                "action": "Edit multiple nodes in sequence",
+                "expected": "Editor remains responsive"
+              },
+              {
+                "step": 4,
+                "action": "Perform Git operations with large changeset",
+                "expected": "Operations complete within reasonable time"
+              },
+              {
+                "step": 5,
+                "action": "Monitor memory usage",
+                "expected": "Memory usage remains stable"
+              }
+            ],
+            "passCriteria": "Performance remains acceptable under load",
+            "failureActions": [
+              "Profile memory usage",
+              "Check for performance bottlenecks",
+              "Optimize slow operations"
+            ]
+          }
+        ]
+      }
+    ],
+    "executionGuidelines": {
+      "testOrder": [
+        "Execute individual feature tests first",
+        "Run integration tests after all features pass",
+        "Perform performance testing last",
+        "Document all issues immediately"
+      ],
+      "reportingRequirements": [
+        "Screenshot/video for visual issues",
+        "Console logs for technical errors",
+        "Performance metrics for slow operations",
+        "Steps to reproduce for all failures"
+      ],
+      "passingCriteria": {
+        "critical": "All critical scenarios must pass",
+        "high": "90% of high priority scenarios must pass",
+        "medium": "80% of medium priority scenarios must pass",
+        "overall": "No data corruption or security issues"
+      }
+    }
+  }
+}

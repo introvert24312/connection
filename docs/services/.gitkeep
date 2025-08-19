@@ -1,0 +1,10 @@
+# Service Catalog
+
+This directory contains service catalog entries (one YAML per service).
+
+Format: docs/services/<service-name>.yaml
+
+Each service file should contain:
+- name, purpose, owner, health endpoint
+- OpenAPI/AsyncAPI references
+- Dependencies and runbook links

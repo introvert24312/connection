@@ -40,6 +40,12 @@ struct SettingsView: View {
                     Label("数据", systemImage: "externaldrive")
                 }
             
+            // Git 集成 - temporarily disabled due to compilation issues
+            Text("Git Settings - Coming Soon")
+                .tabItem {
+                    Label("Git", systemImage: "externaldrive.connected.to.line.below")
+                }
+            
             // 关于
             AboutView()
                 .tabItem {

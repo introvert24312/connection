@@ -1,0 +1,248 @@
+{
+  "source": "/Users/Patronum/Desktop/WordTagger/WordTagger/DetailPanel.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "视图",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 29
+        }
+      },
+      {
+        "comment": "",
+        "key": "编辑节点",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 43
+        }
+      },
+      {
+        "comment": "",
+        "key": "点击开始编辑...",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 203
+        }
+      },
+      {
+        "comment": "",
+        "key": "编辑中",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 198
+        }
+      },
+      {
+        "comment": "",
+        "key": "该节点暂无地点标签",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 651
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加地点标签来在地图上显示相关位置",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 654
+        }
+      },
+      {
+        "comment": "",
+        "key": "该节点有地点标签但缺少坐标信息",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 659
+        }
+      },
+      {
+        "comment": "",
+        "key": "现有地点标签: %@",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 662
+        }
+      },
+      {
+        "comment": "",
+        "key": "打开节点编辑",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 699
+        }
+      },
+      {
+        "comment": "",
+        "key": "请使用以下格式添加坐标信息：",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 668
+        }
+      },
+      {
+        "comment": "",
+        "key": "点击上方命令可复制到剪贴板",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 694
+        }
+      },
+      {
+        "comment": "",
+        "key": "全屏显示 (⌘D) - 已禁用",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 1354
+        }
+      },
+      {
+        "comment": "",
+        "key": "复合节点层级图谱 • 按 ESC 或 Command+D 关闭",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1585
+        }
+      },
+      {
+        "comment": "",
+        "key": "全屏图谱: %@",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1570
+        }
+      },
+      {
+        "comment": "",
+        "key": "关闭 (ESC 或 Command+D)",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 1582
+        }
+      },
+      {
+        "comment": "",
+        "key": "正在加载复合节点图谱...",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1622
+        }
+      },
+      {
+        "comment": "",
+        "key": "复合节点将按层级从中心向外辐射显示",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1626
+        }
+      },
+      {
+        "comment": "",
+        "key": "手动刷新数据",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 1632
+        }
+      },
+      {
+        "comment": "",
+        "key": "编辑节点",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 1754
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1760
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点名称",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1777
+        }
+      },
+      {
+        "comment": "",
+        "key": "Preview",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1796
+        }
+      },
+      {
+        "comment": "",
+        "key": "例如：/ɪɡˈzæmpəl/",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 1800
+        }
+      },
+      {
+        "comment": "",
+        "key": "音标预览：",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 1810
+        }
+      },
+      {
+        "comment": "",
+        "key": "解释",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1829
+        }
+      },
+      {
+        "comment": "",
+        "key": "输入节点解释",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 1833
+        }
+      },
+      {
+        "comment": "",
+        "key": "解释预览：",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 1844
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点预览",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 1865
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1909
+        }
+      },
+      {
+        "comment": "",
+        "key": "保存",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1915
+        }
+      }
+    ]
+  },
+  "version": 1
+}

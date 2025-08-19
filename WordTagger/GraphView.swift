@@ -306,7 +306,7 @@ struct GraphView: View {
             if cachedNodes.isEmpty {
                 EmptyGraphView()
             } else {
-                UniversalRelationshipGraphView(
+                NodeContextGraphView(
                     nodes: cachedNodes,
                     edges: cachedEdges,
                     title: "全局图谱",
@@ -320,6 +320,7 @@ struct GraphView: View {
                     }
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .environmentObject(store)
             }
         }
         .sheet(isPresented: $showingNodeSelector) {

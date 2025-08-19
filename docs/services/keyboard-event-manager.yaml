@@ -1,0 +1,5 @@
+name: keyboard-event-manager
+purpose: / Manages keyboard event state and prevents rapid-fire command execution class KeyboardEventManager
+owner: WordTagger Team @wordtagger-oncall
+health: /health
+runbook: ../runbooks/keyboard-event-manager.md

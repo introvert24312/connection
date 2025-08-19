@@ -1,0 +1,328 @@
+{
+  "source": "/Users/Patronum/Desktop/WordTagger/WordTagger/WordListView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "节点",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 222
+        }
+      },
+      {
+        "comment": "",
+        "key": "搜索节点、音标、含义...",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 41
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld 个节点",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 133
+        }
+      },
+      {
+        "comment": "",
+        "key": "全部标签",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 88
+        }
+      },
+      {
+        "comment": "",
+        "key": "排序: %@",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 120
+        }
+      },
+      {
+        "comment": "",
+        "key": "搜索中...",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 147
+        }
+      },
+      {
+        "comment": "",
+        "key": "已编辑",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 541
+        }
+      },
+      {
+        "comment": "",
+        "key": "标签 (%lld)",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 648
+        }
+      },
+      {
+        "comment": "",
+        "key": "← 滑动查看更多",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 653
+        }
+      },
+      {
+        "comment": "",
+        "key": "标签: %@ (%@)",
+        "location": {
+          "startingColumn": 15,
+          "startingLine": 745
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加你的第一个节点",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 767
+        }
+      },
+      {
+        "comment": "",
+        "key": "尝试使用不同的关键词搜索",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 771
+        }
+      },
+      {
+        "comment": "",
+        "key": "暂无节点",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 762
+        }
+      },
+      {
+        "comment": "",
+        "key": "未找到匹配的节点",
+        "location": {
+          "startingColumn": 63,
+          "startingLine": 762
+        }
+      },
+      {
+        "comment": "",
+        "key": "错误",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 904
+        }
+      },
+      {
+        "comment": "",
+        "key": "编辑节点命令",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 800
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 807
+        }
+      },
+      {
+        "comment": "",
+        "key": "保存",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 813
+        }
+      },
+      {
+        "comment": "",
+        "key": "输入命令...",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 852
+        }
+      },
+      {
+        "comment": "",
+        "key": "格式：节点名 标签类型1 标签值1 标签类型2 标签值2 ...",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 846
+        }
+      },
+      {
+        "comment": "",
+        "key": "命令格式：",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 833
+        }
+      },
+      {
+        "comment": "",
+        "key": "包含展示名",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 839
+        }
+      },
+      {
+        "comment": "",
+        "key": "预览解析结果：",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 860
+        }
+      },
+      {
+        "comment": "",
+        "key": "命令格式错误，请检查输入",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 885
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点名：%@",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 866
+        }
+      },
+      {
+        "comment": "",
+        "key": "标签：",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 870
+        }
+      },
+      {
+        "comment": "",
+        "key": "  • %@: %@",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 875
+        }
+      },
+      {
+        "comment": "",
+        "key": "确定",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 905
+        }
+      },
+      {
+        "comment": "",
+        "key": "确认更改",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 986
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 993
+        }
+      },
+      {
+        "comment": "",
+        "key": "确认提交",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 999
+        }
+      },
+      {
+        "comment": "",
+        "key": "没有检测到任何更改",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1092
+        }
+      },
+      {
+        "comment": "",
+        "key": "标签类型更新",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 1016
+        }
+      },
+      {
+        "comment": "",
+        "key": "新增标签",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 1037
+        }
+      },
+      {
+        "comment": "",
+        "key": "删除标签",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 1055
+        }
+      },
+      {
+        "comment": "",
+        "key": "保持不变",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 1074
+        }
+      },
+      {
+        "comment": "",
+        "key": "→",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 1024
+        }
+      },
+      {
+        "comment": "",
+        "key": "+ %@:",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 1041
+        }
+      },
+      {
+        "comment": "",
+        "key": "- %@:",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 1059
+        }
+      },
+      {
+        "comment": "",
+        "key": "  %@:",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 1078
+        }
+      }
+    ]
+  },
+  "version": 1
+}

@@ -1,0 +1,7 @@
+# Release Management
+
+This directory contains feature flags and rollback procedures.
+
+Files:
+- flags.yaml - Feature flag definitions
+- rollback.md - Rollback strategies and procedures

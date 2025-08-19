@@ -1,0 +1,7 @@
+name: external-data-manager
+purpose: ExternalDataManager - Manages and coordinates system resources
+owner: WordTagger Team @wordtagger-oncall
+health: /health
+depends_on:
+  - file-manager
+runbook: ../runbooks/external-data-manager.md

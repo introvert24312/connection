@@ -1039,7 +1039,8 @@ struct TagEditCommandView: View {
 
 
 
-#Preview {
-    NodeManagerView()
-        .environmentObject(NodeStore.shared)
-}
+// Preview temporarily disabled due to @FocusState initialization complexity
+// #Preview {
+//     NodeManagerView()
+//         .environmentObject(NodeStore.shared)
+// }

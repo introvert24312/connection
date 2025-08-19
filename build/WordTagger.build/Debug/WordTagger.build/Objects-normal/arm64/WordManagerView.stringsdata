@@ -1,0 +1,384 @@
+{
+  "source": "/Users/Patronum/Desktop/WordTagger/WordTagger/WordManagerView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "节点管理",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 334
+        }
+      },
+      {
+        "comment": "",
+        "key": "过滤选项",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 174
+        }
+      },
+      {
+        "comment": "",
+        "key": "排序选项",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 197
+        }
+      },
+      {
+        "comment": "",
+        "key": "点击切换到编辑模式",
+        "location": {
+          "startingColumn": 41,
+          "startingLine": 212
+        }
+      },
+      {
+        "comment": "",
+        "key": "点击切换到选择模式",
+        "location": {
+          "startingColumn": 73,
+          "startingLine": 212
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点管理",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 83
+        }
+      },
+      {
+        "comment": "",
+        "key": "搜索: \"%@\" - 忽略标签过滤",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 90
+        }
+      },
+      {
+        "comment": "",
+        "key": "✕",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 94
+        }
+      },
+      {
+        "comment": "",
+        "key": "清除搜索",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 100
+        }
+      },
+      {
+        "comment": "",
+        "key": "过滤: %@ - %@",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 104
+        }
+      },
+      {
+        "comment": "",
+        "key": "✕",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 108
+        }
+      },
+      {
+        "comment": "",
+        "key": "清除标签过滤",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 114
+        }
+      },
+      {
+        "comment": "",
+        "key": "搜索节点、释义、音标或标签...",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 126
+        }
+      },
+      {
+        "comment": "",
+        "key": "选择模式",
+        "location": {
+          "startingColumn": 48,
+          "startingLine": 208
+        }
+      },
+      {
+        "comment": "",
+        "key": "编辑模式",
+        "location": {
+          "startingColumn": 65,
+          "startingLine": 208
+        }
+      },
+      {
+        "comment": "",
+        "key": "选中 %lld / %lld 个节点",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 222
+        }
+      },
+      {
+        "comment": "",
+        "key": "确认删除",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 253
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消全选",
+        "location": {
+          "startingColumn": 80,
+          "startingLine": 236
+        }
+      },
+      {
+        "comment": "",
+        "key": "全选",
+        "location": {
+          "startingColumn": 97,
+          "startingLine": 236
+        }
+      },
+      {
+        "comment": "",
+        "key": "删除选中节点",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 247
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 254
+        }
+      },
+      {
+        "comment": "",
+        "key": "删除",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 255
+        }
+      },
+      {
+        "comment": "",
+        "key": "确定要删除选中的 %lld 个节点吗？此操作不可撤销。",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 259
+        }
+      },
+      {
+        "comment": "",
+        "key": "当前标签下暂无节点",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 279
+        }
+      },
+      {
+        "comment": "",
+        "key": "暂无节点",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 281
+        }
+      },
+      {
+        "comment": "",
+        "key": "未找到匹配 \"%@\" 的节点",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 284
+        }
+      },
+      {
+        "comment": "",
+        "key": "清除搜索",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 292
+        }
+      },
+      {
+        "comment": "",
+        "key": "清除标签过滤",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 299
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 410
+        }
+      },
+      {
+        "comment": "",
+        "key": "+%lld",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 467
+        }
+      },
+      {
+        "comment": "",
+        "key": "点击预览位置",
+        "location": {
+          "startingColumn": 47,
+          "startingLine": 451
+        }
+      },
+      {
+        "comment": "",
+        "key": "创建: %@",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 477
+        }
+      },
+      {
+        "comment": "",
+        "key": "修改: %@",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 482
+        }
+      },
+      {
+        "comment": "",
+        "key": "",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 699
+        }
+      },
+      {
+        "comment": "",
+        "key": "重复检测",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 727
+        }
+      },
+      {
+        "comment": "",
+        "key": "编辑节点: %@",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 586
+        }
+      },
+      {
+        "comment": "",
+        "key": "完成",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 592
+        }
+      },
+      {
+        "comment": "",
+        "key": "输入标签命令:",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 604
+        }
+      },
+      {
+        "comment": "",
+        "key": "当前命令: %@",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 617
+        }
+      },
+      {
+        "comment": "",
+        "key": "例如: memory 记忆法 root dict",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 607
+        }
+      },
+      {
+        "comment": "",
+        "key": "当前标签 (%lld个):",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 627
+        }
+      },
+      {
+        "comment": "",
+        "key": "暂无标签",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 631
+        }
+      },
+      {
+        "comment": "",
+        "key": "💡 使用提示:",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 664
+        }
+      },
+      {
+        "comment": "",
+        "key": "• 格式: 标签类型 标签值",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 669
+        }
+      },
+      {
+        "comment": "",
+        "key": "• 多个标签用空格分隔",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 673
+        }
+      },
+      {
+        "comment": "",
+        "key": "• 示例: memory 记忆法 root dict shape 长方形",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 678
+        }
+      },
+      {
+        "comment": "",
+        "key": "确定",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 728
+        }
+      }
+    ]
+  },
+  "version": 1
+}

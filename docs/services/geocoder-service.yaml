@@ -1,0 +1,5 @@
+name: geocoder-service
+purpose: GeocoderService - Provides core business logic and functionality
+owner: WordTagger Team @wordtagger-oncall
+health: /health
+runbook: ../runbooks/geocoder-service.md

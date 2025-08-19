@@ -1,0 +1,7 @@
+# Event Contracts
+
+This directory contains AsyncAPI specifications for event-driven communication.
+
+Format: *.asyncapi.yaml
+Standard: AsyncAPI 2.0+
+Coverage: Minimum 1 main topic per event-driven service

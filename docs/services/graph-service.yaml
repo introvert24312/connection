@@ -1,0 +1,5 @@
+name: graph-service
+purpose: GraphService - Provides core business logic and functionality
+owner: WordTagger Team @wordtagger-oncall
+health: /health
+runbook: ../runbooks/graph-service.md

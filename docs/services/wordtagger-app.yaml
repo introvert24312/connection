@@ -1,0 +1,10 @@
+name: wordtagger-app
+purpose: Main WordTagger macOS application for word and node management
+owner: WordTagger Team @wordtagger-oncall
+health: /app/status
+depends_on:
+  - external-data-service
+  - git-service
+  - graph-service
+  - search-service
+runbook: ../runbooks/wordtagger-app.md

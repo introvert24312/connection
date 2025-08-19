@@ -1,0 +1,5 @@
+name: search-service
+purpose: SearchService - Provides core business logic and functionality
+owner: WordTagger Team @wordtagger-oncall
+health: /health
+runbook: ../runbooks/search-service.md

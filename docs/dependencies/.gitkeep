@@ -1,0 +1,6 @@
+# Fine-grained Dependencies
+
+This directory contains endpoint-to-endpoint dependency mappings (optional).
+
+Format: *.yaml
+Purpose: Critical path documentation for key business flows

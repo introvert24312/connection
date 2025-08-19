@@ -1,0 +1,288 @@
+{
+  "source": "/Users/Patronum/Desktop/WordTagger/WordTagger/NodeEditorSheet.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Error",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 203
+        }
+      },
+      {
+        "comment": "",
+        "key": "Validation Errors",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 210
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save Failed",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 221
+        }
+      },
+      {
+        "comment": "",
+        "key": "Conflict Detected",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 233
+        }
+      },
+      {
+        "comment": "",
+        "key": "Edit Node",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 33
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 40
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 46
+        }
+      },
+      {
+        "comment": "",
+        "key": "Node Information",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 64
+        }
+      },
+      {
+        "comment": "",
+        "key": "Command Configuration",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 120
+        }
+      },
+      {
+        "comment": "",
+        "key": "Preview",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 145
+        }
+      },
+      {
+        "comment": "",
+        "key": "Node Name",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 67
+        }
+      },
+      {
+        "comment": "",
+        "key": "Node name is required",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 79
+        }
+      },
+      {
+        "comment": "",
+        "key": "Enter node name",
+        "location": {
+          "startingColumn": 43,
+          "startingLine": 71
+        }
+      },
+      {
+        "comment": "",
+        "key": "Phonetic (Optional)",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 88
+        }
+      },
+      {
+        "comment": "",
+        "key": "Enter phonetic notation",
+        "location": {
+          "startingColumn": 43,
+          "startingLine": 92
+        }
+      },
+      {
+        "comment": "",
+        "key": "Meaning (Optional)",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 103
+        }
+      },
+      {
+        "comment": "",
+        "key": "Enter meaning or description",
+        "location": {
+          "startingColumn": 43,
+          "startingLine": 107
+        }
+      },
+      {
+        "comment": "",
+        "key": "Command Label",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 123
+        }
+      },
+      {
+        "comment": "",
+        "key": "This command will be associated with the node for quick access",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 135
+        }
+      },
+      {
+        "comment": "",
+        "key": "Enter command or action",
+        "location": {
+          "startingColumn": 43,
+          "startingLine": 127
+        }
+      },
+      {
+        "comment": "",
+        "key": "Node:",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 148
+        }
+      },
+      {
+        "comment": "",
+        "key": "Phonetic:",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 158
+        }
+      },
+      {
+        "comment": "",
+        "key": "Meaning:",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 169
+        }
+      },
+      {
+        "comment": "",
+        "key": "Command:",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 180
+        }
+      },
+      {
+        "comment": "",
+        "key": "OK",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 204
+        }
+      },
+      {
+        "comment": "",
+        "key": "OK",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 211
+        }
+      },
+      {
+        "comment": "",
+        "key": "• %@",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 217
+        }
+      },
+      {
+        "comment": "",
+        "key": "Retry",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 222
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 226
+        }
+      },
+      {
+        "comment": "",
+        "key": "Failed to save after %lld attempt(s). Would you like to retry? (%lld attempts remaining)",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 231
+        }
+      },
+      {
+        "comment": "",
+        "key": "Use My Changes",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 234
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reload and Discard",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 240
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 248
+        }
+      },
+      {
+        "comment": "",
+        "key": "This node has been modified by another process. Choose how to resolve the conflict.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 252
+        }
+      },
+      {
+        "comment": "",
+        "key": "Saving...",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 264
+        }
+      }
+    ]
+  },
+  "version": 1
+}

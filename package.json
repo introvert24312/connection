@@ -1,0 +1,31 @@
+{
+  "name": "engineering-governance",
+  "version": "1.0.0",
+  "description": "Engineering governance framework validation tools",
+  "main": "scripts/validate-governance.js",
+  "type": "module",
+  "scripts": {
+    "validate": "node scripts/validate-governance.js",
+    "validate:services": "node scripts/validate-governance.js services",
+    "validate:dependencies": "node scripts/validate-governance.js dependencies",
+    "generate:services": "node scripts/generate-service-catalog.js",
+    "test": "vitest --run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@apidevtools/swagger-parser": "^12.0.0",
+    "ajv": "^8.12.0",
+    "js-yaml": "^4.1.0",
+    "swagger-parser": "^10.0.3"
+  },
+  "devDependencies": {
+    "vitest": "^1.0.0"
+  },
+  "keywords": [
+    "governance",
+    "validation",
+    "microservices"
+  ],
+  "author": "",
+  "license": "MIT"
+}

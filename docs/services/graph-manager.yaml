@@ -1,0 +1,5 @@
+name: graph-manager
+purpose: MARK - 全局图谱管理器 class GraphManager
+owner: WordTagger Team @wordtagger-oncall
+health: /health
+runbook: ../runbooks/graph-manager.md

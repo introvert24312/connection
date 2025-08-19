@@ -1,0 +1,6 @@
+# Service Runbooks
+
+This directory contains troubleshooting guides for services.
+
+Format: <service-name>.md
+Purpose: Operational procedures and troubleshooting steps

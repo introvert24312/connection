@@ -29,6 +29,11 @@
 		A018 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B118 /* SettingsView.swift */; };
 		A020 /* UniversalRelationshipGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B121 /* UniversalRelationshipGraphView.swift */; };
 		A021 /* WordManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B122 /* WordManagerView.swift */; };
+		A022 /* KeyboardEventManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B123 /* KeyboardEventManager.swift */; };
+		A023 /* NodeContextMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B124 /* NodeContextMenuView.swift */; };
+		A024 /* NodeEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B125 /* NodeEditorSheet.swift */; };
+		A025 /* NodeExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B126 /* NodeExtensions.swift */; };
+		A026 /* NodeContextGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B127 /* NodeContextGraphView.swift */; };
 
 		R001 /* Resources in Resources */ = {isa = PBXBuildFile; fileRef = R100 /* Resources */; };
 		R002 /* ResourceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = R101 /* ResourceManager.swift */; };
@@ -59,6 +64,11 @@
 		B120 /* WordTagger.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WordTagger.entitlements; sourceTree = "<group>"; };
 		B121 /* UniversalRelationshipGraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UniversalRelationshipGraphView.swift; sourceTree = "<group>"; };
 		B122 /* WordManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordManagerView.swift; sourceTree = "<group>"; };
+		B123 /* KeyboardEventManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardEventManager.swift; sourceTree = "<group>"; };
+		B124 /* NodeContextMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeContextMenuView.swift; sourceTree = "<group>"; };
+		B125 /* NodeEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeEditorSheet.swift; sourceTree = "<group>"; };
+		B126 /* NodeExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeExtensions.swift; sourceTree = "<group>"; };
+		B127 /* NodeContextGraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeContextGraphView.swift; sourceTree = "<group>"; };
 
 		C100 /* WordTagger.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WordTagger.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		R100 /* Resources */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Resources; sourceTree = "<group>"; };
@@ -117,6 +127,11 @@
 				B118 /* SettingsView.swift */,
 				B121 /* UniversalRelationshipGraphView.swift */,
 				B122 /* WordManagerView.swift */,
+				B123 /* KeyboardEventManager.swift */,
+				B124 /* NodeContextMenuView.swift */,
+				B125 /* NodeEditorSheet.swift */,
+				B126 /* NodeExtensions.swift */,
+				B127 /* NodeContextGraphView.swift */,
 				B103 /* Assets.xcassets */,
 				B120 /* WordTagger.entitlements */,
 				R100 /* Resources */,
@@ -217,6 +232,11 @@
 				54209B7C2E3F248300388A1B /* ExternalDataService.swift in Sources */,
 				54209B7D2E3F248300388A1B /* ExternalDataManager.swift in Sources */,
 				A021 /* WordManagerView.swift in Sources */,
+				A022 /* KeyboardEventManager.swift in Sources */,
+				A023 /* NodeContextMenuView.swift in Sources */,
+				A024 /* NodeEditorSheet.swift in Sources */,
+				A025 /* NodeExtensions.swift in Sources */,
+				A026 /* NodeContextGraphView.swift in Sources */,
 				R002 /* ResourceManager.swift in Sources */,
 				V001 /* VditorWebView.swift in Sources */,
 			);

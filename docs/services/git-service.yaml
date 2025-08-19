@@ -1,0 +1,7 @@
+name: git-service
+purpose: GitService - Provides core business logic and functionality
+owner: WordTagger Team @wordtagger-oncall
+health: /health
+depends_on:
+  - keychain-manager
+runbook: ../runbooks/git-service.md

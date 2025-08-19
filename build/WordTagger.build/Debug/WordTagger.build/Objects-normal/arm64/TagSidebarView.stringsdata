@@ -1,0 +1,120 @@
+{
+  "source": "/Users/Patronum/Desktop/WordTagger/WordTagger/TagSidebarView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "标签",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 183
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld 个节点",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 32
+        }
+      },
+      {
+        "comment": "",
+        "key": "搜索标签...",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 48
+        }
+      },
+      {
+        "comment": "",
+        "key": "选择标签类型",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 59
+        }
+      },
+      {
+        "comment": "",
+        "key": "搜索标签类型...",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 68
+        }
+      },
+      {
+        "comment": "",
+        "key": "已选择的标签类型",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 103
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld 种标签类型",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 119
+        }
+      },
+      {
+        "comment": "",
+        "key": "清空",
+        "location": {
+          "startingColumn": 40,
+          "startingLine": 125
+        }
+      },
+      {
+        "comment": "",
+        "key": "请选择标签类型",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 152
+        }
+      },
+      {
+        "comment": "",
+        "key": "选择上方的标签类型来查看相关标签",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 157
+        }
+      },
+      {
+        "comment": "",
+        "key": "(%lld)",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 446
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 518
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 588
+        }
+      },
+      {
+        "comment": "",
+        "key": "单词",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 592
+        }
+      }
+    ]
+  },
+  "version": 1
+}

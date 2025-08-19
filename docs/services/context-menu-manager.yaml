@@ -1,0 +1,5 @@
+name: context-menu-manager
+purpose: / Optimized context menu manager that handles creation and disposal efficiently class ContextMenuManager
+owner: WordTagger Team @wordtagger-oncall
+health: /health
+runbook: ../runbooks/context-menu-manager.md

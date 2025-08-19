@@ -1,0 +1,8 @@
+from: canteen POST /v1/order-beef
+to:
+  endpoint: butcher POST /v1/beef
+  contract:
+    required: [cut, kg, traceId]
+    errors: [401, 409]
+    auth: bearer
+    timeout_ms: 2000

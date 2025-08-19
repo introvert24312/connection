@@ -1335,7 +1335,7 @@ struct NodeGraphView: View {
             if graphData.nodes.count <= 1 {
                 EmptyGraphView()
             } else {
-                UniversalRelationshipGraphView(
+                NodeContextGraphView(
                     nodes: graphData.nodes,
                     edges: graphData.edges,
                     title: "节点详情图谱",
@@ -1349,6 +1349,7 @@ struct NodeGraphView: View {
                     }
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .environmentObject(store)
                 .contextMenu {
                     Button("全屏显示 (⌘D) - 已禁用") {
                         Swift.print("🖥️ 右键菜单: 全屏功能已禁用用于调试")

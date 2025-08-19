@@ -1,0 +1,7 @@
+name: example-service
+purpose: Example service for testing governance framework
+owner: Engineering Team @oncall-eng
+health: /healthz
+openapi: ../contracts/http/example-service.openapi.yaml
+depends_on: [database, cache]
+runbook: ../runbooks/example-service.md

@@ -1,0 +1,5 @@
+name: tag-mapping-manager
+purpose: TagMappingManager - Manages and coordinates system resources
+owner: WordTagger Team @wordtagger-oncall
+health: /health
+runbook: ../runbooks/tag-mapping-manager.md

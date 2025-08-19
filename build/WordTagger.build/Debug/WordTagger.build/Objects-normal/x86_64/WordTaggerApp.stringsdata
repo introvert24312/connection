@@ -1,0 +1,608 @@
+{
+  "source": "/Users/Patronum/Desktop/WordTagger/WordTagger/WordTaggerApp.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "快速添加节点",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 605
+        }
+      },
+      {
+        "comment": "",
+        "key": "重复检测",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 628
+        }
+      },
+      {
+        "comment": "",
+        "key": "输入: 节点 root 词根内容 memory 记忆内容...",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 500
+        }
+      },
+      {
+        "comment": "",
+        "key": "选择地点位置 (⌘P)",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 542
+        }
+      },
+      {
+        "comment": "",
+        "key": "输入标签快捷键获得建议",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 575
+        }
+      },
+      {
+        "comment": "",
+        "key": "💡 使用方法:",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 584
+        }
+      },
+      {
+        "comment": "",
+        "key": "输入格式: 节点 快捷键 内容",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 587
+        }
+      },
+      {
+        "comment": "",
+        "key": "例如: apple root 苹果 memory 红苹果",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 590
+        }
+      },
+      {
+        "comment": "",
+        "key": "快捷键: ↑↓选择建议 • Tab选择 • ⌘+R提交 • Esc关闭",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 594
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 608
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 621
+        }
+      },
+      {
+        "comment": "",
+        "key": "确定",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 629
+        }
+      },
+      {
+        "comment": "",
+        "key": "标签快捷键",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 937
+        }
+      },
+      {
+        "comment": "",
+        "key": "重复检测",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 1029
+        }
+      },
+      {
+        "comment": "",
+        "key": "输入: 节点 root 词根内容 memory 记忆内容...",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 992
+        }
+      },
+      {
+        "comment": "",
+        "key": "选择地点位置 (⌘P)",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 1002
+        }
+      },
+      {
+        "comment": "",
+        "key": "💡 格式: 节点 标签1 内容1 标签2 内容2...",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1022
+        }
+      },
+      {
+        "comment": "",
+        "key": "⌘+I",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1024
+        }
+      },
+      {
+        "comment": "",
+        "key": "确定",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 1030
+        }
+      },
+      {
+        "comment": "",
+        "key": "搜索节点、含义或标签...",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 1225
+        }
+      },
+      {
+        "comment": "",
+        "key": "+%lld",
+        "location": {
+          "startingColumn": 75,
+          "startingLine": 1246
+        }
+      },
+      {
+        "comment": "",
+        "key": "💡 输入关键词搜索节点",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1262
+        }
+      },
+      {
+        "comment": "",
+        "key": "⌘+F",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1264
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点标签管理器",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 1359
+        }
+      },
+      {
+        "comment": "",
+        "key": "地图视图",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 1529
+        }
+      },
+      {
+        "comment": "",
+        "key": "全局图谱",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 1537
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点管理",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 1545
+        }
+      },
+      {
+        "comment": "",
+        "key": "全屏图谱",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 1553
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点标签",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 1433
+        }
+      },
+      {
+        "comment": "",
+        "key": "命令面板",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1434
+        }
+      },
+      {
+        "comment": "",
+        "key": "创建新层或复合层",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1439
+        }
+      },
+      {
+        "comment": "",
+        "key": "快速添加节点",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1446
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加复合节点",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1451
+        }
+      },
+      {
+        "comment": "",
+        "key": "快速搜索",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1456
+        }
+      },
+      {
+        "comment": "",
+        "key": "切换侧边栏",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1461
+        }
+      },
+      {
+        "comment": "",
+        "key": "标签管理",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1466
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点管理",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1471
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加节点",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1478
+        }
+      },
+      {
+        "comment": "",
+        "key": "打开地图",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1486
+        }
+      },
+      {
+        "comment": "",
+        "key": "打开图谱",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1491
+        }
+      },
+      {
+        "comment": "",
+        "key": "详情面板：详情",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1498
+        }
+      },
+      {
+        "comment": "",
+        "key": "详情面板：图谱",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1506
+        }
+      },
+      {
+        "comment": "",
+        "key": "切换到图谱视图",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1514
+        }
+      },
+      {
+        "comment": "",
+        "key": "标签管理",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1610
+        }
+      },
+      {
+        "comment": "",
+        "key": "隐藏系统标签",
+        "location": {
+          "startingColumn": 44,
+          "startingLine": 1628
+        }
+      },
+      {
+        "comment": "",
+        "key": "显示系统标签",
+        "location": {
+          "startingColumn": 67,
+          "startingLine": 1628
+        }
+      },
+      {
+        "comment": "",
+        "key": "重新扫描现有标签并创建缺失的映射",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 1644
+        }
+      },
+      {
+        "comment": "",
+        "key": "系统标签",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 1622
+        }
+      },
+      {
+        "comment": "",
+        "key": "重新扫描",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 1638
+        }
+      },
+      {
+        "comment": "",
+        "key": "编辑标签",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 1688
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加新标签",
+        "location": {
+          "startingColumn": 67,
+          "startingLine": 1688
+        }
+      },
+      {
+        "comment": "",
+        "key": "快捷键",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 1695
+        }
+      },
+      {
+        "comment": "",
+        "key": "例如: root",
+        "location": {
+          "startingColumn": 43,
+          "startingLine": 1698
+        }
+      },
+      {
+        "comment": "",
+        "key": "类型名称",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 1703
+        }
+      },
+      {
+        "comment": "",
+        "key": "例如: 词根",
+        "location": {
+          "startingColumn": 43,
+          "startingLine": 1706
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 1714
+        }
+      },
+      {
+        "comment": "",
+        "key": "保存",
+        "location": {
+          "startingColumn": 56,
+          "startingLine": 1720
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加",
+        "location": {
+          "startingColumn": 67,
+          "startingLine": 1720
+        }
+      },
+      {
+        "comment": "",
+        "key": "💡 使用方法:",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1733
+        }
+      },
+      {
+        "comment": "",
+        "key": "输入格式: 节点 快捷键 内容",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1736
+        }
+      },
+      {
+        "comment": "",
+        "key": "例如: apple root 苹果 memory 红苹果",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1739
+        }
+      },
+      {
+        "comment": "",
+        "key": "→ %@",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 1844
+        }
+      },
+      {
+        "comment": "",
+        "key": "系统",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1832
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加复合节点",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1969
+        }
+      },
+      {
+        "comment": "",
+        "key": "错误",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 1987
+        }
+      },
+      {
+        "comment": "",
+        "key": "输入格式：复合节点名 节点1 节点2 节点3...",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 1900
+        }
+      },
+      {
+        "comment": "",
+        "key": "💡 使用方法:",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 1919
+        }
+      },
+      {
+        "comment": "",
+        "key": "复合节点可以无限嵌套，颜色会自动区分层级",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 1952
+        }
+      },
+      {
+        "comment": "",
+        "key": "创建1级复合节点：动物 狗 猫 鸟",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1928
+        }
+      },
+      {
+        "comment": "",
+        "key": "创建2级复合节点：生物 动物 植物",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1937
+        }
+      },
+      {
+        "comment": "",
+        "key": "删除子节点：动物 -狗 -猫",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1946
+        }
+      },
+      {
+        "comment": "",
+        "key": "快捷键: ⌘+R提交 • Esc关闭",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1958
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1972
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 1980
+        }
+      },
+      {
+        "comment": "",
+        "key": "确定",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 1988
+        }
+      }
+    ]
+  },
+  "version": 1
+}

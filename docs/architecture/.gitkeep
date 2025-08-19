@@ -1,0 +1,7 @@
+# Architecture Documentation
+
+This directory contains L2 architecture diagrams and critical data flows.
+
+Files should include:
+- l2.mmd - Main L2 architecture diagram
+- Critical data flow documentation

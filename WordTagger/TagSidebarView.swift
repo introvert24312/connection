@@ -610,13 +610,14 @@ struct TagRowView: View {
     }
 }
 
-#Preview {
-    NavigationSplitView {
-        TagSidebarView(selectedNode: .constant(nil))
-            .environmentObject(NodeStore.shared)
-    } content: {
-        Text("Content")
-    } detail: {
-        Text("Detail")
-    }
-}
+// Preview temporarily disabled due to @FocusState initialization complexity
+// #Preview {
+//     NavigationSplitView {
+//         TagSidebarView(selectedNode: .constant(nil))
+//             .environmentObject(NodeStore.shared)
+//     } content: {
+//         Text("Content")
+//     } detail: {
+//         Text("Detail")
+//     }
+// }

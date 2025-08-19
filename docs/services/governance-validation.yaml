@@ -1,0 +1,5 @@
+name: governance-validation
+purpose: Engineering governance framework validation and compliance checking
+owner: Platform Team @platform-oncall
+health: /validate/health
+runbook: ../runbooks/governance-validation.md

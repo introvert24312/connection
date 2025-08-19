@@ -138,12 +138,325 @@ public struct Node: Identifiable, Hashable, Codable {
         return maxChildDepth + 1
     }
     
+    /// 生成节点的命令行表示
+    /// 格式：节点名 标签类型1 标签值1 标签类型2 标签值2 ...
+    public var commandLineRepresentation: String {
+        var components = [text]
+        
+        // 按标签类型分组
+        let groupedTags = Dictionary(grouping: tags) { $0.type }
+        
+        // 按标签类型的rawValue排序，确保输出一致
+        let sortedTagTypes = groupedTags.keys.sorted { $0.rawValue < $1.rawValue }
+        
+        for tagType in sortedTagTypes {
+            let tagsOfType = groupedTags[tagType] ?? []
+            for tag in tagsOfType.sorted(by: { $0.value < $1.value }) {
+                components.append(tagType.rawValue)
+                components.append(quoteValueIfNeeded(tag.value))
+            }
+        }
+        
+        return components.joined(separator: " ")
+    }
+    
+    /// 生成规范化命令行表示，包含当前标签映射的注释
+    /// 格式：节点名 标签类型1 标签值1 标签类型2 标签值2 ...  # type1=展示名1, type2=展示名2
+    public var canonicalCommandRepresentation: String {
+        var components = [text]
+        var commentMappings: [String] = []
+        var usedTagTypes = Set<String>()
+        
+        // 按标签类型分组
+        let groupedTags = Dictionary(grouping: tags) { $0.type }
+        
+        // 按标签类型的rawValue排序，确保输出一致
+        let sortedTagTypes = groupedTags.keys.sorted { $0.rawValue < $1.rawValue }
+        
+        for tagType in sortedTagTypes {
+            let tagsOfType = groupedTags[tagType] ?? []
+            for tag in tagsOfType.sorted(by: { $0.value < $1.value }) {
+                let tagCode = tagType.rawValue
+                components.append(tagCode)
+                components.append(quoteValueIfNeeded(tag.value))
+                
+                // 记录用到的标签类型（只记录一次）
+                if !usedTagTypes.contains(tagCode) {
+                    usedTagTypes.insert(tagCode)
+                    
+                    // 获取当前的展示名
+                    let displayName = tagType.displayName
+                    if displayName != tagCode {
+                        commentMappings.append("\(tagCode)=\(displayName)")
+                    }
+                }
+            }
+        }
+        
+        let baseCommand = components.joined(separator: " ")
+        
+        // 添加注释
+        if !commentMappings.isEmpty {
+            return "\(baseCommand)  # \(commentMappings.joined(separator: ", "))"
+        } else {
+            return baseCommand
+        }
+    }
+    
+    /// 给包含空格的值添加引号
+    private func quoteValueIfNeeded(_ value: String) -> String {
+        if value.contains(" ") && !value.hasPrefix("\"") {
+            return "\"\(value.replacingOccurrences(of: "\"", with: "\\\""))\""
+        }
+        return value
+    }
+    
+    /// 生成带展示名的命令行表示（用于显式改名）
+    /// 格式：节点名 标签类型1[展示名1] 标签值1 标签类型2[展示名2] 标签值2 ...
+    public var commandRepresentationWithDisplayNames: String {
+        var components = [text]
+        
+        // 按标签类型分组
+        let groupedTags = Dictionary(grouping: tags) { $0.type }
+        
+        // 按标签类型的rawValue排序，确保输出一致
+        let sortedTagTypes = groupedTags.keys.sorted { $0.rawValue < $1.rawValue }
+        
+        for tagType in sortedTagTypes {
+            let tagsOfType = groupedTags[tagType] ?? []
+            for tag in tagsOfType.sorted(by: { $0.value < $1.value }) {
+                let tagCode = tagType.rawValue
+                let displayName = tagType.displayName
+                
+                // 如果展示名与代码不同，添加方括号
+                if displayName != tagCode {
+                    components.append("\(tagCode)[\(displayName)]")
+                } else {
+                    components.append(tagCode)
+                }
+                
+                components.append(quoteValueIfNeeded(tag.value))
+            }
+        }
+        
+        return components.joined(separator: " ")
+    }
+    
+    /// 从命令行字符串创建或更新节点
+    /// 格式：节点名 标签类型1 标签值1 标签类型2 标签值2 ...
+    /// 支持内联改名：类型[展示名] 值 - 会更新该类型的全局展示名
+    public static func fromCommandLine(_ commandLine: String, layerId: UUID) -> Node? {
+        // 移除行内注释
+        let cleanCommandLine = removeInlineComments(commandLine)
+        
+        let components = cleanCommandLine.trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: " ")
+            .filter { !$0.isEmpty }
+        
+        guard !components.isEmpty else { return nil }
+        
+        let nodeName = components[0]
+        var tags: [Tag] = []
+        
+        // 解析标签：每两个组件为一对（类型，值）
+        var i = 1
+        while i < components.count - 1 {
+            let tagTypeString = components[i]
+            let tagValue = unquoteValue(components[i + 1])
+            
+            // 解析类型和可能的展示名
+            let (tagCode, displayName) = parseTagTypeWithDisplayName(tagTypeString)
+            
+            // 如果有展示名，更新全局映射
+            if let displayName = displayName {
+                updateTagDisplayName(tagCode: tagCode, displayName: displayName)
+            }
+            
+            let tagType: Tag.TagType
+            if tagCode == "location" {
+                tagType = .location
+            } else {
+                tagType = .custom(tagCode)
+            }
+            
+            let tag = Tag(type: tagType, value: tagValue)
+            tags.append(tag)
+            
+            i += 2
+        }
+        
+        return Node(text: nodeName, layerId: layerId, tags: tags)
+    }
+    
+    /// 更新节点的标签从命令行字符串
+    public mutating func updateFromCommandLine(_ commandLine: String) {
+        // 移除行内注释
+        let cleanCommandLine = Self.removeInlineComments(commandLine)
+        
+        let components = cleanCommandLine.trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: " ")
+            .filter { !$0.isEmpty }
+        
+        guard components.count >= 1 else { return }
+        
+        // 更新节点名
+        self.text = components[0]
+        
+        // 清空现有标签
+        self.tags.removeAll()
+        
+        // 解析新标签
+        var i = 1
+        while i < components.count - 1 {
+            let tagTypeString = components[i]
+            let tagValue = Self.unquoteValue(components[i + 1])
+            
+            // 解析类型和可能的展示名
+            let (tagCode, displayName) = Self.parseTagTypeWithDisplayName(tagTypeString)
+            
+            // 如果有展示名，更新全局映射
+            if let displayName = displayName {
+                Self.updateTagDisplayName(tagCode: tagCode, displayName: displayName)
+            }
+            
+            let tagType: Tag.TagType
+            if tagCode == "location" {
+                tagType = .location
+            } else {
+                tagType = .custom(tagCode)
+            }
+            
+            let tag = Tag(type: tagType, value: tagValue)
+            self.tags.append(tag)
+            
+            i += 2
+        }
+        
+        self.updatedAt = Date()
+    }
+    
     public static func == (lhs: Node, rhs: Node) -> Bool {
         return lhs.id == rhs.id
     }
     
     public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
+    }
+    
+    /// 修复节点中的标签类型，移除旧的custom_前缀
+    public mutating func fixLegacyTagTypes() {
+        var hasChanges = false
+        
+        for i in 0..<tags.count {
+            let currentTag = tags[i]
+            switch currentTag.type {
+            case .custom(let name):
+                if name.hasPrefix("custom_") {
+                    let cleanName = String(name.dropFirst(7))
+                    tags[i].type = .custom(cleanName)
+                    hasChanges = true
+                    print("🔧 修复标签类型: custom_\(cleanName) -> \(cleanName)")
+                }
+            case .location:
+                break // location标签不需要修复
+            }
+        }
+        
+        if hasChanges {
+            self.updatedAt = Date()
+            print("✅ 节点 '\(self.text)' 的标签类型已修复")
+        }
+    }
+    
+    // MARK: - 命令行解析辅助方法
+    
+    /// 移除行内注释（# 之后的内容）
+    private static func removeInlineComments(_ commandLine: String) -> String {
+        if let hashIndex = commandLine.firstIndex(of: "#") {
+            return String(commandLine[..<hashIndex]).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return commandLine
+    }
+    
+    /// 移除值的引号包装
+    private static func unquoteValue(_ value: String) -> String {
+        if value.hasPrefix("\"") && value.hasSuffix("\"") && value.count >= 2 {
+            let unquoted = String(value.dropFirst().dropLast())
+            return unquoted.replacingOccurrences(of: "\\\"", with: "\"")
+        }
+        return value
+    }
+    
+    /// 解析标签类型和可能的展示名
+    /// 输入: "a[展示名]" 或 "a"
+    /// 输出: (tagCode: "a", displayName: "展示名") 或 (tagCode: "a", displayName: nil)
+    private static func parseTagTypeWithDisplayName(_ typeString: String) -> (tagCode: String, displayName: String?) {
+        let regex = try! NSRegularExpression(pattern: "^([A-Za-z]\\w*)(?:\\[(.+?)\\])?$", options: [])
+        let range = NSRange(typeString.startIndex..., in: typeString)
+        
+        if let match = regex.firstMatch(in: typeString, options: [], range: range) {
+            let tagCodeRange = match.range(at: 1)
+            let displayNameRange = match.range(at: 2)
+            
+            let tagCode = String(typeString[Range(tagCodeRange, in: typeString)!])
+            
+            var displayName: String?
+            if displayNameRange.location != NSNotFound {
+                displayName = String(typeString[Range(displayNameRange, in: typeString)!])
+            }
+            
+            return (tagCode: tagCode, displayName: displayName)
+        }
+        
+        // 如果正则匹配失败，直接返回原字符串作为tagCode
+        return (tagCode: typeString, displayName: nil)
+    }
+    
+    /// 更新标签类型的全局展示名
+    private static func updateTagDisplayName(tagCode: String, displayName: String) {
+        print("🏷️ 更新标签类型展示名: \(tagCode) -> \(displayName)")
+        
+        Task { @MainActor in
+            let tagManager = TagMappingManager.shared
+            
+            // 查找现有映射
+            if let existingMapping = tagManager.tagMappings.first(where: { $0.key == tagCode }) {
+                // 更新现有映射
+                let updatedMapping = TagMapping(id: existingMapping.id, key: tagCode, typeName: displayName)
+                tagManager.updateMapping(updatedMapping)
+                print("✅ 已更新标签映射: \(tagCode) = \(displayName)")
+            } else {
+                // 创建新映射
+                let newMapping = TagMapping(key: tagCode, typeName: displayName)
+                tagManager.addMapping(newMapping)
+                print("✅ 已创建标签映射: \(tagCode) = \(displayName)")
+            }
+        }
+    }
+    
+    /// 计算从当前节点到新命令的Diff
+    public static func calculateCommandDiff(from originalNode: Node, to commandLine: String) -> CommandDiff {
+        guard let newNode = Node.fromCommandLine(commandLine, layerId: originalNode.layerId) else {
+            // 如果解析失败，返回空的diff
+            return CommandDiff(updatedClasses: [], added: [], removed: [], unchanged: [])
+        }
+        
+        let originalTags = Set(originalNode.tags)
+        let newTags = Set(newNode.tags)
+        
+        let added = Array(newTags.subtracting(originalTags))
+        let removed = Array(originalTags.subtracting(newTags))
+        let unchanged = Array(originalTags.intersection(newTags))
+        
+        // 检查标签类型更新（这是一个简化版本，实际实现可能需要更复杂的逻辑）
+        let updatedClasses: [CommandDiff.TagTypeUpdate] = []
+        
+        return CommandDiff(
+            updatedClasses: updatedClasses,
+            added: added.sorted { $0.type.rawValue < $1.type.rawValue },
+            removed: removed.sorted { $0.type.rawValue < $1.type.rawValue },
+            unchanged: unchanged.sorted { $0.type.rawValue < $1.type.rawValue }
+        )
     }
 }
 
@@ -155,7 +468,7 @@ public struct Tag: Identifiable, Hashable, Codable {
         public var rawValue: String {
             switch self {
             case .location: return "location"
-            case .custom(let name): return "custom_\(name)"
+            case .custom(let name): return name
             }
         }
         
@@ -194,6 +507,7 @@ public struct Tag: Identifiable, Hashable, Codable {
                 self = .location
             default:
                 if value.hasPrefix("custom_") {
+                    // 向后兼容：移除custom_前缀
                     let customName = String(value.dropFirst(7))
                     self = .custom(customName)
                 } else {
@@ -204,7 +518,20 @@ public struct Tag: Identifiable, Hashable, Codable {
         
         public func encode(to encoder: Encoder) throws {
             var container = encoder.singleValueContainer()
-            try container.encode(rawValue)
+            // 确保编码时不包含custom_前缀
+            let encodingValue: String
+            switch self {
+            case .location:
+                encodingValue = "location"
+            case .custom(let name):
+                // 确保移除任何可能存在的custom_前缀
+                if name.hasPrefix("custom_") {
+                    encodingValue = String(name.dropFirst(7))
+                } else {
+                    encodingValue = name
+                }
+            }
+            try container.encode(encodingValue)
         }
     }
     
@@ -270,6 +597,32 @@ public struct Tag: Identifiable, Hashable, Codable {
     }
 }
 
+
+// MARK: - 命令Diff相关模型
+
+public struct CommandDiff {
+    public let updatedClasses: [TagTypeUpdate]
+    public let added: [Tag]
+    public let removed: [Tag]
+    public let unchanged: [Tag]
+    
+    public struct TagTypeUpdate {
+        public let code: String
+        public let oldDisplayName: String?
+        public let newDisplayName: String
+    }
+    
+    public init(updatedClasses: [TagTypeUpdate], added: [Tag], removed: [Tag], unchanged: [Tag]) {
+        self.updatedClasses = updatedClasses
+        self.added = added
+        self.removed = removed
+        self.unchanged = unchanged
+    }
+    
+    public var hasChanges: Bool {
+        return !updatedClasses.isEmpty || !added.isEmpty || !removed.isEmpty
+    }
+}
 
 // MARK: - 搜索相关模型
 

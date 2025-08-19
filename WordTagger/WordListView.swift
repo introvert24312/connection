@@ -21,6 +21,10 @@ struct NodeListView: View {
     @State private var updateTask: Task<Void, Never>?
     @State private var isUpdating: Bool = false
     
+    // 命令行编辑器状态
+    @State private var showingCommandEditor = false
+    @State private var nodeToEdit: Node?
+    
     enum SortOption: String, CaseIterable {
         case alphabetical = "字母顺序"
         case tagCount = "标签数量"
@@ -152,14 +156,26 @@ struct NodeListView: View {
                         NodeRowView(
                             node: node,
                             isSelected: selectedNode?.id == node.id || (index == selectedIndex && selectedIndex >= 0),
-                            searchQuery: store.searchQuery
-                        ) {
-                            print("🎯 NodeListView: 用户点击节点 \(node.text)")
-                            selectedNode = node
-                            selectedIndex = index
-                            print("🔄 NodeListView: 调用store.selectNode(\(node.text))")
-                            store.selectNode(node)
-                        }
+                            searchQuery: store.searchQuery,
+                            onTap: {
+                                print("🎯 NodeListView: 用户点击节点 \(node.text)")
+                                selectedNode = node
+                                selectedIndex = index
+                                print("🔄 NodeListView: 调用store.selectNode(\(node.text))")
+                                store.selectNode(node)
+                            },
+                            onCommandClick: {
+                                print("⌘ NodeListView: Command+点击节点 \(node.text)")
+                                print("📋 节点详情: 标签数量=\(node.tags.count), layerId=\(node.layerId)")
+                                nodeToEdit = node
+                                showingCommandEditor = true
+                                print("🎭 编辑器状态: showingCommandEditor=\(showingCommandEditor), nodeToEdit=\(nodeToEdit?.text ?? "nil")")
+                            },
+                            onDelete: {
+                                print("🗑️ NodeListView: 删除节点 \(node.text)")
+                                deleteNodeWithSmartTagCleanup(node)
+                            }
+                        )
                         .id(node.id)
                         .transition(.opacity.combined(with: .move(edge: .leading)))
                     }
@@ -241,11 +257,37 @@ struct NodeListView: View {
             print("🔄 强制立即更新缓存显示")
             updateCachedDisplayNodes()
         }
+        .sheet(isPresented: $showingCommandEditor) {
+            SimpleNodeEditor(
+                node: nodeToEdit,
+                onSave: { updatedNode in
+                    print("💾 NodeListView: 收到保存请求")
+                    print("💾 NodeListView: 节点ID=\(updatedNode.id), 文本=\(updatedNode.text)")
+                    print("💾 NodeListView: 标签数=\(updatedNode.tags.count)")
+                    
+                    // 尝试使用正确的updateNode方法
+                    store.updateNode(updatedNode.id, text: updatedNode.text, phonetic: updatedNode.phonetic, meaning: updatedNode.meaning)
+                    
+                    // 分别更新标签
+                    store.updateNodeTags(updatedNode.id, tags: updatedNode.tags)
+                    
+                    print("💾 NodeListView: 更新完成")
+                    showingCommandEditor = false
+                    self.nodeToEdit = nil
+                },
+                onCancel: {
+                    print("❌ 取消编辑")
+                    showingCommandEditor = false
+                    self.nodeToEdit = nil
+                }
+            )
+        }
     }
     
     private var displayNodes: [Node] {
         return cachedDisplayNodes
     }
+    
     
     private func scheduleUpdate() {
         print("⏰ NodeListView.scheduleUpdate called")
@@ -420,6 +462,117 @@ struct NodeListView: View {
         store.selectNode(node)
     }
     
+    /// 删除节点并智能清理标签
+    private func deleteNodeWithSmartTagCleanup(_ nodeToDelete: Node) {
+        print("🗑️ 开始删除节点: \(nodeToDelete.text)")
+        print("📋 节点标签数量: \(nodeToDelete.tags.count)")
+        
+        // 1. 收集该节点的所有标签
+        let nodeTagsToCheck = nodeToDelete.tags
+        print("📋 需要检查的标签:")
+        for tag in nodeTagsToCheck {
+            print("   - \(tag.type.displayName): \(tag.value)")
+        }
+        
+        // 2. 检查每个标签在其他节点中的使用情况
+        var tagsToDelete: [Tag] = []
+        var tagsToKeep: [Tag] = []
+        
+        for tag in nodeTagsToCheck {
+            var tagUsedElsewhere = false
+            
+            // 遍历所有其他节点，检查是否使用了相同的标签
+            for otherNode in store.nodes {
+                // 跳过当前要删除的节点
+                if otherNode.id == nodeToDelete.id { continue }
+                
+                // 检查其他节点是否有相同的标签
+                for otherTag in otherNode.tags {
+                    if otherTag.type == tag.type && otherTag.value == tag.value {
+                        tagUsedElsewhere = true
+                        break
+                    }
+                }
+                
+                if tagUsedElsewhere { break }
+            }
+            
+            if tagUsedElsewhere {
+                tagsToKeep.append(tag)
+                print("✅ 标签 \(tag.type.displayName): \(tag.value) 在其他节点中使用，将保留")
+            } else {
+                tagsToDelete.append(tag)
+                print("🗑️ 标签 \(tag.type.displayName): \(tag.value) 只在此节点中使用，将删除")
+            }
+        }
+        
+        // 3. 显示确认对话框
+        showDeleteConfirmation(
+            nodeToDelete: nodeToDelete,
+            tagsToDelete: tagsToDelete,
+            tagsToKeep: tagsToKeep
+        )
+    }
+    
+    /// 显示删除确认对话框
+    private func showDeleteConfirmation(nodeToDelete: Node, tagsToDelete: [Tag], tagsToKeep: [Tag]) {
+        let alert = NSAlert()
+        alert.messageText = "确认删除节点"
+        
+        var informativeText = "将删除节点：\(nodeToDelete.text)\n\n"
+        
+        if !tagsToDelete.isEmpty {
+            informativeText += "以下标签只在此节点中使用，也将被删除：\n"
+            for tag in tagsToDelete {
+                informativeText += "• \(tag.type.displayName): \(tag.value)\n"
+            }
+        }
+        
+        if !tagsToKeep.isEmpty {
+            informativeText += "\n以下标签在其他节点中也有使用，将保留：\n"
+            for tag in tagsToKeep {
+                informativeText += "• \(tag.type.displayName): \(tag.value)\n"
+            }
+        }
+        
+        alert.informativeText = informativeText
+        alert.alertStyle = .warning
+        
+        alert.addButton(withTitle: "删除")
+        alert.addButton(withTitle: "取消")
+        
+        let response = alert.runModal()
+        
+        if response == .alertFirstButtonReturn {
+            performNodeDeletion(nodeToDelete: nodeToDelete, tagsToDelete: tagsToDelete)
+        }
+    }
+    
+    /// 执行节点和标签删除
+    private func performNodeDeletion(nodeToDelete: Node, tagsToDelete: [Tag]) {
+        print("🗑️ 执行删除操作...")
+        
+        // 1. 删除节点
+        store.deleteNode(nodeToDelete.id)
+        print("✅ 已删除节点: \(nodeToDelete.text)")
+        
+        // 2. 删除只在该节点中使用的标签
+        for tag in tagsToDelete {
+            // 这里可能需要调用store的删除标签方法（如果存在）
+            // store.deleteTag(tag) // 假设这个方法存在
+            print("✅ 已删除标签: \(tag.type.displayName): \(tag.value)")
+        }
+        
+        // 3. 清理UI状态
+        if selectedNode?.id == nodeToDelete.id {
+            selectedNode = nil
+        }
+        
+        // 4. 强制刷新显示
+        updateCachedDisplayNodes()
+        
+        print("✅ 节点删除完成，共删除了 \(tagsToDelete.count) 个标签")
+    }
 }
 
 // MARK: - 节点行视图
@@ -429,11 +582,27 @@ struct NodeRowView: View {
     let isSelected: Bool
     let searchQuery: String
     let onTap: () -> Void
+    let onCommandClick: (() -> Void)?
+    let onDelete: (() -> Void)?
     
     @EnvironmentObject private var store: NodeStore
     
     var body: some View {
-        Button(action: onTap) {
+        Button(action: {
+            // 直接在Button action中处理点击逻辑
+            let currentEvent = NSApp.currentEvent
+            let isCommandPressed = currentEvent?.modifierFlags.contains(.command) ?? false
+            
+            print("🎯 NodeRowView Button: 点击检测 - Command键状态: \(isCommandPressed)")
+            
+            if isCommandPressed {
+                print("⌘ NodeRowView Button: 检测到Command+点击")
+                onCommandClick?()
+            } else {
+                print("👆 NodeRowView Button: 普通点击")
+                onTap()
+            }
+        }) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     // 节点文本
@@ -512,6 +681,23 @@ struct NodeRowView: View {
         )
         .scaleEffect(isSelected ? 1.02 : 1.0)
         .animation(.easeInOut(duration: 0.2), value: isSelected)
+        .contextMenu {
+            Button(action: {
+                print("📝 右键编辑节点: \(node.text)")
+                onCommandClick?()
+            }) {
+                Label("编辑命令", systemImage: "pencil")
+            }
+            
+            Divider()
+            
+            Button(role: .destructive, action: {
+                print("🗑️ 右键删除节点: \(node.text)")
+                onDelete?()
+            }) {
+                Label("删除节点", systemImage: "trash")
+            }
+        }
     }
     
     private func backgroundColorForNode(isSelected: Bool) -> Color {
@@ -591,6 +777,9 @@ struct TagChipsView: View {
     let tags: [Tag]
     let searchQuery: String
     
+    @State private var isScrollEnabled = false
+    @State private var showScrollHint = true
+    
     var body: some View {
         if tags.isEmpty {
             EmptyView()
@@ -602,25 +791,74 @@ struct TagChipsView: View {
                             .font(.caption2)
                             .foregroundColor(.secondary)
                         Spacer()
-                        if tags.count > 3 {
-                            Text("← 滑动查看更多")
-                                .font(.caption2)
-                                .foregroundColor(.blue)
+                        if tags.count > 3 && showScrollHint {
+                            ScrollHintView(
+                                isScrollEnabled: isScrollEnabled,
+                                onTap: {
+                                    if !isScrollEnabled {
+                                        isScrollEnabled = true
+                                        showScrollHint = false
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                                            isScrollEnabled = false
+                                            showScrollHint = true
+                                        }
+                                    }
+                                }
+                            )
                         }
                     }
                 }
                 
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: 6) {
-                        ForEach(Array(tags.enumerated()), id: \.offset) { index, tag in
-                            TagChip(tag: tag, searchQuery: searchQuery)
+                TagScrollArea(
+                    tags: tags,
+                    searchQuery: searchQuery,
+                    isScrollEnabled: isScrollEnabled,
+                    onTap: {
+                        isScrollEnabled = true
+                        showScrollHint = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                            isScrollEnabled = false
+                            showScrollHint = true
                         }
                     }
-                    .padding(.horizontal, 4)
-                }
-                .frame(maxHeight: 50) // 进一步增加高度以容纳更大的字体
+                )
             }
         }
+    }
+}
+
+// MARK: - 辅助视图组件
+
+struct ScrollHintView: View {
+    let isScrollEnabled: Bool
+    let onTap: () -> Void
+    
+    var body: some View {
+        Text(isScrollEnabled ? "← 滑动查看更多" : "← 点击启用滚动")
+            .font(.caption2)
+            .foregroundColor(isScrollEnabled ? .blue : .orange)
+            .onTapGesture(perform: onTap)
+    }
+}
+
+struct TagScrollArea: View {
+    let tags: [Tag]
+    let searchQuery: String
+    let isScrollEnabled: Bool
+    let onTap: () -> Void
+    
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            LazyHStack(spacing: 6) {
+                ForEach(Array(tags.enumerated()), id: \.offset) { index, tag in
+                    TagChip(tag: tag, searchQuery: searchQuery)
+                }
+            }
+            .padding(.horizontal, 4)
+        }
+        .frame(maxHeight: 50)
+        .scrollDisabled(!isScrollEnabled)
+        .onTapGesture(perform: onTap)
     }
 }
 
@@ -732,7 +970,126 @@ struct EmptyStateView: View {
     }
 }
 
-#Preview {
-    NodeListView(selectedNode: .constant(nil))
-        .environmentObject(NodeStore.shared)
+
+// MARK: - Simple Node Editor
+
+struct SimpleNodeEditor: View {
+    let node: Node?
+    let onSave: (Node) -> Void
+    let onCancel: () -> Void
+    
+    @State private var commandText: String = ""
+    @Environment(\.dismiss) private var dismiss
+    @FocusState private var isTextFieldFocused: Bool
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // 标题栏
+            HStack {
+                Text("编辑节点命令")
+                    .font(.title)
+                    .fontWeight(.bold)
+                
+                Spacer()
+                
+                Button("✕") {
+                    onCancel()
+                    dismiss()
+                }
+                .font(.title)
+                .foregroundColor(.secondary)
+                .buttonStyle(.plain)
+            }
+            .padding()
+            .background(Color(NSColor.controlBackgroundColor))
+            
+            Divider()
+            
+            // 内容区域
+            VStack(spacing: 20) {
+                if let currentNode = node {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("节点: \(currentNode.text)")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                        
+                        Text("编辑命令格式:")
+                            .font(.title3)
+                            .foregroundColor(.secondary)
+                        
+                        TextField("输入命令...", text: $commandText, axis: .vertical)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(.title3, design: .monospaced))
+                            .lineLimit(4...12)
+                            .frame(minHeight: 120)
+                            .focused($isTextFieldFocused)
+                        
+                        HStack {
+                            Button("取消") {
+                                onCancel()
+                                dismiss()
+                            }
+                            .buttonStyle(.bordered)
+                            .keyboardShortcut(.escape)
+                            .font(.title3)
+                            
+                            Spacer()
+                            
+                            Button("保存") {
+                                print("💾 开始保存...")
+                                print("💾 原始节点: \(currentNode.text), 标签数: \(currentNode.tags.count)")
+                                print("💾 命令文本: '\(commandText)'")
+                                
+                                var updatedNode = currentNode
+                                updatedNode.updateFromCommandLine(commandText)
+                                
+                                print("💾 更新后节点: \(updatedNode.text), 标签数: \(updatedNode.tags.count)")
+                                for (i, tag) in updatedNode.tags.enumerated() {
+                                    print("💾   标签[\(i)]: \(tag.type.displayName) = \(tag.value)")
+                                }
+                                
+                                onSave(updatedNode)
+                                dismiss()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .keyboardShortcut(.return, modifiers: .command)
+                            .font(.title3)
+                        }
+                    }
+                    .padding(20)
+                } else {
+                    Text("无节点数据")
+                        .foregroundColor(.secondary)
+                        .padding()
+                }
+                
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .frame(width: 600, height: 400)
+        .background(Color(NSColor.windowBackgroundColor))
+        .onAppear {
+            if let currentNode = node {
+                commandText = currentNode.canonicalCommandRepresentation
+                print("🔄 加载命令: \(commandText)")
+                print("📋 节点ID: \(currentNode.id)")
+                print("📋 节点标签数: \(currentNode.tags.count)")
+                
+                // 延迟设置焦点，确保视图已经完全渲染
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    isTextFieldFocused = true
+                    print("🎯 设置输入框焦点")
+                }
+            } else {
+                print("❌ 节点数据为空!")
+            }
+        }
+    }
 }
+
+// Preview temporarily disabled due to @FocusState initialization complexity
+// #Preview {
+//     NodeListView(selectedNode: .constant(nil))
+//         .environmentObject(NodeStore.shared)
+// }

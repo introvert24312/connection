@@ -110,6 +110,38 @@ class TagMappingManager: ObservableObject {
         }
     }
     
+    /// 添加新的标签映射
+    func addMapping(_ mapping: TagMapping) {
+        let normalizedKey = mapping.key.lowercased()
+        let newMapping = TagMapping(id: mapping.id, key: normalizedKey, typeName: mapping.typeName)
+        
+        // 检查是否已存在，如果存在则更新
+        if let index = tagMappings.firstIndex(where: { $0.key == normalizedKey }) {
+            tagMappings[index] = newMapping
+            print("🔄 更新现有标签映射: \(normalizedKey) -> \(mapping.typeName)")
+        } else {
+            tagMappings.append(newMapping)
+            print("➕ 添加新标签映射: \(normalizedKey) -> \(mapping.typeName)")
+        }
+        
+        saveToUserDefaults()
+    }
+    
+    /// 更新现有的标签映射
+    func updateMapping(_ mapping: TagMapping) {
+        let normalizedKey = mapping.key.lowercased()
+        let updatedMapping = TagMapping(id: mapping.id, key: normalizedKey, typeName: mapping.typeName)
+        
+        if let index = tagMappings.firstIndex(where: { $0.id == mapping.id || $0.key == normalizedKey }) {
+            tagMappings[index] = updatedMapping
+            saveToUserDefaults()
+            print("🔄 更新标签映射: \(normalizedKey) -> \(mapping.typeName)")
+        } else {
+            // 如果找不到现有映射，则添加新的
+            addMapping(updatedMapping)
+        }
+    }
+    
     // 智能解析token为TagType，支持动态创建
     func parseTokenToTagType(_ token: String, store: NodeStore? = nil) -> Tag.TagType? {
         let lowerToken = token.lowercased()

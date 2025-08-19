@@ -60,6 +60,9 @@ public final class NodeStore: ObservableObject {
                         self.layers = loadedLayers
                         self.nodes = loadedNodes
                         
+                        // 修复旧的标签类型（移除custom_前缀）
+                        self.fixLegacyTagTypesInAllNodes()
+                        
                         // 设置活跃层
                         if let activeLayer = loadedLayers.first(where: { $0.isActive }) {
                             self.currentLayer = activeLayer
@@ -272,6 +275,33 @@ public final class NodeStore: ObservableObject {
     // MARK: - 节点管理
     
     @Published public var duplicateNodeAlert: DuplicateNodeAlert?
+    
+    /// 修复所有节点中的旧标签类型（移除custom_前缀）
+    private func fixLegacyTagTypesInAllNodes() {
+        var hasAnyChanges = false
+        
+        for i in 0..<nodes.count {
+            let oldNode = nodes[i]
+            var fixedNode = oldNode
+            fixedNode.fixLegacyTagTypes()
+            
+            if fixedNode.updatedAt > oldNode.updatedAt {
+                nodes[i] = fixedNode
+                hasAnyChanges = true
+            }
+        }
+        
+        if hasAnyChanges {
+            print("🔧 修复了节点中的旧标签类型，移除custom_前缀")
+            
+            // 保存修复后的数据
+            Task {
+                try? await externalDataService.saveAllData(store: self)
+            }
+        } else {
+            print("✅ 所有节点的标签类型都是最新格式，无需修复")
+        }
+    }
     
     // 重复节点检测结果
     public struct DuplicateNodeAlert {

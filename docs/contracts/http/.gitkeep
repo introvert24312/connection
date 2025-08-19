@@ -1,0 +1,7 @@
+# HTTP API Contracts
+
+This directory contains OpenAPI specifications for HTTP APIs.
+
+Format: *.openapi.yaml
+Standard: OpenAPI 3.0+
+Coverage: Minimum 3 critical endpoints per service

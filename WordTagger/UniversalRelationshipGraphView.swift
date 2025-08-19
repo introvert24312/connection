@@ -229,12 +229,13 @@ struct UniversalRelationshipGraphView<Node: UniversalGraphNode, Edge: UniversalG
     let onNodeSelected: ((Int) -> Void)?
     let onNodeDeselected: (() -> Void)?
     let onFitGraph: (() -> Void)?
+    let onNodeRightClicked: ((Int, CGFloat, CGFloat) -> Void)?
     @State private var debugInfo = ""
     @State private var viewId = ObjectIdentifier(UUID() as AnyObject)
     @StateObject private var selectionManager = GlobalGraphSelectionManager.shared
     
     
-    init(nodes: [Node], edges: [Edge], title: String = "节点关系图", initialScale: Double = 1.0, useHierarchicalLayout: Bool = false, onNodeSelected: ((Int) -> Void)? = nil, onNodeDeselected: (() -> Void)? = nil, onFitGraph: (() -> Void)? = nil) {
+    init(nodes: [Node], edges: [Edge], title: String = "节点关系图", initialScale: Double = 1.0, useHierarchicalLayout: Bool = false, onNodeSelected: ((Int) -> Void)? = nil, onNodeDeselected: (() -> Void)? = nil, onFitGraph: (() -> Void)? = nil, onNodeRightClicked: ((Int, CGFloat, CGFloat) -> Void)? = nil) {
         self.nodes = nodes
         self.edges = edges
         self.title = title
@@ -243,6 +244,7 @@ struct UniversalRelationshipGraphView<Node: UniversalGraphNode, Edge: UniversalG
         self.onNodeSelected = onNodeSelected
         self.onNodeDeselected = onNodeDeselected
         self.onFitGraph = onFitGraph
+        self.onNodeRightClicked = onNodeRightClicked
     }
     
     var body: some View {
@@ -271,6 +273,7 @@ struct UniversalRelationshipGraphView<Node: UniversalGraphNode, Edge: UniversalG
                         onNodeDeselected?()
                     },
                     onFitGraph: onFitGraph,
+                    onNodeRightClicked: onNodeRightClicked,
                     selectionManager: selectionManager
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -312,9 +315,10 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
     let onNodeSelected: ((Int) -> Void)?
     let onNodeDeselected: (() -> Void)?
     let onFitGraph: (() -> Void)?
+    let onNodeRightClicked: ((Int, CGFloat, CGFloat) -> Void)?
     let selectionManager: GlobalGraphSelectionManager
     
-    init(nodes: [Node], edges: [Edge], initialScale: Double = 1.0, useHierarchicalLayout: Bool = false, onDebugInfo: @escaping (String) -> Void, onNodeSelected: ((Int) -> Void)? = nil, onNodeDeselected: (() -> Void)? = nil, onFitGraph: (() -> Void)? = nil, selectionManager: GlobalGraphSelectionManager = GlobalGraphSelectionManager.shared) {
+    init(nodes: [Node], edges: [Edge], initialScale: Double = 1.0, useHierarchicalLayout: Bool = false, onDebugInfo: @escaping (String) -> Void, onNodeSelected: ((Int) -> Void)? = nil, onNodeDeselected: (() -> Void)? = nil, onFitGraph: (() -> Void)? = nil, onNodeRightClicked: ((Int, CGFloat, CGFloat) -> Void)? = nil, selectionManager: GlobalGraphSelectionManager = GlobalGraphSelectionManager.shared) {
         self.nodes = nodes
         self.edges = edges
         self.initialScale = initialScale
@@ -323,6 +327,7 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         self.onNodeSelected = onNodeSelected
         self.onNodeDeselected = onNodeDeselected
         self.onFitGraph = onFitGraph
+        self.onNodeRightClicked = onNodeRightClicked
         self.selectionManager = selectionManager
     }
     
@@ -341,6 +346,7 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         // 添加消息处理器
         webView.configuration.userContentController.add(context.coordinator, name: "nodeSelected")
         webView.configuration.userContentController.add(context.coordinator, name: "nodeDeselected")
+        webView.configuration.userContentController.add(context.coordinator, name: "nodeRightClicked")
         
         // 阻止WebView的某些默认行为，防止事件冒泡
         webView.allowsBackForwardNavigationGestures = false
@@ -350,6 +356,7 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         context.coordinator.onNodeSelected = onNodeSelected
         context.coordinator.onNodeDeselected = onNodeDeselected
         context.coordinator.onFitGraph = onFitGraph
+        context.coordinator.onNodeRightClicked = onNodeRightClicked
         context.coordinator.webView = webView
         
         // 立即加载初始内容并设置数据签名
@@ -376,6 +383,7 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
             context.coordinator.onNodeSelected = onNodeSelected
             context.coordinator.onNodeDeselected = onNodeDeselected
             context.coordinator.onFitGraph = onFitGraph
+            context.coordinator.onNodeRightClicked = onNodeRightClicked
             context.coordinator.selectionManager = selectionManager
             
             // 注册coordinator到全局管理器
@@ -430,6 +438,7 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         var onNodeSelected: ((Int) -> Void)?
         var onNodeDeselected: (() -> Void)?
         var onFitGraph: (() -> Void)?
+        var onNodeRightClicked: ((Int, CGFloat, CGFloat) -> Void)?
         var selectionManager: GlobalGraphSelectionManager?
         weak var webView: WKWebView?
         var lastDataSignature: String = ""
@@ -470,6 +479,12 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                 }
             case "nodeDeselected":
                 onNodeDeselected?()
+            case "nodeRightClicked":
+                if let nodeId = body["nodeId"] as? Int,
+                   let x = body["x"] as? Double,
+                   let y = body["y"] as? Double {
+                    onNodeRightClicked?(nodeId, CGFloat(x), CGFloat(y))
+                }
             default:
                 break
             }
@@ -806,6 +821,27 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                         return;
                     }
                     
+                    
+                    // 添加右键点击事件监听器
+                    network.on('oncontext', function(params) {
+                        // 阻止默认的右键菜单
+                        params.event.preventDefault();
+                        
+                        if (params.nodes.length > 0) {
+                            var nodeId = params.nodes[0];
+                            var x = params.pointer.DOM.x;
+                            var y = params.pointer.DOM.y;
+                            
+                            console.log('🖱️ 节点右键点击:', nodeId, 'at', x, y);
+                            
+                            // 通知Swift层
+                            window.webkit.messageHandlers.nodeRightClicked.postMessage({
+                                nodeId: nodeId,
+                                x: x,
+                                y: y
+                            });
+                        }
+                    });
                     
                     // 添加事件监听器来阻止事件冒泡
                     network.on('click', function(params) {

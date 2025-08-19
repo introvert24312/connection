@@ -1,0 +1,7 @@
+name: location-manager
+purpose: MARK - Location Manager class LocationManager
+owner: WordTagger Team @wordtagger-oncall
+health: /health
+depends_on:
+  - cllocation-manager
+runbook: ../runbooks/location-manager.md

@@ -1,0 +1,5 @@
+name: fullscreen-graph-window-manager
+purpose: MARK - SwiftUI原生全屏图谱管理器 class FullscreenGraphWindowManager
+owner: WordTagger Team @wordtagger-oncall
+health: /health
+runbook: ../runbooks/fullscreen-graph-window-manager.md

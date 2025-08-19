@@ -1,0 +1,7 @@
+name: external-data-service
+purpose: ExternalDataService - Provides core business logic and functionality
+owner: WordTagger Team @wordtagger-oncall
+health: /health
+depends_on:
+  - external-data-manager
+runbook: ../runbooks/external-data-service.md

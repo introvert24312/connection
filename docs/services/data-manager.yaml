@@ -1,0 +1,5 @@
+name: data-manager
+purpose: DataManager - Manages and coordinates system resources
+owner: WordTagger Team @wordtagger-oncall
+health: /health
+runbook: ../runbooks/data-manager.md
