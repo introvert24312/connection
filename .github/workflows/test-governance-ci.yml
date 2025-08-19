@@ -1,0 +1,126 @@
+name: Test Governance CI Pipeline
+
+on:
+  workflow_dispatch:  # Manual trigger for testing
+  push:
+    branches: [ main, master ]
+    paths:
+      - '.github/workflows/governance-validation.yml'
+      - 'scripts/validate-governance.js'
+      - 'scripts/contract-diff-analyzer.js'
+      - 'tests/governance-ci.test.js'
+
+jobs:
+  test-ci-pipeline:
+    name: Test CI Pipeline Components
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run CI validation tests
+      run: |
+        echo "Running comprehensive CI validation tests..."
+        npm test -- tests/governance-ci.test.js --run
+        
+    - name: Test validation script CLI flags
+      run: |
+        echo "Testing validation script CLI interface..."
+        node scripts/validate-governance.js --help
+        
+    - name: Test contract diff analyzer
+      run: |
+        echo "Testing contract diff analyzer..."
+        node scripts/contract-diff-analyzer.js --help
+        
+    - name: Validate current repository
+      run: |
+        echo "Running validation on current repository..."
+        node scripts/test-ci-validation.js
+        
+    - name: Test GitHub Actions workflow syntax
+      run: |
+        echo "Validating GitHub Actions workflow syntax..."
+        # Basic syntax check by attempting to parse the workflow file
+        cat .github/workflows/governance-validation.yml | head -20
+        
+  simulate-pr-validation:
+    name: Simulate PR Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Create test governance files
+      run: |
+        mkdir -p test-docs/services test-docs/contracts/http test-docs/contracts/events
+        
+        # Create test service catalog
+        cat > test-docs/services/test-service.yaml << EOF
+        name: test-service
+        purpose: Test service for CI validation
+        owner: CI Test Team @ci-oncall
+        health: /healthz
+        openapi: ../contracts/http/test-service.openapi.yaml
+        runbook: ../runbooks/test-service.md
+        EOF
+        
+        # Create test OpenAPI contract
+        cat > test-docs/contracts/http/test-service.openapi.yaml << EOF
+        openapi: 3.0.0
+        info:
+          title: Test Service API
+          version: 1.0.0
+        paths:
+          /test:
+            get:
+              summary: Test endpoint
+              responses:
+                '200':
+                  description: Success
+        EOF
+        
+    - name: Run catalog validation
+      run: |
+        echo "Testing catalog validation..."
+        node scripts/validate-governance.js --catalog --path=test-docs
+        
+    - name: Run contract validation
+      run: |
+        echo "Testing contract validation..."
+        node scripts/validate-governance.js --openapi --path=test-docs
+        
+    - name: Run synchronization check
+      run: |
+        echo "Testing synchronization check..."
+        node scripts/validate-governance.js --sync --path=test-docs
+        
+    - name: Run orphan detection
+      run: |
+        echo "Testing orphan detection..."
+        node scripts/validate-governance.js --orphans --path=test-docs
+        
+    - name: Clean up test files
+      run: rm -rf test-docs

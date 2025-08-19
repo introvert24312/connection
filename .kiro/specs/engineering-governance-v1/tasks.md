@@ -32,7 +32,7 @@ This implementation plan converts the engineering governance design into actiona
     - _Requirements: 2.1, 2.2, 3.1_
 
 - [-] 3. Create interface contract management system
-  - [-] 3.1 Implement OpenAPI contract validation and management
+  - [ ] 3.1 Implement OpenAPI contract validation and management
     - Create validation utilities for OpenAPI 3.0+ specifications
     - Implement contract parsing and schema validation
     - Build unit tests for OpenAPI validation with sample contracts
@@ -50,20 +50,20 @@ This implementation plan converts the engineering governance design into actiona
     - Build unit tests for various breaking and non-breaking change scenarios
     - _Requirements: 3.2, 5.5_
 
-- [ ] 4. Implement CI guardrail automation
-  - [ ] 4.1 Create catalog schema validation CI pipeline
+- [-] 4. Implement CI guardrail automation
+  - [x] 4.1 Create catalog schema validation CI pipeline
     - Implement GitHub Actions workflow for service catalog validation
     - Add automated checking of all docs/services/*.yaml files on PR
     - Configure pipeline to fail on missing required fields or invalid YAML
     - _Requirements: 3.1, 3.4_
 
-  - [ ] 4.2 Create contract diff validation CI pipeline
+  - [x] 4.2 Create contract diff validation CI pipeline
     - Implement GitHub Actions workflow for contract change detection
     - Add automated comparison of OpenAPI/AsyncAPI files against main branch
     - Configure pipeline to fail on detected breaking changes
     - _Requirements: 3.2, 3.3, 3.4_
 
-  - [ ] 4.3 Integrate documentation synchronization checks
+  - [-] 4.3 Integrate documentation synchronization checks
     - Add validation that contract changes are accompanied by documentation updates
     - Implement checks for orphaned contracts without corresponding service entries
     - Create comprehensive CI test suite for all validation scenarios

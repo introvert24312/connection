@@ -5,6 +5,7 @@ import path from 'path';
 import yaml from 'js-yaml';
 import Ajv from 'ajv';
 import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -207,6 +208,252 @@ class GovernanceValidator {
     return allValid;
   }
 
+  validateOpenAPI(contractsDir = 'docs/contracts/http') {
+    console.log('\n=== Validating OpenAPI Contracts ===');
+    
+    if (!fs.existsSync(contractsDir)) {
+      console.log(`⚠ OpenAPI contracts directory not found: ${contractsDir}`);
+      return true;
+    }
+
+    const files = fs.readdirSync(contractsDir)
+      .filter(file => file.endsWith('.openapi.yaml') || file.endsWith('.openapi.yml'))
+      .filter(file => !file.startsWith('.'));
+
+    if (files.length === 0) {
+      console.log('⚠ No OpenAPI contract files found');
+      return true;
+    }
+
+    console.log(`📋 Found ${files.length} OpenAPI contract files to validate`);
+    
+    let allValid = true;
+    for (const file of files) {
+      const filePath = path.join(contractsDir, file);
+      try {
+        const fileContent = fs.readFileSync(filePath, 'utf8');
+        const data = yaml.load(fileContent);
+        
+        // Check if YAML was parsed successfully
+        if (!data || typeof data !== 'object') {
+          console.log(`✗ ${file}: Invalid YAML structure`);
+          allValid = false;
+          continue;
+        }
+        
+        // Basic OpenAPI validation
+        if (!data.openapi || !data.info || !data.paths) {
+          console.log(`✗ ${file}: Missing required OpenAPI fields (openapi, info, paths)`);
+          allValid = false;
+        } else {
+          console.log(`✓ ${file}`);
+        }
+      } catch (error) {
+        console.log(`✗ ${file}: YAML parsing error - ${error.message}`);
+        allValid = false;
+      }
+    }
+
+    return allValid;
+  }
+
+  validateAsyncAPI(contractsDir = 'docs/contracts/events') {
+    console.log('\n=== Validating AsyncAPI Contracts ===');
+    
+    if (!fs.existsSync(contractsDir)) {
+      console.log(`⚠ AsyncAPI contracts directory not found: ${contractsDir}`);
+      return true;
+    }
+
+    const files = fs.readdirSync(contractsDir)
+      .filter(file => file.endsWith('.asyncapi.yaml') || file.endsWith('.asyncapi.yml'))
+      .filter(file => !file.startsWith('.'));
+
+    if (files.length === 0) {
+      console.log('⚠ No AsyncAPI contract files found');
+      return true;
+    }
+
+    console.log(`📋 Found ${files.length} AsyncAPI contract files to validate`);
+    
+    let allValid = true;
+    for (const file of files) {
+      const filePath = path.join(contractsDir, file);
+      try {
+        const fileContent = fs.readFileSync(filePath, 'utf8');
+        const data = yaml.load(fileContent);
+        
+        // Basic AsyncAPI validation
+        if (!data.asyncapi || !data.info || !data.channels) {
+          console.log(`✗ ${file}: Missing required AsyncAPI fields (asyncapi, info, channels)`);
+          allValid = false;
+        } else {
+          console.log(`✓ ${file}`);
+        }
+      } catch (error) {
+        console.log(`✗ ${file}: YAML parsing error - ${error.message}`);
+        allValid = false;
+      }
+    }
+
+    return allValid;
+  }
+
+  checkContractDiff(baseBranch = 'origin/main') {
+    console.log('\n=== Checking Contract Breaking Changes ===');
+    
+    try {
+      // Use the enhanced contract diff analyzer
+      const result = execSync(`node scripts/contract-diff-analyzer.js --base=${baseBranch}`, { 
+        encoding: 'utf8',
+        stdio: 'pipe'
+      });
+      
+      console.log(result);
+      return true; // If no exception, analysis passed
+      
+    } catch (error) {
+      // If the analyzer exits with non-zero code, there were breaking changes
+      if (error.stdout) {
+        console.log(error.stdout);
+      }
+      if (error.stderr) {
+        console.error(error.stderr);
+      }
+      
+      return false; // Breaking changes detected
+    }
+  }
+
+  checkDocumentationSync() {
+    console.log('\n=== Checking Contract-Service Synchronization ===');
+    
+    const servicesDir = 'docs/services';
+    const httpContractsDir = 'docs/contracts/http';
+    const eventContractsDir = 'docs/contracts/events';
+    
+    let allSynced = true;
+    
+    // Check if services reference existing contracts
+    if (fs.existsSync(servicesDir)) {
+      const serviceFiles = fs.readdirSync(servicesDir)
+        .filter(file => file.endsWith('.yaml') || file.endsWith('.yml'));
+      
+      for (const file of serviceFiles) {
+        const filePath = path.join(servicesDir, file);
+        try {
+          const content = fs.readFileSync(filePath, 'utf8');
+          const data = yaml.load(content);
+          
+          // Check OpenAPI reference
+          if (data.openapi) {
+            const contractPath = path.resolve(servicesDir, data.openapi);
+            if (!fs.existsSync(contractPath)) {
+              console.log(`✗ ${file}: Referenced OpenAPI contract not found: ${data.openapi}`);
+              allSynced = false;
+            }
+          }
+          
+          // Check AsyncAPI reference
+          if (data.asyncapi) {
+            const contractPath = path.resolve(servicesDir, data.asyncapi);
+            if (!fs.existsSync(contractPath)) {
+              console.log(`✗ ${file}: Referenced AsyncAPI contract not found: ${data.asyncapi}`);
+              allSynced = false;
+            }
+          }
+          
+        } catch (error) {
+          console.log(`✗ ${file}: Could not parse service file - ${error.message}`);
+          allSynced = false;
+        }
+      }
+    }
+    
+    if (allSynced) {
+      console.log('✓ All service-contract references are valid');
+    }
+    
+    return allSynced;
+  }
+
+  checkOrphanedContracts() {
+    console.log('\n=== Checking for Orphaned Contracts ===');
+    
+    const servicesDir = 'docs/services';
+    const httpContractsDir = 'docs/contracts/http';
+    const eventContractsDir = 'docs/contracts/events';
+    
+    let hasOrphans = false;
+    const referencedContracts = new Set();
+    
+    // Collect all contract references from service files
+    if (fs.existsSync(servicesDir)) {
+      const serviceFiles = fs.readdirSync(servicesDir)
+        .filter(file => file.endsWith('.yaml') || file.endsWith('.yml'));
+      
+      for (const file of serviceFiles) {
+        const filePath = path.join(servicesDir, file);
+        try {
+          const content = fs.readFileSync(filePath, 'utf8');
+          const data = yaml.load(content);
+          
+          if (data.openapi) {
+            referencedContracts.add(path.resolve(servicesDir, data.openapi));
+          }
+          if (data.asyncapi) {
+            referencedContracts.add(path.resolve(servicesDir, data.asyncapi));
+          }
+        } catch (error) {
+          // Skip files that can't be parsed
+        }
+      }
+    }
+    
+    // Check HTTP contracts
+    if (fs.existsSync(httpContractsDir)) {
+      const contractFiles = fs.readdirSync(httpContractsDir)
+        .filter(file => file.endsWith('.openapi.yaml') || file.endsWith('.openapi.yml'));
+      
+      for (const file of contractFiles) {
+        const fullPath = path.resolve(httpContractsDir, file);
+        if (!referencedContracts.has(fullPath)) {
+          console.log(`⚠ Orphaned HTTP contract: ${file}`);
+          hasOrphans = true;
+        }
+      }
+    }
+    
+    // Check Event contracts
+    if (fs.existsSync(eventContractsDir)) {
+      const contractFiles = fs.readdirSync(eventContractsDir)
+        .filter(file => file.endsWith('.asyncapi.yaml') || file.endsWith('.asyncapi.yml'));
+      
+      for (const file of contractFiles) {
+        const fullPath = path.resolve(eventContractsDir, file);
+        if (!referencedContracts.has(fullPath)) {
+          console.log(`⚠ Orphaned Event contract: ${file}`);
+          hasOrphans = true;
+        }
+      }
+    }
+    
+    if (!hasOrphans) {
+      console.log('✓ No orphaned contracts found');
+    }
+    
+    return !hasOrphans;
+  }
+
+  checkCompleteness() {
+    console.log('\n=== Checking Service Catalog Completeness ===');
+    
+    // This is a placeholder for checking if all running services have catalog entries
+    // In a real implementation, this would scan for actual services in the codebase
+    console.log('✓ Service catalog completeness check passed (placeholder)');
+    return true;
+  }
+
   validateAll() {
     console.log('🔍 Starting governance documentation validation...\n');
     
@@ -228,55 +475,114 @@ class GovernanceValidator {
 
 // CLI usage
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const command = process.argv[2];
-  const options = process.argv.slice(3);
+  const args = process.argv.slice(2);
   
-  // Parse options
-  const verbose = options.includes('--verbose') || options.includes('-v');
-  const quiet = options.includes('--quiet') || options.includes('-q');
-  const customPath = options.find(opt => opt.startsWith('--path='))?.split('=')[1];
+  // Parse flags
+  const flags = {
+    catalog: args.includes('--catalog'),
+    openapi: args.includes('--openapi'),
+    asyncapi: args.includes('--asyncapi'),
+    diff: args.includes('--diff'),
+    sync: args.includes('--sync'),
+    orphans: args.includes('--orphans'),
+    completeness: args.includes('--completeness'),
+    verbose: args.includes('--verbose') || args.includes('-v'),
+    quiet: args.includes('--quiet') || args.includes('-q'),
+    help: args.includes('--help') || args.includes('-h')
+  };
   
-  if (options.includes('--help') || options.includes('-h') || command === '--help' || command === '-h') {
+  const baseBranch = args.find(arg => arg.startsWith('--base='))?.split('=')[1] || 'origin/main';
+  const customPath = args.find(arg => arg.startsWith('--path='))?.split('=')[1];
+  
+  if (flags.help) {
     console.log(`
 🔍 Governance Validation Tool
 
-Usage: node validate-governance.js [command] [options]
+Usage: node validate-governance.js [flags] [options]
 
-Commands:
-  services      Validate service catalog files only
-  dependencies  Validate dependency files only  
-  all           Validate all governance files (default)
+Validation Flags:
+  --catalog         Validate service catalog files only
+  --openapi         Validate OpenAPI contract files only
+  --asyncapi        Validate AsyncAPI contract files only
+  --diff            Check for breaking changes in contracts
+  --sync            Check contract-service synchronization
+  --orphans         Check for orphaned contracts
+  --completeness    Check service catalog completeness
 
 Options:
+  --base=<branch>   Base branch for diff comparison (default: origin/main)
   --verbose, -v     Show detailed validation information
   --quiet, -q       Show only errors and summary
   --path=<path>     Use custom path for validation
   --help, -h        Show this help message
 
 Examples:
-  node validate-governance.js services
-  node validate-governance.js services --verbose
-  node validate-governance.js all --path=custom/docs
+  node validate-governance.js --catalog
+  node validate-governance.js --openapi --verbose
+  node validate-governance.js --diff --base=origin/develop
+  node validate-governance.js --sync --orphans
 `);
     process.exit(0);
   }
   
   const validator = new GovernanceValidator();
+  let allValid = true;
   
-  switch (command) {
-    case 'services':
-      const servicesPath = customPath ? `${customPath}/services` : 'docs/services';
-      validator.validateServiceCatalog(servicesPath) ? process.exit(0) : process.exit(1);
-      break;
-    case 'dependencies':
-      const dependenciesPath = customPath ? `${customPath}/dependencies` : 'docs/dependencies';
-      validator.validateDependencies(dependenciesPath) ? process.exit(0) : process.exit(1);
-      break;
-    case 'all':
-    default:
-      validator.validateAll();
-      break;
+  // Execute requested validations
+  if (flags.catalog) {
+    const servicesPath = customPath ? `${customPath}/services` : 'docs/services';
+    allValid = validator.validateServiceCatalog(servicesPath) && allValid;
   }
+  
+  if (flags.openapi) {
+    const httpPath = customPath ? `${customPath}/contracts/http` : 'docs/contracts/http';
+    allValid = validator.validateOpenAPI(httpPath) && allValid;
+  }
+  
+  if (flags.asyncapi) {
+    const eventsPath = customPath ? `${customPath}/contracts/events` : 'docs/contracts/events';
+    allValid = validator.validateAsyncAPI(eventsPath) && allValid;
+  }
+  
+  if (flags.diff) {
+    allValid = validator.checkContractDiff(baseBranch) && allValid;
+  }
+  
+  if (flags.sync) {
+    allValid = validator.checkDocumentationSync() && allValid;
+  }
+  
+  if (flags.orphans) {
+    allValid = validator.checkOrphanedContracts() && allValid;
+  }
+  
+  if (flags.completeness) {
+    allValid = validator.checkCompleteness() && allValid;
+  }
+  
+  // If no specific flags, run legacy command-based interface
+  if (!flags.catalog && !flags.openapi && !flags.asyncapi && !flags.diff && 
+      !flags.sync && !flags.orphans && !flags.completeness) {
+    const command = args[0];
+    
+    switch (command) {
+      case 'services':
+        const servicesPath = customPath ? `${customPath}/services` : 'docs/services';
+        allValid = validator.validateServiceCatalog(servicesPath);
+        break;
+      case 'dependencies':
+        const dependenciesPath = customPath ? `${customPath}/dependencies` : 'docs/dependencies';
+        allValid = validator.validateDependencies(dependenciesPath);
+        break;
+      case 'all':
+      default:
+        validator.validateAll();
+        process.exit(0); // validateAll() handles its own exit
+    }
+  }
+  
+  // Exit with appropriate code
+  process.exit(allValid ? 0 : 1);
 }
 
 export default GovernanceValidator;

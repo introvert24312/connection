@@ -1,0 +1,109 @@
+name: Engineering Governance Validation
+
+on:
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'docs/services/**'
+      - 'docs/contracts/**'
+      - 'docs/dependencies/**'
+      - 'schemas/**'
+      - 'scripts/validate-governance.js'
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'docs/services/**'
+      - 'docs/contracts/**'
+      - 'docs/dependencies/**'
+      - 'schemas/**'
+      - 'scripts/validate-governance.js'
+
+jobs:
+  catalog-validation:
+    name: Service Catalog Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Validate service catalog schema
+      run: |
+        echo "Validating service catalog files..."
+        node scripts/validate-governance.js --catalog
+        
+    - name: Check for missing service files
+      run: |
+        echo "Checking for missing service catalog entries..."
+        node scripts/validate-governance.js --completeness
+
+  contract-validation:
+    name: Contract Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Need full history for diff comparison
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Validate OpenAPI contracts
+      run: |
+        echo "Validating OpenAPI specifications..."
+        node scripts/validate-governance.js --openapi
+        
+    - name: Validate AsyncAPI contracts
+      run: |
+        echo "Validating AsyncAPI specifications..."
+        node scripts/validate-governance.js --asyncapi
+        
+    - name: Check for breaking changes
+      if: github.event_name == 'pull_request'
+      run: |
+        echo "Checking for breaking changes in contracts..."
+        node scripts/validate-governance.js --diff --base=origin/${{ github.base_ref }}
+
+  documentation-sync:
+    name: Documentation Synchronization
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Check contract-service synchronization
+      run: |
+        echo "Validating contract-service synchronization..."
+        node scripts/validate-governance.js --sync
+        
+    - name: Check for orphaned contracts
+      run: |
+        echo "Checking for orphaned contracts..."
+        node scripts/validate-governance.js --orphans
