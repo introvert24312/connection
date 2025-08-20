@@ -1358,6 +1358,7 @@ struct WordTaggerApp: App {
     @State private var showQuickSearch = false
     @State private var showTagManager = false
     @State private var showCompoundNodeAdd = false
+    @State private var nodeToEditInManager: Node? = nil
     
     init() {
         // 设置环境变量以抑制SQLite系统数据库访问警告
@@ -1455,6 +1456,14 @@ struct WordTaggerApp: App {
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("addNewNode"))) { _ in
                 showQuickAdd = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openNodeManagerForEdit"))) { notification in
+                if let node = notification.object as? Node {
+                    print("📝 WordTaggerApp: 收到节点编辑请求，节点: \(node.text)")
+                    nodeToEditInManager = node
+                    // 打开节点管理窗口
+                    NotificationCenter.default.post(name: Notification.Name("openNodeManager"), object: nil)
+                }
             }
         }
         .defaultSize(width: 1200, height: 800)
@@ -1573,7 +1582,7 @@ struct WordTaggerApp: App {
         
         // 节点管理窗口
         WindowGroup("节点管理", id: "nodeManager") {
-            NodeManagerView()
+            NodeManagerView(nodeToEdit: $nodeToEditInManager)
                 .environmentObject(store)
                 .frame(minWidth: 750, minHeight: 500)
         }

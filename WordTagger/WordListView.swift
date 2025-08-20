@@ -177,9 +177,11 @@ struct NodeListView: View {
                             onCommandClick: {
                                 print("⌘ NodeListView: Command+点击节点 \(node.text)")
                                 print("📋 节点详情: 标签数量=\(node.tags.count), layerId=\(node.layerId)")
-                                nodeToEdit = node
-                                showingCommandEditor = true
-                                print("🎭 编辑器状态: showingCommandEditor=\(showingCommandEditor), nodeToEdit=\(nodeToEdit?.text ?? "nil")")
+                                // 发送通知打开节点管理窗口，并传递要编辑的节点
+                                NotificationCenter.default.post(
+                                    name: NSNotification.Name("openNodeManagerForEdit"),
+                                    object: node
+                                )
                             },
                             onDelete: {
                                 print("🗑️ NodeListView: 删除节点 \(node.text)")
@@ -270,13 +272,7 @@ struct NodeListView: View {
             print("🔄 强制立即更新缓存显示")
             updateCachedDisplayNodes()
         }
-        .sheet(isPresented: $showingCommandEditor) {
-            QuickAddSheetView(prefilledNode: nodeToEdit)
-                .environmentObject(store)
-                .onDisappear {
-                    nodeToEdit = nil
-                }
-        }
+        // 节点编辑现在通过节点管理窗口处理
     }
     
     private var displayNodes: [Node] {

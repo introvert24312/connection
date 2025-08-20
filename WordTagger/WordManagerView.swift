@@ -4,6 +4,7 @@ import CoreLocation
 
 struct NodeManagerView: View {
     @EnvironmentObject private var store: NodeStore
+    @Binding var nodeToEdit: Node?
     @State private var selectedNodes: Set<UUID> = []
     @State private var localSearchQuery: String = ""
     @State private var searchTask: Task<Void, Never>?
@@ -347,6 +348,31 @@ struct NodeManagerView: View {
         .onDisappear {
             searchTask?.cancel()
         }
+        .onAppear {
+            // 检查是否有待编辑的节点
+            if let nodeToEdit = nodeToEdit {
+                print("📝 NodeManagerView: 检测到待编辑节点: \(nodeToEdit.text)")
+                // 自动打开编辑界面
+                commandPaletteNode = nodeToEdit
+                showingCommandPalette = true
+                // 清除待编辑节点
+                DispatchQueue.main.async {
+                    self.nodeToEdit = nil
+                }
+            }
+        }
+        .onChange(of: nodeToEdit) { _, newNode in
+            // 处理运行时设置的待编辑节点
+            if let node = newNode {
+                print("📝 NodeManagerView: onChange检测到待编辑节点: \(node.text)")
+                commandPaletteNode = node
+                showingCommandPalette = true
+                // 清除待编辑节点
+                DispatchQueue.main.async {
+                    self.nodeToEdit = nil
+                }
+            }
+        }
     }
     
     private func batchDeleteNodes() {
@@ -547,9 +573,15 @@ struct TagEditCommandView: View {
     @StateObject private var commandParser = CommandParser.shared
     @State private var showingDuplicateAlert = false
     
+    // 从store获取最新的节点数据
+    private var currentNode: Node {
+        return store.nodes.first { $0.id == node.id } ?? node
+    }
+    
     private var initialCommand: String {
-        // 生成当前节点的完整命令
-        let tagCommands = node.tags.map { tag in
+        // 使用最新的节点数据生成完整命令
+        let currentNodeData = currentNode
+        let tagCommands = currentNodeData.tags.map { tag in
             // 对于location标签且有坐标信息，生成完整的loc命令
             if case .custom(let key) = tag.type, TagMappingManager.shared.isLocationTagKey(key), tag.hasCoordinates,
                let lat = tag.latitude, let lng = tag.longitude {
@@ -563,9 +595,9 @@ struct TagEditCommandView: View {
         }.joined(separator: " ")
         
         if tagCommands.isEmpty {
-            return "\(node.text) "
+            return "\(currentNodeData.text) "
         } else {
-            return "\(node.text) \(tagCommands)"
+            return "\(currentNodeData.text) \(tagCommands)"
         }
     }
     
@@ -589,11 +621,11 @@ struct TagEditCommandView: View {
                 
                 Spacer()
                 
-                Button("完成") {
+                Button("执行") {
                     executeCommand()
                 }
                 .buttonStyle(.borderedProminent)
-                .keyboardShortcut(.return, modifiers: [.command])
+                .keyboardShortcut("r", modifiers: [.command])
             }
             .padding()
             
@@ -688,12 +720,23 @@ struct TagEditCommandView: View {
         .frame(minWidth: 500, maxWidth: 600, minHeight: 400, maxHeight: 500)
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
+            print("📝 TagEditCommandView onAppear")
+            print("📝 传入节点: \(node.text), 标签数: \(node.tags.count)")
+            let currentNodeData = currentNode
+            print("📝 最新节点: \(currentNodeData.text), 标签数: \(currentNodeData.tags.count)")
+            for (index, tag) in currentNodeData.tags.enumerated() {
+                print("📝   标签[\(index)]: \(tag.type.displayName) = '\(tag.value)' (rawValue: '\(tag.type.rawValue)')")
+            }
+            print("📝 生成的初始命令: '\(initialCommand)'")
             commandText = initialCommand
             updateAvailableCommands()
         }
-        .onKeyPress(.return) {
-            executeCommand()
-            return .handled
+        .onKeyPress(.init("r"), phases: .down) { _ in
+            if NSEvent.modifierFlags.contains(.command) {
+                executeCommand()
+                return .handled
+            }
+            return .ignored
         }
         .background(
             Button("") {
@@ -743,7 +786,12 @@ struct TagEditCommandView: View {
     }
     
     private func executeCommand() {
+        print("🚀 executeCommand() 被调用")
+        print("🚀 当前命令文本: '\(commandText)'")
+        
         let trimmedText = commandText.trimmingCharacters(in: .whitespacesAndNewlines)
+        print("🚀 去除空格后的命令: '\(trimmedText)'")
+        
         guard !trimmedText.isEmpty else { 
             print("⚠️ 命令为空，直接关闭窗口")
             dismiss()
@@ -779,6 +827,10 @@ struct TagEditCommandView: View {
             .filter { !$0.isEmpty }
         
         print("🔧 分词结果: \(tokens)")
+        print("🔧 分词详情:")
+        for (index, token) in tokens.enumerated() {
+            print("   [\(index)]: '\(token)'")
+        }
         
         guard tokens.count >= 2 else { 
             print("❌ Token数量不足: \(tokens.count) < 2")
@@ -802,7 +854,7 @@ struct TagEditCommandView: View {
         
         while i < tokens.count {
             let token = tokens[i]
-            print("🔧 处理token [\(i)]: '\(token)'")
+            print("🔧 [主循环] 处理token [\(i)]: '\(token)'，总token数: \(tokens.count)")
             
             // 检查是否是标签类型关键词
             if let tagType = mapTokenToTagType(token) {
@@ -814,27 +866,60 @@ struct TagEditCommandView: View {
                 var values: [String] = []
                 print("🔧 收集标签值，从索引 \(i) 开始")
                 
-                while i < tokens.count {
-                    let nextToken = tokens[i]
-                    print("🔧 检查下一个token [\(i)]: '\(nextToken)'")
-                    
-                    // 如果遇到下一个标签类型，停止
-                    if mapTokenToTagType(nextToken) != nil {
-                        print("🔧 遇到下一个标签类型: '\(nextToken)'，停止收集值")
-                        break
+                // 特殊处理位置标签：如果是位置标签，需要特别处理坐标格式
+                if TagMappingManager.shared.isLocationTagKey(tagKey) {
+                    // 对于位置标签，可能有多种格式，需要更智能的解析
+                    // 1. 单个完整坐标token: @lat,lng[name]
+                    // 2. 分离的tokens: name @lat,lng 或其他组合
+                    while i < tokens.count {
+                        let nextToken = tokens[i]
+                        print("🔧 检查位置标签值 [\(i)]: '\(nextToken)'")
+                        
+                        // 如果遇到下一个标签类型（但排除坐标格式），停止
+                        if mapTokenToTagType(nextToken) != nil {
+                            print("🔧 遇到下一个标签类型: '\(nextToken)'，停止收集位置标签值")
+                            break
+                        }
+                        
+                        values.append(nextToken)
+                        print("🔧 添加位置标签值: '\(nextToken)'，当前值列表: \(values)")
+                        
+                        // 如果当前token是完整的坐标格式（包含@和[]），这是完整的位置标签值
+                        if nextToken.hasPrefix("@") && nextToken.contains("[") && nextToken.contains("]") {
+                            print("🔧 检测到完整坐标格式，这是位置标签的完整值")
+                            print("🔧 当前索引 i = \(i)，即将跳出位置标签值收集循环")
+                            i += 1
+                            break
+                        }
+                        
+                        i += 1
                     }
-                    
-                    values.append(nextToken)
-                    print("🔧 添加值: '\(nextToken)'，当前值列表: \(values)")
-                    i += 1
+                } else {
+                    // 普通标签的值收集逻辑：标签类型 标签值 配对模式
+                    if i < tokens.count {
+                        let nextToken = tokens[i]
+                        print("🔧 检查标签值 [\(i)]: '\(nextToken)'")
+                        
+                        // 收集这个token作为标签值
+                        values.append(nextToken)
+                        print("🔧 添加标签值: '\(nextToken)'")
+                        i += 1
+                    }
                 }
                 
                 print("🔧 收集的值: \(values)")
+                print("🔧 标签值收集完成，当前索引 i = \(i)，下一个token: \(i < tokens.count ? tokens[i] : "超出范围")")
                 
                 // 创建标签
+                let value: String
                 if !values.isEmpty {
-                    let value = values.joined(separator: " ")
+                    value = values.joined(separator: " ")
                     print("🔧 创建标签，类型: \(tagType)，值: '\(value)'")
+                } else {
+                    // 如果没有收集到值，使用标签类型的显示名称作为值
+                    value = tagType.displayName
+                    print("🔧 创建无值标签，类型: \(tagType)，使用显示名称作为值: '\(value)'")
+                }
                     
                     // 检查是否是地图标签（通过key识别）
                     if TagMappingManager.shared.isLocationTagKey(tagKey) {
@@ -917,8 +1002,8 @@ struct TagEditCommandView: View {
                         }
                         
                         if parsed && !locationName.isEmpty {
-                            // 对于成功解析的位置标签，保存完整的原始格式作为value
-                            let tag = store.createTag(type: tagType, value: value, latitude: lat, longitude: lng)
+                            // 对于成功解析的位置标签，只保存地名作为value，坐标保存在专门字段中
+                            let tag = store.createTag(type: tagType, value: locationName, latitude: lat, longitude: lng)
                             newTags.append(tag)
                             print("✅ 创建位置标签: \(locationName) (\(lat), \(lng))")
                             print("✅ 标签详情: type=\(tag.type.rawValue), value=\(tag.value), hasCoords=\(tag.hasCoordinates)")
@@ -947,9 +1032,7 @@ struct TagEditCommandView: View {
                         newTags.append(tag)
                         print("✅ 创建标签: \(tagType.displayName) - \(value)")
                     }
-                } else {
-                    print("❌ 标签值为空，跳过")
-                }
+                print("🔧 标签处理完成，当前索引 i = \(i)，准备继续主循环")
             } else {
                 print("❌ token '\(token)' 不是标签类型，跳过")
                 i += 1
@@ -989,6 +1072,36 @@ struct TagEditCommandView: View {
     }
     
     private func mapTokenToTagType(_ token: String) -> Tag.TagType? {
+        // 检查是否是坐标格式或其他特殊值格式，如果是则不当作标签类型
+        if token.hasPrefix("@") && (token.contains("[") || token.contains(",")) {
+            print("🔍 mapTokenToTagType: '\(token)' -> 跳过（坐标格式）")
+            return nil
+        }
+        
+        // 检查是否是完整的坐标格式 @lat,lng[name]
+        if token.hasPrefix("@") && token.contains(",") && token.contains("[") && token.contains("]") {
+            print("🔍 mapTokenToTagType: '\(token)' -> 跳过（完整坐标格式）")
+            return nil
+        }
+        
+        // 检查是否是纯数字（可能是坐标的一部分）
+        if Double(token) != nil && token.contains(".") {
+            print("🔍 mapTokenToTagType: '\(token)' -> 跳过（疑似坐标数字）")
+            return nil
+        }
+        
+        // 检查是否是带引号的值，如果是则不当作标签类型
+        if (token.hasPrefix("\"") && token.hasSuffix("\"")) {
+            print("🔍 mapTokenToTagType: '\(token)' -> 跳过（引号值格式）")
+            return nil
+        }
+        
+        // 检查是否包含方括号（可能是地名格式的一部分）
+        if token.contains("[") || token.contains("]") {
+            print("🔍 mapTokenToTagType: '\(token)' -> 跳过（包含方括号）")
+            return nil
+        }
+        
         let tagManager = TagMappingManager.shared
         let result = tagManager.parseTokenToTagTypeWithStore(token, store: store)
         print("🔍 mapTokenToTagType: '\(token)' -> \(result?.displayName ?? "nil")")

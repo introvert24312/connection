@@ -210,6 +210,14 @@ public final class NodeStore: ObservableObject {
                 
                 print("📚 从新路径加载了 \(loadedNodes.count) 个节点，分布在 \(loadedLayers.count) 个层中")
                 
+                // 调试：打印每个节点的标签详情
+                for (index, node) in loadedNodes.enumerated() {
+                    print("🏷️ Node[\(index)]: \(node.text) - \(node.tags.count) 个标签")
+                    for (tagIndex, tag) in node.tags.enumerated() {
+                        print("   Tag[\(tagIndex)]: \(tag.type.displayName) = '\(tag.value)' (id: \(tag.id.uuidString.prefix(8)))")
+                    }
+                }
+                
                 // 重新加载标签映射
                 await TagMappingManager.shared.reloadFromExternalStorage()
             } else {
@@ -445,6 +453,18 @@ public final class NodeStore: ObservableObject {
             
             nodes.append(nodeWithLayer)
             print("✅ 节点添加成功，当前总数: \(nodes.count)")
+            
+            // 手动触发objectWillChange以确保UI更新
+            objectWillChange.send()
+            
+            // 自动保存到外部存储
+            if !isLoadingFromExternal {
+                Task {
+                    await forceSaveToExternalStorage()
+                    print("💾 节点添加后已自动保存到外部存储")
+                }
+            }
+            
             return true
         }
     }
@@ -473,6 +493,17 @@ public final class NodeStore: ObservableObject {
     public func updateNode(_ node: Node) {
         if let index = nodes.firstIndex(where: { $0.id == node.id }) {
             nodes[index] = node
+            
+            // 手动触发objectWillChange以确保UI更新
+            objectWillChange.send()
+            
+            // 自动保存到外部存储
+            if !isLoadingFromExternal {
+                Task {
+                    await forceSaveToExternalStorage()
+                    print("💾 节点更新后已自动保存到外部存储")
+                }
+            }
         }
     }
     
@@ -485,6 +516,17 @@ public final class NodeStore: ObservableObject {
             if let meaning = meaning { updatedNode.meaning = meaning }
             updatedNode.updatedAt = Date()
             nodes[index] = updatedNode
+            
+            // 手动触发objectWillChange以确保UI更新
+            objectWillChange.send()
+            
+            // 自动保存到外部存储
+            if !isLoadingFromExternal {
+                Task {
+                    await forceSaveToExternalStorage()
+                    print("💾 节点更新后已自动保存到外部存储")
+                }
+            }
         }
     }
     
@@ -516,6 +558,17 @@ public final class NodeStore: ObservableObject {
             updatedNode.updatedAt = Date()
             nodes[index] = updatedNode
             print("📝 更新节点标签: \(updatedNode.text), 新标签数: \(tags.count)")
+            
+            // 手动触发objectWillChange以确保UI更新
+            objectWillChange.send()
+            
+            // 自动保存到外部存储
+            if !isLoadingFromExternal {
+                Task {
+                    await forceSaveToExternalStorage()
+                    print("💾 节点标签更新后已自动保存到外部存储")
+                }
+            }
         }
     }
     
@@ -525,6 +578,17 @@ public final class NodeStore: ObservableObject {
         if selectedNode?.id == node.id {
             selectedNode = nil
         }
+        
+        // 手动触发objectWillChange以确保UI更新
+        objectWillChange.send()
+        
+        // 自动保存到外部存储
+        if !isLoadingFromExternal {
+            Task {
+                await forceSaveToExternalStorage()
+                print("💾 节点删除后已自动保存到外部存储")
+            }
+        }
     }
     
     @MainActor
@@ -532,6 +596,17 @@ public final class NodeStore: ObservableObject {
         nodes.removeAll { $0.id == nodeId }
         if selectedNode?.id == nodeId {
             selectedNode = nil
+        }
+        
+        // 手动触发objectWillChange以确保UI更新
+        objectWillChange.send()
+        
+        // 自动保存到外部存储
+        if !isLoadingFromExternal {
+            Task {
+                await forceSaveToExternalStorage()
+                print("💾 节点删除后已自动保存到外部存储")
+            }
         }
     }
     
@@ -1038,6 +1113,14 @@ public final class NodeStore: ObservableObject {
                 userInfo: ["nodeId": nodeId]
             )
             
+            // 自动保存到外部存储
+            if !isLoadingFromExternal {
+                Task {
+                    await forceSaveToExternalStorage()
+                    print("💾 标签添加后已自动保存到外部存储")
+                }
+            }
+            
             // 如果当前选中的节点是这个节点，更新选中节点引用
             if selectedNode?.id == nodeId {
                 selectedNode = updatedNode
@@ -1257,6 +1340,14 @@ public final class NodeStore: ObservableObject {
             if let removedTag = removedTags.first {
                 print("✅ 删除标签完成，节点已更新: \(removedTag.type.displayName) - \(removedTag.value)")
                 print("📊 当前节点标签数: \(updatedNode.tags.count)")
+            }
+            
+            // 自动保存到外部存储
+            if !isLoadingFromExternal {
+                Task {
+                    await forceSaveToExternalStorage()
+                    print("💾 标签删除后已自动保存到外部存储")
+                }
             }
         }
     }
