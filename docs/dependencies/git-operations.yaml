@@ -1,0 +1,24 @@
+from: wordtagger-app POST /api/git/commit
+to:
+  - endpoint: git-service POST /api/commit
+    contract:
+      required: [message, files, traceId]
+      errors: [400, 401, 409, 500]
+      auth: none
+      timeout_ms: 10000
+      retry_policy:
+        max_attempts: 3
+        backoff_ms: 1000
+        exponential: true
+  - endpoint: external-data-service GET /api/status
+    contract:
+      required: [traceId]
+      errors: [500]
+      auth: none
+      timeout_ms: 2000
+description: Git commit operation with status check
+critical_path: true
+sla:
+  response_time_ms: 8000
+  availability: 0.95
+  error_rate: 0.05

@@ -1,0 +1,368 @@
+asyncapi: 2.6.0
+info:
+  title: User Service Events
+  version: 1.0.0
+  description: |
+    Events published by the User Service for user lifecycle management.
+    These events are used to notify other services about user-related changes.
+  contact:
+    name: User Service Team
+    email: user-service@company.com
+  license:
+    name: MIT
+servers:
+  production:
+    url: kafka://kafka.company.com:9092
+    protocol: kafka
+    description: Production Kafka cluster
+  staging:
+    url: kafka://staging-kafka.company.com:9092
+    protocol: kafka
+    description: Staging Kafka cluster
+defaultContentType: application/json
+channels:
+  user.created:
+    description: Channel for user creation events
+    publish:
+      operationId: publishUserCreated
+      summary: Publish user created event
+      description: Published when a new user account is successfully created
+      message:
+        $ref: '#/components/messages/UserCreated'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: User ID as partition key
+  user.updated:
+    description: Channel for user update events
+    publish:
+      operationId: publishUserUpdated
+      summary: Publish user updated event
+      description: Published when user information is modified
+      message:
+        $ref: '#/components/messages/UserUpdated'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: User ID as partition key
+  user.deleted:
+    description: Channel for user deletion events
+    publish:
+      operationId: publishUserDeleted
+      summary: Publish user deleted event
+      description: Published when a user account is deleted
+      message:
+        $ref: '#/components/messages/UserDeleted'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: User ID as partition key
+  user.status.changed:
+    description: Channel for user status change events
+    publish:
+      operationId: publishUserStatusChanged
+      summary: Publish user status changed event
+      description: Published when user account status changes (active, inactive, suspended)
+      message:
+        $ref: '#/components/messages/UserStatusChanged'
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: User ID as partition key
+components:
+  messages:
+    UserCreated:
+      name: UserCreated
+      title: User Created Event
+      summary: A new user account has been created
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/UserCreatedPayload'
+      examples:
+        - name: New user registration
+          summary: Example of a user created event
+          payload:
+            eventId: "evt_123e4567-e89b-12d3-a456-426614174000"
+            eventType: "user.created"
+            timestamp: "2023-12-01T10:30:00Z"
+            version: "1.0"
+            source: "user-service"
+            data:
+              userId: "usr_123e4567-e89b-12d3-a456-426614174001"
+              email: "john.doe@example.com"
+              firstName: "John"
+              lastName: "Doe"
+              status: "active"
+              createdAt: "2023-12-01T10:30:00Z"
+              metadata:
+                registrationSource: "web"
+                ipAddress: "192.168.1.100"
+    UserUpdated:
+      name: UserUpdated
+      title: User Updated Event
+      summary: User account information has been modified
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/UserUpdatedPayload'
+      examples:
+        - name: Profile update
+          summary: Example of a user profile update event
+          payload:
+            eventId: "evt_123e4567-e89b-12d3-a456-426614174002"
+            eventType: "user.updated"
+            timestamp: "2023-12-01T11:15:00Z"
+            version: "1.0"
+            source: "user-service"
+            data:
+              userId: "usr_123e4567-e89b-12d3-a456-426614174001"
+              updatedFields: ["firstName", "lastName"]
+              previousValues:
+                firstName: "John"
+                lastName: "Doe"
+              currentValues:
+                firstName: "Jonathan"
+                lastName: "Smith"
+              updatedAt: "2023-12-01T11:15:00Z"
+              updatedBy: "usr_123e4567-e89b-12d3-a456-426614174001"
+    UserDeleted:
+      name: UserDeleted
+      title: User Deleted Event
+      summary: User account has been deleted
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/UserDeletedPayload'
+      examples:
+        - name: Account deletion
+          summary: Example of a user deletion event
+          payload:
+            eventId: "evt_123e4567-e89b-12d3-a456-426614174003"
+            eventType: "user.deleted"
+            timestamp: "2023-12-01T12:00:00Z"
+            version: "1.0"
+            source: "user-service"
+            data:
+              userId: "usr_123e4567-e89b-12d3-a456-426614174001"
+              email: "john.doe@example.com"
+              deletedAt: "2023-12-01T12:00:00Z"
+              deletedBy: "admin_123e4567-e89b-12d3-a456-426614174004"
+              reason: "user_request"
+    UserStatusChanged:
+      name: UserStatusChanged
+      title: User Status Changed Event
+      summary: User account status has been modified
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/UserStatusChangedPayload'
+      examples:
+        - name: Account suspension
+          summary: Example of a user status change event
+          payload:
+            eventId: "evt_123e4567-e89b-12d3-a456-426614174004"
+            eventType: "user.status.changed"
+            timestamp: "2023-12-01T13:30:00Z"
+            version: "1.0"
+            source: "user-service"
+            data:
+              userId: "usr_123e4567-e89b-12d3-a456-426614174001"
+              previousStatus: "active"
+              currentStatus: "suspended"
+              reason: "policy_violation"
+              changedAt: "2023-12-01T13:30:00Z"
+              changedBy: "admin_123e4567-e89b-12d3-a456-426614174004"
+  schemas:
+    EventMetadata:
+      type: object
+      required:
+        - eventId
+        - eventType
+        - timestamp
+        - version
+        - source
+      properties:
+        eventId:
+          type: string
+          format: uuid
+          description: Unique identifier for this event
+        eventType:
+          type: string
+          description: Type of event (e.g., user.created, user.updated)
+        timestamp:
+          type: string
+          format: date-time
+          description: When the event occurred
+        version:
+          type: string
+          description: Event schema version
+        source:
+          type: string
+          description: Service that generated the event
+        correlationId:
+          type: string
+          format: uuid
+          description: Optional correlation ID for tracing related events
+    UserCreatedPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventMetadata'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              type: object
+              required:
+                - userId
+                - email
+                - firstName
+                - lastName
+                - status
+                - createdAt
+              properties:
+                userId:
+                  type: string
+                  format: uuid
+                  description: Unique identifier for the user
+                email:
+                  type: string
+                  format: email
+                  description: User's email address
+                firstName:
+                  type: string
+                  description: User's first name
+                lastName:
+                  type: string
+                  description: User's last name
+                status:
+                  type: string
+                  enum: [active, inactive, pending]
+                  description: Initial status of the user account
+                createdAt:
+                  type: string
+                  format: date-time
+                  description: When the user account was created
+                metadata:
+                  type: object
+                  description: Additional metadata about the user creation
+                  properties:
+                    registrationSource:
+                      type: string
+                      enum: [web, mobile, api, admin]
+                      description: How the user registered
+                    ipAddress:
+                      type: string
+                      description: IP address used during registration
+                    userAgent:
+                      type: string
+                      description: User agent string from registration
+    UserUpdatedPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventMetadata'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              type: object
+              required:
+                - userId
+                - updatedFields
+                - updatedAt
+              properties:
+                userId:
+                  type: string
+                  format: uuid
+                  description: Unique identifier for the user
+                updatedFields:
+                  type: array
+                  items:
+                    type: string
+                  description: List of fields that were updated
+                previousValues:
+                  type: object
+                  description: Previous values of updated fields
+                currentValues:
+                  type: object
+                  description: Current values of updated fields
+                updatedAt:
+                  type: string
+                  format: date-time
+                  description: When the user was updated
+                updatedBy:
+                  type: string
+                  format: uuid
+                  description: ID of the user or system that made the update
+    UserDeletedPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventMetadata'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              type: object
+              required:
+                - userId
+                - email
+                - deletedAt
+              properties:
+                userId:
+                  type: string
+                  format: uuid
+                  description: Unique identifier for the deleted user
+                email:
+                  type: string
+                  format: email
+                  description: Email address of the deleted user
+                deletedAt:
+                  type: string
+                  format: date-time
+                  description: When the user was deleted
+                deletedBy:
+                  type: string
+                  format: uuid
+                  description: ID of the user or system that deleted the account
+                reason:
+                  type: string
+                  enum: [user_request, admin_action, policy_violation, inactivity]
+                  description: Reason for account deletion
+    UserStatusChangedPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventMetadata'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              type: object
+              required:
+                - userId
+                - previousStatus
+                - currentStatus
+                - changedAt
+              properties:
+                userId:
+                  type: string
+                  format: uuid
+                  description: Unique identifier for the user
+                previousStatus:
+                  type: string
+                  enum: [active, inactive, pending, suspended]
+                  description: Previous status of the user account
+                currentStatus:
+                  type: string
+                  enum: [active, inactive, pending, suspended]
+                  description: Current status of the user account
+                reason:
+                  type: string
+                  description: Reason for the status change
+                changedAt:
+                  type: string
+                  format: date-time
+                  description: When the status was changed
+                changedBy:
+                  type: string
+                  format: uuid
+                  description: ID of the user or system that changed the status

@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Feature Flags Configuration",
+  "description": "Schema for feature flag configuration in docs/release/flags.yaml",
+  "type": "object",
+  "properties": {
+    "flags": {
+      "type": "array",
+      "description": "List of feature flags",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Unique identifier for the feature flag",
+            "pattern": "^[a-z0-9_]+$",
+            "minLength": 1
+          },
+          "owner": {
+            "type": "string",
+            "description": "Team or person responsible for the flag",
+            "minLength": 1
+          },
+          "default": {
+            "type": "string",
+            "description": "Default state of the flag",
+            "enum": ["on", "off"]
+          },
+          "description": {
+            "type": "string",
+            "description": "Brief description of what the flag controls"
+          }
+        },
+        "required": ["name", "owner", "default"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["flags"],
+  "additionalProperties": false
+}

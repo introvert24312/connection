@@ -235,7 +235,7 @@ class GovernanceValidator {
         const data = yaml.load(fileContent);
         
         // Check if YAML was parsed successfully
-        if (!data || typeof data !== 'object') {
+        if (data === null || data === undefined || typeof data !== 'object') {
           console.log(`✗ ${file}: Invalid YAML structure`);
           allValid = false;
           continue;
@@ -325,12 +325,12 @@ class GovernanceValidator {
     }
   }
 
-  checkDocumentationSync() {
+  checkDocumentationSync(basePath = '.') {
     console.log('\n=== Checking Contract-Service Synchronization ===');
     
-    const servicesDir = 'docs/services';
-    const httpContractsDir = 'docs/contracts/http';
-    const eventContractsDir = 'docs/contracts/events';
+    const servicesDir = path.join(basePath, 'docs/services');
+    const httpContractsDir = path.join(basePath, 'docs/contracts/http');
+    const eventContractsDir = path.join(basePath, 'docs/contracts/events');
     
     let allSynced = true;
     
@@ -377,12 +377,12 @@ class GovernanceValidator {
     return allSynced;
   }
 
-  checkOrphanedContracts() {
+  checkOrphanedContracts(basePath = '.') {
     console.log('\n=== Checking for Orphaned Contracts ===');
     
-    const servicesDir = 'docs/services';
-    const httpContractsDir = 'docs/contracts/http';
-    const eventContractsDir = 'docs/contracts/events';
+    const servicesDir = path.join(basePath, 'docs/services');
+    const httpContractsDir = path.join(basePath, 'docs/contracts/http');
+    const eventContractsDir = path.join(basePath, 'docs/contracts/events');
     
     let hasOrphans = false;
     const referencedContracts = new Set();
@@ -549,11 +549,13 @@ Examples:
   }
   
   if (flags.sync) {
-    allValid = validator.checkDocumentationSync() && allValid;
+    const basePath = customPath ? path.dirname(customPath) : '.';
+    allValid = validator.checkDocumentationSync(basePath) && allValid;
   }
   
   if (flags.orphans) {
-    allValid = validator.checkOrphanedContracts() && allValid;
+    const basePath = customPath ? path.dirname(customPath) : '.';
+    allValid = validator.checkOrphanedContracts(basePath) && allValid;
   }
   
   if (flags.completeness) {

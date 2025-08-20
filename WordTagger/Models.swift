@@ -418,19 +418,22 @@ public struct Node: Identifiable, Hashable, Codable {
         
         Task { @MainActor in
             let tagManager = TagMappingManager.shared
+            let normalizedKey = tagCode.lowercased() // 确保与TagMappingManager的key规范化一致
             
-            // 查找现有映射
-            if let existingMapping = tagManager.tagMappings.first(where: { $0.key == tagCode }) {
+            // 查找现有映射（使用规范化的key）
+            if let existingMapping = tagManager.tagMappings.first(where: { $0.key == normalizedKey }) {
                 // 更新现有映射
-                let updatedMapping = TagMapping(id: existingMapping.id, key: tagCode, typeName: displayName)
+                let updatedMapping = TagMapping(id: existingMapping.id, key: normalizedKey, typeName: displayName)
                 tagManager.updateMapping(updatedMapping)
-                print("✅ 已更新标签映射: \(tagCode) = \(displayName)")
+                print("✅ 已更新标签映射: \(normalizedKey) = \(displayName)")
             } else {
                 // 创建新映射
-                let newMapping = TagMapping(key: tagCode, typeName: displayName)
+                let newMapping = TagMapping(key: normalizedKey, typeName: displayName)
                 tagManager.addMapping(newMapping)
-                print("✅ 已创建标签映射: \(tagCode) = \(displayName)")
+                print("✅ 已创建标签映射: \(normalizedKey) = \(displayName)")
             }
+            
+            print("🔄 TagMappingManager将自动触发UI更新")
         }
     }
     
@@ -478,7 +481,8 @@ public struct Tag: Identifiable, Hashable, Codable {
             case .custom(let key): 
                 // 从TagMappingManager获取最新的typeName
                 let tagManager = TagMappingManager.shared
-                if let mapping = tagManager.tagMappings.first(where: { $0.key == key }) {
+                let normalizedKey = key.lowercased() // 使用规范化的key进行查找
+                if let mapping = tagManager.tagMappings.first(where: { $0.key == normalizedKey }) {
                     return mapping.typeName
                 }
                 return key // fallback to key if not found

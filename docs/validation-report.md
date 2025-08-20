@@ -1,0 +1,117 @@
+# Comprehensive Documentation Validation Report
+
+Generated: 2025-08-20T04:08:07.190Z
+
+## Summary
+- Total Issues: 32
+- Errors: 7
+- Warnings: 25
+- Info: 0
+- Status: ❌ VALIDATION ERRORS
+
+## Documentation Statistics
+- Services: 16
+- Contracts: 5
+- Dependencies: 2
+- Runbooks: 15
+- Architecture Diagrams: 1
+
+## Errors
+- **OpenAPI reference not found: ../contracts/http/example-service.openapi.yaml**
+  - File: docs/services/example-service.yaml
+  - Details: {"service":"example-service","reference":"../contracts/http/example-service.openapi.yaml"}
+- **Runbook reference not found: ../runbooks/example-service.md**
+  - File: docs/services/example-service.yaml
+  - Details: {"service":"example-service","reference":"../runbooks/example-service.md"}
+- **Service dependency not found: database**
+  - File: docs/services/example-service.yaml
+  - Details: {"service":"example-service","dependency":"database"}
+- **Service dependency not found: cache**
+  - File: docs/services/example-service.yaml
+  - Details: {"service":"example-service","dependency":"cache"}
+- **Service dependency not found: file-manager**
+  - File: docs/services/external-data-manager.yaml
+  - Details: {"service":"external-data-manager","dependency":"file-manager"}
+- **Service dependency not found: keychain-manager**
+  - File: docs/services/git-service.yaml
+  - Details: {"service":"git-service","dependency":"keychain-manager"}
+- **Service dependency not found: cllocation-manager**
+  - File: docs/services/location-manager.yaml
+  - Details: {"service":"location-manager","dependency":"cllocation-manager"}
+
+## Warnings
+- **Diagram node not found in service catalog: database**
+  - File: docs/architecture/l2.mmd
+  - Details: {"node":"database"}
+- **Diagram node not found in service catalog: cache**
+  - File: docs/architecture/l2.mmd
+  - Details: {"node":"cache"}
+- **Diagram node not found in service catalog: file-manager**
+  - File: docs/architecture/l2.mmd
+  - Details: {"node":"file_manager"}
+- **Diagram node not found in service catalog: keychain-manager**
+  - File: docs/architecture/l2.mmd
+  - Details: {"node":"keychain_manager"}
+- **Diagram node not found in service catalog: cllocation-manager**
+  - File: docs/architecture/l2.mmd
+  - Details: {"node":"cllocation_manager"}
+- **Service has no API documentation (OpenAPI or AsyncAPI)**
+  - File: docs/services/context-menu-manager.yaml
+  - Details: {"service":"context-menu-manager"}
+- **Service has no API documentation (OpenAPI or AsyncAPI)**
+  - File: docs/services/data-manager.yaml
+  - Details: {"service":"data-manager"}
+- **Service has no API documentation (OpenAPI or AsyncAPI)**
+  - File: docs/services/external-data-manager.yaml
+  - Details: {"service":"external-data-manager"}
+- **Service has no API documentation (OpenAPI or AsyncAPI)**
+  - File: docs/services/external-data-service.yaml
+  - Details: {"service":"external-data-service"}
+- **Service has no API documentation (OpenAPI or AsyncAPI)**
+  - File: docs/services/fullscreen-graph-window-manager.yaml
+  - Details: {"service":"fullscreen-graph-window-manager"}
+- **Service has no API documentation (OpenAPI or AsyncAPI)**
+  - File: docs/services/geocoder-service.yaml
+  - Details: {"service":"geocoder-service"}
+- **Service has no API documentation (OpenAPI or AsyncAPI)**
+  - File: docs/services/git-service.yaml
+  - Details: {"service":"git-service"}
+- **Service has no API documentation (OpenAPI or AsyncAPI)**
+  - File: docs/services/governance-validation.yaml
+  - Details: {"service":"governance-validation"}
+- **Service has no API documentation (OpenAPI or AsyncAPI)**
+  - File: docs/services/graph-manager.yaml
+  - Details: {"service":"graph-manager"}
+- **Service has no API documentation (OpenAPI or AsyncAPI)**
+  - File: docs/services/graph-service.yaml
+  - Details: {"service":"graph-service"}
+- **Service has no API documentation (OpenAPI or AsyncAPI)**
+  - File: docs/services/keyboard-event-manager.yaml
+  - Details: {"service":"keyboard-event-manager"}
+- **Service has no API documentation (OpenAPI or AsyncAPI)**
+  - File: docs/services/location-manager.yaml
+  - Details: {"service":"location-manager"}
+- **Service has no API documentation (OpenAPI or AsyncAPI)**
+  - File: docs/services/search-service.yaml
+  - Details: {"service":"search-service"}
+- **Service has no API documentation (OpenAPI or AsyncAPI)**
+  - File: docs/services/tag-mapping-manager.yaml
+  - Details: {"service":"tag-mapping-manager"}
+- **Service has no API documentation (OpenAPI or AsyncAPI)**
+  - File: docs/services/wordtagger-app.yaml
+  - Details: {"service":"wordtagger-app"}
+- **Orphaned contract (no corresponding service): canteen**
+  - File: docs/contracts/http/canteen.openapi.yaml
+  - Details: {"contract":"canteen"}
+- **Orphaned contract (no corresponding service): user-service-v1**
+  - File: docs/contracts/http/user-service-v1.openapi.yaml
+  - Details: {"contract":"user-service-v1"}
+- **Orphaned contract (no corresponding service): user-service-v2**
+  - File: docs/contracts/http/user-service-v2.openapi.yaml
+  - Details: {"contract":"user-service-v2"}
+- **Orphaned contract (no corresponding service): user-service**
+  - File: docs/contracts/http/user-service.openapi.yaml
+  - Details: {"contract":"user-service"}
+- **Orphaned contract (no corresponding service): user-events**
+  - File: docs/contracts/events/user-events.asyncapi.yaml
+  - Details: {"contract":"user-events"}

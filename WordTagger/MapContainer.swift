@@ -963,13 +963,15 @@ struct NodeLocationCard: View {
             let otherTags = word.tags.filter { $0.type != .location }
             if !otherTags.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("其他标签")
+                    Text("其他标签 (\(otherTags.count))")
                         .font(.headline)
                     
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 8) {
-                        ForEach(otherTags, id: \.id) { tag in
-                            TagChip(tag: tag)
-                        }
+                    // 标签详细显示已删除，标签信息在图谱中展示
+                    if !otherTags.isEmpty {
+                        Text("标签: \(otherTags.map { $0.value }.joined(separator: ", "))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .lineLimit(3)
                     }
                 }
             }

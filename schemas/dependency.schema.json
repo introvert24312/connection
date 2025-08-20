@@ -1,60 +1,154 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Dependency Schema",
-  "description": "Schema for validating fine-grained dependency YAML files",
+  "title": "Fine-grained Dependency Schema",
+  "description": "Schema for endpoint-to-endpoint dependency mapping",
   "type": "object",
   "required": ["from", "to"],
   "properties": {
     "from": {
       "type": "string",
       "description": "Source endpoint in format: service METHOD /path",
-      "pattern": "^[a-z][a-z0-9-]* (GET|POST|PUT|DELETE|PATCH) /.*"
+      "pattern": "^[a-zA-Z0-9-_]+ (GET|POST|PUT|DELETE|PATCH) /.*$"
     },
     "to": {
       "oneOf": [
         {
-          "type": "string",
-          "description": "Target endpoint in format: service METHOD /path",
-          "pattern": "^[a-z][a-z0-9-]* (GET|POST|PUT|DELETE|PATCH) /.*"
-        },
-        {
           "type": "object",
-          "description": "Detailed target specification",
           "required": ["endpoint"],
           "properties": {
             "endpoint": {
               "type": "string",
-              "pattern": "^[a-z][a-z0-9-]* (GET|POST|PUT|DELETE|PATCH) /.*"
+              "description": "Target endpoint in format: service METHOD /path",
+              "pattern": "^[a-zA-Z0-9-_]+ (GET|POST|PUT|DELETE|PATCH) /.*$"
             },
             "contract": {
-              "type": "object",
-              "properties": {
-                "required": {
-                  "type": "array",
-                  "items": {"type": "string"},
-                  "description": "Required fields"
-                },
-                "errors": {
-                  "type": "array", 
-                  "items": {"type": "integer"},
-                  "description": "Expected error codes"
-                },
-                "auth": {
-                  "type": "string",
-                  "enum": ["bearer", "basic", "apikey", "none"],
-                  "description": "Authentication method"
-                },
-                "timeout_ms": {
-                  "type": "integer",
-                  "minimum": 1,
-                  "description": "Timeout in milliseconds"
-                }
-              }
+              "$ref": "#/definitions/contract"
             }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["endpoint"],
+            "properties": {
+              "endpoint": {
+                "type": "string",
+                "description": "Target endpoint in format: service METHOD /path",
+                "pattern": "^[a-zA-Z0-9-_]+ (GET|POST|PUT|DELETE|PATCH) /.*$"
+              },
+              "contract": {
+                "$ref": "#/definitions/contract"
+              }
+            },
+            "additionalProperties": false
           }
         }
       ]
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable description of the dependency relationship"
+    },
+    "critical_path": {
+      "type": "boolean",
+      "description": "Whether this dependency is part of a critical business flow",
+      "default": false
+    },
+    "sla": {
+      "type": "object",
+      "description": "Service level agreement requirements",
+      "properties": {
+        "response_time_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum acceptable response time in milliseconds"
+        },
+        "availability": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Required availability as a decimal (e.g., 0.99 for 99%)"
+        },
+        "error_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Maximum acceptable error rate as a decimal"
+        }
+      },
+      "additionalProperties": false
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "definitions": {
+    "contract": {
+      "type": "object",
+      "description": "Contract specification for the dependency",
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Required fields in the request/response"
+        },
+        "optional": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Optional fields in the request/response"
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 599
+          },
+          "description": "Expected HTTP error codes"
+        },
+        "auth": {
+          "type": "string",
+          "enum": ["none", "bearer", "basic", "api-key", "oauth2"],
+          "description": "Authentication method required"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Request timeout in milliseconds"
+        },
+        "retry_policy": {
+          "type": "object",
+          "properties": {
+            "max_attempts": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10
+            },
+            "backoff_ms": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "exponential": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "openapi_ref": {
+          "type": "string",
+          "description": "Reference to OpenAPI specification file"
+        },
+        "asyncapi_ref": {
+          "type": "string",
+          "description": "Reference to AsyncAPI specification file"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
 }

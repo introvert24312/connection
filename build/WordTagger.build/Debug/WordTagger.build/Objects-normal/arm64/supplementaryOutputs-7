@@ -1,18 +1,24 @@
-"/Users/Patronum/Desktop/WordTagger/WordTagger/NodeEditorSheet.swift":
-  dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/NodeEditorSheet.d"
-  const-values: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/NodeEditorSheet.swiftconstvalues"
-  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/NodeEditorSheet.dia"
-  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/NodeEditorSheet.swiftdeps"
-  object: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/NodeEditorSheet.o"
-"/Users/Patronum/Desktop/WordTagger/WordTagger/KeyboardEventManager.swift":
-  const-values: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/KeyboardEventManager.swiftconstvalues"
-  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/KeyboardEventManager.swiftdeps"
-  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/KeyboardEventManager.dia"
-  object: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/KeyboardEventManager.o"
-  dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/KeyboardEventManager.d"
-"/Users/Patronum/Desktop/WordTagger/WordTagger/NodeContextMenuView.swift":
-  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/NodeContextMenuView.dia"
-  const-values: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/NodeContextMenuView.swiftconstvalues"
-  object: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/NodeContextMenuView.o"
-  dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/NodeContextMenuView.d"
-  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/NodeContextMenuView.swiftdeps"
+"/Users/Patronum/Desktop/WordTagger/WordTagger/Models.swift":
+  object: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Models.o"
+  dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Models.d"
+  const-values: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Models.swiftconstvalues"
+  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Models.swiftdeps"
+  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Models.dia"
+"/Users/Patronum/Desktop/WordTagger/WordTagger/WordTaggerApp.swift":
+  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTaggerApp.dia"
+  dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTaggerApp.d"
+  object: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTaggerApp.o"
+  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTaggerApp.swiftdeps"
+  const-values: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTaggerApp.swiftconstvalues"
+"/Users/Patronum/Desktop/WordTagger/WordTagger/ContentView.swift":
+  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ContentView.dia"
+  dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ContentView.d"
+  object: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ContentView.o"
+  const-values: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ContentView.swiftconstvalues"
+  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ContentView.swiftdeps"
+"/Users/Patronum/Desktop/WordTagger/WordTagger/Store.swift":
+  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Store.swiftdeps"
+  dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Store.d"
+  const-values: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Store.swiftconstvalues"
+  object: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Store.o"
+  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Store.dia"

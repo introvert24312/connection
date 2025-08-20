@@ -1,0 +1,18 @@
+"/Users/Patronum/Desktop/WordTagger/WordTagger/VditorWebView.swift":
+  object: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/x86_64/VditorWebView.o"
+  const-values: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/x86_64/VditorWebView.swiftconstvalues"
+  dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/x86_64/VditorWebView.d"
+  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/x86_64/VditorWebView.swiftdeps"
+  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/x86_64/VditorWebView.dia"
+"/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/DerivedSources/GeneratedAssetSymbols.swift":
+  const-values: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/x86_64/GeneratedAssetSymbols.swiftconstvalues"
+  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/x86_64/GeneratedAssetSymbols.dia"
+  dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/x86_64/GeneratedAssetSymbols.d"
+  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/x86_64/GeneratedAssetSymbols.swiftdeps"
+  object: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/x86_64/GeneratedAssetSymbols.o"
+"/Users/Patronum/Desktop/WordTagger/WordTagger/ResourceManager.swift":
+  dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/x86_64/ResourceManager.d"
+  const-values: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/x86_64/ResourceManager.swiftconstvalues"
+  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/x86_64/ResourceManager.dia"
+  object: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/x86_64/ResourceManager.o"
+  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Debug/WordTagger.build/Objects-normal/x86_64/ResourceManager.swiftdeps"

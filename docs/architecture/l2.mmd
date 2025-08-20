@@ -1,0 +1,44 @@
+graph TD
+    %% L2 Architecture Diagram - Generated from Service Catalog
+
+    context_menu_manager["context-menu-manager<br/>/ Optimized context menu manager that handles creation and disposal efficiently class ContextMenuManager"]
+    data_manager["data-manager<br/>DataManager - Manages and coordinates system resources"]
+    example_service["example-service<br/>Example service for testing governance framework"]
+    external_data_manager["external-data-manager<br/>ExternalDataManager - Manages and coordinates system resources"]
+    external_data_service["external-data-service<br/>ExternalDataService - Provides core business logic and functionality"]
+    fullscreen_graph_window_manager["fullscreen-graph-window-manager<br/>MARK - SwiftUI原生全屏图谱管理器 class FullscreenGraphWindowManager"]
+    geocoder_service["geocoder-service<br/>GeocoderService - Provides core business logic and functionality"]
+    git_service["git-service<br/>GitService - Provides core business logic and functionality"]
+    governance_validation["governance-validation<br/>Engineering governance framework validation and compliance checking"]
+    graph_manager["graph-manager<br/>MARK - 全局图谱管理器 class GraphManager"]
+    graph_service["graph-service<br/>GraphService - Provides core business logic and functionality"]
+    keyboard_event_manager["keyboard-event-manager<br/>/ Manages keyboard event state and prevents rapid-fire command execution class KeyboardEventManager"]
+    location_manager["location-manager<br/>MARK - Location Manager class LocationManager"]
+    search_service["search-service<br/>SearchService - Provides core business logic and functionality"]
+    tag_mapping_manager["tag-mapping-manager<br/>TagMappingManager - Manages and coordinates system resources"]
+    wordtagger_app["wordtagger-app<br/>Main WordTagger macOS application for word and node management"]
+
+    database["database<br/>(External)"]
+    example_service --> database
+    style database fill:#ffcccc
+    cache["cache<br/>(External)"]
+    example_service --> cache
+    style cache fill:#ffcccc
+    file_manager["file-manager<br/>(External)"]
+    external_data_manager --> file_manager
+    style file_manager fill:#ffcccc
+    external_data_service --> external_data_manager
+    keychain_manager["keychain-manager<br/>(External)"]
+    git_service --> keychain_manager
+    style keychain_manager fill:#ffcccc
+    cllocation_manager["cllocation-manager<br/>(External)"]
+    location_manager --> cllocation_manager
+    style cllocation_manager fill:#ffcccc
+    wordtagger_app --> external_data_service
+    wordtagger_app --> git_service
+    wordtagger_app --> graph_service
+    wordtagger_app --> search_service
+
+    %% Styling
+    classDef default fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef external fill:#ffcccc,stroke:#d32f2f,stroke-width:2px

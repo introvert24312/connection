@@ -1,8 +1,14 @@
-from: canteen POST /v1/order-beef
+from: wordtagger-app POST /api/search
 to:
-  endpoint: butcher POST /v1/beef
+  endpoint: search-service GET /api/search
   contract:
-    required: [cut, kg, traceId]
-    errors: [401, 409]
-    auth: bearer
-    timeout_ms: 2000
+    required: [query, traceId]
+    errors: [400, 404, 500]
+    auth: none
+    timeout_ms: 3000
+description: Main app search functionality
+critical_path: true
+sla:
+  response_time_ms: 2000
+  availability: 0.99
+  error_rate: 0.01

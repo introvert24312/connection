@@ -43,6 +43,13 @@ struct NodeListView: View {
                         .focused($isSearchFieldFocused)
                         .onChange(of: isSearchFieldFocused) { _, newValue in
                             print("🎯 Focus changed: isSearchFieldFocused = \(newValue)")
+                            // 当搜索框失去焦点时，确保List获得焦点以支持键盘导航
+                            if !newValue {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                    isListFocused = true
+                                    print("🎯 搜索框失去焦点，转移焦点到List")
+                                }
+                            }
                         }
                         .onSubmit {
                             // 回车键选中第一个搜索结果并转移焦点到列表
@@ -161,8 +168,11 @@ struct NodeListView: View {
                                 print("🎯 NodeListView: 用户点击节点 \(node.text)")
                                 selectedNode = node
                                 selectedIndex = index
-                                print("🔄 NodeListView: 调用store.selectNode(\(node.text))")
-                                store.selectNode(node)
+                                // 使用异步调用避免view更新期间发布更改
+                                DispatchQueue.main.async {
+                                    print("🔄 NodeListView: 调用store.selectNode(\(node.text))")
+                                    store.selectNode(node)
+                                }
                             },
                             onCommandClick: {
                                 print("⌘ NodeListView: Command+点击节点 \(node.text)")
@@ -218,9 +228,12 @@ struct NodeListView: View {
                         }
                     }
                     .onAppear {
-                        print("📋 List onAppear: NOT setting focus anymore")
-                        // 不要自动获取List焦点，这会抢夺搜索框焦点
-                        // isListFocused = true
+                        print("📋 List onAppear: 延迟设置List焦点")
+                        // 延迟设置List焦点，避免与搜索框冲突
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            isListFocused = true
+                            print("📋 List焦点已设置")
+                        }
                     }
                 }
             }
@@ -258,29 +271,11 @@ struct NodeListView: View {
             updateCachedDisplayNodes()
         }
         .sheet(isPresented: $showingCommandEditor) {
-            SimpleNodeEditor(
-                node: nodeToEdit,
-                onSave: { updatedNode in
-                    print("💾 NodeListView: 收到保存请求")
-                    print("💾 NodeListView: 节点ID=\(updatedNode.id), 文本=\(updatedNode.text)")
-                    print("💾 NodeListView: 标签数=\(updatedNode.tags.count)")
-                    
-                    // 尝试使用正确的updateNode方法
-                    store.updateNode(updatedNode.id, text: updatedNode.text, phonetic: updatedNode.phonetic, meaning: updatedNode.meaning)
-                    
-                    // 分别更新标签
-                    store.updateNodeTags(updatedNode.id, tags: updatedNode.tags)
-                    
-                    print("💾 NodeListView: 更新完成")
-                    showingCommandEditor = false
-                    self.nodeToEdit = nil
-                },
-                onCancel: {
-                    print("❌ 取消编辑")
-                    showingCommandEditor = false
-                    self.nodeToEdit = nil
+            QuickAddSheetView(prefilledNode: nodeToEdit)
+                .environmentObject(store)
+                .onDisappear {
+                    nodeToEdit = nil
                 }
-            )
         }
     }
     
@@ -459,7 +454,10 @@ struct NodeListView: View {
         guard selectedIndex >= 0 && selectedIndex < displayNodes.count else { return }
         let node = displayNodes[selectedIndex]
         selectedNode = node
-        store.selectNode(node)
+        // 使用异步调用避免view更新期间发布更改
+        DispatchQueue.main.async {
+            store.selectNode(node)
+        }
     }
     
     /// 删除节点并智能清理标签
@@ -588,89 +586,81 @@ struct NodeRowView: View {
     @EnvironmentObject private var store: NodeStore
     
     var body: some View {
-        Button(action: {
-            // 直接在Button action中处理点击逻辑
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                // 节点文本
+                HighlightedText(
+                    text: node.text,
+                    searchQuery: searchQuery,
+                    font: .title2,
+                    fontWeight: .semibold
+                )
+                
+                Spacer()
+                
+                // 音标
+                if let phonetic = node.phonetic {
+                    Text(phonetic)
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color.gray.opacity(0.1))
+                        )
+                }
+            }
+            
+            // 含义
+            if let meaning = node.meaning {
+                HighlightedText(
+                    text: meaning,
+                    searchQuery: searchQuery,
+                    font: .title3,
+                    fontWeight: .regular
+                )
+                .foregroundColor(.secondary)
+            }
+            
+            // 标签显示已删除 - 主要依赖图谱展示标签
+            
+            // 元数据
+            HStack {
+                Text(node.createdAt.timeAgoDisplay())
+                    .font(.caption2)
+                    .foregroundColor(Color.secondary)
+                
+                Spacer()
+                
+                if node.updatedAt > node.createdAt {
+                    Text("已编辑")
+                        .font(.caption2)
+                        .foregroundColor(.orange)
+                }
+            }
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .contentShape(Rectangle()) // 确保整个区域都可以接收点击
+        .onTapGesture {
+            // 检查Command键状态来处理所有点击
             let currentEvent = NSApp.currentEvent
             let isCommandPressed = currentEvent?.modifierFlags.contains(.command) ?? false
             
-            print("🎯 NodeRowView Button: 点击检测 - Command键状态: \(isCommandPressed)")
+            print("🎯 NodeRowView: 点击检测 - Command键状态: \(isCommandPressed)")
             
-            if isCommandPressed {
-                print("⌘ NodeRowView Button: 检测到Command+点击")
-                onCommandClick?()
-            } else {
-                print("👆 NodeRowView Button: 普通点击")
-                onTap()
-            }
-        }) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    // 节点文本
-                    HighlightedText(
-                        text: node.text,
-                        searchQuery: searchQuery,
-                        font: .title2,
-                        fontWeight: .semibold
-                    )
-                    
-                    Spacer()
-                    
-                    // 音标
-                    if let phonetic = node.phonetic {
-                        Text(phonetic)
-                            .font(.body)
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(
-                                RoundedRectangle(cornerRadius: 4)
-                                    .fill(Color.gray.opacity(0.1))
-                            )
-                    }
-                }
-                
-                // 含义
-                if let meaning = node.meaning {
-                    HighlightedText(
-                        text: meaning,
-                        searchQuery: searchQuery,
-                        font: .title3,
-                        fontWeight: .regular
-                    )
-                    .foregroundColor(.secondary)
-                }
-                
-                // 标签 - 过滤掉内部使用的复合节点和子节点引用标签
-                let displayTags = node.tags.filter { tag in
-                    if case .custom(let key) = tag.type {
-                        return !(key == "compound" || key == "child")
-                    }
-                    return true
-                }
-                if !displayTags.isEmpty {
-                    TagChipsView(tags: displayTags, searchQuery: searchQuery)
-                }
-                
-                // 元数据
-                HStack {
-                    Text(node.createdAt.timeAgoDisplay())
-                        .font(.caption2)
-                        .foregroundColor(Color.secondary)
-                    
-                    Spacer()
-                    
-                    if node.updatedAt > node.createdAt {
-                        Text("已编辑")
-                            .font(.caption2)
-                            .foregroundColor(.orange)
-                    }
+            // 使用异步调用避免在view更新过程中发布状态更改
+            DispatchQueue.main.async {
+                if isCommandPressed {
+                    print("⌘ NodeRowView: 检测到Command+点击")
+                    onCommandClick?()
+                } else {
+                    print("👆 NodeRowView: 普通点击")
+                    onTap()
                 }
             }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 12)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .fill(backgroundColorForNode(isSelected: isSelected))
@@ -771,171 +761,7 @@ struct HighlightedText: View {
     }
 }
 
-// MARK: - 标签芯片视图
-
-struct TagChipsView: View {
-    let tags: [Tag]
-    let searchQuery: String
-    
-    @State private var isScrollEnabled = false
-    @State private var showScrollHint = true
-    
-    var body: some View {
-        if tags.isEmpty {
-            EmptyView()
-        } else {
-            VStack(alignment: .leading, spacing: 4) {
-                if tags.count > 1 {
-                    HStack {
-                        Text("标签 (\(tags.count))")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        if tags.count > 3 && showScrollHint {
-                            ScrollHintView(
-                                isScrollEnabled: isScrollEnabled,
-                                onTap: {
-                                    if !isScrollEnabled {
-                                        isScrollEnabled = true
-                                        showScrollHint = false
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                                            isScrollEnabled = false
-                                            showScrollHint = true
-                                        }
-                                    }
-                                }
-                            )
-                        }
-                    }
-                }
-                
-                TagScrollArea(
-                    tags: tags,
-                    searchQuery: searchQuery,
-                    isScrollEnabled: isScrollEnabled,
-                    onTap: {
-                        isScrollEnabled = true
-                        showScrollHint = false
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                            isScrollEnabled = false
-                            showScrollHint = true
-                        }
-                    }
-                )
-            }
-        }
-    }
-}
-
-// MARK: - 辅助视图组件
-
-struct ScrollHintView: View {
-    let isScrollEnabled: Bool
-    let onTap: () -> Void
-    
-    var body: some View {
-        Text(isScrollEnabled ? "← 滑动查看更多" : "← 点击启用滚动")
-            .font(.caption2)
-            .foregroundColor(isScrollEnabled ? .blue : .orange)
-            .onTapGesture(perform: onTap)
-    }
-}
-
-struct TagScrollArea: View {
-    let tags: [Tag]
-    let searchQuery: String
-    let isScrollEnabled: Bool
-    let onTap: () -> Void
-    
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            LazyHStack(spacing: 6) {
-                ForEach(Array(tags.enumerated()), id: \.offset) { index, tag in
-                    TagChip(tag: tag, searchQuery: searchQuery)
-                }
-            }
-            .padding(.horizontal, 4)
-        }
-        .frame(maxHeight: 50)
-        .scrollDisabled(!isScrollEnabled)
-        .onTapGesture(perform: onTap)
-    }
-}
-
-struct TagChip: View {
-    let tag: Tag
-    let searchQuery: String
-    @State private var isHovered = false
-    
-    init(tag: Tag, searchQuery: String = "") {
-        self.tag = tag
-        self.searchQuery = searchQuery
-    }
-    
-    var body: some View {
-        let _ = print("🏷️ TagChip: 渲染标签 value='\(tag.value)', type=\(tag.type), displayName='\(tag.type.displayName)'")
-        return Button(action: {
-            // 标签点击行为 - 可以添加选择/过滤逻辑
-        }) {
-            HStack(spacing: 6) {
-                // 类型指示器 - 更大
-                RoundedRectangle(cornerRadius: 3)
-                    .fill(Color.from(tagType: tag.type))
-                    .frame(width: 4, height: 18)
-                
-                VStack(alignment: .leading, spacing: 2) {
-                    if searchQuery.isEmpty {
-                        Text(tag.value)
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                            .lineLimit(1)
-                            .foregroundColor(.primary)
-                    } else {
-                        HighlightedText(
-                            text: tag.value,
-                            searchQuery: searchQuery,
-                            font: .title3,
-                            fontWeight: .semibold
-                        )
-                        .lineLimit(1)
-                        .foregroundColor(.primary)
-                    }
-                    
-                    // 类型标识
-                    Text(tag.type.displayName)
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .fixedSize() // 确保标签不会被压缩
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(
-                        isHovered ? 
-                        Color.from(tagType: tag.type).opacity(0.2) :
-                        Color.from(tagType: tag.type).opacity(0.1)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(
-                                Color.from(tagType: tag.type).opacity(isHovered ? 0.4 : 0.2),
-                                lineWidth: 1
-                            )
-                    )
-            )
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.2)) {
-                isHovered = hovering
-            }
-        }
-        .help("标签: \(tag.displayName) (\(tag.type.displayName))")
-    }
-}
+// MARK: - 标签显示功能已删除 - 主要依赖图谱展示标签
 
 // MARK: - 空状态视图
 
@@ -971,122 +797,7 @@ struct EmptyStateView: View {
 }
 
 
-// MARK: - Simple Node Editor
-
-struct SimpleNodeEditor: View {
-    let node: Node?
-    let onSave: (Node) -> Void
-    let onCancel: () -> Void
-    
-    @State private var commandText: String = ""
-    @Environment(\.dismiss) private var dismiss
-    @FocusState private var isTextFieldFocused: Bool
-    
-    var body: some View {
-        VStack(spacing: 0) {
-            // 标题栏
-            HStack {
-                Text("编辑节点命令")
-                    .font(.title)
-                    .fontWeight(.bold)
-                
-                Spacer()
-                
-                Button("✕") {
-                    onCancel()
-                    dismiss()
-                }
-                .font(.title)
-                .foregroundColor(.secondary)
-                .buttonStyle(.plain)
-            }
-            .padding()
-            .background(Color(NSColor.controlBackgroundColor))
-            
-            Divider()
-            
-            // 内容区域
-            VStack(spacing: 20) {
-                if let currentNode = node {
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("节点: \(currentNode.text)")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                        
-                        Text("编辑命令格式:")
-                            .font(.title3)
-                            .foregroundColor(.secondary)
-                        
-                        TextField("输入命令...", text: $commandText, axis: .vertical)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.system(.title3, design: .monospaced))
-                            .lineLimit(4...12)
-                            .frame(minHeight: 120)
-                            .focused($isTextFieldFocused)
-                        
-                        HStack {
-                            Button("取消") {
-                                onCancel()
-                                dismiss()
-                            }
-                            .buttonStyle(.bordered)
-                            .keyboardShortcut(.escape)
-                            .font(.title3)
-                            
-                            Spacer()
-                            
-                            Button("保存") {
-                                print("💾 开始保存...")
-                                print("💾 原始节点: \(currentNode.text), 标签数: \(currentNode.tags.count)")
-                                print("💾 命令文本: '\(commandText)'")
-                                
-                                var updatedNode = currentNode
-                                updatedNode.updateFromCommandLine(commandText)
-                                
-                                print("💾 更新后节点: \(updatedNode.text), 标签数: \(updatedNode.tags.count)")
-                                for (i, tag) in updatedNode.tags.enumerated() {
-                                    print("💾   标签[\(i)]: \(tag.type.displayName) = \(tag.value)")
-                                }
-                                
-                                onSave(updatedNode)
-                                dismiss()
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .keyboardShortcut(.return, modifiers: .command)
-                            .font(.title3)
-                        }
-                    }
-                    .padding(20)
-                } else {
-                    Text("无节点数据")
-                        .foregroundColor(.secondary)
-                        .padding()
-                }
-                
-                Spacer()
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .frame(width: 600, height: 400)
-        .background(Color(NSColor.windowBackgroundColor))
-        .onAppear {
-            if let currentNode = node {
-                commandText = currentNode.canonicalCommandRepresentation
-                print("🔄 加载命令: \(commandText)")
-                print("📋 节点ID: \(currentNode.id)")
-                print("📋 节点标签数: \(currentNode.tags.count)")
-                
-                // 延迟设置焦点，确保视图已经完全渲染
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    isTextFieldFocused = true
-                    print("🎯 设置输入框焦点")
-                }
-            } else {
-                print("❌ 节点数据为空!")
-            }
-        }
-    }
-}
+// MARK: - SimpleNodeEditor removed - now using integrated QuickAddSheetView
 
 // Preview temporarily disabled due to @FocusState initialization complexity
 // #Preview {

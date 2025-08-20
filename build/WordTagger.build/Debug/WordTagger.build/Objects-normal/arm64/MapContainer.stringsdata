@@ -156,7 +156,7 @@
       },
       {
         "comment": "",
-        "key": "其他标签",
+        "key": "其他标签 (%lld)",
         "location": {
           "startingColumn": 26,
           "startingLine": 966
@@ -164,10 +164,18 @@
       },
       {
         "comment": "",
+        "key": "标签: %@",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 971
+        }
+      },
+      {
+        "comment": "",
         "key": "单词结果",
         "location": {
           "startingColumn": 30,
-          "startingLine": 1050
+          "startingLine": 1052
         }
       },
       {
@@ -175,7 +183,7 @@
         "key": "%lld 个",
         "location": {
           "startingColumn": 30,
-          "startingLine": 1057
+          "startingLine": 1059
         }
       },
       {
@@ -183,7 +191,7 @@
         "key": "地点结果",
         "location": {
           "startingColumn": 30,
-          "startingLine": 1087
+          "startingLine": 1089
         }
       },
       {
@@ -191,7 +199,7 @@
         "key": "%lld 个",
         "location": {
           "startingColumn": 34,
-          "startingLine": 1098
+          "startingLine": 1100
         }
       },
       {
@@ -199,7 +207,7 @@
         "key": "选择",
         "location": {
           "startingColumn": 30,
-          "startingLine": 1213
+          "startingLine": 1215
         }
       },
       {
@@ -207,7 +215,7 @@
         "key": "手动输入坐标",
         "location": {
           "startingColumn": 18,
-          "startingLine": 1428
+          "startingLine": 1430
         }
       },
       {
@@ -215,7 +223,7 @@
         "key": "请输入坐标信息，格式：纬度,经度",
         "location": {
           "startingColumn": 18,
-          "startingLine": 1432
+          "startingLine": 1434
         }
       },
       {
@@ -223,7 +231,7 @@
         "key": "例如: 37.4535951640625,121.61110684570313",
         "location": {
           "startingColumn": 23,
-          "startingLine": 1436
+          "startingLine": 1438
         }
       },
       {
@@ -231,7 +239,7 @@
         "key": "取消",
         "location": {
           "startingColumn": 24,
-          "startingLine": 1447
+          "startingLine": 1449
         }
       },
       {
@@ -239,7 +247,7 @@
         "key": "确认",
         "location": {
           "startingColumn": 24,
-          "startingLine": 1452
+          "startingLine": 1454
         }
       }
     ]

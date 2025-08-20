@@ -277,12 +277,17 @@ describe('Governance CI Validation', () => {
       );
       
       // Run synchronization check and expect failure
-      expect(() => {
+      let failed = false;
+      try {
         execSync(
           `node ${scriptsDir}/validate-governance.js --sync --path=${testDir}/docs`,
           { encoding: 'utf8', cwd: __dirname }
         );
-      }).toThrow();
+      } catch (error) {
+        failed = true;
+        expect(error.stdout || error.message).toContain('Referenced OpenAPI contract not found');
+      }
+      expect(failed).toBe(true);
     });
   });
 
@@ -300,11 +305,17 @@ describe('Governance CI Validation', () => {
         JSON.stringify(contract, null, 2)
       );
       
-      // Run orphan check
-      const result = execSync(
-        `node ${scriptsDir}/validate-governance.js --orphans --path=${testDir}/docs`,
-        { encoding: 'utf8', cwd: __dirname }
-      );
+      // Run orphan check and expect it to detect orphans
+      let result;
+      try {
+        result = execSync(
+          `node ${scriptsDir}/validate-governance.js --orphans --path=${testDir}/docs`,
+          { encoding: 'utf8', cwd: __dirname }
+        );
+      } catch (error) {
+        // Orphan detection should fail (exit code 1) when orphans are found
+        result = error.stdout || '';
+      }
       
       expect(result).toContain('⚠ Orphaned HTTP contract: orphaned.openapi.yaml');
     });

@@ -490,6 +490,14 @@ struct QuickAddSheetView: View {
     @State private var isWaitingForLocationSelection = false
     @State private var showingDuplicateAlert = false
     
+    // 新增：支持预填充节点（用于编辑模式）
+    let prefilledNode: Node?
+    
+    // 初始化器，支持可选的预填充节点
+    init(prefilledNode: Node? = nil) {
+        self.prefilledNode = prefilledNode
+    }
+    
     var body: some View {
         VStack(spacing: 0) {
             // 搜索输入框 - 采用CommandPalette样式
@@ -602,7 +610,7 @@ struct QuickAddSheetView: View {
             .background(Color(NSColor.controlBackgroundColor))
         }
         .frame(width: 600)
-        .navigationTitle("快速添加节点")
+        .navigationTitle(prefilledNode != nil ? "编辑节点" : "快速添加节点")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("取消") {
@@ -618,7 +626,7 @@ struct QuickAddSheetView: View {
                 }
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button("添加") {
+                Button(prefilledNode != nil ? "保存" : "添加") {
                     processInput()
                 }
                 .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -642,6 +650,12 @@ struct QuickAddSheetView: View {
             }
         }
         .onAppear {
+            // 如果是编辑模式，预填充现有节点的命令
+            if let node = prefilledNode {
+                inputText = node.canonicalCommandRepresentation
+                print("🔄 编辑模式：预填充命令 - \(inputText)")
+            }
+            
             // 自动聚焦到输入框
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 isInputFocused = true
@@ -869,13 +883,29 @@ struct QuickAddSheetView: View {
             return
         }
         
-        let newNode = Node(text: nodeText, layerId: layerId, tags: tags)
-        let success = store.addNode(newNode)
-        inputText = ""
-        if success {
+        if let existingNode = prefilledNode {
+            // 编辑模式：更新现有节点
+            print("📝 编辑模式：更新节点 \(existingNode.text) -> \(nodeText)")
+            
+            // 更新节点的基本信息
+            store.updateNode(existingNode.id, text: nodeText, phonetic: nil, meaning: nil)
+            
+            // 更新节点的标签
+            store.updateNodeTags(existingNode.id, tags: tags)
+            
+            print("✅ 节点更新完成")
+            inputText = ""
             dismiss()
+        } else {
+            // 添加模式：创建新节点
+            let newNode = Node(text: nodeText, layerId: layerId, tags: tags)
+            let success = store.addNode(newNode)
+            inputText = ""
+            if success {
+                dismiss()
+            }
+            // 如果不成功，保持窗口打开让用户看到警告
         }
-        // 如果不成功，保持窗口打开让用户看到警告
     }
     
     private func openMapForLocationSelection() {
