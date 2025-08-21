@@ -25,7 +25,7 @@ struct TagSidebarView: View {
                     
                     Text(currentLayer.displayName)
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.label)
+                        .foregroundColor(.primary)
                     
                     Spacer()
                     
@@ -303,7 +303,7 @@ struct TagTypeSearchResultButton: View {
                 
                 Text(type.displayName)
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(isAlreadySelected ? .secondary : .label)
+                    .foregroundColor(isAlreadySelected ? .secondary : .primary)
                 
                 if !isAlreadySelected {
                     Image(systemName: "plus.circle.fill")
@@ -341,7 +341,7 @@ struct SelectedTagTypeChip: View {
             
             Text(type.displayName)
                 .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.label)
+                .foregroundColor(.primary)
             
             Button(action: onRemove) {
                 Image(systemName: "xmark.circle.fill")
@@ -441,7 +441,7 @@ struct TagGroupView: View {
                     // 标签类型名称和数量
                     Text(tagType.displayName)
                         .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.label)
+                        .foregroundColor(.primary)
                     
                     Text("(\(tags.count))")
                         .font(.system(size: 15))
@@ -471,7 +471,7 @@ struct TagGroupView: View {
                         }
                     }
                 }
-                .background(Color.white)
+                .background(Color(NSColor.controlBackgroundColor))
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -510,7 +510,7 @@ struct TagValueRow: View {
                 // 标签值
                 Text(tag.value)
                     .font(.system(size: 16))
-                    .foregroundColor(isSelected ? .blue : .label)
+                    .foregroundColor(isSelected ? .blue : .primary)
                 
                 Spacer()
                 
@@ -564,7 +564,7 @@ struct TagRowView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(tag.displayName)
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.label)
+                        .foregroundColor(.primary)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                     
