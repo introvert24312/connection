@@ -199,7 +199,7 @@ struct TagSidebarView: View {
         }
     }
     
-    // 搜索匹配的标签类型
+    // 搜索匹配的标签类型 - 支持双语搜索
     private var searchableTagTypes: [Tag.TagType] {
         guard !tagTypeSearchQuery.isEmpty else { return [] }
         
@@ -208,9 +208,39 @@ struct TagSidebarView: View {
         
         return allExistingTypes.filter { tagType in
             // 过滤掉隐藏的标签类型
-            !hiddenTagTypes.contains(tagType) &&
-            (tagType.displayName.localizedCaseInsensitiveContains(tagTypeSearchQuery) ||
-            tagType.rawValue.localizedCaseInsensitiveContains(tagTypeSearchQuery))
+            guard !hiddenTagTypes.contains(tagType) else { return false }
+            
+            let query = tagTypeSearchQuery.lowercased()
+            
+            // 1. 搜索displayName（显示名称，如"牛肉里"）
+            if tagType.displayName.localizedCaseInsensitiveContains(tagTypeSearchQuery) {
+                return true
+            }
+            
+            // 2. 搜索rawValue（标签代码，如"beef"）
+            if tagType.rawValue.localizedCaseInsensitiveContains(tagTypeSearchQuery) {
+                return true
+            }
+            
+            // 3. 对于自定义标签类型，从TagMappingManager搜索所有相关映射
+            if case .custom(let key) = tagType {
+                let tagManager = TagMappingManager.shared
+                
+                // 搜索该key对应的所有可能的映射
+                let matchingMappings = tagManager.tagMappings.filter { mapping in
+                    mapping.key.lowercased() == key.lowercased()
+                }
+                
+                // 检查映射中的typeName是否匹配搜索查询
+                for mapping in matchingMappings {
+                    if mapping.typeName.localizedCaseInsensitiveContains(tagTypeSearchQuery) ||
+                       mapping.key.localizedCaseInsensitiveContains(tagTypeSearchQuery) {
+                        return true
+                    }
+                }
+            }
+            
+            return false
         }.sorted { $0.displayName < $1.displayName }
     }
     
