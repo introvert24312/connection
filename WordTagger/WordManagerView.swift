@@ -589,6 +589,49 @@ struct TagEditCommandView: View {
             } else if case .custom(let key) = tag.type, TagMappingManager.shared.isLocationTagKey(key) {
                 // 对于没有坐标的location标签，提供提示格式让用户补充坐标
                 return "loc @需要添加坐标[\(tag.value)]"
+            } else if case .custom(let displayName) = tag.type {
+                // 特殊处理beef标签
+                if displayName == "beef" {
+                    if let beefMapping = TagMappingManager.shared.tagMappings.first(where: { $0.key == "beef" }) {
+                        return "beef[\(beefMapping.typeName)] \(tag.value)"
+                    }
+                }
+                
+                // 根据 isShortcutType 决定格式
+                if tag.isShortcutType {
+                    // 如果是快捷键格式，需要还原原始的快捷键
+                    // 从 TagMappingManager 找到对应的 key（通过 displayName 查找）
+                    print("🔍 查找快捷键映射: displayName='\(displayName)'")
+                    print("🔍 当前所有映射: \(TagMappingManager.shared.tagMappings.map { "\($0.key)->\($0.typeName)" })")
+                    
+                    // 先尝试通过 typeName 匹配
+                    var foundMapping = TagMappingManager.shared.tagMappings.first(where: { $0.typeName == displayName })
+                    print("🔍 第一次查找结果 (通过typeName): \(foundMapping != nil ? "找到" : "未找到")")
+                    
+                    // 如果没找到，尝试通过 tag.type.rawValue 匹配（这是实际的key）
+                    if foundMapping == nil, case .custom(let rawKey) = tag.type {
+                        print("🔍 tag.type.rawValue = '\(rawKey)'")
+                        foundMapping = TagMappingManager.shared.tagMappings.first(where: { $0.key.lowercased() == rawKey.lowercased() })
+                        print("🔍 尝试通过rawKey查找: rawKey='\(rawKey)' -> \(foundMapping != nil ? "找到" : "未找到")")
+                    }
+                    
+                    if let mapping = foundMapping {
+                        print("✅ 找到映射: key='\(mapping.key)', typeName='\(mapping.typeName)'")
+                        print("✅ 最终输出: '\(mapping.key)[\(mapping.typeName)] \(tag.value)'")
+                        return "\(mapping.key)[\(mapping.typeName)] \(tag.value)"
+                    } else {
+                        print("❌ 未找到映射，使用fallback逻辑")
+                        // fallback: 对于快捷键类型，rawKey就是快捷键，displayName是类型名
+                        if case .custom(let rawKey) = tag.type {
+                            return "\(rawKey)[\(displayName)] \(tag.value)"
+                        } else {
+                            return "\(displayName.lowercased())[\(displayName)] \(tag.value)"
+                        }
+                    }
+                } else {
+                    // 普通 value[displayName] 格式
+                    return "\(tag.value)[\(displayName)]"
+                }
             } else {
                 return "\(tag.type.rawValue) \(tag.value)"
             }
@@ -860,6 +903,26 @@ struct TagEditCommandView: View {
             if let tagType = mapTokenToTagType(token) {
                 print("✅ 识别标签类型: '\(token)' -> \(tagType)")
                 let tagKey = token  // 保存原始token作为key
+                
+                // 检查是否是 tagType[displayName] 格式，如果是则需要处理显示名
+                var customDisplayName: String? = nil
+                if token.contains("[") && token.contains("]") {
+                    if let bracketStart = token.firstIndex(of: "["),
+                       let bracketEnd = token.firstIndex(of: "]"),
+                       bracketStart < bracketEnd {
+                        
+                        let displayName = String(token[token.index(after: bracketStart)..<bracketEnd])
+                        customDisplayName = displayName
+                        print("🏷️ 检测到标签类型自定义显示名: '\(displayName)'")
+                        
+                        // 为该标签类型设置自定义显示名
+                        let baseTagKey = String(token[..<bracketStart])
+                        print("🔧 准备添加映射: key='\(baseTagKey)', typeName='\(displayName)'")
+                        TagMappingManager.shared.addMappingIfNeeded(key: baseTagKey, typeName: displayName)
+                        print("🔧 映射添加完成，当前映射数量: \(TagMappingManager.shared.tagMappings.count)")
+                    }
+                }
+                
                 i += 1
                 
                 // 收集这个标签类型的值
@@ -900,10 +963,52 @@ struct TagEditCommandView: View {
                         let nextToken = tokens[i]
                         print("🔧 检查标签值 [\(i)]: '\(nextToken)'")
                         
-                        // 收集这个token作为标签值
-                        values.append(nextToken)
-                        print("🔧 添加标签值: '\(nextToken)'")
-                        i += 1
+                        // 检查是否是 value[displayName] 格式
+                        if nextToken.contains("[") && nextToken.contains("]"),
+                           let bracketStart = nextToken.firstIndex(of: "["),
+                           let bracketEnd = nextToken.firstIndex(of: "]"),
+                           bracketStart < bracketEnd {
+                            
+                            let tagValue = String(nextToken[..<bracketStart])
+                            let displayName = String(nextToken[nextToken.index(after: bracketStart)..<bracketEnd])
+                            
+                            print("🔧 检测到value[displayName]格式: value='\(tagValue)', displayName='\(displayName)'")
+                            
+                            // 检查是否是快捷键格式：tagValue是快捷键，displayName是类型名
+                            // 如果TagMappingManager中已存在该快捷键映射，则这是快捷键格式
+                            let isShortcutFormat = TagMappingManager.shared.tagMappings.contains { mapping in
+                                mapping.key.lowercased() == tagValue.lowercased() && mapping.typeName == displayName
+                            }
+                            
+                            let customTagType: Tag.TagType
+                            let isShortcut: Bool
+                            
+                            if isShortcutFormat {
+                                // 快捷键格式：beef[牛肉种类] -> 使用tagValue作为type的key
+                                customTagType = Tag.TagType.custom(tagValue)
+                                isShortcut = true
+                                print("🔧 识别为快捷键格式: key='\(tagValue)', typeName='\(displayName)'")
+                            } else {
+                                // 普通value[displayName]格式 -> 使用displayName作为type的key
+                                customTagType = Tag.TagType.custom(displayName)
+                                isShortcut = false
+                                TagMappingManager.shared.addMappingIfNeeded(key: displayName, typeName: displayName)
+                                print("🔧 识别为普通格式: key='\(displayName)', value='\(tagValue)'")
+                            }
+                            
+                            // 创建标签
+                            let tag = store.createTag(type: customTagType, value: tagValue, isShortcutType: isShortcut)
+                            newTags.append(tag)
+                            print("✅ 创建自定义标签: \(displayName) - \(tagValue)")
+                            
+                            i += 1
+                            continue // 跳过后续的普通处理逻辑
+                        } else {
+                            // 普通标签值处理
+                            values.append(nextToken)
+                            print("🔧 添加标签值: '\(nextToken)'")
+                            i += 1
+                        }
                     }
                 }
                 
@@ -919,6 +1024,15 @@ struct TagEditCommandView: View {
                     // 如果没有收集到值，使用标签类型的显示名称作为值
                     value = tagType.displayName
                     print("🔧 创建无值标签，类型: \(tagType)，使用显示名称作为值: '\(value)'")
+                }
+                
+                // 如果有自定义显示名，创建自定义标签类型
+                let finalTagType: Tag.TagType
+                if let customDisplayName = customDisplayName {
+                    finalTagType = Tag.TagType.custom(customDisplayName)
+                    print("🏷️ 使用自定义标签类型: \(customDisplayName)")
+                } else {
+                    finalTagType = tagType
                 }
                     
                     // 检查是否是地图标签（通过key识别）
@@ -1003,7 +1117,7 @@ struct TagEditCommandView: View {
                         
                         if parsed && !locationName.isEmpty {
                             // 对于成功解析的位置标签，只保存地名作为value，坐标保存在专门字段中
-                            let tag = store.createTag(type: tagType, value: locationName, latitude: lat, longitude: lng)
+                            let tag = store.createTag(type: finalTagType, value: locationName, latitude: lat, longitude: lng, isShortcutType: customDisplayName != nil)
                             newTags.append(tag)
                             print("✅ 创建位置标签: \(locationName) (\(lat), \(lng))")
                             print("✅ 标签详情: type=\(tag.type.rawValue), value=\(tag.value), hasCoords=\(tag.hasCoordinates)")
@@ -1012,30 +1126,69 @@ struct TagEditCommandView: View {
                             // 如果是location标签但没有找到匹配的位置，提示用户
                             print("⚠️ 未找到位置标签: \(value)，请使用完整格式或确保该位置已存在")
                             // 创建无坐标的位置标签作为fallback
-                            let tag = store.createTag(type: tagType, value: value)
+                            let tag = store.createTag(type: finalTagType, value: value, isShortcutType: customDisplayName != nil)
                             newTags.append(tag)
                         } else if TagMappingManager.shared.isLocationTagKey(tagKey) {
                             // 如果是location标签但解析失败，打印详细错误信息
                             print("❌ 位置标签解析失败: \(value)")
                             print("❌   parsed: \(parsed), locationName: '\(locationName)', lat: \(lat), lng: \(lng)")
                             // 创建无坐标的位置标签作为fallback
-                            let tag = store.createTag(type: tagType, value: value)
+                            let tag = store.createTag(type: finalTagType, value: value, isShortcutType: customDisplayName != nil)
                             newTags.append(tag)
                         } else {
                             // 普通标签
-                            let tag = store.createTag(type: tagType, value: value)
+                            let tag = store.createTag(type: finalTagType, value: value, isShortcutType: customDisplayName != nil)
                             newTags.append(tag)
                         }
                     } else {
-                        // 普通标签
-                        let tag = store.createTag(type: tagType, value: value)
+                        // 普通标签 - 检查是否是快捷键类型
+                        // 如果tagType来自映射查找且不同于原始token，则这是快捷键
+                        let isShortcut = customDisplayName != nil || TagMappingManager.shared.tagMappings.contains { mapping in
+                            mapping.key.lowercased() == tagKey.lowercased() && finalTagType.displayName == mapping.key
+                        }
+                        let tag = store.createTag(type: finalTagType, value: value, isShortcutType: isShortcut)
                         newTags.append(tag)
-                        print("✅ 创建标签: \(tagType.displayName) - \(value)")
+                        print("✅ 创建标签: \(finalTagType.displayName) - \(value)")
                     }
                 print("🔧 标签处理完成，当前索引 i = \(i)，准备继续主循环")
             } else {
-                print("❌ token '\(token)' 不是标签类型，跳过")
-                i += 1
+                // 检查是否是独立的 value[displayName] 格式（不需要前置标签类型）
+                if token.contains("[") && token.contains("]"),
+                   let bracketStart = token.firstIndex(of: "["),
+                   let bracketEnd = token.firstIndex(of: "]"),
+                   bracketStart < bracketEnd {
+                    
+                    let tagValue = String(token[..<bracketStart])
+                    let displayName = String(token[token.index(after: bracketStart)..<bracketEnd])
+                    
+                    print("🔧 检测到独立的value[displayName]格式: value='\(tagValue)', displayName='\(displayName)'")
+                    
+                    // 检查是否是快捷键格式：tagValue是快捷键，displayName是类型名
+                    let isShortcut = TagMappingManager.shared.tagMappings.contains { mapping in
+                        mapping.key.lowercased() == tagValue.lowercased() && mapping.typeName == displayName
+                    }
+                    
+                    let customTagType: Tag.TagType
+                    if isShortcut {
+                        // 快捷键格式：beef[牛肉种类] -> 使用tagValue作为type的key
+                        customTagType = Tag.TagType.custom(tagValue)
+                        print("🔧 独立快捷键格式: key='\(tagValue)', typeName='\(displayName)'")
+                    } else {
+                        // 普通value[displayName]格式 -> 使用displayName作为type的key
+                        customTagType = Tag.TagType.custom(displayName)
+                        TagMappingManager.shared.addMappingIfNeeded(key: displayName, typeName: displayName)
+                        print("🔧 独立普通格式: key='\(displayName)', value='\(tagValue)'")
+                    }
+                    
+                    let tag = store.createTag(type: customTagType, value: tagValue, isShortcutType: isShortcut)
+                    newTags.append(tag)
+                    print("✅ 创建独立自定义标签: \(displayName) - \(tagValue)")
+                    
+                    i += 1
+                } else {
+                    print("❌ token '\(token)' 不是标签类型，跳过")
+                    i += 1
+                }
             }
         }
         
@@ -1096,13 +1249,61 @@ struct TagEditCommandView: View {
             return nil
         }
         
-        // 检查是否包含方括号（可能是地名格式的一部分）
+        // 检查是否包含方括号
         if token.contains("[") || token.contains("]") {
+            // 检查是否是 tagType[displayName] 格式（标签类型+显示名格式）
+            if token.contains("[") && token.contains("]") {
+                // 可能是两种情况：
+                // 1. tagType[displayName] - beef[牛肉类型] 
+                // 2. value[displayName] - sdlf[牛肉品种]
+                
+                if let bracketStart = token.firstIndex(of: "["),
+                   let bracketEnd = token.firstIndex(of: "]"),
+                   bracketStart < bracketEnd {
+                    
+                    let beforeBracket = String(token[..<bracketStart])
+                    let insideBracket = String(token[token.index(after: bracketStart)..<bracketEnd])
+                    
+                    // 检查是否是已知的标签类型映射
+                    let tagManager = TagMappingManager.shared
+                    
+                    // 先检查映射字典，避免创建错误的映射
+                    if let (typeName, tagType) = tagManager.mappingDictionary[beforeBracket.lowercased()] {
+                        print("🔍 mapTokenToTagType: '\(token)' -> 找到现有映射: \(beforeBracket) -> \(typeName)")
+                        return tagType
+                    }
+                    
+                    // 如果没有现有映射，这是新的快捷键定义：beef[牛肉种类]
+                    // 创建映射并返回标签类型
+                    print("🔍 mapTokenToTagType: '\(token)' -> 创建新的快捷键映射: \(beforeBracket) -> \(insideBracket)")
+                    tagManager.addMappingIfNeeded(key: beforeBracket, typeName: insideBracket)
+                    return Tag.TagType.custom(beforeBracket)
+                } else {
+                    print("🔍 mapTokenToTagType: '\(token)' -> 跳过（无效的方括号格式）")
+                    return nil
+                }
+            }
             print("🔍 mapTokenToTagType: '\(token)' -> 跳过（包含方括号）")
             return nil
         }
         
         let tagManager = TagMappingManager.shared
+        print("🔍 mapTokenToTagType: 检查单独token '\(token)'")
+        
+        // 特殊处理beef，强制确保映射正确
+        if token.lowercased() == "beef" {
+            print("🔧 检测到beef token，强制重建映射...")
+            tagManager.forceRebuildBeefMapping()
+            print("🔧 重建后映射字典keys: \(Array(tagManager.mappingDictionary.keys))")
+            if let (typeName, tagType) = tagManager.mappingDictionary["beef"] {
+                print("✅ beef映射确认: beef -> \(typeName)")
+                return tagType
+            } else {
+                print("❌ beef映射仍然不存在！这是严重错误！")
+            }
+        }
+        
+        print("🔍 当前映射字典keys: \(Array(tagManager.mappingDictionary.keys))")
         let result = tagManager.parseTokenToTagTypeWithStore(token, store: store)
         print("🔍 mapTokenToTagType: '\(token)' -> \(result?.displayName ?? "nil")")
         return result

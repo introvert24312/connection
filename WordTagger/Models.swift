@@ -545,14 +545,35 @@ public struct Tag: Identifiable, Hashable, Codable {
     public var latitude: Double?
     public var longitude: Double?
     public var createdAt: Date
+    public var isShortcutType: Bool // 标记是否来自快捷键格式 (tagType[displayName])
     
-    public init(type: TagType, value: String, latitude: Double? = nil, longitude: Double? = nil) {
+    public init(type: TagType, value: String, latitude: Double? = nil, longitude: Double? = nil, isShortcutType: Bool = false) {
         self.id = UUID()
         self.type = type
         self.value = value
         self.latitude = latitude
         self.longitude = longitude
+        self.isShortcutType = isShortcutType
         self.createdAt = Date()
+    }
+    
+    // 自定义解码器，确保向后兼容现有数据
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        id = try container.decode(UUID.self, forKey: .id)
+        type = try container.decode(TagType.self, forKey: .type)
+        value = try container.decode(String.self, forKey: .value)
+        latitude = try container.decodeIfPresent(Double.self, forKey: .latitude)
+        longitude = try container.decodeIfPresent(Double.self, forKey: .longitude)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        // 为新字段提供默认值，确保向后兼容
+        isShortcutType = try container.decodeIfPresent(Bool.self, forKey: .isShortcutType) ?? false
+    }
+    
+    // 编码键
+    private enum CodingKeys: String, CodingKey {
+        case id, type, value, latitude, longitude, createdAt, isShortcutType
     }
     
     // 是否为地点标签且有坐标

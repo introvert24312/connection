@@ -1076,12 +1076,13 @@ public final class NodeStore: ObservableObject {
         print("   - 当前活跃层: \(currentLayer?.displayName ?? "无")")
     }
     
-    public func createTag(type: Tag.TagType, value: String, latitude: Double? = nil, longitude: Double? = nil) -> Tag {
+    public func createTag(type: Tag.TagType, value: String, latitude: Double? = nil, longitude: Double? = nil, isShortcutType: Bool = false) -> Tag {
         return Tag(
             type: type,
             value: value,
             latitude: latitude,
-            longitude: longitude
+            longitude: longitude,
+            isShortcutType: isShortcutType
         )
     }
     

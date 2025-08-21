@@ -101,9 +101,19 @@ class TagMappingManager: ObservableObject {
     
     // 动态添加缺失的标签映射
     func addMappingIfNeeded(key: String, typeName: String) {
+        let normalizedKey = key.lowercased()
         // 检查是否已存在该映射
-        if !tagMappings.contains(where: { $0.key == key.lowercased() }) {
-            let newMapping = TagMapping(key: key.lowercased(), typeName: typeName)
+        if let existingIndex = tagMappings.firstIndex(where: { $0.key == normalizedKey }) {
+            let existingMapping = tagMappings[existingIndex]
+            if existingMapping.typeName != typeName {
+                // 更新现有映射的typeName
+                let updatedMapping = TagMapping(id: existingMapping.id, key: normalizedKey, typeName: typeName)
+                tagMappings[existingIndex] = updatedMapping
+                saveToUserDefaults()
+                print("🔄 更新标签映射: \(key) -> \(typeName) (之前是 \(existingMapping.typeName))")
+            }
+        } else {
+            let newMapping = TagMapping(key: normalizedKey, typeName: typeName)
             tagMappings.append(newMapping)
             saveToUserDefaults()
             print("🔄 自动添加标签映射: \(key) -> \(typeName)")
@@ -173,6 +183,11 @@ class TagMappingManager: ObservableObject {
     @MainActor
     func parseTokenToTagTypeWithStore(_ token: String, store: NodeStore) -> Tag.TagType? {
         let lowerToken = token.lowercased()
+        
+        // 确保映射已修复
+        if lowerToken == "beef" {
+            ensureBuiltInCoreTags()
+        }
         
         // 1. 首先检查TagMappingManager中的映射
         if let (typeName, tagType) = mappingDictionary[lowerToken] {
@@ -272,7 +287,43 @@ class TagMappingManager: ObservableObject {
             }
         }
         
+        // 修复错误的beef映射或添加缺失的beef映射
+        print("🔧 检查beef映射状态...")
+        print("🔧 当前所有映射: \(tagMappings.map { "\($0.key)->\($0.typeName)" })")
+        
+        if let wrongBeefIndex = tagMappings.firstIndex(where: { $0.key == "beef" && $0.typeName == "beef" }) {
+            let correctedMapping = TagMapping(id: tagMappings[wrongBeefIndex].id, key: "beef", typeName: "牛肉种类")
+            tagMappings[wrongBeefIndex] = correctedMapping
+            print("🔧 修复错误的beef映射: beef -> 牛肉种类")
+        } else if !tagMappings.contains(where: { $0.key == "beef" }) {
+            let newBeefMapping = TagMapping(key: "beef", typeName: "牛肉种类")
+            tagMappings.append(newBeefMapping)
+            print("🔧 添加缺失的beef映射: beef -> 牛肉种类")
+        } else {
+            print("🔧 beef映射已存在且正确")
+        }
+        
+        print("🔧 修复后的映射字典keys: \(Array(mappingDictionary.keys))")
+        
         saveToUserDefaults()
+    }
+    
+    // 强制重建beef映射
+    func forceRebuildBeefMapping() {
+        print("🔧 强制重建beef映射...")
+        
+        // 删除所有beef相关映射
+        tagMappings.removeAll { $0.key == "beef" }
+        
+        // 添加正确的beef映射
+        let correctBeefMapping = TagMapping(key: "beef", typeName: "牛肉种类")
+        tagMappings.append(correctBeefMapping)
+        
+        // 立即保存
+        saveToUserDefaults()
+        
+        print("✅ beef映射重建完成: beef -> 牛肉种类")
+        print("✅ 当前所有映射: \(tagMappings.map { "\($0.key)->\($0.typeName)" })")
     }
     
     // 重置为默认映射
