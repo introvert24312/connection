@@ -789,25 +789,20 @@ struct QuickAddSheetView: View {
     }
     
     private func processInput() {
-        print("📝 [QuickAdd processInput] 开始处理输入: '\(inputText)'")
-        print("📝 [QuickAdd processInput] 编辑模式: \(prefilledNode != nil)")
         
         let components = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
             .split(separator: " ", omittingEmptySubsequences: true)
             .map(String.init)
         
-        print("📝 [QuickAdd processInput] 分割后组件: \(components)")
         
         guard !components.isEmpty else { 
-            print("📝 [QuickAdd processInput] 组件为空，退出")
-            return 
+                return 
         }
         
         let nodeText = components[0]
         var tags: [Tag] = []
         var i = 1
         
-        print("📝 [QuickAdd processInput] 节点名: '\(nodeText)', 开始解析标签")
         
         while i < components.count {
             let tagKey = components[i]
@@ -821,12 +816,10 @@ struct QuickAddSheetView: View {
                     let actualTagKey = String(tagKey[..<startBracket])
                     let newTypeName = String(tagKey[tagKey.index(after: startBracket)..<endBracket])
                     
-                    print("🏷️ QuickAdd: 检测到标签重命名 - key: '\(actualTagKey)', newName: '\(newTypeName)'")
                     
                     // 处理标签重命名
                     if let existingMapping = tagManager.tagMappings.first(where: { $0.key == actualTagKey }) {
                         let oldTypeName = existingMapping.typeName
-                        print("🔄 QuickAdd: 更新标签映射 - \(oldTypeName) -> \(newTypeName)")
                         
                         // 创建更新后的映射
                         let updatedMapping = TagMapping(
@@ -838,29 +831,103 @@ struct QuickAddSheetView: View {
                         // 保存到TagManager，会自动触发UI更新
                         tagManager.saveMapping(updatedMapping)
                         
-                        print("✅ QuickAdd: 标签重命名完成")
                     } else {
-                        print("⚠️ QuickAdd: 未找到key '\(actualTagKey)' 对应的映射")
                     }
                     
                     // 重命名完成后，继续处理标签创建
                     // 使用实际的tagKey来创建标签类型和标签
-                    print("📝 QuickAdd: 继续创建标签，使用key: '\(actualTagKey)'")
+                    print("🏷️ QuickAdd: 重命名完成，开始创建标签")
+                    print("🏷️ QuickAdd: actualTagKey=\(actualTagKey), i=\(i), components.count=\(components.count)")
                     
                     if let tagType = tagManager.parseTokenToTagTypeWithStore(actualTagKey, store: store) {
                         if i + 1 < components.count { 
                             let content = components[i + 1]
-                            print("📝 QuickAdd: 创建标签 - type: \(tagType.rawValue), value: '\(content)'")
+                            print("🏷️ QuickAdd: 创建标签 - tagType=\(tagType), content=\(content)")
                             
-                            // 创建标签（简化版本，因为这里已经不是location标签了）
-                            let tag = Tag(type: tagType, value: content)
-                            tags.append(tag)
+                            // 检查是否是地图标签（通过key识别）
+                            if tagManager.isLocationTagKey(actualTagKey) {
+                                // 地图标签处理逻辑（保持原有逻辑）
+                                var locationName: String = ""
+                                var lat: Double = 0
+                                var lng: Double = 0
+                                var parsed = false
+                                
+                                // 格式检查逻辑（保持原有的地图标签解析逻辑）
+                                if content.contains("@") && !content.hasPrefix("@") {
+                                    let components = content.split(separator: "@", maxSplits: 1)
+                                    if components.count == 2 {
+                                        locationName = String(components[0])
+                                        let coordString = String(components[1])
+                                        let coords = coordString.split(separator: ",")
+                                        
+                                        if coords.count == 2,
+                                           let latitude = Double(coords[0]),
+                                           let longitude = Double(coords[1]) {
+                                            lat = latitude
+                                            lng = longitude
+                                            parsed = true
+                                        }
+                                    }
+                                }
+                                else if content.hasPrefix("@") && content.contains("[") && content.contains("]") {
+                                    if let atIndex = content.firstIndex(of: "@"),
+                                       let bracketIndex = content.firstIndex(of: "[") {
+                                        let coordString = String(content[content.index(after: atIndex)..<bracketIndex])
+                                        let coords = coordString.split(separator: ",")
+                                        
+                                        if coords.count == 2,
+                                           let latitude = Double(coords[0]),
+                                           let longitude = Double(coords[1]) {
+                                            lat = latitude
+                                            lng = longitude
+                                            
+                                            if let startBracket = content.firstIndex(of: "["),
+                                               let endBracket = content.firstIndex(of: "]"),
+                                               startBracket < endBracket {
+                                                locationName = String(content[content.index(after: startBracket)..<endBracket])
+                                                parsed = true
+                                            }
+                                        }
+                                    }
+                                }
+                                else if !content.contains("@") && !content.contains("[") && !content.contains("]") {
+                                    if let existingTag = store.findLocationTagByName(content) {
+                                        locationName = existingTag.value
+                                        if let existingLat = existingTag.latitude, let existingLng = existingTag.longitude {
+                                            lat = existingLat
+                                            lng = existingLng
+                                            parsed = true
+                                        }
+                                    }
+                                }
+                                
+                                if parsed && !locationName.isEmpty {
+                                    let tag = store.createTag(type: tagType, value: locationName, latitude: lat, longitude: lng)
+                                    tags.append(tag)
+                                    print("🏷️ QuickAdd: 创建地图标签成功 - \(locationName)")
+                                } else if !content.contains("@") {
+                                    let tag = Tag(type: tagType, value: content)
+                                    tags.append(tag)
+                                    print("🏷️ QuickAdd: 创建普通地点标签 - \(content)")
+                                } else {
+                                    let tag = Tag(type: tagType, value: content)
+                                    tags.append(tag)
+                                    print("🏷️ QuickAdd: 地图解析失败，创建普通标签 - \(content)")
+                                }
+                            } else {
+                                // 普通标签
+                                let tag = Tag(type: tagType, value: content)
+                                tags.append(tag)
+                                print("🏷️ QuickAdd: 创建普通标签成功 - type=\(tagType), value=\(content)")
+                            }
                             
                             i += 2 // 跳过tagType和value
                         } else {
+                            print("🏷️ QuickAdd: 没有找到标签内容，跳过")
                             i += 1
                         }
                     } else {
+                        print("🏷️ QuickAdd: 无法解析标签类型，跳过")
                         i += 1
                     }
                     continue
@@ -928,7 +995,6 @@ struct QuickAddSheetView: View {
                                     lat = existingLat
                                     lng = existingLng
                                     parsed = true
-                                    print("🎯 QuickAdd: 找到已有位置标签: \(locationName) (\(lat), \(lng))")
                                 }
                             }
                         }
@@ -938,7 +1004,6 @@ struct QuickAddSheetView: View {
                             tags.append(tag)
                         } else if !content.contains("@") {
                             // 如果是location标签但没有找到匹配的位置，提示用户
-                            print("⚠️ QuickAdd: 未找到位置标签: \(content)，请使用完整格式或确保该位置已存在")
                             // 创建无坐标的位置标签作为fallback
                             let tag = Tag(type: tagType, value: content)
                             tags.append(tag)
@@ -963,8 +1028,7 @@ struct QuickAddSheetView: View {
         
         // 检查层级可用性，不再使用UUID()作为fallback
         guard let layerId = store.currentLayer?.id ?? store.layers.first?.id else {
-            print("❌ QuickAdd: 无可用层，无法创建节点")
-            // 触发警告
+                // 触发警告
             store.duplicateNodeAlert = NodeStore.DuplicateNodeAlert(
                 message: "无法添加节点：请先创建至少一个层",
                 isDuplicate: false,
@@ -976,7 +1040,6 @@ struct QuickAddSheetView: View {
         
         if let existingNode = prefilledNode {
             // 编辑模式：更新现有节点
-            print("📝 编辑模式：更新节点 \(existingNode.text) -> \(nodeText)")
             
             // 更新节点的基本信息
             store.updateNode(existingNode.id, text: nodeText, phonetic: nil, meaning: nil)
@@ -984,7 +1047,6 @@ struct QuickAddSheetView: View {
             // 更新节点的标签
             store.updateNodeTags(existingNode.id, tags: tags)
             
-            print("✅ 节点更新完成")
             inputText = ""
             dismiss()
         } else {
