@@ -1,0 +1,24 @@
+"/Users/Patronum/Desktop/WordTagger/WordTagger/UniversalRelationshipGraphView.swift":
+  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/UniversalRelationshipGraphView.swiftdeps"
+  const-values: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/UniversalRelationshipGraphView.swiftconstvalues"
+  dependencies: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/UniversalRelationshipGraphView.d"
+  object: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/UniversalRelationshipGraphView.o"
+  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/UniversalRelationshipGraphView.dia"
+"/Users/Patronum/Desktop/WordTagger/WordTagger/ExternalDataManager.swift":
+  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ExternalDataManager.swiftdeps"
+  const-values: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ExternalDataManager.swiftconstvalues"
+  dependencies: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ExternalDataManager.d"
+  object: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ExternalDataManager.o"
+  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ExternalDataManager.dia"
+"/Users/Patronum/Desktop/WordTagger/WordTagger/ExternalDataService.swift":
+  object: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ExternalDataService.o"
+  const-values: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ExternalDataService.swiftconstvalues"
+  dependencies: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ExternalDataService.d"
+  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ExternalDataService.dia"
+  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/ExternalDataService.swiftdeps"
+"/Users/Patronum/Desktop/WordTagger/WordTagger/SettingsView.swift":
+  dependencies: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/SettingsView.d"
+  const-values: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/SettingsView.swiftconstvalues"
+  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/SettingsView.swiftdeps"
+  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/SettingsView.dia"
+  object: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/SettingsView.o"

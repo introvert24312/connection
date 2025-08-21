@@ -1,0 +1,184 @@
+{
+  "source": "/Users/Patronum/Desktop/WordTagger/WordTagger/GraphView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "全局图谱",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 255
+        }
+      },
+      {
+        "comment": "",
+        "key": "选择要显示的节点",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 275
+        }
+      },
+      {
+        "comment": "",
+        "key": "搜索节点或标签...",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 278
+        }
+      },
+      {
+        "comment": "",
+        "key": "搜索",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 286
+        }
+      },
+      {
+        "comment": "",
+        "key": "显示全部",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 293
+        }
+      },
+      {
+        "comment": "",
+        "key": "选择节点",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 267
+        }
+      },
+      {
+        "comment": "",
+        "key": "(%lld)",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 269
+        }
+      },
+      {
+        "comment": "",
+        "key": "暂无图谱数据",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 463
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加一些节点来生成全局图谱",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 467
+        }
+      },
+      {
+        "comment": "",
+        "key": "选择要显示的节点",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 515
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 508
+        }
+      },
+      {
+        "comment": "",
+        "key": "完成",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 521
+        }
+      },
+      {
+        "comment": "",
+        "key": "搜索节点...",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 534
+        }
+      },
+      {
+        "comment": "",
+        "key": "清除",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 538
+        }
+      },
+      {
+        "comment": "",
+        "key": "全选",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 551
+        }
+      },
+      {
+        "comment": "",
+        "key": "全不选",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 556
+        }
+      },
+      {
+        "comment": "",
+        "key": "仅复合节点",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 561
+        }
+      },
+      {
+        "comment": "",
+        "key": "仅普通节点",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 566
+        }
+      },
+      {
+        "comment": "",
+        "key": "没有找到匹配的节点",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 621
+        }
+      },
+      {
+        "comment": "",
+        "key": "复合",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 678
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld个标签",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 690
+        }
+      },
+      {
+        "comment": "",
+        "key": "(%lld)",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 729
+        }
+      }
+    ]
+  },
+  "version": 1
+}

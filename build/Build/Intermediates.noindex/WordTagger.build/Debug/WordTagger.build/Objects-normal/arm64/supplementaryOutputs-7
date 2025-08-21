@@ -1,0 +1,18 @@
+"/Users/Patronum/Desktop/WordTagger/WordTagger/NodeExtensions.swift":
+  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/NodeExtensions.dia"
+  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/NodeExtensions.swiftdeps"
+  const-values: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/NodeExtensions.swiftconstvalues"
+  object: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/NodeExtensions.o"
+  dependencies: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/NodeExtensions.d"
+"/Users/Patronum/Desktop/WordTagger/WordTagger/NodeEditorSheet.swift":
+  const-values: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/NodeEditorSheet.swiftconstvalues"
+  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/NodeEditorSheet.dia"
+  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/NodeEditorSheet.swiftdeps"
+  dependencies: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/NodeEditorSheet.d"
+  object: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/NodeEditorSheet.o"
+"/Users/Patronum/Desktop/WordTagger/WordTagger/NodeContextGraphView.swift":
+  object: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/NodeContextGraphView.o"
+  const-values: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/NodeContextGraphView.swiftconstvalues"
+  dependencies: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/NodeContextGraphView.d"
+  swift-dependencies: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/NodeContextGraphView.swiftdeps"
+  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/NodeContextGraphView.dia"

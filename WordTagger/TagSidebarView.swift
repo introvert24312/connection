@@ -25,7 +25,7 @@ struct TagSidebarView: View {
                     
                     Text(currentLayer.displayName)
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.primary)
+                        .foregroundColor(.label)
                     
                     Spacer()
                     
@@ -303,7 +303,7 @@ struct TagTypeSearchResultButton: View {
                 
                 Text(type.displayName)
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(isAlreadySelected ? .secondary : .primary)
+                    .foregroundColor(isAlreadySelected ? .secondary : .label)
                 
                 if !isAlreadySelected {
                     Image(systemName: "plus.circle.fill")
@@ -341,7 +341,7 @@ struct SelectedTagTypeChip: View {
             
             Text(type.displayName)
                 .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.primary)
+                .foregroundColor(.label)
             
             Button(action: onRemove) {
                 Image(systemName: "xmark.circle.fill")
@@ -441,7 +441,7 @@ struct TagGroupView: View {
                     // 标签类型名称和数量
                     Text(tagType.displayName)
                         .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.primary)
+                        .foregroundColor(.label)
                     
                     Text("(\(tags.count))")
                         .font(.system(size: 15))
@@ -510,7 +510,7 @@ struct TagValueRow: View {
                 // 标签值
                 Text(tag.value)
                     .font(.system(size: 16))
-                    .foregroundColor(isSelected ? .blue : .primary)
+                    .foregroundColor(isSelected ? .blue : .label)
                 
                 Spacer()
                 
@@ -564,7 +564,7 @@ struct TagRowView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(tag.displayName)
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.primary)
+                        .foregroundColor(.label)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                     
