@@ -843,7 +843,26 @@ struct QuickAddSheetView: View {
                         print("⚠️ QuickAdd: 未找到key '\(actualTagKey)' 对应的映射")
                     }
                     
-                    i += 1
+                    // 重命名完成后，继续处理标签创建
+                    // 使用实际的tagKey来创建标签类型和标签
+                    print("📝 QuickAdd: 继续创建标签，使用key: '\(actualTagKey)'")
+                    
+                    if let tagType = tagManager.parseTokenToTagTypeWithStore(actualTagKey, store: store) {
+                        if i + 1 < components.count { 
+                            let content = components[i + 1]
+                            print("📝 QuickAdd: 创建标签 - type: \(tagType.rawValue), value: '\(content)'")
+                            
+                            // 创建标签（简化版本，因为这里已经不是location标签了）
+                            let tag = Tag(type: tagType, value: content)
+                            tags.append(tag)
+                            
+                            i += 2 // 跳过tagType和value
+                        } else {
+                            i += 1
+                        }
+                    } else {
+                        i += 1
+                    }
                     continue
                 }
             }
