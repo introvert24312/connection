@@ -102,17 +102,22 @@ class TagMappingManager: ObservableObject {
     // 动态添加缺失的标签映射
     func addMappingIfNeeded(key: String, typeName: String) {
         let normalizedKey = key.lowercased()
-        // 检查是否已存在该映射
+        
+        // 检查是否已存在**完全相同的key**的映射
         if let existingIndex = tagMappings.firstIndex(where: { $0.key == normalizedKey }) {
             let existingMapping = tagMappings[existingIndex]
+            
+            // 只有当key完全相同时才考虑更新typeName
+            // 这里我们不更新，因为可能破坏现有的映射关系
             if existingMapping.typeName != typeName {
-                // 更新现有映射的typeName
-                let updatedMapping = TagMapping(id: existingMapping.id, key: normalizedKey, typeName: typeName)
-                tagMappings[existingIndex] = updatedMapping
-                saveToUserDefaults()
-                print("🔄 更新标签映射: \(key) -> \(typeName) (之前是 \(existingMapping.typeName))")
+                print("⚠️ 映射冲突：key '\(normalizedKey)' 已存在，typeName '\(existingMapping.typeName)' != '\(typeName)'，保持现有映射")
+                return
+            } else {
+                print("✅ 映射已存在且相同: \(normalizedKey) -> \(typeName)")
+                return
             }
         } else {
+            // 不存在相同key的映射，可以安全添加
             let newMapping = TagMapping(key: normalizedKey, typeName: typeName)
             tagMappings.append(newMapping)
             saveToUserDefaults()
