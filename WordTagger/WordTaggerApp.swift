@@ -708,8 +708,14 @@ struct QuickAddSheetView: View {
         .onAppear {
             // 如果是编辑模式，预填充现有节点的命令
             if let node = prefilledNode {
+                print("🔄 [QuickAdd] 编辑模式开始预填充节点: '\(node.text)'")
+                print("🔄 [QuickAdd] 节点标签数量: \(node.tags.count)")
+                for (index, tag) in node.tags.enumerated() {
+                    print("🔄 [QuickAdd] 标签[\(index)]: type=\(tag.type), rawValue='\(tag.type.rawValue)', displayName='\(tag.type.displayName)', value='\(tag.value)'")
+                }
+                
                 inputText = node.canonicalCommandRepresentation
-                print("🔄 编辑模式：预填充命令 - \(inputText)")
+                print("🔄 [QuickAdd] 编辑模式：预填充命令完成 - '\(inputText)'")
             }
             
             // 自动聚焦到输入框
@@ -783,15 +789,25 @@ struct QuickAddSheetView: View {
     }
     
     private func processInput() {
+        print("📝 [QuickAdd processInput] 开始处理输入: '\(inputText)'")
+        print("📝 [QuickAdd processInput] 编辑模式: \(prefilledNode != nil)")
+        
         let components = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
             .split(separator: " ", omittingEmptySubsequences: true)
             .map(String.init)
         
-        guard !components.isEmpty else { return }
+        print("📝 [QuickAdd processInput] 分割后组件: \(components)")
+        
+        guard !components.isEmpty else { 
+            print("📝 [QuickAdd processInput] 组件为空，退出")
+            return 
+        }
         
         let nodeText = components[0]
         var tags: [Tag] = []
         var i = 1
+        
+        print("📝 [QuickAdd processInput] 节点名: '\(nodeText)', 开始解析标签")
         
         while i < components.count {
             let tagKey = components[i]

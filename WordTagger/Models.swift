@@ -163,22 +163,29 @@ public struct Node: Identifiable, Hashable, Codable {
     /// 生成规范化命令行表示，包含当前标签映射的注释
     /// 格式：节点名 标签类型1 标签值1 标签类型2 标签值2 ...  # type1=展示名1, type2=展示名2
     public var canonicalCommandRepresentation: String {
+        print("🔍 [canonicalCommandRepresentation] 开始生成节点 '\(text)' 的规范化命令")
+        
         var components = [text]
         var commentMappings: [String] = []
         var usedTagTypes = Set<String>()
         
         // 按标签类型分组
         let groupedTags = Dictionary(grouping: tags) { $0.type }
+        print("🔍 [canonicalCommandRepresentation] 标签分组完成，共 \(groupedTags.count) 个类型")
         
         // 按标签类型的rawValue排序，确保输出一致
         let sortedTagTypes = groupedTags.keys.sorted { $0.rawValue < $1.rawValue }
         
         for tagType in sortedTagTypes {
             let tagsOfType = groupedTags[tagType] ?? []
+            print("🔍 [canonicalCommandRepresentation] 处理标签类型: \(tagType.rawValue), 显示名: '\(tagType.displayName)', 标签数量: \(tagsOfType.count)")
+            
             for tag in tagsOfType.sorted(by: { $0.value < $1.value }) {
                 let tagCode = tagType.rawValue
                 components.append(tagCode)
                 components.append(quoteValueIfNeeded(tag.value))
+                
+                print("🔍 [canonicalCommandRepresentation] 添加标签: \(tagCode) \(tag.value)")
                 
                 // 记录用到的标签类型（只记录一次）
                 if !usedTagTypes.contains(tagCode) {
@@ -188,6 +195,7 @@ public struct Node: Identifiable, Hashable, Codable {
                     let displayName = tagType.displayName
                     if displayName != tagCode {
                         commentMappings.append("\(tagCode)=\(displayName)")
+                        print("🔍 [canonicalCommandRepresentation] 记录映射: \(tagCode) -> \(displayName)")
                     }
                 }
             }
@@ -196,11 +204,15 @@ public struct Node: Identifiable, Hashable, Codable {
         let baseCommand = components.joined(separator: " ")
         
         // 添加注释
+        let result: String
         if !commentMappings.isEmpty {
-            return "\(baseCommand)  # \(commentMappings.joined(separator: ", "))"
+            result = "\(baseCommand)  # \(commentMappings.joined(separator: ", "))"
         } else {
-            return baseCommand
+            result = baseCommand
         }
+        
+        print("🔍 [canonicalCommandRepresentation] 最终结果: '\(result)'")
+        return result
     }
     
     /// 给包含空格的值添加引号
@@ -246,17 +258,27 @@ public struct Node: Identifiable, Hashable, Codable {
     /// 格式：节点名 标签类型1 标签值1 标签类型2 标签值2 ...
     /// 支持内联改名：类型[展示名] 值 - 会更新该类型的全局展示名
     public static func fromCommandLine(_ commandLine: String, layerId: UUID) -> Node? {
+        print("🔍 [fromCommandLine] 开始解析命令: '\(commandLine)'")
+        
         // 移除行内注释
         let cleanCommandLine = removeInlineComments(commandLine)
+        print("🔍 [fromCommandLine] 清理后命令: '\(cleanCommandLine)'")
         
         let components = cleanCommandLine.trimmingCharacters(in: .whitespacesAndNewlines)
             .components(separatedBy: " ")
             .filter { !$0.isEmpty }
         
-        guard !components.isEmpty else { return nil }
+        print("🔍 [fromCommandLine] 分割后组件: \(components)")
+        
+        guard !components.isEmpty else { 
+            print("🔍 [fromCommandLine] 组件为空，返回nil")
+            return nil 
+        }
         
         let nodeName = components[0]
         var tags: [Tag] = []
+        
+        print("🔍 [fromCommandLine] 节点名: '\(nodeName)'")
         
         // 解析标签：每两个组件为一对（类型，值）
         var i = 1
@@ -264,11 +286,15 @@ public struct Node: Identifiable, Hashable, Codable {
             let tagTypeString = components[i]
             let tagValue = unquoteValue(components[i + 1])
             
+            print("🔍 [fromCommandLine] 解析标签: tagTypeString='\(tagTypeString)', tagValue='\(tagValue)'")
+            
             // 解析类型和可能的展示名
             let (tagCode, displayName) = parseTagTypeWithDisplayName(tagTypeString)
+            print("🔍 [fromCommandLine] 解析结果: tagCode='\(tagCode)', displayName=\(displayName ?? "nil")")
             
             // 如果有展示名，更新全局映射
             if let displayName = displayName {
+                print("🔍 [fromCommandLine] 更新全局映射: \(tagCode) -> \(displayName)")
                 updateTagDisplayName(tagCode: tagCode, displayName: displayName)
             }
             
@@ -279,13 +305,17 @@ public struct Node: Identifiable, Hashable, Codable {
                 tagType = .custom(tagCode)
             }
             
+            print("🔍 [fromCommandLine] 创建标签类型: \(tagType), rawValue=\(tagType.rawValue), displayName='\(tagType.displayName)'")
+            
             let tag = Tag(type: tagType, value: tagValue)
             tags.append(tag)
             
             i += 2
         }
         
-        return Node(text: nodeName, layerId: layerId, tags: tags)
+        let result = Node(text: nodeName, layerId: layerId, tags: tags)
+        print("🔍 [fromCommandLine] 创建节点完成，标签数量: \(tags.count)")
+        return result
     }
     
     /// 更新节点的标签从命令行字符串
@@ -477,13 +507,21 @@ public struct Tag: Identifiable, Hashable, Codable {
         
         public var displayName: String {
             switch self {
-            case .location: return "地点"
+            case .location: 
+                print("🏷️ [displayName] location类型 -> 地点")
+                return "地点"
             case .custom(let key): 
                 // 从TagMappingManager获取最新的typeName
                 let tagManager = TagMappingManager.shared
                 let normalizedKey = key.lowercased() // 使用规范化的key进行查找
+                print("🏷️ [displayName] 查找custom类型映射: key='\(key)', normalizedKey='\(normalizedKey)'")
+                
                 if let mapping = tagManager.tagMappings.first(where: { $0.key == normalizedKey }) {
+                    print("🏷️ [displayName] 找到映射: '\(key)' -> '\(mapping.typeName)'")
                     return mapping.typeName
+                } else {
+                    print("🏷️ [displayName] 未找到映射，使用原key: '\(key)'")
+                    print("🏷️ [displayName] 当前所有映射: \(tagManager.tagMappings.map { "\($0.key)->\($0.typeName)" })")
                 }
                 return key // fallback to key if not found
             }
