@@ -1,7 +1,7 @@
 version: "Apple Swift version 6.1.2 (swiftlang-6.1.2.1.2 clang-1700.0.13.5)"
 options: "e8f40e15cfe839f0fa8c58ec7d6b1b8aaca9ff9e0c7590204c47dc225cb26035"
-build_start_time: [1755871909, 350211000]
-build_end_time: [1755871970, 898233000]
+build_start_time: [1755872547, 825580000]
+build_end_time: [1755872593, 946262000]
 inputs:
   "/Users/Patronum/Desktop/WordTagger/WordTagger/CommandPaletteView.swift": [1755599821, 123324781]
   "/Users/Patronum/Desktop/WordTagger/WordTagger/CommandParser.swift": [1755258837, 798418648]
@@ -30,5 +30,5 @@ inputs:
   "/Users/Patronum/Desktop/WordTagger/WordTagger/VditorWebView.swift": [1755097311, 412894408]
   "/Users/Patronum/Desktop/WordTagger/WordTagger/WordListView.swift": [1755851905, 946616683]
   "/Users/Patronum/Desktop/WordTagger/WordTagger/WordManagerView.swift": [1755859114, 561659788]
-  "/Users/Patronum/Desktop/WordTagger/WordTagger/WordTaggerApp.swift": [1755871897, 322974683]
+  "/Users/Patronum/Desktop/WordTagger/WordTagger/WordTaggerApp.swift": [1755872492, 779833203]
   "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Release/WordTagger.build/DerivedSources/GeneratedAssetSymbols.swift": [1755871785, 456138607]

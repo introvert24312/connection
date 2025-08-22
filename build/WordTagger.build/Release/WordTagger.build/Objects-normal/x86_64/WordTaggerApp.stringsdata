@@ -159,7 +159,7 @@
         "key": "+%lld",
         "location": {
           "startingColumn": 30,
-          "startingLine": 1977
+          "startingLine": 2011
         }
       },
       {
@@ -167,7 +167,7 @@
         "key": "节点标签管理器",
         "location": {
           "startingColumn": 21,
-          "startingLine": 2096
+          "startingLine": 2130
         }
       },
       {
@@ -175,7 +175,7 @@
         "key": "地图视图",
         "location": {
           "startingColumn": 21,
-          "startingLine": 2286
+          "startingLine": 2320
         }
       },
       {
@@ -183,7 +183,7 @@
         "key": "全局图谱",
         "location": {
           "startingColumn": 21,
-          "startingLine": 2294
+          "startingLine": 2328
         }
       },
       {
@@ -191,7 +191,7 @@
         "key": "节点管理",
         "location": {
           "startingColumn": 21,
-          "startingLine": 2302
+          "startingLine": 2336
         }
       },
       {
@@ -199,7 +199,7 @@
         "key": "全屏图谱",
         "location": {
           "startingColumn": 21,
-          "startingLine": 2310
+          "startingLine": 2344
         }
       },
       {
@@ -207,7 +207,7 @@
         "key": "节点标签",
         "location": {
           "startingColumn": 25,
-          "startingLine": 2188
+          "startingLine": 2222
         }
       },
       {
@@ -215,7 +215,7 @@
         "key": "命令面板",
         "location": {
           "startingColumn": 24,
-          "startingLine": 2189
+          "startingLine": 2223
         }
       },
       {
@@ -223,7 +223,7 @@
         "key": "创建新层或复合层",
         "location": {
           "startingColumn": 24,
-          "startingLine": 2194
+          "startingLine": 2228
         }
       },
       {
@@ -231,7 +231,7 @@
         "key": "快速添加节点",
         "location": {
           "startingColumn": 24,
-          "startingLine": 2201
+          "startingLine": 2235
         }
       },
       {
@@ -239,7 +239,7 @@
         "key": "添加复合节点",
         "location": {
           "startingColumn": 24,
-          "startingLine": 2206
+          "startingLine": 2240
         }
       },
       {
@@ -247,7 +247,7 @@
         "key": "快速搜索",
         "location": {
           "startingColumn": 24,
-          "startingLine": 2211
+          "startingLine": 2245
         }
       },
       {
@@ -255,7 +255,7 @@
         "key": "切换侧边栏",
         "location": {
           "startingColumn": 24,
-          "startingLine": 2218
+          "startingLine": 2252
         }
       },
       {
@@ -263,7 +263,7 @@
         "key": "标签管理",
         "location": {
           "startingColumn": 24,
-          "startingLine": 2223
+          "startingLine": 2257
         }
       },
       {
@@ -271,7 +271,7 @@
         "key": "节点管理",
         "location": {
           "startingColumn": 24,
-          "startingLine": 2228
+          "startingLine": 2262
         }
       },
       {
@@ -279,7 +279,7 @@
         "key": "添加节点",
         "location": {
           "startingColumn": 24,
-          "startingLine": 2235
+          "startingLine": 2269
         }
       },
       {
@@ -287,7 +287,7 @@
         "key": "打开地图",
         "location": {
           "startingColumn": 24,
-          "startingLine": 2243
+          "startingLine": 2277
         }
       },
       {
@@ -295,7 +295,7 @@
         "key": "打开图谱",
         "location": {
           "startingColumn": 24,
-          "startingLine": 2248
+          "startingLine": 2282
         }
       },
       {
@@ -303,7 +303,7 @@
         "key": "详情面板：详情",
         "location": {
           "startingColumn": 24,
-          "startingLine": 2255
+          "startingLine": 2289
         }
       },
       {
@@ -311,7 +311,7 @@
         "key": "详情面板：图谱",
         "location": {
           "startingColumn": 24,
-          "startingLine": 2263
+          "startingLine": 2297
         }
       },
       {
@@ -319,7 +319,7 @@
         "key": "切换到图谱视图",
         "location": {
           "startingColumn": 24,
-          "startingLine": 2271
+          "startingLine": 2305
         }
       },
       {
@@ -327,7 +327,7 @@
         "key": "标签管理",
         "location": {
           "startingColumn": 26,
-          "startingLine": 2367
+          "startingLine": 2401
         }
       },
       {
@@ -335,7 +335,7 @@
         "key": "隐藏系统标签",
         "location": {
           "startingColumn": 44,
-          "startingLine": 2385
+          "startingLine": 2419
         }
       },
       {
@@ -343,7 +343,7 @@
         "key": "显示系统标签",
         "location": {
           "startingColumn": 67,
-          "startingLine": 2385
+          "startingLine": 2419
         }
       },
       {
@@ -351,7 +351,7 @@
         "key": "重新扫描现有标签并创建缺失的映射",
         "location": {
           "startingColumn": 27,
-          "startingLine": 2401
+          "startingLine": 2435
         }
       },
       {
@@ -359,7 +359,7 @@
         "key": "系统标签",
         "location": {
           "startingColumn": 34,
-          "startingLine": 2379
+          "startingLine": 2413
         }
       },
       {
@@ -367,7 +367,7 @@
         "key": "重新扫描",
         "location": {
           "startingColumn": 34,
-          "startingLine": 2395
+          "startingLine": 2429
         }
       },
       {
@@ -375,7 +375,7 @@
         "key": "编辑标签",
         "location": {
           "startingColumn": 50,
-          "startingLine": 2445
+          "startingLine": 2479
         }
       },
       {
@@ -383,7 +383,7 @@
         "key": "添加新标签",
         "location": {
           "startingColumn": 67,
-          "startingLine": 2445
+          "startingLine": 2479
         }
       },
       {
@@ -391,7 +391,7 @@
         "key": "快捷键",
         "location": {
           "startingColumn": 38,
-          "startingLine": 2452
+          "startingLine": 2486
         }
       },
       {
@@ -399,7 +399,7 @@
         "key": "例如: root",
         "location": {
           "startingColumn": 43,
-          "startingLine": 2455
+          "startingLine": 2489
         }
       },
       {
@@ -407,7 +407,7 @@
         "key": "类型名称",
         "location": {
           "startingColumn": 38,
-          "startingLine": 2460
+          "startingLine": 2494
         }
       },
       {
@@ -415,7 +415,7 @@
         "key": "例如: 词根",
         "location": {
           "startingColumn": 43,
-          "startingLine": 2463
+          "startingLine": 2497
         }
       },
       {
@@ -423,7 +423,7 @@
         "key": "取消",
         "location": {
           "startingColumn": 36,
-          "startingLine": 2471
+          "startingLine": 2505
         }
       },
       {
@@ -431,7 +431,7 @@
         "key": "保存",
         "location": {
           "startingColumn": 56,
-          "startingLine": 2477
+          "startingLine": 2511
         }
       },
       {
@@ -439,7 +439,7 @@
         "key": "添加",
         "location": {
           "startingColumn": 67,
-          "startingLine": 2477
+          "startingLine": 2511
         }
       },
       {
@@ -447,7 +447,7 @@
         "key": "→ %@",
         "location": {
           "startingColumn": 22,
-          "startingLine": 2585
+          "startingLine": 2619
         }
       },
       {
@@ -455,7 +455,7 @@
         "key": "系统",
         "location": {
           "startingColumn": 30,
-          "startingLine": 2573
+          "startingLine": 2607
         }
       },
       {
@@ -463,7 +463,7 @@
         "key": "添加复合节点",
         "location": {
           "startingColumn": 26,
-          "startingLine": 2710
+          "startingLine": 2744
         }
       },
       {
@@ -471,7 +471,7 @@
         "key": "错误",
         "location": {
           "startingColumn": 16,
-          "startingLine": 2728
+          "startingLine": 2762
         }
       },
       {
@@ -479,7 +479,7 @@
         "key": "输入格式：复合节点名 节点1 节点2 节点3...",
         "location": {
           "startingColumn": 27,
-          "startingLine": 2641
+          "startingLine": 2675
         }
       },
       {
@@ -487,7 +487,7 @@
         "key": "💡 使用方法:",
         "location": {
           "startingColumn": 22,
-          "startingLine": 2660
+          "startingLine": 2694
         }
       },
       {
@@ -495,7 +495,7 @@
         "key": "复合节点可以无限嵌套，颜色会自动区分层级",
         "location": {
           "startingColumn": 22,
-          "startingLine": 2693
+          "startingLine": 2727
         }
       },
       {
@@ -503,7 +503,7 @@
         "key": "创建1级复合节点：动物 狗 猫 鸟",
         "location": {
           "startingColumn": 30,
-          "startingLine": 2669
+          "startingLine": 2703
         }
       },
       {
@@ -511,7 +511,7 @@
         "key": "创建2级复合节点：生物 动物 植物",
         "location": {
           "startingColumn": 30,
-          "startingLine": 2678
+          "startingLine": 2712
         }
       },
       {
@@ -519,7 +519,7 @@
         "key": "删除子节点：动物 -狗 -猫",
         "location": {
           "startingColumn": 30,
-          "startingLine": 2687
+          "startingLine": 2721
         }
       },
       {
@@ -527,7 +527,7 @@
         "key": "快捷键: ⌘+R提交 • Esc关闭",
         "location": {
           "startingColumn": 26,
-          "startingLine": 2699
+          "startingLine": 2733
         }
       },
       {
@@ -535,7 +535,7 @@
         "key": "取消",
         "location": {
           "startingColumn": 24,
-          "startingLine": 2713
+          "startingLine": 2747
         }
       },
       {
@@ -543,7 +543,7 @@
         "key": "添加",
         "location": {
           "startingColumn": 24,
-          "startingLine": 2721
+          "startingLine": 2755
         }
       },
       {
@@ -551,7 +551,7 @@
         "key": "确定",
         "location": {
           "startingColumn": 20,
-          "startingLine": 2729
+          "startingLine": 2763
         }
       }
     ]

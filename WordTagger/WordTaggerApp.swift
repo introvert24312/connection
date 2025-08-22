@@ -1769,7 +1769,7 @@ struct QuickAddView: View {
 struct QuickSearchView: View {
     @EnvironmentObject private var store: NodeStore
     @State private var searchText: String = ""
-    @State private var selectedIndex: Int = 0
+    @State private var selectedIndex: Int = -1  // -1表示焦点在搜索框，0+表示结果项索引
     @FocusState private var isSearchFieldFocused: Bool
     let onDismiss: () -> Void
     let onNodeSelected: (Node) -> Void
@@ -1834,12 +1834,12 @@ struct QuickSearchView: View {
                                 NodeSearchResultRow(
                                     word: word,
                                     searchText: searchText,
-                                    isSelected: index == selectedIndex
+                                    isSelected: selectedIndex >= 0 && index == selectedIndex
                                 )
                                 .frame(maxWidth: .infinity)  // 填满可用宽度
                                 .background(
                                     RoundedRectangle(cornerRadius: 8)
-                                        .fill(index == selectedIndex ? 
+                                        .fill(selectedIndex >= 0 && index == selectedIndex ? 
                                               Color.blue.opacity(0.1) : Color.clear)
                                 )
                                 .padding(.horizontal, 4) // 给选项卡一些边距
@@ -1889,7 +1889,7 @@ struct QuickSearchView: View {
             .frame(maxWidth: 600)
         }
         .task {
-            print("🔍 QuickSearchView task: 异步任务开始")
+            print("🔍 QuickSearchView task: 异步任务开始，初始selectedIndex: \(selectedIndex)")
             // 立即尝试聚焦
             await MainActor.run {
                 isSearchFieldFocused = true
@@ -1916,24 +1916,58 @@ struct QuickSearchView: View {
             onDismiss()
             return .handled
         }
+        .onKeyPress(.tab) {
+            if filteredNodes.isEmpty { return .ignored }
+            
+            if selectedIndex == -1 {
+                // Tab从搜索框进入第一个结果
+                selectedIndex = 0
+                print("🔍 Tab键: 进入第一个结果 (index: \(selectedIndex))")
+            } else if selectedIndex < filteredNodes.count - 1 {
+                // Tab到下一个结果
+                selectedIndex += 1
+                print("🔍 Tab键: 移动到下一个结果 (index: \(selectedIndex))")
+            }
+            return .handled
+        }
         .onKeyPress(.upArrow) {
             if selectedIndex > 0 {
                 selectedIndex -= 1
+                print("🔍 上箭头: 移动到结果 (index: \(selectedIndex))")
+            } else if selectedIndex == 0 {
+                // 从第一个结果回到搜索框
+                selectedIndex = -1
+                print("🔍 上箭头: 回到搜索框")
             }
             return .handled
         }
         .onKeyPress(.downArrow) {
-            if selectedIndex < filteredNodes.count - 1 {
+            if selectedIndex == -1 && !filteredNodes.isEmpty {
+                // 从搜索框进入第一个结果
+                selectedIndex = 0
+                print("🔍 下箭头: 进入第一个结果 (index: \(selectedIndex))")
+            } else if selectedIndex < filteredNodes.count - 1 {
                 selectedIndex += 1
+                print("🔍 下箭头: 移动到下一个结果 (index: \(selectedIndex))")
             }
             return .handled
         }
         .onKeyPress(.return) {
-            selectCurrentNode()
+            if selectedIndex >= 0 {
+                // 选择当前高亮的结果
+                selectCurrentNode()
+                print("🔍 回车键: 选择结果 (index: \(selectedIndex))")
+            } else if !filteredNodes.isEmpty {
+                // 如果在搜索框中，选择第一个结果
+                selectedIndex = 0
+                selectCurrentNode()
+                print("🔍 回车键: 从搜索框选择第一个结果")
+            }
             return .handled
         }
         .onChange(of: filteredNodes) { _, newNodes in
-            selectedIndex = 0
+            selectedIndex = -1  // 当搜索结果改变时，重新回到搜索框焦点
+            print("🔍 搜索结果更新，重置选择到搜索框 (index: -1)")
         }
     }
     
