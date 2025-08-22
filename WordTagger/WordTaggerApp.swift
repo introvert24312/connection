@@ -1948,7 +1948,7 @@ struct WordTaggerApp: App {
                         }
                     )
                     .environmentObject(store)
-                    .transition(.asymmetric(insertion: AnyTransition.scale.combined(with: .opacity), removal: .opacity))
+                    // 移除动画效果，直接显示
                 }
                 
                 if showTagManager {
@@ -1959,7 +1959,7 @@ struct WordTaggerApp: App {
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: showPalette)
-            .animation(.easeInOut(duration: 0.2), value: showQuickSearch)
+            // QuickSearch 不使用动画，直接显示
             .animation(.easeInOut(duration: 0.2), value: showTagManager)
             .onKeyPress(.escape) {
                 if showTagManager {

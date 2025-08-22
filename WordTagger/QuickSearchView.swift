@@ -4,6 +4,7 @@ struct QuickSearchView: View {
     @EnvironmentObject private var store: NodeStore
     @State private var searchText: String = ""
     @State private var selectedIndex: Int = 0
+    @FocusState private var isSearchFieldFocused: Bool
     let onDismiss: () -> Void
     let onNodeSelected: (Node) -> Void
     
@@ -40,6 +41,7 @@ struct QuickSearchView: View {
                     TextField("搜索单词、含义或标签...", text: $searchText)
                         .textFieldStyle(.plain)
                         .font(.system(size: 16, weight: .medium))
+                        .focused($isSearchFieldFocused)
                         .onSubmit {
                             selectCurrentNode()
                         }
@@ -55,21 +57,27 @@ struct QuickSearchView: View {
                 // 搜索结果
                 if !filteredNodes.isEmpty {
                     ScrollView {
-                        LazyVStack(spacing: 0) {
+                        LazyVStack(spacing: 1) {
                             ForEach(Array(filteredNodes.enumerated()), id: \.element.id) { index, word in
-                                NodeSearchResultRow(
-                                    word: word,
-                                    searchText: searchText,
-                                    isSelected: index == selectedIndex
-                                )
-                                .onTapGesture {
+                                Button(action: {
                                     onNodeSelected(word)
                                     onDismiss()
+                                }) {
+                                    NodeSearchResultRow(
+                                        word: word,
+                                        searchText: searchText,
+                                        isSelected: index == selectedIndex
+                                    )
+                                    .frame(maxWidth: .infinity)  // 确保按钮内容填满宽度
                                 }
+                                .buttonStyle(.plain) // 使用plain样式避免按钮默认样式
                                 .background(
-                                    index == selectedIndex ? 
-                                    Color.blue.opacity(0.1) : Color.clear
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(index == selectedIndex ? 
+                                              Color.blue.opacity(0.1) : Color.clear)
                                 )
+                                .padding(.horizontal, 4) // 给选项卡一些边距
+                                .contentShape(Rectangle())  // 明确整个矩形区域可点击
                             }
                         }
                     }
@@ -124,6 +132,16 @@ struct QuickSearchView: View {
         }
         .onChange(of: filteredNodes) { _, newNodes in
             selectedIndex = 0
+        }
+        .onAppear {
+            // 🔧 打开时自动聚焦到搜索框 - 使用更长的延迟确保视图完全加载
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                isSearchFieldFocused = true
+            }
+            // 再加一个备用延迟，确保焦点设置成功
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                isSearchFieldFocused = true
+            }
         }
     }
     
@@ -181,6 +199,8 @@ struct NodeSearchResultRow: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)  // 确保填满可用宽度
+        .contentShape(Rectangle())  // 明确定义点击区域为整个矩形
     }
     
     private func highlightedText(_ text: String, searchText: String) -> AttributedString {
