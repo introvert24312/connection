@@ -75,6 +75,17 @@ struct TagSidebarView: View {
                             .onChange(of: tagTypeSearchQuery) { _, newValue in
                                 handleTagTypeSearch(newValue)
                             }
+                            .onSubmit {
+                                // 🚀 回车键快速选择第一个搜索结果
+                                print("⏎ 检测到回车键，尝试快速选择标签类型")
+                                if !searchableTagTypes.isEmpty {
+                                    let firstType = searchableTagTypes[0]
+                                    print("🎯 自动选择第一个标签类型: \(firstType.displayName)")
+                                    addTagType(firstType)
+                                } else {
+                                    print("⚠️ 没有搜索结果可以选择")
+                                }
+                            }
                     }
                     .padding(8)
                     .background(
@@ -357,13 +368,18 @@ struct TagSidebarView: View {
         DispatchQueue.main.async {
             print("🏷️ TagSidebarView.selectTag: 点击标签 \(tag.value) (类型: \(tag.type.displayName))")
             
+            // 🧹 先清除之前的选中状态，避免多个节点同时被选中
+            print("🧹 清除之前的选中状态")
+            self.selectedNode = nil
+            store.setSelectedNode(nil)
+            
             // 使用新的标签类型模式：显示同标签类型的所有节点
             store.setSelectedTagWithTypeMode(tag)
             
             // 找到点击的具体标签对应的节点，作为焦点节点
             let clickedTagNodes = store.nodes(withTag: tag)
             if let focusNode = clickedTagNodes.first {
-                print("🎯 设置焦点节点: \(focusNode.text)")
+                print("🎯 设置新的焦点节点: \(focusNode.text)")
                 self.selectedNode = focusNode
                 store.selectNode(focusNode)
             } else {
@@ -376,7 +392,8 @@ struct TagSidebarView: View {
             for (index, node) in allTypeNodes.enumerated() {
                 let relevantTags = node.tags.filter { $0.type == tag.type }
                 let tagValues = relevantTags.map { $0.value }.joined(separator: ", ")
-                print("  [\(index+1)] \(node.text) - 标签值: [\(tagValues)]")
+                let isFocus = (node.id == self.selectedNode?.id) ? "🎯" : "  "
+                print("  [\(index+1)] \(isFocus) \(node.text) - 标签值: [\(tagValues)]")
             }
         }
     }
@@ -649,6 +666,7 @@ struct TagValueRow: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             .background(isSelected ? Color.blue.opacity(0.05) : Color.clear)
+            .contentShape(Rectangle()) // 🎯 关键修复：让整个区域都可以点击
         }
         .buttonStyle(.plain)
     }

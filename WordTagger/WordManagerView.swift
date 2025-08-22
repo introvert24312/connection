@@ -597,8 +597,9 @@ struct TagEditCommandView: View {
                     }
                 }
                 
-                // 根据 isShortcutType 决定格式
-                if tag.isShortcutType {
+                // 对于自定义标签，都使用快捷键格式 (key[typeName] value)
+                // 忽略isShortcutType，因为QuickAdd输入都是快捷键格式
+                if true {
                     // 如果是快捷键格式，需要还原原始的快捷键
                     // 从 TagMappingManager 找到对应的 key（通过 displayName 查找）
                     print("🔍 查找快捷键映射: displayName='\(displayName)'")
@@ -629,8 +630,9 @@ struct TagEditCommandView: View {
                         }
                     }
                 } else {
-                    // 普通 value[displayName] 格式
-                    return "\(tag.value)[\(displayName)]"
+                    // 普通 value[displayName] 格式 - 使用正确的映射显示名称
+                    let correctDisplayName = tag.type.displayName
+                    return "\(tag.value)[\(correctDisplayName)]"
                 }
             } else {
                 return "\(tag.type.rawValue) \(tag.value)"

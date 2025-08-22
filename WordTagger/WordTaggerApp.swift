@@ -1005,9 +1005,9 @@ struct QuickAddSheetView: View {
                                 }
                             } else {
                                 // 普通标签
-                                let tag = Tag(type: tagType, value: content)
+                                let tag = Tag(type: tagType, value: content, isShortcutType: true)
                                 tags.append(tag)
-                                print("🏷️ QuickAdd: 创建普通标签成功 - type=\(tagType), value=\(content)")
+                                print("🏷️ QuickAdd: 创建快捷键标签成功 - type=\(tagType), value=\(content), isShortcutType=true")
                             }
                             
                             i += 2 // 跳过tagType和value

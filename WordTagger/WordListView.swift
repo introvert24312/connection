@@ -162,7 +162,7 @@ struct NodeListView: View {
                     List(Array(displayNodes.enumerated()), id: \.element.id) { index, node in
                         NodeRowView(
                             node: node,
-                            isSelected: selectedNode?.id == node.id || (index == selectedIndex && selectedIndex >= 0),
+                            isSelected: selectedNode?.id == node.id,
                             searchQuery: store.searchQuery,
                             onTap: {
                                 print("🎯 NodeListView: 用户点击节点 \(node.text)")
