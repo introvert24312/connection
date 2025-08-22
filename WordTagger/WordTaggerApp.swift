@@ -1942,12 +1942,19 @@ struct WordTaggerApp: App {
                 
                 if showQuickSearch {
                     QuickSearchView(
-                        onDismiss: { showQuickSearch = false },
+                        onDismiss: { 
+                            print("🔍 WordTaggerApp: QuickSearchView onDismiss 被调用")
+                            showQuickSearch = false 
+                        },
                         onNodeSelected: { node in
+                            print("🔍 WordTaggerApp: QuickSearchView 选择了节点: \(node.text)")
                             store.selectNode(node)
                         }
                     )
                     .environmentObject(store)
+                    .onAppear {
+                        print("🔍 WordTaggerApp: QuickSearchView 在 WordTaggerApp 中出现")
+                    }
                     // 移除动画效果，直接显示
                 }
                 
@@ -1961,6 +1968,9 @@ struct WordTaggerApp: App {
             .animation(.easeInOut(duration: 0.2), value: showPalette)
             // QuickSearch 不使用动画，直接显示
             .animation(.easeInOut(duration: 0.2), value: showTagManager)
+            .onChange(of: showQuickSearch) { _, newValue in
+                print("🔍 WordTaggerApp: showQuickSearch 状态变化: \(newValue)")
+            }
             .onKeyPress(.escape) {
                 if showTagManager {
                     showTagManager = false
@@ -2023,7 +2033,9 @@ struct WordTaggerApp: App {
                 .keyboardShortcut("u", modifiers: [.command])
                 
                 Button("快速搜索") {
+                    print("🔍 WordTaggerApp: Command+F 快捷键被触发，显示快速搜索")
                     showQuickSearch = true
+                    print("🔍 WordTaggerApp: showQuickSearch 设置为 true")
                 }
                 .keyboardShortcut("f", modifiers: [.command])
                 
