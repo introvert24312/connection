@@ -324,17 +324,34 @@ struct NodeListView: View {
             filteredNodes = store.searchResults
             print("🔍 Using search results: \(filteredNodes.count) nodes (tag filter ignored during search)")
         } else if let selectedTag = store.selectedTag {
-            // 只有在没有搜索时才应用标签过滤，只在当前层中搜索
-            filteredNodes = store.nodesInCurrentLayer(withTag: selectedTag)
-            print("🏷️ Using tag filter in current layer: \(filteredNodes.count) nodes")
-            print("🏷️ Selected tag: \(selectedTag.type.displayName) - '\(selectedTag.value)'")
-            // 详细调试：检查每个节点是否包含该标签
-            for (index, node) in filteredNodes.enumerated() {
-                let hasTag = node.hasTag(selectedTag)
-                print("  过滤结果[\(index)]: '\(node.text)' - hasTag: \(hasTag), 标签数: \(node.tags.count)")
-                if hasTag {
-                    let matchingTags = node.tags.filter { $0.type == selectedTag.type && $0.value == selectedTag.value }
-                    print("    匹配标签: \(matchingTags.count)个")
+            if store.showAllTagTypeNodes {
+                // 新模式：显示同标签类型的所有节点
+                filteredNodes = store.nodesInCurrentLayer(withTagType: selectedTag.type)
+                print("🏷️ Using tag TYPE filter (NEW MODE): \(filteredNodes.count) nodes")
+                print("🏷️ Selected tag: \(selectedTag.type.displayName) - showing all nodes with this tag type")
+                print("🏷️ Focus tag value: '\(selectedTag.value)'")
+                
+                // 详细调试：列出所有同类型标签的节点
+                for (index, node) in filteredNodes.enumerated() {
+                    let relevantTags = node.tags.filter { $0.type == selectedTag.type }
+                    let tagValues = relevantTags.map { $0.value }.joined(separator: ", ")
+                    let isFocusNode = node.hasTag(selectedTag) // 是否是焦点节点
+                    print("  类型过滤结果[\(index)]: '\(node.text)' - 标签值: [\(tagValues)] \(isFocusNode ? "⭐️(焦点)" : "")")
+                }
+            } else {
+                // 原有模式：只显示包含具体标签的节点
+                filteredNodes = store.nodesInCurrentLayer(withTag: selectedTag)
+                print("🏷️ Using tag filter (ORIGINAL MODE): \(filteredNodes.count) nodes")
+                print("🏷️ Selected tag: \(selectedTag.type.displayName) - '\(selectedTag.value)'")
+                
+                // 详细调试：检查每个节点是否包含该标签
+                for (index, node) in filteredNodes.enumerated() {
+                    let hasTag = node.hasTag(selectedTag)
+                    print("  过滤结果[\(index)]: '\(node.text)' - hasTag: \(hasTag), 标签数: \(node.tags.count)")
+                    if hasTag {
+                        let matchingTags = node.tags.filter { $0.type == selectedTag.type && $0.value == selectedTag.value }
+                        print("    匹配标签: \(matchingTags.count)个")
+                    }
                 }
             }
         } else {

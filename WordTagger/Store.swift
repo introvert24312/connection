@@ -23,6 +23,7 @@ public final class NodeStore: ObservableObject {
     @Published public private(set) var currentLayer: Layer?
     @Published public private(set) var selectedNode: Node?
     @Published public private(set) var selectedTag: Tag?
+    @Published public private(set) var showAllTagTypeNodes: Bool = false // 是否展示同标签类型的所有节点
     @Published public var searchQuery: String = ""
     @Published public private(set) var searchResults: [Node] = []
     @Published public private(set) var isLoading: Bool = false
@@ -624,6 +625,13 @@ public final class NodeStore: ObservableObject {
     @MainActor
     public func setSelectedTag(_ tag: Tag?) {
         selectedTag = tag
+        showAllTagTypeNodes = false // 重置为只显示具体标签的节点
+    }
+    
+    @MainActor
+    public func setSelectedTagWithTypeMode(_ tag: Tag?) {
+        selectedTag = tag
+        showAllTagTypeNodes = true // 设置为显示同标签类型的所有节点
     }
     
     // MARK: - 兼容性方法
@@ -1287,6 +1295,15 @@ public final class NodeStore: ObservableObject {
         
         // 从当前层的 nodes 中获取有该标签的节点
         return nodes.filter { $0.layerId == currentLayer.id && $0.hasTag(tag) }
+    }
+    
+    public func nodesInCurrentLayer(withTagType tagType: Tag.TagType) -> [Node] {
+        guard let currentLayer = currentLayer else { return [] }
+        
+        // 从当前层的 nodes 中获取有该标签类型的节点
+        return nodes.filter { node in
+            node.layerId == currentLayer.id && node.tags.contains { $0.type == tagType }
+        }
     }
     
     public func getRelevantTags(for query: String) -> [Tag] {

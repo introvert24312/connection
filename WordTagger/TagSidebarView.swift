@@ -40,7 +40,7 @@ struct TagSidebarView: View {
                 Divider()
             }
             
-            // 搜索栏
+            // 搜索栏 - 完全隐藏不占空间
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Image(systemName: "magnifyingglass")
@@ -53,6 +53,9 @@ struct TagSidebarView: View {
                     RoundedRectangle(cornerRadius: 8)
                         .fill(Color(NSColor.controlBackgroundColor))
                 )
+                .frame(height: 0) // 设置高度为0
+                .clipped() // 裁剪超出的内容
+                .hidden() // 完全隐藏
                 
                 // 标签类型多选器
                 VStack(alignment: .leading, spacing: 12) {
@@ -352,11 +355,28 @@ struct TagSidebarView: View {
     
     private func selectTag(_ tag: Tag) {
         DispatchQueue.main.async {
-            store.selectTag(tag)
-            let relatedNodes = store.nodes(withTag: tag)
-            if let firstNode = relatedNodes.first {
-                self.selectedNode = firstNode
-                store.selectNode(firstNode)
+            print("🏷️ TagSidebarView.selectTag: 点击标签 \(tag.value) (类型: \(tag.type.displayName))")
+            
+            // 使用新的标签类型模式：显示同标签类型的所有节点
+            store.setSelectedTagWithTypeMode(tag)
+            
+            // 找到点击的具体标签对应的节点，作为焦点节点
+            let clickedTagNodes = store.nodes(withTag: tag)
+            if let focusNode = clickedTagNodes.first {
+                print("🎯 设置焦点节点: \(focusNode.text)")
+                self.selectedNode = focusNode
+                store.selectNode(focusNode)
+            } else {
+                print("⚠️ 未找到包含标签 \(tag.value) 的节点")
+            }
+            
+            // 输出调试信息：将要显示的所有同类型节点
+            let allTypeNodes = store.nodesInCurrentLayer(withTagType: tag.type)
+            print("📋 将在WordListView中显示 \(allTypeNodes.count) 个同类型节点:")
+            for (index, node) in allTypeNodes.enumerated() {
+                let relevantTags = node.tags.filter { $0.type == tag.type }
+                let tagValues = relevantTags.map { $0.value }.joined(separator: ", ")
+                print("  [\(index+1)] \(node.text) - 标签值: [\(tagValues)]")
             }
         }
     }
