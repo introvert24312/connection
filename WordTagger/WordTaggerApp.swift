@@ -310,37 +310,37 @@ class TagMappingManager: ObservableObject {
                 tagMappings.append(recentBeefMapping)
                 print("🔧 恢复最近的beef映射: beef -> \(recentBeefMapping.typeName)")
             } else {
-                // 如果没有历史记录，添加默认的
-                let newBeefMapping = TagMapping(key: "beef", typeName: "牛肉种类")
+                // 如果没有历史记录，添加默认的（使用用户偏好的名称）
+                let newBeefMapping = TagMapping(key: "beef", typeName: "牛肉类型")
                 tagMappings.append(newBeefMapping)
-                print("🔧 添加默认的beef映射: beef -> 牛肉种类")
+                print("🔧 添加默认的beef映射: beef -> 牛肉类型")
             }
         }
         
         print("🔧 修复后的映射字典keys: \(Array(mappingDictionary.keys))")
         
         saveToUserDefaults()
+        
+        // 立即同步到外部存储，确保修复不会被覆盖
+        Task {
+            do {
+                try await ExternalDataService.shared.saveTagMappingsOnly()
+                print("✅ beef映射修复已同步到外部存储")
+            } catch {
+                print("⚠️ beef映射修复同步到外部存储失败: \(error)")
+            }
+        }
     }
     
     // 尝试恢复最近的beef映射
     private func restoreMostRecentBeefMapping() -> TagMapping? {
         // 根据用户的历史，应该是 beef -> 牛肉类型
-        // 我们可以检查是否有牛肉相关的typeName可以关联到beef
-        let possibleBeefTypeNames = ["牛肉类型", "牛肉种类", "牛肉"]
+        print("🔧 检测用户历史beef映射偏好...")
         
-        for typeName in possibleBeefTypeNames {
-            // 检查是否有使用这个typeName但没有key的情况
-            // 这可能表明用户之前有这个映射
-            let hasTypeName = tagMappings.contains { $0.typeName == typeName }
-            if !hasTypeName {
-                // 如果没有现有的使用这个typeName的映射，我们可以安全地创建beef映射
-                print("🔧 检测到可能的beef映射恢复目标: \(typeName)")
-                return TagMapping(key: "beef", typeName: typeName)
-            }
-        }
-        
-        // 基于用户最近的使用，默认使用"牛肉类型"
-        return TagMapping(key: "beef", typeName: "牛肉类型")
+        // 直接使用用户最常用的"牛肉类型"，这是从之前的会话分析得出的
+        let preferredTypeName = "牛肉类型"
+        print("🔧 使用用户偏好的beef映射: beef -> \(preferredTypeName)")
+        return TagMapping(key: "beef", typeName: preferredTypeName)
     }
     
     // 修复节点中错误的标签类型
@@ -404,14 +404,24 @@ class TagMappingManager: ObservableObject {
         // 删除所有beef相关映射
         tagMappings.removeAll { $0.key == "beef" }
         
-        // 添加正确的beef映射
-        let correctBeefMapping = TagMapping(key: "beef", typeName: "牛肉种类")
+        // 添加正确的beef映射（使用用户偏好的名称）
+        let correctBeefMapping = TagMapping(key: "beef", typeName: "牛肉类型")
         tagMappings.append(correctBeefMapping)
         
-        // 立即保存
+        // 立即保存到本地和外部存储
         saveToUserDefaults()
         
-        print("✅ beef映射重建完成: beef -> 牛肉种类")
+        // 立即同步到外部存储
+        Task {
+            do {
+                try await ExternalDataService.shared.saveTagMappingsOnly()
+                print("✅ beef映射重建已同步到外部存储")
+            } catch {
+                print("⚠️ beef映射重建同步失败: \(error)")
+            }
+        }
+        
+        print("✅ beef映射重建完成: beef -> 牛肉类型")
         print("✅ 当前所有映射: \(tagMappings.map { "\($0.key)->\($0.typeName)" })")
     }
     
