@@ -486,8 +486,24 @@ class TagMappingManager: ObservableObject {
     @MainActor
     func rescanAndUpdateMappings() {
         print("🔄 TagMappingManager: 重新扫描现有标签...")
-        let newMappings = getDefaultMappings()
-        tagMappings = newMappings
+        
+        // 保留现有的映射，只添加缺失的自动扫描映射
+        let currentMappings = tagMappings
+        let scannedMappings = getDefaultMappings()
+        
+        // 合并映射：保留现有映射，只添加新发现的
+        var finalMappings = currentMappings
+        
+        for scannedMapping in scannedMappings {
+            if !finalMappings.contains(where: { $0.key == scannedMapping.key }) {
+                finalMappings.append(scannedMapping)
+                print("   + 添加新扫描映射: \(scannedMapping.key) -> \(scannedMapping.typeName)")
+            }
+        }
+        
+        tagMappings = finalMappings
+        print("🔄 重新扫描完成，保留现有映射并添加新发现的映射")
+        print("🔄 最终映射: \(tagMappings.map { "\($0.key)->\($0.typeName)" })")
         
         // 保存到外部存储
         Task {
