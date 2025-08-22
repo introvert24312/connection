@@ -162,8 +162,28 @@ public struct Node: Identifiable, Hashable, Codable {
     
     /// 生成规范化命令行表示，包含当前标签映射的注释
     /// 格式：节点名 标签类型1 标签值1 标签类型2 标签值2 ...  # type1=展示名1, type2=展示名2
+    /// 对于复合节点，使用简洁的 "c 复合节点名 子节点1 子节点2" 格式
     public var canonicalCommandRepresentation: String {
         print("🔍 [canonicalCommandRepresentation] 开始生成节点 '\(text)' 的规范化命令")
+        
+        // 🔧 特殊处理复合节点：使用简洁的 c 格式
+        if isCompound {
+            print("🔍 [canonicalCommandRepresentation] 检测到复合节点，使用简洁格式")
+            
+            // 提取所有子节点引用
+            let childNodes = tags.compactMap { tag -> String? in
+                if case .custom(let key) = tag.type, key == "child" {
+                    return tag.value
+                }
+                return nil
+            }
+            
+            if !childNodes.isEmpty {
+                let result = "c \(text) \(childNodes.joined(separator: " "))"
+                print("🔍 [canonicalCommandRepresentation] 复合节点简洁格式: '\(result)'")
+                return result
+            }
+        }
         
         var components = [text]
         var usedTagTypes = Set<String>()

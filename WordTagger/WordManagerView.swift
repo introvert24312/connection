@@ -579,71 +579,12 @@ struct TagEditCommandView: View {
     }
     
     private var initialCommand: String {
-        // 使用最新的节点数据生成完整命令
+        // 使用最新的节点数据和新的规范化命令表示
         let currentNodeData = currentNode
-        let tagCommands = currentNodeData.tags.map { tag in
-            // 对于location标签且有坐标信息，生成完整的loc命令
-            if case .custom(let key) = tag.type, TagMappingManager.shared.isLocationTagKey(key), tag.hasCoordinates,
-               let lat = tag.latitude, let lng = tag.longitude {
-                return "loc @\(lat),\(lng)[\(tag.value)]"
-            } else if case .custom(let key) = tag.type, TagMappingManager.shared.isLocationTagKey(key) {
-                // 对于没有坐标的location标签，提供提示格式让用户补充坐标
-                return "loc @需要添加坐标[\(tag.value)]"
-            } else if case .custom(let displayName) = tag.type {
-                // 特殊处理beef标签
-                if displayName == "beef" {
-                    if let beefMapping = TagMappingManager.shared.tagMappings.first(where: { $0.key == "beef" }) {
-                        return "beef[\(beefMapping.typeName)] \(tag.value)"
-                    }
-                }
-                
-                // 对于自定义标签，都使用快捷键格式 (key[typeName] value)
-                // 忽略isShortcutType，因为QuickAdd输入都是快捷键格式
-                if true {
-                    // 如果是快捷键格式，需要还原原始的快捷键
-                    // 从 TagMappingManager 找到对应的 key（通过 displayName 查找）
-                    print("🔍 查找快捷键映射: displayName='\(displayName)'")
-                    print("🔍 当前所有映射: \(TagMappingManager.shared.tagMappings.map { "\($0.key)->\($0.typeName)" })")
-                    
-                    // 先尝试通过 typeName 匹配
-                    var foundMapping = TagMappingManager.shared.tagMappings.first(where: { $0.typeName == displayName })
-                    print("🔍 第一次查找结果 (通过typeName): \(foundMapping != nil ? "找到" : "未找到")")
-                    
-                    // 如果没找到，尝试通过 tag.type.rawValue 匹配（这是实际的key）
-                    if foundMapping == nil, case .custom(let rawKey) = tag.type {
-                        print("🔍 tag.type.rawValue = '\(rawKey)'")
-                        foundMapping = TagMappingManager.shared.tagMappings.first(where: { $0.key.lowercased() == rawKey.lowercased() })
-                        print("🔍 尝试通过rawKey查找: rawKey='\(rawKey)' -> \(foundMapping != nil ? "找到" : "未找到")")
-                    }
-                    
-                    if let mapping = foundMapping {
-                        print("✅ 找到映射: key='\(mapping.key)', typeName='\(mapping.typeName)'")
-                        print("✅ 最终输出: '\(mapping.key)[\(mapping.typeName)] \(tag.value)'")
-                        return "\(mapping.key)[\(mapping.typeName)] \(tag.value)"
-                    } else {
-                        print("❌ 未找到映射，使用fallback逻辑")
-                        // fallback: 对于快捷键类型，rawKey就是快捷键，displayName是类型名
-                        if case .custom(let rawKey) = tag.type {
-                            return "\(rawKey)[\(displayName)] \(tag.value)"
-                        } else {
-                            return "\(displayName.lowercased())[\(displayName)] \(tag.value)"
-                        }
-                    }
-                } else {
-                    // 普通 value[displayName] 格式 - 使用正确的映射显示名称
-                    let correctDisplayName = tag.type.displayName
-                    return "\(tag.value)[\(correctDisplayName)]"
-                }
-            } else {
-                return "\(tag.type.rawValue) \(tag.value)"
-            }
-        }.joined(separator: " ")
         
-        if tagCommands.isEmpty {
-            return "\(currentNodeData.text) "
-        } else {
-            return "\(currentNodeData.text) \(tagCommands)"
-        }
+        // 🔧 使用新的 canonicalCommandRepresentation 方法
+        // 这将自动处理复合节点的简洁格式 "c 复合节点名 子节点1 子节点2"
+        return currentNodeData.canonicalCommandRepresentation
     }
     
     @State private var availableCommands: [Command] = []

@@ -888,6 +888,15 @@ struct QuickAddSheetView: View {
                 return 
         }
         
+        // 🔧 检查是否是复合节点命令 (以"c"开头)
+        if components[0] == "c" {
+            handleCompoundNodeCommand(components: components)
+            // 清空输入并关闭窗口
+            inputText = ""
+            dismiss()
+            return
+        }
+        
         let nodeText = components[0]
         var tags: [Tag] = []
         var i = 1
@@ -1148,6 +1157,295 @@ struct QuickAddSheetView: View {
             }
             // 如果不成功，保持窗口打开让用户看到警告
         }
+    }
+    
+    // 处理复合节点命令 (c 复合节点名 节点1 节点2 ...)
+    private func handleCompoundNodeCommand(components: [String]) {
+        print("🔧 处理复合节点命令: \(components)")
+        
+        guard components.count >= 3 else {
+            // 触发错误警告
+            store.duplicateNodeAlert = NodeStore.DuplicateNodeAlert(
+                message: "复合节点命令格式错误：至少需要 'c 复合节点名 子节点1'",
+                isDuplicate: false,
+                existingNode: nil,
+                newNode: Node(text: "错误命令", layerId: UUID(), tags: [])
+            )
+            return
+        }
+        
+        let compoundNodeName = components[1]
+        let childNodeNames = Array(components[2...])
+        
+        print("🔧 复合节点名: \(compoundNodeName)")
+        print("🔧 子节点列表: \(childNodeNames)")
+        
+        guard let currentLayer = store.currentLayer else {
+            store.duplicateNodeAlert = NodeStore.DuplicateNodeAlert(
+                message: "无法创建复合节点：请先选择一个活跃层",
+                isDuplicate: false,
+                existingNode: nil,
+                newNode: Node(text: compoundNodeName, layerId: UUID(), tags: [])
+            )
+            return
+        }
+        
+        // 检查是否有删除操作（子节点名以"-"开头）
+        let (childNamesToAdd, childNamesToRemove) = separateAddAndRemoveOperations(childNodeNames)
+        
+        // 检查复合节点是否已存在
+        if let existingCompoundNode = store.nodes.first(where: { 
+            $0.text.lowercased() == compoundNodeName.lowercased() && $0.isCompound 
+        }) {
+            // 修改已存在的复合节点
+            if !childNamesToRemove.isEmpty {
+                print("🗑️ 从复合节点删除子节点: \(compoundNodeName)")
+                removeChildrenFromCompoundNode(existingCompoundNode, childNames: childNamesToRemove)
+            }
+            if !childNamesToAdd.isEmpty {
+                print("🔄 向已存在的复合节点添加子节点: \(compoundNodeName)")
+                addChildrenToExistingCompoundNode(existingCompoundNode, childNames: childNamesToAdd)
+            }
+        } else {
+            // 创建新的复合节点
+            if !childNamesToRemove.isEmpty {
+                store.duplicateNodeAlert = NodeStore.DuplicateNodeAlert(
+                    message: "无法从不存在的复合节点中删除子节点",
+                    isDuplicate: false,
+                    existingNode: nil,
+                    newNode: Node(text: compoundNodeName, layerId: currentLayer.id, tags: [])
+                )
+                return
+            }
+            print("🏗️ 创建新复合节点: \(compoundNodeName)")
+            createNewCompoundNode(name: compoundNodeName, childNames: childNamesToAdd, layerId: currentLayer.id)
+        }
+        
+        print("✅ 复合节点命令处理完成")
+    }
+    
+    // 分离添加和删除操作
+    private func separateAddAndRemoveOperations(_ childNames: [String]) -> ([String], [String]) {
+        var toAdd: [String] = []
+        var toRemove: [String] = []
+        
+        for name in childNames {
+            if name.hasPrefix("-") {
+                // 删除操作：去掉"-"前缀
+                let nameToRemove = String(name.dropFirst())
+                if !nameToRemove.isEmpty {
+                    toRemove.append(nameToRemove)
+                }
+            } else {
+                // 添加操作
+                toAdd.append(name)
+            }
+        }
+        
+        return (toAdd, toRemove)
+    }
+    
+    // 从复合节点删除子节点
+    private func removeChildrenFromCompoundNode(_ compoundNode: Node, childNames: [String]) {
+        print("🗑️ 从复合节点 '\(compoundNode.text)' 删除 \(childNames.count) 个子节点")
+        
+        // 获取现有的子节点引用
+        let existingChildReferences = compoundNode.tags.compactMap { tag in
+            if case .custom(let key) = tag.type, key == "child" {
+                return tag.value
+            }
+            return nil
+        }
+        print("🔍 现有子节点: [\(existingChildReferences.joined(separator: ", "))]")
+        
+        // 找到要删除的子节点
+        let childNamesToRemove = childNames.filter { childName in
+            existingChildReferences.contains { existingChild in
+                existingChild.lowercased() == childName.lowercased()
+            }
+        }
+        
+        guard !childNamesToRemove.isEmpty else {
+            store.duplicateNodeAlert = NodeStore.DuplicateNodeAlert(
+                message: "这些子节点不存在于复合节点中",
+                isDuplicate: false,
+                existingNode: compoundNode,
+                newNode: compoundNode
+            )
+            return
+        }
+        
+        print("🗑️ 需要删除的子节点: [\(childNamesToRemove.joined(separator: ", "))]")
+        
+        // 过滤掉要删除的子节点标签
+        let updatedTags = compoundNode.tags.filter { tag in
+            if case .custom(let key) = tag.type, key == "child" {
+                return !childNamesToRemove.contains { childName in
+                    tag.value.lowercased() == childName.lowercased()
+                }
+            }
+            return true // 保留非子节点引用标签
+        }
+        
+        let remainingChildCount = existingChildReferences.count - childNamesToRemove.count
+        let updatedMeaning = "复合节点：包含 \(remainingChildCount) 个子节点"
+        
+        // 更新复合节点
+        store.updateNodeTags(compoundNode.id, tags: updatedTags)
+        store.updateNode(compoundNode.id, text: nil, phonetic: nil, meaning: updatedMeaning)
+        
+        print("✅ 复合节点删除操作完成，剩余子节点数: \(remainingChildCount)")
+    }
+    
+    // 向已存在的复合节点添加子节点
+    private func addChildrenToExistingCompoundNode(_ compoundNode: Node, childNames: [String]) {
+        print("🔗 向复合节点 '\(compoundNode.text)' 添加 \(childNames.count) 个子节点")
+        
+        // 获取现有的子节点引用
+        let existingChildReferences = compoundNode.tags.compactMap { tag in
+            if case .custom(let key) = tag.type, key == "child" {
+                return tag.value
+            }
+            return nil
+        }
+        print("🔍 现有子节点: [\(existingChildReferences.joined(separator: ", "))]")
+        
+        // 过滤掉已经存在的子节点
+        let newChildNames = childNames.filter { childName in
+            !existingChildReferences.contains { existingChild in
+                existingChild.lowercased() == childName.lowercased()
+            }
+        }
+        
+        guard !newChildNames.isEmpty else {
+            store.duplicateNodeAlert = NodeStore.DuplicateNodeAlert(
+                message: "这些子节点已经存在于复合节点中",
+                isDuplicate: false,
+                existingNode: compoundNode,
+                newNode: compoundNode
+            )
+            return
+        }
+        
+        print("🆕 需要添加的新子节点: [\(newChildNames.joined(separator: ", "))]")
+        
+        // 为新子节点创建标签
+        var newChildTags: [Tag] = []
+        for childName in newChildNames {
+            let childReferenceTag = Tag(
+                type: .custom("child"),
+                value: childName
+            )
+            newChildTags.append(childReferenceTag)
+        }
+        
+        // 更新复合节点的标签（添加新的子节点引用）
+        let updatedTags = compoundNode.tags + newChildTags
+        let updatedMeaning = "复合节点：包含 \(existingChildReferences.count + newChildNames.count) 个子节点"
+        
+        store.updateNodeTags(compoundNode.id, tags: updatedTags)
+        store.updateNode(compoundNode.id, text: nil, phonetic: nil, meaning: updatedMeaning)
+        
+        // 创建或确保新子节点存在
+        for childName in newChildNames {
+            if let existingNode = store.nodes.first(where: { $0.text.lowercased() == childName.lowercased() }) {
+                print("🔍 找到已存在的子节点: \(existingNode.text)")
+            } else {
+                let childNode = Node(
+                    text: childName,
+                    phonetic: nil,
+                    meaning: nil,
+                    layerId: compoundNode.layerId,
+                    tags: []
+                )
+                let success = store.addNode(childNode)
+                print("🆕 创建新子节点: \(childName) - \(success ? "成功" : "失败")")
+            }
+        }
+        
+        print("✅ 复合节点更新完成，总子节点数: \(existingChildReferences.count + newChildNames.count)")
+    }
+    
+    // 计算子节点中的最大复合节点深度
+    private func calculateMaxChildDepth(childNames: [String]) -> Int {
+        var maxDepth = 0
+        
+        for childName in childNames {
+            if let childNode = store.nodes.first(where: { $0.text.lowercased() == childName.lowercased() }) {
+                if childNode.isCompound {
+                    let childDepth = childNode.getCompoundDepth(allNodes: store.nodes)
+                    maxDepth = max(maxDepth, childDepth)
+                }
+                // 普通节点深度为0，不影响maxDepth
+            }
+        }
+        
+        return maxDepth
+    }
+    
+    // 创建新的复合节点
+    private func createNewCompoundNode(name: String, childNames: [String], layerId: UUID) {
+        print("🏗️ 创建新复合节点: \(name)")
+        
+        // 为复合节点创建特殊标签，包含所有子节点名称作为标签值
+        var compoundTags: [Tag] = []
+        
+        // 计算复合节点层级
+        let childDepth = calculateMaxChildDepth(childNames: childNames)
+        let currentDepth = childDepth + 1
+        
+        // 主复合节点标签，包含层级信息
+        let compoundTag = Tag(
+            type: .custom("compound"),
+            value: "\(currentDepth)级复合节点"
+        )
+        compoundTags.append(compoundTag)
+        
+        // 为每个子节点创建标签，记录子节点的名称
+        for childName in childNames {
+            let childReferenceTag = Tag(
+                type: .custom("child"),
+                value: childName
+            )
+            compoundTags.append(childReferenceTag)
+            print("🔗 为复合节点添加子节点引用标签: \(childName)")
+        }
+        
+        print("🏗️ 创建复合节点: \(name), 标签数: \(compoundTags.count)")
+        
+        // 创建复合节点
+        let compoundNode = Node(
+            text: name,
+            phonetic: nil,
+            meaning: "复合节点：包含 \(childNames.count) 个子节点",
+            layerId: layerId,
+            tags: compoundTags,
+            isCompound: true
+        )
+        
+        // 创建或确保子节点存在
+        for childName in childNames {
+            // 检查是否已存在
+            if let existingNode = store.nodes.first(where: { $0.text.lowercased() == childName.lowercased() }) {
+                print("🔍 找到已存在的子节点: \(existingNode.text)")
+            } else {
+                // 创建新的子节点
+                let childNode = Node(
+                    text: childName,
+                    phonetic: nil,
+                    meaning: nil,
+                    layerId: layerId,
+                    tags: []
+                )
+                _ = store.addNode(childNode)
+                print("🆕 创建新子节点: \(childName)")
+            }
+        }
+        
+        // 添加复合节点到store
+        _ = store.addNode(compoundNode)
+        
+        print("✅ 复合节点结构创建完成: \(name) (包含 \(childNames.count) 个子节点)")
     }
     
     private func openMapForLocationSelection() {
