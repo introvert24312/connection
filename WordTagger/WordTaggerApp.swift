@@ -643,27 +643,6 @@ struct QuickAddSheetView: View {
                 .frame(height: 100)
             }
             
-            // 底部帮助信息
-            VStack(alignment: .leading, spacing: 8) {
-                Text("💡 使用方法:")
-                    .font(.caption)
-                    .fontWeight(.medium)
-                Text("输入格式: 节点 快捷键 内容")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Text("例如: apple root 苹果 memory 红苹果")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                HStack {
-                    Text("快捷键: ↑↓选择建议 • Tab选择 • ⌘+R提交 • Esc关闭")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(16)
-            .background(Color(NSColor.controlBackgroundColor))
         }
         .frame(width: 600)
         .navigationTitle(prefilledNode != nil ? "编辑节点" : "快速添加节点")
@@ -1201,11 +1180,6 @@ struct QuickAddView: View {
                     }.background(RoundedRectangle(cornerRadius: 8).fill(.ultraThinMaterial)).padding(.top, 8)
                 }
                 
-                HStack {
-                    Text("💡 格式: 节点 标签1 内容1 标签2 内容2...").font(.caption).foregroundColor(.secondary)
-                    Spacer()
-                    Text("⌘+I").font(.caption).foregroundColor(.secondary)
-                }.padding(.top, 12)
             }.padding(20).frame(maxWidth: 600)
         }
         .onKeyPress(.escape) { onDismiss(); return .handled }
@@ -1441,11 +1415,6 @@ struct QuickSearchView: View {
                     .frame(maxHeight: 400).padding(.top, 8)
                 }
                 
-                HStack {
-                    Text("💡 输入关键词搜索节点").font(.caption).foregroundColor(.secondary)
-                    Spacer()
-                    Text("⌘+F").font(.caption).foregroundColor(.secondary)
-                }.padding(.top, 12)
             }.padding(20).frame(maxWidth: 600)
         }
         .onKeyPress(.escape) { onDismiss(); return .handled }
@@ -1920,22 +1889,6 @@ struct TagManagerView: View {
                 .padding(.vertical, 16)
                 .background(.ultraThinMaterial)
                 
-                // 帮助文本
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("💡 使用方法:")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                    Text("输入格式: 节点 快捷键 内容")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text("例如: apple root 苹果 memory 红苹果")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 16)
-                .background(.ultraThinMaterial)
             }
             .background(.ultraThinMaterial)
             .clipShape(RoundedRectangle(cornerRadius: 16))
