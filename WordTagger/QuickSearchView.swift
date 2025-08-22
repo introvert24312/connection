@@ -48,6 +48,9 @@ struct QuickSearchView: View {
                         .onChange(of: isSearchFieldFocused) { _, newValue in
                             print("🔍 TextField焦点状态变化: \(newValue)")
                         }
+                        .onAppear {
+                            print("🔍 TextField出现")
+                        }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -79,6 +82,9 @@ struct QuickSearchView: View {
                                     print("🖱️ 点击了节点: \(word.text)")
                                     onNodeSelected(word)
                                     onDismiss()
+                                }
+                                .onAppear {
+                                    print("🖱️ NodeSearchResultRow 出现: \(word.text)")
                                 }
                             }
                         }
@@ -116,25 +122,29 @@ struct QuickSearchView: View {
             .padding(20)
             .frame(maxWidth: 600)
         }
-        .onAppear {
-            print("🔍 QuickSearchView ZStack.onAppear: 视图层次结构已加载")
-            // 🔧 立即尝试聚焦
-            isSearchFieldFocused = true
-            print("🔍 QuickSearchView.onAppear: 立即设置焦点")
+        .task {
+            print("🔍 QuickSearchView task: 异步任务开始")
+            // 立即尝试聚焦
+            await MainActor.run {
+                isSearchFieldFocused = true
+                print("🔍 QuickSearchView task: 立即设置焦点")
+            }
             
-            // 🔧 多次尝试确保聚焦成功
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            // 等待并重试
+            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1秒
+            await MainActor.run {
                 isSearchFieldFocused = true
-                print("🔍 QuickSearchView: 0.1秒后设置焦点")
+                print("🔍 QuickSearchView task: 0.1秒后设置焦点")
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            
+            try? await Task.sleep(nanoseconds: 200_000_000) // 再等0.2秒(总共0.3秒)
+            await MainActor.run {
                 isSearchFieldFocused = true
-                print("🔍 QuickSearchView: 0.3秒后设置焦点")
+                print("🔍 QuickSearchView task: 0.3秒后设置焦点")
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                isSearchFieldFocused = true
-                print("🔍 QuickSearchView: 0.5秒后最终设置焦点")
-            }
+        }
+        .onAppear {
+            print("🔍 QuickSearchView.onAppear: 视图出现")
         }
         .onKeyPress(.escape) {
             onDismiss()
