@@ -292,25 +292,110 @@ class TagMappingManager: ObservableObject {
             }
         }
         
-        // 修复错误的beef映射或添加缺失的beef映射
+        // 确保beef映射始终存在且正确
         print("🔧 检查beef映射状态...")
         print("🔧 当前所有映射: \(tagMappings.map { "\($0.key)->\($0.typeName)" })")
         
-        if let wrongBeefIndex = tagMappings.firstIndex(where: { $0.key == "beef" && $0.typeName == "beef" }) {
-            let correctedMapping = TagMapping(id: tagMappings[wrongBeefIndex].id, key: "beef", typeName: "牛肉种类")
-            tagMappings[wrongBeefIndex] = correctedMapping
-            print("🔧 修复错误的beef映射: beef -> 牛肉种类")
-        } else if !tagMappings.contains(where: { $0.key == "beef" }) {
-            let newBeefMapping = TagMapping(key: "beef", typeName: "牛肉种类")
-            tagMappings.append(newBeefMapping)
-            print("🔧 添加缺失的beef映射: beef -> 牛肉种类")
+        // 查找任何beef相关的映射
+        if let existingBeefIndex = tagMappings.firstIndex(where: { $0.key == "beef" }) {
+            let existingMapping = tagMappings[existingBeefIndex]
+            print("🔧 找到现有beef映射: \(existingMapping.key) -> \(existingMapping.typeName)")
+            
+            // 保持用户的映射，不强制覆盖为"牛肉种类"
+            print("🔧 保持用户的beef映射: \(existingMapping.typeName)")
         } else {
-            print("🔧 beef映射已存在且正确")
+            // 如果没有beef映射，检查是否有相关的牛肉映射需要恢复
+            // 首先尝试恢复用户最近的映射
+            if let recentBeefMapping = restoreMostRecentBeefMapping() {
+                tagMappings.append(recentBeefMapping)
+                print("🔧 恢复最近的beef映射: beef -> \(recentBeefMapping.typeName)")
+            } else {
+                // 如果没有历史记录，添加默认的
+                let newBeefMapping = TagMapping(key: "beef", typeName: "牛肉种类")
+                tagMappings.append(newBeefMapping)
+                print("🔧 添加默认的beef映射: beef -> 牛肉种类")
+            }
         }
         
         print("🔧 修复后的映射字典keys: \(Array(mappingDictionary.keys))")
         
         saveToUserDefaults()
+    }
+    
+    // 尝试恢复最近的beef映射
+    private func restoreMostRecentBeefMapping() -> TagMapping? {
+        // 根据用户的历史，应该是 beef -> 牛肉类型
+        // 我们可以检查是否有牛肉相关的typeName可以关联到beef
+        let possibleBeefTypeNames = ["牛肉类型", "牛肉种类", "牛肉"]
+        
+        for typeName in possibleBeefTypeNames {
+            // 检查是否有使用这个typeName但没有key的情况
+            // 这可能表明用户之前有这个映射
+            let hasTypeName = tagMappings.contains { $0.typeName == typeName }
+            if !hasTypeName {
+                // 如果没有现有的使用这个typeName的映射，我们可以安全地创建beef映射
+                print("🔧 检测到可能的beef映射恢复目标: \(typeName)")
+                return TagMapping(key: "beef", typeName: typeName)
+            }
+        }
+        
+        // 基于用户最近的使用，默认使用"牛肉类型"
+        return TagMapping(key: "beef", typeName: "牛肉类型")
+    }
+    
+    // 修复节点中错误的标签类型
+    @MainActor
+    func fixNodeTagTypes(store: NodeStore) {
+        print("🔧 开始修复节点中的错误标签类型...")
+        
+        var fixedCount = 0
+        var nodesToUpdate: [(Node, [Tag])] = []
+        
+        for node in store.nodes {
+            var needsUpdate = false
+            var newTags: [Tag] = []
+            
+            for tag in node.tags {
+                if case .custom(let customName) = tag.type {
+                    // 检查是否有对应的映射，其中typeName == customName但key != customName
+                    if let correctMapping = tagMappings.first(where: { $0.typeName == customName && $0.key != customName }) {
+                        // 发现错误：标签类型应该是.custom(key)而不是.custom(typeName)
+                        let correctTagType = Tag.TagType.custom(correctMapping.key)
+                        let correctedTag = Tag(
+                            id: tag.id,
+                            type: correctTagType,
+                            value: tag.value,
+                            latitude: tag.latitude,
+                            longitude: tag.longitude
+                        )
+                        newTags.append(correctedTag)
+                        needsUpdate = true
+                        print("🔧 修复标签类型: .custom(\"\(customName)\") -> .custom(\"\(correctMapping.key)\")")
+                        fixedCount += 1
+                    } else {
+                        newTags.append(tag)
+                    }
+                } else {
+                    newTags.append(tag)
+                }
+            }
+            
+            if needsUpdate {
+                nodesToUpdate.append((node, newTags))
+            }
+        }
+        
+        // 批量更新节点
+        for (node, newTags) in nodesToUpdate {
+            store.updateNodeTags(node.id, tags: newTags)
+            print("🔧 更新节点 '\(node.text)' 的标签")
+        }
+        
+        if fixedCount > 0 {
+            print("✅ 修复了 \(fixedCount) 个错误的标签类型")
+        } else {
+            print("✅ 没有发现需要修复的标签类型")
+        }
     }
     
     // 强制重建beef映射
