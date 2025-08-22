@@ -514,12 +514,25 @@ public final class NodeStore: ObservableObject {
     @MainActor
     public func updateNode(_ nodeId: UUID, text: String?, phonetic: String?, meaning: String?) {
         if let index = nodes.firstIndex(where: { $0.id == nodeId }) {
-            var updatedNode = nodes[index]
+            let oldNode = nodes[index]
+            var updatedNode = oldNode
             if let text = text { updatedNode.text = text }
             if let phonetic = phonetic { updatedNode.phonetic = phonetic }
             if let meaning = meaning { updatedNode.meaning = meaning }
             updatedNode.updatedAt = Date()
             nodes[index] = updatedNode
+            
+            // 🔧 如果节点名称发生了变化，需要刷新引用该节点的复合节点
+            if let newText = text, newText != oldNode.text {
+                print("🔄 节点名称变化: '\(oldNode.text)' -> '\(newText)'")
+                // 刷新引用旧名称的复合节点
+                refreshCompoundNodesReferencingNode(oldNode.text)
+                // 刷新引用新名称的复合节点
+                refreshCompoundNodesReferencingNode(newText)
+            } else {
+                // 即使名称没变，也要刷新复合节点（因为phonetic或meaning可能影响显示）
+                refreshCompoundNodesReferencingNode(updatedNode.text)
+            }
             
             // 手动触发objectWillChange以确保UI更新
             objectWillChange.send()
@@ -562,6 +575,9 @@ public final class NodeStore: ObservableObject {
             updatedNode.updatedAt = Date()
             nodes[index] = updatedNode
             print("📝 更新节点标签: \(updatedNode.text), 新标签数: \(tags.count)")
+            
+            // 🔧 触发依赖该节点的复合节点刷新
+            refreshCompoundNodesReferencingNode(updatedNode.text)
             
             // 手动触发objectWillChange以确保UI更新
             objectWillChange.send()
@@ -1115,6 +1131,9 @@ public final class NodeStore: ObservableObject {
             print("✅ 添加标签完成，节点已更新: \(tag.type.displayName) - \(tag.value)")
             print("📊 当前节点标签数: \(updatedNode.tags.count)")
             
+            // 🔧 触发依赖该节点的复合节点刷新
+            refreshCompoundNodesReferencingNode(updatedNode.text)
+            
             // 手动触发objectWillChange以确保UI更新
             objectWillChange.send()
             
@@ -1342,6 +1361,9 @@ public final class NodeStore: ObservableObject {
             // 替换整个节点以确保触发@Published更新
             nodes[index] = updatedNode
             
+            // 🔧 触发依赖该节点的复合节点刷新
+            refreshCompoundNodesReferencingNode(updatedNode.text)
+            
             // 手动触发objectWillChange以确保UI更新
             objectWillChange.send()
             
@@ -1371,6 +1393,61 @@ public final class NodeStore: ObservableObject {
                 }
             }
         }
+    }
+    
+    // MARK: - 复合节点自动刷新机制
+    
+    /// 当子节点发生变化时，刷新所有引用该子节点的复合节点
+    @MainActor
+    private func refreshCompoundNodesReferencingNode(_ childNodeName: String) {
+        print("🔄 [复合节点刷新] 开始刷新引用子节点 '\(childNodeName)' 的复合节点")
+        
+        // 查找所有引用该子节点的复合节点
+        let referencingCompoundNodes = nodes.filter { node in
+            guard node.isCompound else { return false }
+            
+            // 检查是否有子节点标签引用了该节点
+            return node.tags.contains { tag in
+                if case .custom(let key) = tag.type, key == "child" {
+                    return tag.value.lowercased() == childNodeName.lowercased()
+                }
+                return false
+            }
+        }
+        
+        if referencingCompoundNodes.isEmpty {
+            print("🔄 [复合节点刷新] 没有找到引用子节点 '\(childNodeName)' 的复合节点")
+            return
+        }
+        
+        print("🔄 [复合节点刷新] 找到 \(referencingCompoundNodes.count) 个引用复合节点：")
+        for compoundNode in referencingCompoundNodes {
+            print("   - \(compoundNode.text)")
+        }
+        
+        // 更新每个复合节点的 updatedAt 时间戳以触发UI刷新
+        for compoundNode in referencingCompoundNodes {
+            if let index = nodes.firstIndex(where: { $0.id == compoundNode.id }) {
+                var updatedCompoundNode = nodes[index]
+                updatedCompoundNode.updatedAt = Date()
+                nodes[index] = updatedCompoundNode
+                
+                print("🔄 [复合节点刷新] 已刷新复合节点: \(updatedCompoundNode.text)")
+                
+                // 发送复合节点更新通知
+                NotificationCenter.default.post(
+                    name: Notification.Name("compoundNodeRefreshed"),
+                    object: nil,
+                    userInfo: [
+                        "compoundNodeId": updatedCompoundNode.id,
+                        "compoundNodeName": updatedCompoundNode.text,
+                        "childNodeName": childNodeName
+                    ]
+                )
+            }
+        }
+        
+        print("✅ [复合节点刷新] 完成刷新 \(referencingCompoundNodes.count) 个复合节点")
     }
     
     // MARK: - 手动保存功能
