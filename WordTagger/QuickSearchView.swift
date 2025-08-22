@@ -59,18 +59,12 @@ struct QuickSearchView: View {
                     ScrollView {
                         LazyVStack(spacing: 1) {
                             ForEach(Array(filteredNodes.enumerated()), id: \.element.id) { index, word in
-                                Button(action: {
-                                    onNodeSelected(word)
-                                    onDismiss()
-                                }) {
-                                    NodeSearchResultRow(
-                                        word: word,
-                                        searchText: searchText,
-                                        isSelected: index == selectedIndex
-                                    )
-                                    .frame(maxWidth: .infinity)  // 确保按钮内容填满宽度
-                                }
-                                .buttonStyle(.plain) // 使用plain样式避免按钮默认样式
+                                NodeSearchResultRow(
+                                    word: word,
+                                    searchText: searchText,
+                                    isSelected: index == selectedIndex
+                                )
+                                .frame(maxWidth: .infinity)  // 填满可用宽度
                                 .background(
                                     RoundedRectangle(cornerRadius: 8)
                                         .fill(index == selectedIndex ? 
@@ -78,6 +72,11 @@ struct QuickSearchView: View {
                                 )
                                 .padding(.horizontal, 4) // 给选项卡一些边距
                                 .contentShape(Rectangle())  // 明确整个矩形区域可点击
+                                .onTapGesture {
+                                    print("🖱️ 点击了节点: \(word.text)")
+                                    onNodeSelected(word)
+                                    onDismiss()
+                                }
                             }
                         }
                     }
@@ -130,17 +129,30 @@ struct QuickSearchView: View {
             }
             return .handled
         }
+        .onKeyPress(.return) {
+            selectCurrentNode()
+            return .handled
+        }
         .onChange(of: filteredNodes) { _, newNodes in
             selectedIndex = 0
         }
         .onAppear {
-            // 🔧 打开时自动聚焦到搜索框 - 使用更长的延迟确保视图完全加载
+            // 🔧 立即尝试聚焦
+            isSearchFieldFocused = true
+            print("🔍 QuickSearchView.onAppear: 立即设置焦点")
+            
+            // 🔧 多次尝试确保聚焦成功
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 isSearchFieldFocused = true
+                print("🔍 QuickSearchView: 0.1秒后设置焦点")
             }
-            // 再加一个备用延迟，确保焦点设置成功
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 isSearchFieldFocused = true
+                print("🔍 QuickSearchView: 0.3秒后设置焦点")
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                isSearchFieldFocused = true
+                print("🔍 QuickSearchView: 0.5秒后最终设置焦点")
             }
         }
     }
