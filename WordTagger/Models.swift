@@ -166,7 +166,6 @@ public struct Node: Identifiable, Hashable, Codable {
         print("🔍 [canonicalCommandRepresentation] 开始生成节点 '\(text)' 的规范化命令")
         
         var components = [text]
-        var commentMappings: [String] = []
         var usedTagTypes = Set<String>()
         
         // 按标签类型分组
@@ -181,35 +180,51 @@ public struct Node: Identifiable, Hashable, Codable {
             print("🔍 [canonicalCommandRepresentation] 处理标签类型: \(tagType.rawValue), 显示名: '\(tagType.displayName)', 标签数量: \(tagsOfType.count)")
             
             for tag in tagsOfType.sorted(by: { $0.value < $1.value }) {
-                let tagCode = tagType.rawValue
-                components.append(tagCode)
+                // 获取原始的标签key，而不是displayName
+                let tagCode: String
+                let displayName: String
+                let shouldUseRenameFormat: Bool
+                
+                if case .custom(let customKey) = tagType {
+                    // 对于自定义标签，customKey应该就是原始key
+                    tagCode = customKey
+                    
+                    // 从TagMappingManager查找对应的typeName
+                    let tagManager = TagMappingManager.shared
+                    if let mapping = tagManager.tagMappings.first(where: { $0.key == customKey }) {
+                        displayName = mapping.typeName
+                        shouldUseRenameFormat = (displayName != tagCode)
+                        print("🔍 [canonicalCommandRepresentation] 自定义标签映射: key=\(tagCode) -> typeName=\(displayName)")
+                    } else {
+                        // 如果找不到映射，使用customKey作为fallback
+                        displayName = customKey
+                        shouldUseRenameFormat = false
+                        print("⚠️ [canonicalCommandRepresentation] 未找到key '\(customKey)' 的映射，使用key作为displayName")
+                    }
+                } else {
+                    // 对于预定义标签类型，直接使用rawValue
+                    tagCode = tagType.rawValue
+                    displayName = tagType.displayName
+                    shouldUseRenameFormat = (displayName != tagCode)
+                }
+                
+                // 使用重命名格式 key[displayName] 或简单格式 key
+                if shouldUseRenameFormat {
+                    components.append("\(tagCode)[\(displayName)]")
+                    print("🔍 [canonicalCommandRepresentation] 添加重命名格式标签: \(tagCode)[\(displayName)] \(tag.value)")
+                } else {
+                    components.append(tagCode)
+                    print("🔍 [canonicalCommandRepresentation] 添加简单格式标签: \(tagCode) \(tag.value)")
+                }
+                
                 components.append(quoteValueIfNeeded(tag.value))
                 
-                print("🔍 [canonicalCommandRepresentation] 添加标签: \(tagCode) \(tag.value)")
-                
-                // 记录用到的标签类型（只记录一次）
-                if !usedTagTypes.contains(tagCode) {
-                    usedTagTypes.insert(tagCode)
-                    
-                    // 获取当前的展示名
-                    let displayName = tagType.displayName
-                    if displayName != tagCode {
-                        commentMappings.append("\(tagCode)=\(displayName)")
-                        print("🔍 [canonicalCommandRepresentation] 记录映射: \(tagCode) -> \(displayName)")
-                    }
-                }
+                // 不再需要注释映射，因为已经包含在重命名格式中
+                usedTagTypes.insert(tagCode)
             }
         }
         
-        let baseCommand = components.joined(separator: " ")
-        
-        // 添加注释
-        let result: String
-        if !commentMappings.isEmpty {
-            result = "\(baseCommand)  # \(commentMappings.joined(separator: ", "))"
-        } else {
-            result = baseCommand
-        }
+        let result = components.joined(separator: " ")
         
         print("🔍 [canonicalCommandRepresentation] 最终结果: '\(result)'")
         return result

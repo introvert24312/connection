@@ -69,6 +69,9 @@ struct TagSidebarView: View {
                             .textFieldStyle(.plain)
                             .font(.system(size: 15))
                             .focused($isTagTypeSearchFocused)
+                            .onChange(of: tagTypeSearchQuery) { _, newValue in
+                                handleTagTypeSearch(newValue)
+                            }
                     }
                     .padding(8)
                     .background(
@@ -205,43 +208,81 @@ struct TagSidebarView: View {
         
         // 获取所有实际存在的标签类型（不仅仅是预定义的）
         let allExistingTypes = Set(store.allTags.map { $0.type })
+        let tagManager = TagMappingManager.shared
         
-        return allExistingTypes.filter { tagType in
+        print("🔍 TagSidebarView: 搜索标签类型 '\(tagTypeSearchQuery)'")
+        print("🔍 现有标签类型数量: \(allExistingTypes.count)")
+        for type in allExistingTypes {
+            print("  - \(type.displayName) (rawValue: \(type.rawValue))")
+        }
+        
+        let matchingTypes = allExistingTypes.filter { tagType in
             // 过滤掉隐藏的标签类型
-            guard !hiddenTagTypes.contains(tagType) else { return false }
+            guard !hiddenTagTypes.contains(tagType) else { 
+                print("  ❌ 跳过隐藏标签类型: \(tagType.displayName)")
+                return false 
+            }
             
             let query = tagTypeSearchQuery.lowercased()
             
-            // 1. 搜索displayName（显示名称，如"牛肉里"）
+            // 1. 搜索displayName（显示名称，如"牛肉类型"）
             if tagType.displayName.localizedCaseInsensitiveContains(tagTypeSearchQuery) {
+                print("  ✅ 匹配displayName: \(tagType.displayName)")
                 return true
             }
             
             // 2. 搜索rawValue（标签代码，如"beef"）
             if tagType.rawValue.localizedCaseInsensitiveContains(tagTypeSearchQuery) {
+                print("  ✅ 匹配rawValue: \(tagType.rawValue)")
                 return true
             }
             
             // 3. 对于自定义标签类型，从TagMappingManager搜索所有相关映射
             if case .custom(let key) = tagType {
-                let tagManager = TagMappingManager.shared
+                print("  🔍 检查自定义标签类型: key=\(key)")
                 
                 // 搜索该key对应的所有可能的映射
                 let matchingMappings = tagManager.tagMappings.filter { mapping in
                     mapping.key.lowercased() == key.lowercased()
                 }
                 
+                print("    - 找到 \(matchingMappings.count) 个映射")
+                for mapping in matchingMappings {
+                    print("      映射: \(mapping.key) -> \(mapping.typeName)")
+                }
+                
                 // 检查映射中的typeName是否匹配搜索查询
                 for mapping in matchingMappings {
-                    if mapping.typeName.localizedCaseInsensitiveContains(tagTypeSearchQuery) ||
-                       mapping.key.localizedCaseInsensitiveContains(tagTypeSearchQuery) {
+                    if mapping.typeName.localizedCaseInsensitiveContains(tagTypeSearchQuery) {
+                        print("  ✅ 匹配映射typeName: \(mapping.typeName)")
+                        return true
+                    }
+                    if mapping.key.localizedCaseInsensitiveContains(tagTypeSearchQuery) {
+                        print("  ✅ 匹配映射key: \(mapping.key)")
+                        return true
+                    }
+                }
+                
+                // 4. 额外搜索：检查该类型下是否有标签值匹配搜索查询
+                let tagsOfThisType = store.allTags.filter { $0.type == tagType }
+                for tag in tagsOfThisType {
+                    if tag.value.localizedCaseInsensitiveContains(tagTypeSearchQuery) {
+                        print("  ✅ 匹配标签值: \(tag.value)")
                         return true
                     }
                 }
             }
             
+            print("  ❌ 无匹配: \(tagType.displayName)")
             return false
         }.sorted { $0.displayName < $1.displayName }
+        
+        print("🔍 搜索结果: \(matchingTypes.count) 个匹配的标签类型")
+        for type in matchingTypes {
+            print("  ✅ \(type.displayName)")
+        }
+        
+        return matchingTypes
     }
     
     private func addTagType(_ tagType: Tag.TagType) {
@@ -300,6 +341,11 @@ struct TagSidebarView: View {
             tags = tags.filter { $0.value.localizedCaseInsensitiveContains(filter) }
         }
         
+        print("🏷️ TagSidebarView: getTagsForType(\(tagType.displayName)) 返回 \(tags.count) 个标签")
+        for tag in tags {
+            print("  - \(tag.value)")
+        }
+        
         // 按值排序
         return tags.sorted { $0.value < $1.value }
     }
@@ -311,6 +357,31 @@ struct TagSidebarView: View {
             if let firstNode = relatedNodes.first {
                 self.selectedNode = firstNode
                 store.selectNode(firstNode)
+            }
+        }
+    }
+    
+    // 处理标签类型搜索，自动智能选择相关标签类型
+    private func handleTagTypeSearch(_ query: String) {
+        print("🔍 TagSidebarView: handleTagTypeSearch('\(query)')")
+        
+        // 如果搜索查询为空，不做处理
+        guard !query.isEmpty else { return }
+        
+        // 智能搜索：如果搜索的是标签值（如"里脊"），自动添加包含该标签值的标签类型
+        let allTags = store.allTags
+        let matchingTagsByValue = allTags.filter { tag in
+            tag.value.localizedCaseInsensitiveContains(query)
+        }
+        
+        print("🔍 找到 \(matchingTagsByValue.count) 个匹配标签值的标签")
+        
+        // 自动添加包含匹配标签值的标签类型
+        for tag in matchingTagsByValue {
+            if !selectedTagTypes.contains(tag.type) {
+                print("🎯 自动添加标签类型: \(tag.type.displayName) (因为包含标签值 '\(tag.value)')")
+                selectedTagTypes.insert(tag.type)
+                expandedGroups.insert(tag.type)
             }
         }
     }
