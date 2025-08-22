@@ -720,12 +720,15 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                 function loadVisJS() {
                     var script = document.createElement('script');
                     script.onload = function() {
+                        console.log('✅ vis.js 加载成功');
                         initVisGraph();
                     };
                     script.onerror = function() {
+                        console.log('❌ vis.js 加载失败，使用备用方案');
                         initSimpleGraph();
                     };
-                    script.src = 'https://unpkg.com/vis-network/standalone/umd/vis-network.min.js';
+                    // 使用更稳定的版本化CDN URL
+                    script.src = 'https://unpkg.com/vis-network@10.0.1/standalone/umd/vis-network.min.js';
                     document.head.appendChild(script);
                 }
                 

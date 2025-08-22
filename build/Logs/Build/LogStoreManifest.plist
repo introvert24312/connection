@@ -6,7 +6,7 @@
 	<integer>11</integer>
 	<key>logs</key>
 	<dict>
-		<key>4EB98FA4-495F-4944-B021-D627E3D40838</key>
+		<key>267F298D-39D1-4F00-826D-8B5640826DA5</key>
 		<dict>
 			<key>className</key>
 			<string>IDECommandLineBuildLog</string>
@@ -15,91 +15,7 @@
 			<key>domainType</key>
 			<string>Xcode.IDEActivityLogDomainType.BuildLog</string>
 			<key>fileName</key>
-			<string>4EB98FA4-495F-4944-B021-D627E3D40838.xcactivitylog</string>
-			<key>hasPrimaryLog</key>
-			<true/>
-			<key>primaryObservable</key>
-			<dict>
-				<key>highLevelStatus</key>
-				<string>E</string>
-				<key>totalNumberOfAnalyzerIssues</key>
-				<integer>0</integer>
-				<key>totalNumberOfErrors</key>
-				<integer>2</integer>
-				<key>totalNumberOfTestFailures</key>
-				<integer>0</integer>
-				<key>totalNumberOfWarnings</key>
-				<integer>0</integer>
-			</dict>
-			<key>schemeIdentifier-containerName</key>
-			<string>WordTagger project</string>
-			<key>schemeIdentifier-schemeName</key>
-			<string>WordTagger</string>
-			<key>schemeIdentifier-sharedScheme</key>
-			<integer>1</integer>
-			<key>signature</key>
-			<string>Building project WordTagger with scheme WordTagger and configuration Debug</string>
-			<key>timeStartedRecording</key>
-			<real>777403891.84351599</real>
-			<key>timeStoppedRecording</key>
-			<real>777403921.35816705</real>
-			<key>title</key>
-			<string>Building project WordTagger with scheme WordTagger and configuration Debug</string>
-			<key>uniqueIdentifier</key>
-			<string>4EB98FA4-495F-4944-B021-D627E3D40838</string>
-		</dict>
-		<key>9FFE441F-C970-4A9D-A073-DFE0520E3176</key>
-		<dict>
-			<key>className</key>
-			<string>IDECommandLineBuildLog</string>
-			<key>documentTypeString</key>
-			<string>&lt;nil&gt;</string>
-			<key>domainType</key>
-			<string>Xcode.IDEActivityLogDomainType.BuildLog</string>
-			<key>fileName</key>
-			<string>9FFE441F-C970-4A9D-A073-DFE0520E3176.xcactivitylog</string>
-			<key>hasPrimaryLog</key>
-			<true/>
-			<key>primaryObservable</key>
-			<dict>
-				<key>highLevelStatus</key>
-				<string>S</string>
-				<key>totalNumberOfAnalyzerIssues</key>
-				<integer>0</integer>
-				<key>totalNumberOfErrors</key>
-				<integer>0</integer>
-				<key>totalNumberOfTestFailures</key>
-				<integer>0</integer>
-				<key>totalNumberOfWarnings</key>
-				<integer>0</integer>
-			</dict>
-			<key>schemeIdentifier-containerName</key>
-			<string>WordTagger project</string>
-			<key>schemeIdentifier-schemeName</key>
-			<string>WordTagger</string>
-			<key>schemeIdentifier-sharedScheme</key>
-			<integer>1</integer>
-			<key>signature</key>
-			<string>Cleaning project WordTagger with scheme WordTagger and configuration Debug</string>
-			<key>timeStartedRecording</key>
-			<real>777491996.87896705</real>
-			<key>timeStoppedRecording</key>
-			<real>777491997.25682199</real>
-			<key>title</key>
-			<string>Cleaning project WordTagger with scheme WordTagger and configuration Debug</string>
-			<key>uniqueIdentifier</key>
-			<string>9FFE441F-C970-4A9D-A073-DFE0520E3176</string>
-		</dict>
-		<key>B06CC494-95D3-40AF-8EEF-2C22A422E42D</key>
-		<dict>
-			<key>className</key>
-			<string>IDECommandLineBuildLog</string>
-			<key>documentTypeString</key>
-			<string>&lt;nil&gt;</string>
-			<key>domainType</key>
-			<string>Xcode.IDEActivityLogDomainType.BuildLog</string>
-			<key>fileName</key>
-			<string>B06CC494-95D3-40AF-8EEF-2C22A422E42D.xcactivitylog</string>
+			<string>267F298D-39D1-4F00-826D-8B5640826DA5.xcactivitylog</string>
 			<key>hasPrimaryLog</key>
 			<true/>
 			<key>primaryObservable</key>
@@ -124,13 +40,55 @@
 			<key>signature</key>
 			<string>Building project WordTagger with scheme WordTagger and configuration Debug</string>
 			<key>timeStartedRecording</key>
-			<real>777491997.25886405</real>
+			<real>777492965.62497401</real>
 			<key>timeStoppedRecording</key>
-			<real>777492023.15319097</real>
+			<real>777492975.315184</real>
 			<key>title</key>
 			<string>Building project WordTagger with scheme WordTagger and configuration Debug</string>
 			<key>uniqueIdentifier</key>
-			<string>B06CC494-95D3-40AF-8EEF-2C22A422E42D</string>
+			<string>267F298D-39D1-4F00-826D-8B5640826DA5</string>
+		</dict>
+		<key>641DA789-EC3C-4D67-8C70-8DE096B3DCD2</key>
+		<dict>
+			<key>className</key>
+			<string>IDECommandLineBuildLog</string>
+			<key>documentTypeString</key>
+			<string>&lt;nil&gt;</string>
+			<key>domainType</key>
+			<string>Xcode.IDEActivityLogDomainType.BuildLog</string>
+			<key>fileName</key>
+			<string>641DA789-EC3C-4D67-8C70-8DE096B3DCD2.xcactivitylog</string>
+			<key>hasPrimaryLog</key>
+			<true/>
+			<key>primaryObservable</key>
+			<dict>
+				<key>highLevelStatus</key>
+				<string>W</string>
+				<key>totalNumberOfAnalyzerIssues</key>
+				<integer>0</integer>
+				<key>totalNumberOfErrors</key>
+				<integer>0</integer>
+				<key>totalNumberOfTestFailures</key>
+				<integer>0</integer>
+				<key>totalNumberOfWarnings</key>
+				<integer>1</integer>
+			</dict>
+			<key>schemeIdentifier-containerName</key>
+			<string>WordTagger project</string>
+			<key>schemeIdentifier-schemeName</key>
+			<string>WordTagger</string>
+			<key>schemeIdentifier-sharedScheme</key>
+			<integer>1</integer>
+			<key>signature</key>
+			<string>Building project WordTagger with scheme WordTagger and configuration Debug</string>
+			<key>timeStartedRecording</key>
+			<real>777493262.70137799</real>
+			<key>timeStoppedRecording</key>
+			<real>777493273.71007299</real>
+			<key>title</key>
+			<string>Building project WordTagger with scheme WordTagger and configuration Debug</string>
+			<key>uniqueIdentifier</key>
+			<string>641DA789-EC3C-4D67-8C70-8DE096B3DCD2</string>
 		</dict>
 	</dict>
 </dict>
