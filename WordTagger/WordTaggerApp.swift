@@ -362,7 +362,6 @@ class TagMappingManager: ObservableObject {
                         // 发现错误：标签类型应该是.custom(key)而不是.custom(typeName)
                         let correctTagType = Tag.TagType.custom(correctMapping.key)
                         let correctedTag = Tag(
-                            id: tag.id,
                             type: correctTagType,
                             value: tag.value,
                             latitude: tag.latitude,
@@ -883,7 +882,7 @@ struct QuickAddSheetView: View {
                     
                     // 处理标签重命名
                     if let existingMapping = tagManager.tagMappings.first(where: { $0.key == actualTagKey }) {
-                        let oldTypeName = existingMapping.typeName
+                        _ = existingMapping.typeName // 原类型名，用于日志记录
                         
                         // 创建更新后的映射
                         let updatedMapping = TagMapping(

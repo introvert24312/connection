@@ -222,7 +222,7 @@ public final class NodeStore: ObservableObject {
                 await TagMappingManager.shared.reloadFromExternalStorage()
                 
                 // 修复节点中的错误标签类型
-                await TagMappingManager.shared.fixNodeTagTypes(store: self)
+                TagMappingManager.shared.fixNodeTagTypes(store: self)
             } else {
                 // 如果新路径没有数据，保存当前数据到新路径
                 print("💾 新路径为空，将当前数据保存到新位置...")

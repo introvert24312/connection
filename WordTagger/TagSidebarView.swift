@@ -223,7 +223,7 @@ struct TagSidebarView: View {
                 return false 
             }
             
-            let query = tagTypeSearchQuery.lowercased()
+            _ = tagTypeSearchQuery.lowercased() // 预留给未来的小写搜索需求
             
             // 1. 搜索displayName（显示名称，如"牛肉类型"）
             if tagType.displayName.localizedCaseInsensitiveContains(tagTypeSearchQuery) {
