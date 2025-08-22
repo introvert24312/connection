@@ -45,6 +45,9 @@ struct QuickSearchView: View {
                         .onSubmit {
                             selectCurrentNode()
                         }
+                        .onChange(of: isSearchFieldFocused) { _, newValue in
+                            print("🔍 TextField焦点状态变化: \(newValue)")
+                        }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -113,6 +116,26 @@ struct QuickSearchView: View {
             .padding(20)
             .frame(maxWidth: 600)
         }
+        .onAppear {
+            print("🔍 QuickSearchView ZStack.onAppear: 视图层次结构已加载")
+            // 🔧 立即尝试聚焦
+            isSearchFieldFocused = true
+            print("🔍 QuickSearchView.onAppear: 立即设置焦点")
+            
+            // 🔧 多次尝试确保聚焦成功
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                isSearchFieldFocused = true
+                print("🔍 QuickSearchView: 0.1秒后设置焦点")
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                isSearchFieldFocused = true
+                print("🔍 QuickSearchView: 0.3秒后设置焦点")
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                isSearchFieldFocused = true
+                print("🔍 QuickSearchView: 0.5秒后最终设置焦点")
+            }
+        }
         .onKeyPress(.escape) {
             onDismiss()
             return .handled
@@ -135,25 +158,6 @@ struct QuickSearchView: View {
         }
         .onChange(of: filteredNodes) { _, newNodes in
             selectedIndex = 0
-        }
-        .onAppear {
-            // 🔧 立即尝试聚焦
-            isSearchFieldFocused = true
-            print("🔍 QuickSearchView.onAppear: 立即设置焦点")
-            
-            // 🔧 多次尝试确保聚焦成功
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                isSearchFieldFocused = true
-                print("🔍 QuickSearchView: 0.1秒后设置焦点")
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                isSearchFieldFocused = true
-                print("🔍 QuickSearchView: 0.3秒后设置焦点")
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                isSearchFieldFocused = true
-                print("🔍 QuickSearchView: 0.5秒后最终设置焦点")
-            }
         }
     }
     
