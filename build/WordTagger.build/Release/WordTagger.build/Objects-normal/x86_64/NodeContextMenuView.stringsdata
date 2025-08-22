@@ -1,0 +1,32 @@
+{
+  "source": "/Users/Patronum/Desktop/WordTagger/WordTagger/NodeContextMenuView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Edit Command Label",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 19
+        }
+      },
+      {
+        "comment": "",
+        "key": "Edit Node Name",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 43
+        }
+      },
+      {
+        "comment": "",
+        "key": "Delete Node",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 68
+        }
+      }
+    ]
+  },
+  "version": 1
+}

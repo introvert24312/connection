@@ -1,0 +1,560 @@
+{
+  "source": "/Users/Patronum/Desktop/WordTagger/WordTagger/WordTaggerApp.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "编辑节点",
+        "location": {
+          "startingColumn": 49,
+          "startingLine": 758
+        }
+      },
+      {
+        "comment": "",
+        "key": "快速添加节点",
+        "location": {
+          "startingColumn": 66,
+          "startingLine": 758
+        }
+      },
+      {
+        "comment": "",
+        "key": "重复检测",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 781
+        }
+      },
+      {
+        "comment": "",
+        "key": "输入: 节点 root 词根内容 memory 记忆内容...",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 674
+        }
+      },
+      {
+        "comment": "",
+        "key": "选择地点位置 (⌘P)",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 716
+        }
+      },
+      {
+        "comment": "",
+        "key": "输入标签快捷键获得建议",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 749
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 761
+        }
+      },
+      {
+        "comment": "",
+        "key": "保存",
+        "location": {
+          "startingColumn": 47,
+          "startingLine": 774
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加",
+        "location": {
+          "startingColumn": 58,
+          "startingLine": 774
+        }
+      },
+      {
+        "comment": "",
+        "key": "确定",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 782
+        }
+      },
+      {
+        "comment": "",
+        "key": "标签快捷键",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1507
+        }
+      },
+      {
+        "comment": "",
+        "key": "重复检测",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 1594
+        }
+      },
+      {
+        "comment": "",
+        "key": "输入: 节点 root 词根内容 memory 记忆内容...",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 1562
+        }
+      },
+      {
+        "comment": "",
+        "key": "选择地点位置 (⌘P)",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 1572
+        }
+      },
+      {
+        "comment": "",
+        "key": "确定",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 1595
+        }
+      },
+      {
+        "comment": "",
+        "key": "搜索单词、含义或标签...",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 1807
+        }
+      },
+      {
+        "comment": "",
+        "key": "没有找到匹配的结果",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1869
+        }
+      },
+      {
+        "comment": "",
+        "key": "💡 输入关键词搜索单词",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1878
+        }
+      },
+      {
+        "comment": "",
+        "key": "⌘+F",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1882
+        }
+      },
+      {
+        "comment": "",
+        "key": "+%lld",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1977
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点标签管理器",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 2096
+        }
+      },
+      {
+        "comment": "",
+        "key": "地图视图",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 2286
+        }
+      },
+      {
+        "comment": "",
+        "key": "全局图谱",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 2294
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点管理",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 2302
+        }
+      },
+      {
+        "comment": "",
+        "key": "全屏图谱",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 2310
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点标签",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 2188
+        }
+      },
+      {
+        "comment": "",
+        "key": "命令面板",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 2189
+        }
+      },
+      {
+        "comment": "",
+        "key": "创建新层或复合层",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 2194
+        }
+      },
+      {
+        "comment": "",
+        "key": "快速添加节点",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 2201
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加复合节点",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 2206
+        }
+      },
+      {
+        "comment": "",
+        "key": "快速搜索",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 2211
+        }
+      },
+      {
+        "comment": "",
+        "key": "切换侧边栏",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 2218
+        }
+      },
+      {
+        "comment": "",
+        "key": "标签管理",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 2223
+        }
+      },
+      {
+        "comment": "",
+        "key": "节点管理",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 2228
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加节点",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 2235
+        }
+      },
+      {
+        "comment": "",
+        "key": "打开地图",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 2243
+        }
+      },
+      {
+        "comment": "",
+        "key": "打开图谱",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 2248
+        }
+      },
+      {
+        "comment": "",
+        "key": "详情面板：详情",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 2255
+        }
+      },
+      {
+        "comment": "",
+        "key": "详情面板：图谱",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 2263
+        }
+      },
+      {
+        "comment": "",
+        "key": "切换到图谱视图",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 2271
+        }
+      },
+      {
+        "comment": "",
+        "key": "标签管理",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 2367
+        }
+      },
+      {
+        "comment": "",
+        "key": "隐藏系统标签",
+        "location": {
+          "startingColumn": 44,
+          "startingLine": 2385
+        }
+      },
+      {
+        "comment": "",
+        "key": "显示系统标签",
+        "location": {
+          "startingColumn": 67,
+          "startingLine": 2385
+        }
+      },
+      {
+        "comment": "",
+        "key": "重新扫描现有标签并创建缺失的映射",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 2401
+        }
+      },
+      {
+        "comment": "",
+        "key": "系统标签",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 2379
+        }
+      },
+      {
+        "comment": "",
+        "key": "重新扫描",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 2395
+        }
+      },
+      {
+        "comment": "",
+        "key": "编辑标签",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 2445
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加新标签",
+        "location": {
+          "startingColumn": 67,
+          "startingLine": 2445
+        }
+      },
+      {
+        "comment": "",
+        "key": "快捷键",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 2452
+        }
+      },
+      {
+        "comment": "",
+        "key": "例如: root",
+        "location": {
+          "startingColumn": 43,
+          "startingLine": 2455
+        }
+      },
+      {
+        "comment": "",
+        "key": "类型名称",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 2460
+        }
+      },
+      {
+        "comment": "",
+        "key": "例如: 词根",
+        "location": {
+          "startingColumn": 43,
+          "startingLine": 2463
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 2471
+        }
+      },
+      {
+        "comment": "",
+        "key": "保存",
+        "location": {
+          "startingColumn": 56,
+          "startingLine": 2477
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加",
+        "location": {
+          "startingColumn": 67,
+          "startingLine": 2477
+        }
+      },
+      {
+        "comment": "",
+        "key": "→ %@",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 2585
+        }
+      },
+      {
+        "comment": "",
+        "key": "系统",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 2573
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加复合节点",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 2710
+        }
+      },
+      {
+        "comment": "",
+        "key": "错误",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 2728
+        }
+      },
+      {
+        "comment": "",
+        "key": "输入格式：复合节点名 节点1 节点2 节点3...",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 2641
+        }
+      },
+      {
+        "comment": "",
+        "key": "💡 使用方法:",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 2660
+        }
+      },
+      {
+        "comment": "",
+        "key": "复合节点可以无限嵌套，颜色会自动区分层级",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 2693
+        }
+      },
+      {
+        "comment": "",
+        "key": "创建1级复合节点：动物 狗 猫 鸟",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 2669
+        }
+      },
+      {
+        "comment": "",
+        "key": "创建2级复合节点：生物 动物 植物",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 2678
+        }
+      },
+      {
+        "comment": "",
+        "key": "删除子节点：动物 -狗 -猫",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 2687
+        }
+      },
+      {
+        "comment": "",
+        "key": "快捷键: ⌘+R提交 • Esc关闭",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 2699
+        }
+      },
+      {
+        "comment": "",
+        "key": "取消",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 2713
+        }
+      },
+      {
+        "comment": "",
+        "key": "添加",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 2721
+        }
+      },
+      {
+        "comment": "",
+        "key": "确定",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 2729
+        }
+      }
+    ]
+  },
+  "version": 1
+}
