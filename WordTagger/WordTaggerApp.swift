@@ -2242,12 +2242,18 @@ struct WordTaggerApp: App {
                 }
                 .keyboardShortcut("u", modifiers: [.command])
                 
+                Button("标签搜索") {
+                    print("🏷️ WordTaggerApp: Command+F 快捷键被触发，切换到标签搜索")
+                    NotificationCenter.default.post(name: Notification.Name("openTagSearch"), object: nil)
+                }
+                .keyboardShortcut("f", modifiers: [.command])
+                
                 Button("快速搜索") {
-                    print("🔍 WordTaggerApp: Command+F 快捷键被触发，显示快速搜索")
+                    print("🔍 WordTaggerApp: Command+Shift+F 快捷键被触发，显示快速搜索")
                     showQuickSearch = true
                     print("🔍 WordTaggerApp: showQuickSearch 设置为 true")
                 }
-                .keyboardShortcut("f", modifiers: [.command])
+                .keyboardShortcut("f", modifiers: [.command, .shift])
                 
                 Button("切换侧边栏") {
                     NotificationCenter.default.post(name: Notification.Name("toggleSidebar"), object: nil)
@@ -2266,9 +2272,9 @@ struct WordTaggerApp: App {
                 
                 Divider()
                 
-                Button("添加节点") {
-                    // 触发添加节点对话框
-                    NotificationCenter.default.post(name: Notification.Name("addNewNode"), object: nil)
+                Button("清除标签筛选") {
+                    // 清除所有标签筛选状态，回到初始状态
+                    NotificationCenter.default.post(name: Notification.Name("clearTagFilter"), object: nil)
                 }
                 .keyboardShortcut("n", modifiers: [.command])
                 

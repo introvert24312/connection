@@ -24,6 +24,7 @@ public final class NodeStore: ObservableObject {
     @Published public private(set) var selectedNode: Node?
     @Published public private(set) var selectedTag: Tag?
     @Published public private(set) var showAllTagTypeNodes: Bool = false // 是否展示同标签类型的所有节点
+    @Published public private(set) var expandedTagTypes: Set<Tag.TagType> = [] // 当前展开的标签类型
     @Published public var searchQuery: String = ""
     @Published public private(set) var searchResults: [Node] = []
     @Published public private(set) var isLoading: Bool = false
@@ -627,7 +628,7 @@ public final class NodeStore: ObservableObject {
                 await forceSaveToExternalStorage()
                 print("💾 节点删除后已自动保存到外部存储")
             }
-        }
+            *thud*    }
     }
     
     @MainActor
@@ -642,6 +643,7 @@ public final class NodeStore: ObservableObject {
     public func setSelectedTag(_ tag: Tag?) {
         selectedTag = tag
         showAllTagTypeNodes = false // 重置为只显示具体标签的节点
+        expandedTagTypes.removeAll() // 清除展开的标签类型
     }
     
     @MainActor
@@ -685,6 +687,8 @@ public final class NodeStore: ObservableObject {
         // 清理当前选择状态，避免跨层显示问题
         selectedNode = nil
         selectedTag = nil
+        expandedTagTypes.removeAll()
+        showAllTagTypeNodes = false
         searchQuery = ""
         searchResults.removeAll()
         
@@ -1325,6 +1329,18 @@ public final class NodeStore: ObservableObject {
         }
     }
     
+    public func nodesInCurrentLayer(withTagTypes tagTypes: Set<Tag.TagType>) -> [Node] {
+        guard let currentLayer = currentLayer else { return [] }
+        guard !tagTypes.isEmpty else { return [] }
+        
+        // 从当前层的 nodes 中获取包含任一指定标签类型的节点
+        return nodes.filter { node in
+            node.layerId == currentLayer.id && node.tags.contains { tag in
+                tagTypes.contains(tag.type)
+            }
+        }
+    }
+    
     public func getRelevantTags(for query: String) -> [Tag] {
         return searchTags(query: query)
     }
@@ -1332,6 +1348,43 @@ public final class NodeStore: ObservableObject {
     @MainActor
     public func selectTag(_ tag: Tag?) {
         setSelectedTag(tag)
+    }
+    
+    @MainActor
+    public func selectTagType(_ tagType: Tag.TagType) {
+        // 找到该标签类型下的第一个标签作为代表
+        let representativeTag = allTags.first { $0.type == tagType }
+        if let tag = representativeTag {
+            setSelectedTagWithTypeMode(tag)
+            print("🏷️ Store.selectTagType: 选择标签类型 \(tagType.displayName)，显示该类型下的所有节点")
+        }
+    }
+    
+    @MainActor
+    public func selectTagWithFocus(_ tag: Tag) {
+        // 使用标签类型模式显示所有同类型节点，但保持对特定标签的焦点
+        setSelectedTagWithTypeMode(tag)
+        print("🎯 Store.selectTagWithFocus: 显示 \(tag.type.displayName) 类型的所有节点，焦点在 '\(tag.value)'")
+    }
+    
+    @MainActor
+    public func setExpandedTagTypes(_ tagTypes: Set<Tag.TagType>) {
+        expandedTagTypes = tagTypes
+        showAllTagTypeNodes = !tagTypes.isEmpty
+        print("🔄 Store.setExpandedTagTypes: 设置展开的标签类型数量: \(tagTypes.count)")
+        for tagType in tagTypes {
+            print("   - \(tagType.displayName)")
+        }
+    }
+    
+    @MainActor
+    public func clearTagFilter() {
+        print("🧹 Store.clearTagFilter: 清除所有标签筛选状态")
+        selectedTag = nil
+        expandedTagTypes.removeAll()
+        showAllTagTypeNodes = false
+        selectedNode = nil
+        print("✅ 标签筛选状态已清除，回到初始状态")
     }
     
     public func findLocationTagByName(_ name: String) -> Tag? {
@@ -1475,6 +1528,17 @@ public final class NodeStore: ObservableObject {
     // MARK: - 标签类型名称变化监听
     
     private func setupTagTypeNameChangeListener() {
+        // 监听清除标签筛选通知
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("clearTagFilter"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.clearTagFilter()
+            }
+        }
+        
         NotificationCenter.default.addObserver(
             forName: NSNotification.Name("tagTypeNameChanged"),
             object: nil,

@@ -87,32 +87,6 @@ struct NodeListView: View {
                     RoundedRectangle(cornerRadius: 8)
                         .fill(Color(NSColor.controlBackgroundColor))
                 )
-                
-                // 排序选项和节点数量
-                HStack {
-                    Menu {
-                        ForEach(SortOption.allCases, id: \.self) { option in
-                            Button(option.rawValue) { sortOption = option }
-                        }
-                    } label: {
-                        HStack {
-                            Text("排序: \(sortOption.rawValue)")
-                            Image(systemName: "chevron.down")
-                        }
-                        .font(.caption)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(6)
-                    }
-                    
-                    Spacer()
-                    
-                    // 节点数量显示
-                    Text("\(displayNodes.count) 个节点")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
             }
             .padding()
             .background(Color(NSColor.controlBackgroundColor))
@@ -134,7 +108,12 @@ struct NodeListView: View {
                     List(Array(displayNodes.enumerated()), id: \.element.id) { index, node in
                         NodeRowView(
                             node: node,
-                            isSelected: selectedNode?.id == node.id,
+                            isSelected: selectedNode?.id == node.id || 
+                                       (store.showAllTagTypeNodes && 
+                                        store.selectedTag != nil && 
+                                        (store.expandedTagTypes.count > 1 ? 
+                                         node.tags.contains { store.expandedTagTypes.contains($0.type) } : 
+                                         node.hasTag(store.selectedTag!))),
                             searchQuery: store.searchQuery,
                             onTap: {
                                 print("🎯 NodeListView: 用户点击节点 \(node.text)")
@@ -297,18 +276,33 @@ struct NodeListView: View {
             print("🔍 Using search results: \(filteredNodes.count) nodes (tag filter ignored during search)")
         } else if let selectedTag = store.selectedTag {
             if store.showAllTagTypeNodes {
-                // 新模式：显示同标签类型的所有节点
-                filteredNodes = store.nodesInCurrentLayer(withTagType: selectedTag.type)
-                print("🏷️ Using tag TYPE filter (NEW MODE): \(filteredNodes.count) nodes")
-                print("🏷️ Selected tag: \(selectedTag.type.displayName) - showing all nodes with this tag type")
-                print("🏷️ Focus tag value: '\(selectedTag.value)'")
-                
-                // 详细调试：列出所有同类型标签的节点
-                for (index, node) in filteredNodes.enumerated() {
-                    let relevantTags = node.tags.filter { $0.type == selectedTag.type }
-                    let tagValues = relevantTags.map { $0.value }.joined(separator: ", ")
-                    let isFocusNode = node.hasTag(selectedTag) // 是否是焦点节点
-                    print("  类型过滤结果[\(index)]: '\(node.text)' - 标签值: [\(tagValues)] \(isFocusNode ? "⭐️(焦点)" : "")")
+                // 检查是否有多个展开的标签类型
+                if store.expandedTagTypes.count > 1 {
+                    // 多类型模式：显示所有展开标签类型的节点
+                    filteredNodes = store.nodesInCurrentLayer(withTagTypes: store.expandedTagTypes)
+                    print("🏷️ Using MULTI-TAG-TYPE filter: \(filteredNodes.count) nodes")
+                    print("🏷️ Expanded tag types: \(store.expandedTagTypes.map { $0.displayName }.joined(separator: ", "))")
+                    
+                    // 详细调试：列出所有多类型标签的节点
+                    for (index, node) in filteredNodes.enumerated() {
+                        let relevantTags = node.tags.filter { store.expandedTagTypes.contains($0.type) }
+                        let tagTypeValues = relevantTags.map { "\($0.type.displayName):\($0.value)" }.joined(separator: ", ")
+                        print("  多类型过滤结果[\(index)]: '\(node.text)' - 标签: [\(tagTypeValues)]")
+                    }
+                } else {
+                    // 单类型模式：显示同标签类型的所有节点
+                    filteredNodes = store.nodesInCurrentLayer(withTagType: selectedTag.type)
+                    print("🏷️ Using tag TYPE filter (SINGLE MODE): \(filteredNodes.count) nodes")
+                    print("🏷️ Selected tag: \(selectedTag.type.displayName) - showing all nodes with this tag type")
+                    print("🏷️ Focus tag value: '\(selectedTag.value)'")
+                    
+                    // 详细调试：列出所有同类型标签的节点
+                    for (index, node) in filteredNodes.enumerated() {
+                        let relevantTags = node.tags.filter { $0.type == selectedTag.type }
+                        let tagValues = relevantTags.map { $0.value }.joined(separator: ", ")
+                        let isFocusNode = node.hasTag(selectedTag) // 是否是焦点节点
+                        print("  类型过滤结果[\(index)]: '\(node.text)' - 标签值: [\(tagValues)] \(isFocusNode ? "⭐️(焦点)" : "")")
+                    }
                 }
             } else {
                 // 原有模式：只显示包含具体标签的节点

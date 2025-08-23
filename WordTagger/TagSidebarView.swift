@@ -54,7 +54,10 @@ struct TagSidebarView: View {
                 Button(action: { currentMode = .tagFiltering }) {
                     HStack(spacing: 6) {
                         Image(systemName: "tag.fill")
-                        Text("标签筛选")
+                        VStack(spacing: 0) {
+                            Text("标签")
+                            Text("筛选")
+                        }
                     }
                     .font(.system(size: 14, weight: currentMode == .tagFiltering ? .semibold : .regular))
                     .foregroundColor(currentMode == .tagFiltering ? .blue : .secondary)
@@ -72,7 +75,10 @@ struct TagSidebarView: View {
                 Button(action: { currentMode = .tagSearch }) {
                     HStack(spacing: 6) {
                         Image(systemName: "magnifyingglass")
-                        Text("标签搜索")
+                        VStack(spacing: 0) {
+                            Text("标签")
+                            Text("搜索")
+                        }
                     }
                     .font(.system(size: 14, weight: currentMode == .tagSearch ? .semibold : .regular))
                     .foregroundColor(currentMode == .tagSearch ? .blue : .secondary)
@@ -118,6 +124,30 @@ struct TagSidebarView: View {
         // 添加额外的ESC键处理层
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
             print("🔑 窗口获得键盘焦点")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagSearch"))) { _ in
+            print("🏷️ TagSidebarView: 收到打开标签搜索通知")
+            currentMode = .tagSearch
+            // 延迟一下确保UI切换完成后再设置焦点
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                isTagTypeSearchFocused = true
+                print("🏷️ TagSidebarView: 已切换到标签搜索模式并聚焦搜索框")
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("clearTagFilter"))) { _ in
+            print("🧹 TagSidebarView: 收到清除标签筛选通知")
+            // 清除UI状态
+            expandedTagTypes.removeAll()
+            selectedTagTypes.removeAll()
+            expandedGroups.removeAll()
+            tagTypeSearchQuery = ""
+            // 切换到标签筛选模式
+            currentMode = .tagFiltering
+            print("✅ TagSidebarView: 标签筛选UI状态已清除")
+        }
+        .onChange(of: expandedTagTypes) { _, newExpandedTypes in
+            // 当展开的标签类型改变时，更新显示的节点
+            updateDisplayedNodesForExpandedTypes(newExpandedTypes)
         }
     }
     
@@ -169,11 +199,14 @@ struct TagSidebarView: View {
         VStack(spacing: 0) {
             // 标签类型头部
             Button(action: {
+                // 只切换展开/折叠状态，不触发节点显示
                 if isExpanded {
                     expandedTagTypes.remove(tagType)
                 } else {
                     expandedTagTypes.insert(tagType)
                 }
+                
+                print("🏷️ 切换标签类型展开状态: \(tagType.displayName) - \(isExpanded ? "折叠" : "展开")")
             }) {
                 HStack {
                     Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
@@ -200,8 +233,9 @@ struct TagSidebarView: View {
             if isExpanded {
                 ForEach(tags, id: \.id) { tag in
                     Button(action: {
-                        store.selectTag(tag)
-                        print("🏷️ 选择了标签: \(tag.type.displayName) - \(tag.value)")
+                        // 显示该标签类型下的所有节点，但焦点定位到当前标签
+                        store.selectTagWithFocus(tag)
+                        print("🏷️ 选择了标签: \(tag.type.displayName) - \(tag.value)，显示同类型所有节点但焦点在此标签")
                     }) {
                         HStack {
                             Text(tag.value)
@@ -220,6 +254,7 @@ struct TagSidebarView: View {
                                 .fill(store.selectedTag?.id == tag.id ? Color.blue.opacity(0.1) : Color.clear)
                         )
                         .foregroundColor(store.selectedTag?.id == tag.id ? .blue : .primary)
+                        .contentShape(Rectangle()) // 确保整个区域都可点击
                     }
                     .buttonStyle(.plain)
                 }
@@ -560,6 +595,15 @@ struct TagSidebarView: View {
         }
     }
     */
+    
+    // 当展开的标签类型改变时，更新显示的节点
+    private func updateDisplayedNodesForExpandedTypes(_ newExpandedTypes: Set<Tag.TagType>) {
+        print("🔄 TagSidebarView: updateDisplayedNodesForExpandedTypes called with \(newExpandedTypes.count) types")
+        
+        // 新逻辑：展开标签类型不直接触发节点显示
+        // 只有当用户点击具体标签值时才显示节点
+        print("📋 标签类型展开状态已更新，等待用户点击具体标签值")
+    }
     
     // 处理标签类型搜索，自动智能选择相关标签类型
     private func handleTagTypeSearch(_ query: String) {
