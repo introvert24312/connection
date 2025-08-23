@@ -2461,7 +2461,18 @@ struct GitSyncSettingsView: View {
                 
                 // 构建带认证的URL
                 let authenticatedURL = buildAuthenticatedURL()
-                try await runGitCommand(["remote", "add", "origin", authenticatedURL], at: dataPath)
+                
+                // 检查远程仓库是否已存在，如果存在则更新，否则添加
+                do {
+                    try await runGitCommand(["remote", "get-url", "origin"], at: dataPath)
+                    // 如果执行成功，说明origin已存在，更新它
+                    print("🔧 远程origin已存在，更新URL...")
+                    try await runGitCommand(["remote", "set-url", "origin", authenticatedURL], at: dataPath)
+                } catch {
+                    // 如果执行失败，说明origin不存在，添加它
+                    print("🔧 远程origin不存在，添加新的...")
+                    try await runGitCommand(["remote", "add", "origin", authenticatedURL], at: dataPath)
+                }
                 
                 await MainActor.run {
                     print("✅ Git设置成功，更新UI状态...")
