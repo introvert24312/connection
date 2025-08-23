@@ -58,14 +58,15 @@ struct TagSidebarView: View {
                     }
                     .font(.system(size: 14, weight: currentMode == .tagFiltering ? .semibold : .regular))
                     .foregroundColor(currentMode == .tagFiltering ? .blue : .secondary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 3)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
                             .fill(currentMode == .tagFiltering ? Color.blue.opacity(0.1) : Color.clear)
                     )
                 }
                 .buttonStyle(.plain)
+                .keyboardShortcut("1", modifiers: .command)
                 
                 // 标签搜索模块按钮
                 Button(action: { currentMode = .tagSearch }) {
@@ -75,19 +76,20 @@ struct TagSidebarView: View {
                     }
                     .font(.system(size: 14, weight: currentMode == .tagSearch ? .semibold : .regular))
                     .foregroundColor(currentMode == .tagSearch ? .blue : .secondary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 3)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
                             .fill(currentMode == .tagSearch ? Color.blue.opacity(0.1) : Color.clear)
                     )
                 }
                 .buttonStyle(.plain)
+                .keyboardShortcut("2", modifiers: .command)
                 
                 Spacer()
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.vertical, 4)
             .background(Color(NSColor.controlBackgroundColor))
             
             Divider()
@@ -100,6 +102,22 @@ struct TagSidebarView: View {
                 // 模块2: 标签搜索功能
                 tagSearchModule()
             }
+        }
+        .navigationTitle("标签")
+        .focusable(false)
+        .onKeyPress(.escape) {
+            // 按ESC键隐藏标签管理侧边栏
+            print("🔑 TagSidebarView: ESC键按下，隐藏标签管理")
+            NotificationCenter.default.post(name: Notification.Name("toggleSidebar"), object: nil)
+            return .handled
+        }
+        .onAppear {
+            // 移除强制键盘焦点设置，避免干扰全局快捷键
+            print("🔑 TagSidebarView 出现，不强制设置键盘焦点")
+        }
+        // 添加额外的ESC键处理层
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+            print("🔑 窗口获得键盘焦点")
         }
     }
     
@@ -354,24 +372,6 @@ struct TagSidebarView: View {
                 .padding(.horizontal)
             }
         }
-        .navigationTitle("标签")
-        .focusable(false)
-            .onKeyPress(.escape) {
-                // 按ESC键隐藏标签管理侧边栏
-                print("🔑 TagSidebarView: ESC键按下，隐藏标签管理")
-                NotificationCenter.default.post(name: Notification.Name("toggleSidebar"), object: nil)
-                return .handled
-            }
-            .onAppear {
-                // 移除强制键盘焦点设置，避免干扰全局快捷键
-                print("🔑 TagSidebarView 出现，不强制设置键盘焦点")
-            }
-            // 添加额外的ESC键处理层
-            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
-                print("🔑 窗口获得键盘焦点")
-            }
-        }
-    }
     
     // MARK: - 标签筛选相关计算属性
     // 获取所有实际存在的唯一标签类型
@@ -588,8 +588,6 @@ struct TagSidebarView: View {
         }
         */
     }
-    
-}
 
 // MARK: - 标签类型搜索结果按钮
 
@@ -926,3 +924,5 @@ struct TagRowView: View {
 //         Text("Detail")
 //     }
 // }
+
+}
