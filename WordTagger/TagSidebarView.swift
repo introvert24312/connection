@@ -40,6 +40,67 @@ struct TagSidebarView: View {
                 Divider()
             }
             
+            // 标签快速筛选 - 从WordListView移植的完美菜单
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("标签筛选")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.primary)
+                    
+                    Spacer()
+                    
+                    Button("清除筛选") {
+                        store.selectTag(nil)
+                    }
+                    .font(.system(size: 12))
+                    .foregroundColor(.blue)
+                    .buttonStyle(.plain)
+                    .opacity(store.selectedTag != nil ? 1 : 0.5)
+                    .disabled(store.selectedTag == nil)
+                }
+                
+                Menu {
+                    Button("全部标签") { 
+                        store.selectTag(nil)
+                    }
+                    Divider()
+                    // 显示实际存在的标签，按类型分组
+                    ForEach(uniqueTagTypes, id: \.self) { tagType in
+                        Menu(tagType.displayName) {
+                            // 显示该类型下的所有实际标签
+                            ForEach(tagsOfType(tagType), id: \.id) { tag in
+                                Button(tag.value) {
+                                    store.selectTag(tag)
+                                    print("🏷️ TagSidebar选择了标签: \(tag.type.displayName) - \(tag.value)")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    HStack {
+                        Text(currentTagFilterDisplay)
+                            .font(.system(size: 14))
+                        Spacer()
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 12))
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.gray.opacity(0.1))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.blue.opacity(store.selectedTag != nil ? 0.5 : 0), lineWidth: 1)
+                            )
+                    )
+                }
+            }
+            .padding()
+            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+            
+            Divider()
+            
             // 搜索栏 - 完全隐藏不占空间
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
@@ -746,6 +807,31 @@ struct TagRowView: View {
                     (isCurrentlySelected ? Color.blue.opacity(0.1) : Color.clear)
                 )
         )
+    }
+}
+
+// MARK: - TagSidebarView Extensions for Tag Filtering Menu
+extension TagSidebarView {
+    // 获取所有实际存在的唯一标签类型
+    private var uniqueTagTypes: [Tag.TagType] {
+        let allTagTypes = store.allTags.map { $0.type }
+        let uniqueTypes = Array(Set(allTagTypes))
+        // 按类型名称排序，确保consistent显示顺序
+        return uniqueTypes.sorted { $0.displayName < $1.displayName }
+    }
+    
+    // 获取指定类型的所有标签
+    private func tagsOfType(_ tagType: Tag.TagType) -> [Tag] {
+        return store.allTags.filter { $0.type == tagType }
+            .sorted { $0.value < $1.value } // 按值排序
+    }
+    
+    // 当前标签筛选显示文本
+    private var currentTagFilterDisplay: String {
+        if let selectedTag = store.selectedTag {
+            return "\(selectedTag.type.displayName): \(selectedTag.value)"
+        }
+        return "全部标签"
     }
 }
 

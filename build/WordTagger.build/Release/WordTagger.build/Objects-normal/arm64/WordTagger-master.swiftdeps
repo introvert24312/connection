@@ -1,7 +1,7 @@
 version: "Apple Swift version 6.1.2 (swiftlang-6.1.2.1.2 clang-1700.0.13.5)"
 options: "52eeaf71a509eed31ee772ef46444fdbacb9ec4df9a7a498603db96a40975648"
-build_start_time: [1755919278, 675113000]
-build_end_time: [1755919364, 948321000]
+build_start_time: [1755920405, 923423000]
+build_end_time: [1755920506, 93600000]
 inputs:
   "/Users/Patronum/Desktop/WordTagger/WordTagger/CommandPaletteView.swift": [1755599821, 123324781]
   "/Users/Patronum/Desktop/WordTagger/WordTagger/CommandParser.swift": [1755258837, 798418648]
@@ -25,10 +25,10 @@ inputs:
   "/Users/Patronum/Desktop/WordTagger/WordTagger/SearchService.swift": [1754361647, 230579533]
   "/Users/Patronum/Desktop/WordTagger/WordTagger/SettingsView.swift": [1755597272, 507429793]
   "/Users/Patronum/Desktop/WordTagger/WordTagger/Store.swift": [1755860394, 653240620]
-  "/Users/Patronum/Desktop/WordTagger/WordTagger/TagSidebarView.swift": [1755852325, 657304754]
+  "/Users/Patronum/Desktop/WordTagger/WordTagger/TagSidebarView.swift": [1755920351, 249997102]
   "/Users/Patronum/Desktop/WordTagger/WordTagger/UniversalRelationshipGraphView.swift": [1755847831, 554579665]
   "/Users/Patronum/Desktop/WordTagger/WordTagger/VditorWebView.swift": [1755097311, 412894408]
-  "/Users/Patronum/Desktop/WordTagger/WordTagger/WordListView.swift": [1755919269, 621712168]
+  "/Users/Patronum/Desktop/WordTagger/WordTagger/WordListView.swift": [1755920390, 497179411]
   "/Users/Patronum/Desktop/WordTagger/WordTagger/WordManagerView.swift": [1755859114, 561659788]
   "/Users/Patronum/Desktop/WordTagger/WordTagger/WordTaggerApp.swift": [1755872492, 779833203]
   "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Release/WordTagger.build/DerivedSources/GeneratedAssetSymbols.swift": [1755871785, 456138607]

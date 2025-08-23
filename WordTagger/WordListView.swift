@@ -88,38 +88,8 @@ struct NodeListView: View {
                         .fill(Color(NSColor.controlBackgroundColor))
                 )
                 
-                // 筛选和排序选项
+                // 排序选项和节点数量
                 HStack {
-                    Menu {
-                        Button("全部标签") { 
-                            searchFilter.tagType = nil
-                            store.selectTag(nil)
-                        }
-                        Divider()
-                        // 显示实际存在的标签，按类型分组
-                        ForEach(uniqueTagTypes, id: \.self) { tagType in
-                            Menu(tagType.displayName) {
-                                // 显示该类型下的所有实际标签
-                                ForEach(tagsOfType(tagType), id: \.id) { tag in
-                                    Button(tag.value) {
-                                        store.selectTag(tag)
-                                        print("🏷️ 选择了标签: \(tag.type.displayName) - \(tag.value)")
-                                    }
-                                }
-                            }
-                        }
-                    } label: {
-                        HStack {
-                            Text(currentTagFilterDisplay)
-                            Image(systemName: "chevron.down")
-                        }
-                        .font(.caption)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(6)
-                    }
-                    
                     Menu {
                         ForEach(SortOption.allCases, id: \.self) { option in
                             Button(option.rawValue) { sortOption = option }
@@ -279,28 +249,6 @@ struct NodeListView: View {
     
     private var displayNodes: [Node] {
         return cachedDisplayNodes
-    }
-    
-    // 获取所有实际存在的唯一标签类型
-    private var uniqueTagTypes: [Tag.TagType] {
-        let allTagTypes = store.allTags.map { $0.type }
-        let uniqueTypes = Array(Set(allTagTypes))
-        // 按类型名称排序，确保consistent显示顺序
-        return uniqueTypes.sorted { $0.displayName < $1.displayName }
-    }
-    
-    // 获取指定类型的所有标签
-    private func tagsOfType(_ tagType: Tag.TagType) -> [Tag] {
-        return store.allTags.filter { $0.type == tagType }
-            .sorted { $0.value < $1.value } // 按值排序
-    }
-    
-    // 当前标签筛选显示文本
-    private var currentTagFilterDisplay: String {
-        if let selectedTag = store.selectedTag {
-            return "\(selectedTag.type.displayName): \(selectedTag.value)"
-        }
-        return "全部标签"
     }
     
     

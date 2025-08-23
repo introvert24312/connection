@@ -7,7 +7,7 @@
         "key": "标签",
         "location": {
           "startingColumn": 30,
-          "startingLine": 200
+          "startingLine": 261
         }
       },
       {
@@ -20,10 +20,34 @@
       },
       {
         "comment": "",
+        "key": "标签筛选",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 46
+        }
+      },
+      {
+        "comment": "",
+        "key": "清除筛选",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 52
+        }
+      },
+      {
+        "comment": "",
+        "key": "全部标签",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 63
+        }
+      },
+      {
+        "comment": "",
         "key": "搜索标签...",
         "location": {
           "startingColumn": 31,
-          "startingLine": 48
+          "startingLine": 109
         }
       },
       {
@@ -31,7 +55,7 @@
         "key": "选择标签类型",
         "location": {
           "startingColumn": 26,
-          "startingLine": 62
+          "startingLine": 123
         }
       },
       {
@@ -39,7 +63,7 @@
         "key": "搜索标签类型...",
         "location": {
           "startingColumn": 35,
-          "startingLine": 71
+          "startingLine": 132
         }
       },
       {
@@ -47,7 +71,7 @@
         "key": "已选择的标签类型",
         "location": {
           "startingColumn": 34,
-          "startingLine": 120
+          "startingLine": 181
         }
       },
       {
@@ -55,7 +79,7 @@
         "key": "%lld 种标签类型",
         "location": {
           "startingColumn": 38,
-          "startingLine": 136
+          "startingLine": 197
         }
       },
       {
@@ -63,7 +87,7 @@
         "key": "清空",
         "location": {
           "startingColumn": 40,
-          "startingLine": 142
+          "startingLine": 203
         }
       },
       {
@@ -71,7 +95,7 @@
         "key": "请选择标签类型",
         "location": {
           "startingColumn": 34,
-          "startingLine": 169
+          "startingLine": 230
         }
       },
       {
@@ -79,7 +103,7 @@
         "key": "选择上方的标签类型来查看相关标签",
         "location": {
           "startingColumn": 34,
-          "startingLine": 174
+          "startingLine": 235
         }
       },
       {
@@ -87,7 +111,7 @@
         "key": "(%lld)",
         "location": {
           "startingColumn": 26,
-          "startingLine": 584
+          "startingLine": 645
         }
       },
       {
@@ -95,7 +119,7 @@
         "key": "%lld",
         "location": {
           "startingColumn": 22,
-          "startingLine": 656
+          "startingLine": 717
         }
       },
       {
@@ -103,7 +127,7 @@
         "key": "%lld",
         "location": {
           "startingColumn": 26,
-          "startingLine": 727
+          "startingLine": 788
         }
       },
       {
@@ -111,7 +135,7 @@
         "key": "单词",
         "location": {
           "startingColumn": 26,
-          "startingLine": 731
+          "startingLine": 792
         }
       }
     ]
