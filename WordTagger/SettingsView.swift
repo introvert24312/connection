@@ -1843,6 +1843,8 @@ struct GitSyncSettingsView: View {
     @StateObject private var statusManager = GitSyncStatusManager.shared
     @State private var remoteURLInput: String = ""
     @State private var branchInput: String = "main"
+    @State private var githubUsername: String = ""
+    @State private var githubToken: String = ""
     @State private var showingSetupAlert = false
     @State private var showingConfirmDialog = false
     @State private var isGitEnabled: Bool = false
@@ -1854,6 +1856,7 @@ struct GitSyncSettingsView: View {
     @State private var lastCommitHash: String?
     @State private var totalSyncCount: Int = 0
     @State private var showingSyncHistory = false
+    @State private var showingTokenHelp = false
     
     var body: some View {
         ScrollView {
@@ -2004,6 +2007,34 @@ struct GitSyncSettingsView: View {
                                         .foregroundColor(.secondary)
                                 }
                                 
+                                // GitHub认证信息
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack {
+                                        Text("GitHub认证")
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
+                                        
+                                        Button("帮助") {
+                                            showingTokenHelp = true
+                                        }
+                                        .font(.caption)
+                                        .buttonStyle(.borderless)
+                                        .foregroundColor(.blue)
+                                    }
+                                    
+                                    TextField("GitHub用户名", text: $githubUsername)
+                                        .textFieldStyle(.roundedBorder)
+                                        .disabled(isGitEnabled)
+                                    
+                                    SecureField("Personal Access Token", text: $githubToken)
+                                        .textFieldStyle(.roundedBorder)
+                                        .disabled(isGitEnabled)
+                                    
+                                    Text("需要GitHub Personal Access Token进行认证")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                                
                                 // 分支名称
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("分支名称")
@@ -2031,6 +2062,13 @@ struct GitSyncSettingsView: View {
                                                 Text("仓库:")
                                                     .foregroundColor(.secondary)
                                                 Text(remoteURLInput)
+                                                    .font(.system(.caption, design: .monospaced))
+                                            }
+                                            
+                                            HStack {
+                                                Text("用户:")
+                                                    .foregroundColor(.secondary)
+                                                Text(githubUsername.isEmpty ? "未设置" : githubUsername)
                                                     .font(.system(.caption, design: .monospaced))
                                             }
                                             
@@ -2083,10 +2121,14 @@ struct GitSyncSettingsView: View {
                             } else {
                                 // 未配置时的设置按钮
                                 Button("设置GitHub同步") {
-                                    if !remoteURLInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                        setupGitRepository()
-                                    } else {
+                                    let repoURL = remoteURLInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                                    let username = githubUsername.trimmingCharacters(in: .whitespacesAndNewlines)
+                                    let token = githubToken.trimmingCharacters(in: .whitespacesAndNewlines)
+                                    
+                                    if repoURL.isEmpty || username.isEmpty || token.isEmpty {
                                         showingSetupAlert = true
+                                    } else {
+                                        setupGitRepository()
                                     }
                                 }
                                 .buttonStyle(.borderedProminent)
@@ -2182,8 +2224,13 @@ struct GitSyncSettingsView: View {
         .sheet(isPresented: $showingSyncHistory) {
             SyncHistoryView(history: syncHistory)
         }
-        .alert("请填入GitHub仓库URL", isPresented: $showingSetupAlert) {
+        .alert("请完整填写GitHub信息", isPresented: $showingSetupAlert) {
             Button("确定") { }
+        } message: {
+            Text("请填写GitHub仓库URL、用户名和Personal Access Token")
+        }
+        .sheet(isPresented: $showingTokenHelp) {
+            GitHubTokenHelpView()
         }
         .confirmationDialog("重新配置GitHub同步", isPresented: $showingConfirmDialog, titleVisibility: .visible) {
             Button("重新配置", role: .destructive) {
@@ -2209,6 +2256,8 @@ struct GitSyncSettingsView: View {
         isGitEnabled = userDefaults.bool(forKey: "WordTagger_GitEnabled")
         remoteURLInput = userDefaults.string(forKey: "WordTagger_GitRemoteURL") ?? ""
         branchInput = userDefaults.string(forKey: "WordTagger_GitBranch") ?? "main"
+        githubUsername = userDefaults.string(forKey: "WordTagger_GitUsername") ?? ""
+        githubToken = userDefaults.string(forKey: "WordTagger_GitToken") ?? ""
         totalSyncCount = userDefaults.integer(forKey: "WordTagger_TotalSyncCount")
         lastCommitHash = userDefaults.string(forKey: "WordTagger_LastCommitHash")
         
@@ -2239,6 +2288,8 @@ struct GitSyncSettingsView: View {
         userDefaults.set(isGitEnabled, forKey: "WordTagger_GitEnabled")
         userDefaults.set(remoteURLInput, forKey: "WordTagger_GitRemoteURL")
         userDefaults.set(branchInput, forKey: "WordTagger_GitBranch")
+        userDefaults.set(githubUsername, forKey: "WordTagger_GitUsername")
+        userDefaults.set(githubToken, forKey: "WordTagger_GitToken")
         userDefaults.set(totalSyncCount, forKey: "WordTagger_TotalSyncCount")
         
         if let lastSync = lastSyncTime {
@@ -2407,7 +2458,10 @@ struct GitSyncSettingsView: View {
                 
                 // 运行Git命令初始化仓库
                 try await runGitCommand(["init"], at: dataPath)
-                try await runGitCommand(["remote", "add", "origin", remoteURLInput.trimmingCharacters(in: .whitespacesAndNewlines)], at: dataPath)
+                
+                // 构建带认证的URL
+                let authenticatedURL = buildAuthenticatedURL()
+                try await runGitCommand(["remote", "add", "origin", authenticatedURL], at: dataPath)
                 
                 await MainActor.run {
                     print("✅ Git设置成功，更新UI状态...")
@@ -2615,6 +2669,8 @@ struct GitSyncSettingsView: View {
         isGitEnabled = false
         remoteURLInput = ""
         branchInput = "main"
+        githubUsername = ""
+        githubToken = ""
         lastError = nil
         saveSettings()
         updateSyncStatus()
@@ -2686,6 +2742,28 @@ struct GitSyncSettingsView: View {
                 continuation.resume(throwing: error)
             }
         }
+    }
+    
+    private func buildAuthenticatedURL() -> String {
+        let cleanURL = remoteURLInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanUsername = githubUsername.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanToken = githubToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // 如果URL已经包含认证信息，直接返回
+        if cleanURL.contains("@") {
+            return cleanURL
+        }
+        
+        // 构建认证URL: https://username:token@github.com/user/repo.git
+        if let url = URL(string: cleanURL),
+           let host = url.host,
+           !cleanUsername.isEmpty,
+           !cleanToken.isEmpty {
+            let pathAndQuery = url.path + (url.query.map { "?\($0)" } ?? "")
+            return "https://\(cleanUsername):\(cleanToken)@\(host)\(pathAndQuery)"
+        }
+        
+        return cleanURL
     }
 }
 
@@ -2824,6 +2902,161 @@ struct SyncRecordRow: View {
             Spacer()
         }
         .padding(.vertical, 4)
+    }
+}
+
+// MARK: - GitHub Token帮助视图
+
+struct GitHubTokenHelpView: View {
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // 标题栏
+            HStack {
+                Text("如何获取GitHub Personal Access Token")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                
+                Spacer()
+                
+                Button("关闭") {
+                    dismiss()
+                }
+                .buttonStyle(.bordered)
+            }
+            .padding()
+            .background(Color(NSColor.controlBackgroundColor))
+            
+            Divider()
+            
+            // 内容
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("步骤说明")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(alignment: .top) {
+                                Text("1.")
+                                    .fontWeight(.medium)
+                                    .frame(width: 20, alignment: .leading)
+                                Text("打开GitHub，点击右上角头像 → Settings")
+                            }
+                            
+                            HStack(alignment: .top) {
+                                Text("2.")
+                                    .fontWeight(.medium)
+                                    .frame(width: 20, alignment: .leading)
+                                Text("在左侧菜单中找到 Developer settings → Personal access tokens → Tokens (classic)")
+                            }
+                            
+                            HStack(alignment: .top) {
+                                Text("3.")
+                                    .fontWeight(.medium)
+                                    .frame(width: 20, alignment: .leading)
+                                Text("点击 \"Generate new token (classic)\"")
+                            }
+                            
+                            HStack(alignment: .top) {
+                                Text("4.")
+                                    .fontWeight(.medium)
+                                    .frame(width: 20, alignment: .leading)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("填写Token信息：")
+                                    Text("• Note: 给Token起个名字，如 \"WordTagger Sync\"")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Text("• Expiration: 建议选择1年")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Text("• Scopes: 勾选 \"repo\" (完整仓库访问权限)")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            
+                            HStack(alignment: .top) {
+                                Text("5.")
+                                    .fontWeight(.medium)
+                                    .frame(width: 20, alignment: .leading)
+                                Text("点击 \"Generate token\" 并立即复制生成的Token")
+                            }
+                            
+                            HStack(alignment: .top) {
+                                Text("6.")
+                                    .fontWeight(.medium)
+                                    .frame(width: 20, alignment: .leading)
+                                Text("将复制的Token粘贴到WordTagger的 \"Personal Access Token\" 字段")
+                            }
+                        }
+                    }
+                    
+                    Divider()
+                    
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("⚠️ 安全提醒")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.orange)
+                        
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("• Token生成后只显示一次，请立即复制保存")
+                                .font(.body)
+                            Text("• 不要将Token分享给其他人")
+                                .font(.body)
+                            Text("• Token具有完整的仓库访问权限，请妥善保管")
+                                .font(.body)
+                            Text("• 如果Token泄露，请立即到GitHub删除并重新生成")
+                                .font(.body)
+                        }
+                        .foregroundColor(.secondary)
+                    }
+                    
+                    Divider()
+                    
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("📖 使用说明")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                        
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("配置完成后，WordTagger将能够：")
+                                .font(.body)
+                            Text("• 自动将你的学习数据推送到GitHub仓库")
+                                .font(.body)
+                            Text("• 从GitHub拉取最新的数据更新")
+                                .font(.body)
+                            Text("• 实现多设备间的数据同步")
+                                .font(.body)
+                        }
+                        .foregroundColor(.secondary)
+                    }
+                    
+                    // 快捷按钮
+                    HStack {
+                        Button("在浏览器中打开GitHub设置") {
+                            if let url = URL(string: "https://github.com/settings/tokens") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        
+                        Spacer()
+                        
+                        Button("关闭") {
+                            dismiss()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    .padding(.top)
+                }
+                .padding()
+            }
+        }
+        .frame(width: 600, height: 500)
     }
 }
 
