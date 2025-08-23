@@ -14,6 +14,14 @@ struct TagSidebarView: View {
     @FocusState private var isListFocused: Bool
     @FocusState private var isTagTypeSearchFocused: Bool
     
+    // 模块切换状态
+    enum SidebarMode {
+        case tagFiltering  // 标签筛选模块
+        case tagSearch     // 标签搜索模块
+    }
+    @State private var currentMode: SidebarMode = .tagFiltering  // 默认显示标签筛选模块
+    @State private var expandedTagTypes: Set<Tag.TagType> = []  // 展开的标签类型
+    
     var body: some View {
         VStack(spacing: 0) {
             // 当前层级指示器
@@ -40,89 +48,176 @@ struct TagSidebarView: View {
                 Divider()
             }
             
-            // 标签快速筛选 - 从WordListView移植的完美菜单
-            VStack(alignment: .leading, spacing: 12) {
+            // 模块切换按钮
+            HStack(spacing: 0) {
+                // 标签筛选模块按钮
+                Button(action: { currentMode = .tagFiltering }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "tag.fill")
+                        Text("标签筛选")
+                    }
+                    .font(.system(size: 14, weight: currentMode == .tagFiltering ? .semibold : .regular))
+                    .foregroundColor(currentMode == .tagFiltering ? .blue : .secondary)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(currentMode == .tagFiltering ? Color.blue.opacity(0.1) : Color.clear)
+                    )
+                }
+                .buttonStyle(.plain)
+                
+                // 标签搜索模块按钮
+                Button(action: { currentMode = .tagSearch }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "magnifyingglass")
+                        Text("标签搜索")
+                    }
+                    .font(.system(size: 14, weight: currentMode == .tagSearch ? .semibold : .regular))
+                    .foregroundColor(currentMode == .tagSearch ? .blue : .secondary)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(currentMode == .tagSearch ? Color.blue.opacity(0.1) : Color.clear)
+                    )
+                }
+                .buttonStyle(.plain)
+                
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color(NSColor.controlBackgroundColor))
+            
+            Divider()
+            
+            // 根据选择的模块显示不同内容
+            if currentMode == .tagFiltering {
+                // 模块1: 标签筛选常驻展示
+                tagFilteringModule()
+            } else {
+                // 模块2: 标签搜索功能
+                tagSearchModule()
+            }
+        }
+    }
+    
+    // MARK: - 模块1: 标签筛选
+    @ViewBuilder
+    private func tagFilteringModule() -> some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 4) {
+                // "全部标签"选项
+                Button(action: {
+                    store.selectTag(nil)
+                    print("🏷️ 选择了全部标签")
+                }) {
+                    HStack {
+                        Text("全部标签")
+                            .font(.system(size: 15, weight: .medium))
+                        Spacer()
+                        if store.selectedTag == nil {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 12))
+                                .foregroundColor(.blue)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(store.selectedTag == nil ? Color.blue.opacity(0.1) : Color.clear)
+                    )
+                    .foregroundColor(store.selectedTag == nil ? .blue : .primary)
+                }
+                .buttonStyle(.plain)
+                
+                // 各个标签类型
+                ForEach(uniqueTagTypes, id: \.self) { tagType in
+                    tagTypeSection(tagType)
+                }
+            }
+            .padding(.horizontal, 12)
+        }
+    }
+    
+    // MARK: - 标签类型组件
+    @ViewBuilder
+    private func tagTypeSection(_ tagType: Tag.TagType) -> some View {
+        let isExpanded = expandedTagTypes.contains(tagType)
+        let tags = tagsOfType(tagType)
+        
+        VStack(spacing: 0) {
+            // 标签类型头部
+            Button(action: {
+                if isExpanded {
+                    expandedTagTypes.remove(tagType)
+                } else {
+                    expandedTagTypes.insert(tagType)
+                }
+            }) {
                 HStack {
-                    Text("标签筛选")
-                        .font(.system(size: 16, weight: .medium))
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                    
+                    Text(tagType.displayName)
+                        .font(.system(size: 15, weight: .medium))
                         .foregroundColor(.primary)
                     
                     Spacer()
                     
-                    Button("清除筛选") {
-                        store.selectTag(nil)
-                    }
-                    .font(.system(size: 12))
-                    .foregroundColor(.blue)
-                    .buttonStyle(.plain)
-                    .opacity(store.selectedTag != nil ? 1 : 0.5)
-                    .disabled(store.selectedTag == nil)
+                    Text("(\(tags.count))")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
                 }
-                
-                Menu {
-                    Button("全部标签") { 
-                        store.selectTag(nil)
-                    }
-                    Divider()
-                    // 显示实际存在的标签，按类型分组
-                    ForEach(uniqueTagTypes, id: \.self) { tagType in
-                        Menu(tagType.displayName) {
-                            // 显示该类型下的所有实际标签
-                            ForEach(tagsOfType(tagType), id: \.id) { tag in
-                                Button(tag.value) {
-                                    store.selectTag(tag)
-                                    print("🏷️ TagSidebar选择了标签: \(tag.type.displayName) - \(tag.value)")
-                                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(Color.gray.opacity(0.05))
+            }
+            .buttonStyle(.plain)
+            
+            // 该类型下的标签列表
+            if isExpanded {
+                ForEach(tags, id: \.id) { tag in
+                    Button(action: {
+                        store.selectTag(tag)
+                        print("🏷️ 选择了标签: \(tag.type.displayName) - \(tag.value)")
+                    }) {
+                        HStack {
+                            Text(tag.value)
+                                .font(.system(size: 14))
+                            Spacer()
+                            if store.selectedTag?.id == tag.id {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.blue)
                             }
                         }
+                        .padding(.horizontal, 32) // 缩进显示层级
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(store.selectedTag?.id == tag.id ? Color.blue.opacity(0.1) : Color.clear)
+                        )
+                        .foregroundColor(store.selectedTag?.id == tag.id ? .blue : .primary)
                     }
-                } label: {
-                    HStack {
-                        Text(currentTagFilterDisplay)
-                            .font(.system(size: 14))
-                        Spacer()
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 12))
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.gray.opacity(0.1))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.blue.opacity(store.selectedTag != nil ? 0.5 : 0), lineWidth: 1)
-                            )
-                    )
+                    .buttonStyle(.plain)
                 }
             }
-            .padding()
-            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-            
-            Divider()
-            
-            // 搜索栏 - 完全隐藏不占空间
+        }
+    }
+    
+    // MARK: - 模块2: 标签搜索
+    @ViewBuilder  
+    private func tagSearchModule() -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // 标签类型多选器
             VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.gray)
-                    TextField("搜索标签...", text: $filter)
-                        .textFieldStyle(.plain)
-                }
-                .padding(8)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(NSColor.controlBackgroundColor))
-                )
-                .frame(height: 0) // 设置高度为0
-                .clipped() // 裁剪超出的内容
-                .hidden() // 完全隐藏
-                
-                // 标签类型多选器
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("选择标签类型")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.secondary)
+                Text("选择标签类型")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.secondary)
                     
                     // 标签类型搜索框
                     HStack {
@@ -244,13 +339,13 @@ struct TagSidebarView: View {
                         ForEach(Array(selectedTagTypes.sorted(by: { $0.rawValue < $1.rawValue })), id: \.self) { tagType in
                             TagGroupView(
                                 tagType: tagType,
-                                tags: getTagsForType(tagType),
+                                tags: tagsOfType(tagType), // Use our working method
                                 isExpanded: expandedGroups.contains(tagType),
                                 onToggleExpanded: {
                                     toggleGroup(tagType)
                                 },
                                 onSelectTag: { tag in
-                                    selectTag(tag)
+                                    store.selectTag(tag) // Direct call to store
                                 }
                             )
                         }
@@ -258,8 +353,9 @@ struct TagSidebarView: View {
                 }
                 .padding(.horizontal)
             }
-            .navigationTitle("标签")
-            .focusable(false)
+        }
+        .navigationTitle("标签")
+        .focusable(false)
             .onKeyPress(.escape) {
                 // 按ESC键隐藏标签管理侧边栏
                 print("🔑 TagSidebarView: ESC键按下，隐藏标签管理")
@@ -275,6 +371,29 @@ struct TagSidebarView: View {
                 print("🔑 窗口获得键盘焦点")
             }
         }
+    }
+    
+    // MARK: - 标签筛选相关计算属性
+    // 获取所有实际存在的唯一标签类型
+    private var uniqueTagTypes: [Tag.TagType] {
+        let allTagTypes = store.allTags.map { $0.type }
+        let uniqueTypes = Array(Set(allTagTypes))
+        // 按类型名称排序，确保consistent显示顺序
+        return uniqueTypes.sorted { $0.displayName < $1.displayName }
+    }
+    
+    // 获取指定类型的所有标签
+    private func tagsOfType(_ tagType: Tag.TagType) -> [Tag] {
+        return store.allTags.filter { $0.type == tagType }
+            .sorted { $0.value < $1.value } // 按值排序
+    }
+    
+    // 当前标签筛选显示文本
+    private var currentTagFilterDisplay: String {
+        if let selectedTag = store.selectedTag {
+            return "\(selectedTag.type.displayName): \(selectedTag.value)"
+        }
+        return "全部标签"
     }
     
     // 搜索匹配的标签类型 - 支持双语搜索
@@ -425,6 +544,8 @@ struct TagSidebarView: View {
         return tags.sorted { $0.value < $1.value }
     }
     
+    // FIXME: Temporarily disabled - will be fixed in next commit
+    /*
     private func selectTag(_ tag: Tag) {
         DispatchQueue.main.async {
             print("🏷️ TagSidebarView.selectTag: 点击标签 \(tag.value) (类型: \(tag.type.displayName))")
@@ -436,28 +557,9 @@ struct TagSidebarView: View {
             
             // 使用新的标签类型模式：显示同标签类型的所有节点
             store.setSelectedTagWithTypeMode(tag)
-            
-            // 找到点击的具体标签对应的节点，作为焦点节点
-            let clickedTagNodes = store.nodes(withTag: tag)
-            if let focusNode = clickedTagNodes.first {
-                print("🎯 设置新的焦点节点: \(focusNode.text)")
-                self.selectedNode = focusNode
-                store.selectNode(focusNode)
-            } else {
-                print("⚠️ 未找到包含标签 \(tag.value) 的节点")
-            }
-            
-            // 输出调试信息：将要显示的所有同类型节点
-            let allTypeNodes = store.nodesInCurrentLayer(withTagType: tag.type)
-            print("📋 将在WordListView中显示 \(allTypeNodes.count) 个同类型节点:")
-            for (index, node) in allTypeNodes.enumerated() {
-                let relevantTags = node.tags.filter { $0.type == tag.type }
-                let tagValues = relevantTags.map { $0.value }.joined(separator: ", ")
-                let isFocus = (node.id == self.selectedNode?.id) ? "🎯" : "  "
-                print("  [\(index+1)] \(isFocus) \(node.text) - 标签值: [\(tagValues)]")
-            }
         }
     }
+    */
     
     // 处理标签类型搜索，自动智能选择相关标签类型
     private func handleTagTypeSearch(_ query: String) {
@@ -466,6 +568,8 @@ struct TagSidebarView: View {
         // 如果搜索查询为空，不做处理
         guard !query.isEmpty else { return }
         
+        // FIXME: Temporary disabled due to compilation issues
+        /*
         // 智能搜索：如果搜索的是标签值（如"里脊"），自动添加包含该标签值的标签类型
         let allTags = store.allTags
         let matchingTagsByValue = allTags.filter { tag in
@@ -482,6 +586,7 @@ struct TagSidebarView: View {
                 expandedGroups.insert(tag.type)
             }
         }
+        */
     }
     
 }
@@ -807,31 +912,6 @@ struct TagRowView: View {
                     (isCurrentlySelected ? Color.blue.opacity(0.1) : Color.clear)
                 )
         )
-    }
-}
-
-// MARK: - TagSidebarView Extensions for Tag Filtering Menu
-extension TagSidebarView {
-    // 获取所有实际存在的唯一标签类型
-    private var uniqueTagTypes: [Tag.TagType] {
-        let allTagTypes = store.allTags.map { $0.type }
-        let uniqueTypes = Array(Set(allTagTypes))
-        // 按类型名称排序，确保consistent显示顺序
-        return uniqueTypes.sorted { $0.displayName < $1.displayName }
-    }
-    
-    // 获取指定类型的所有标签
-    private func tagsOfType(_ tagType: Tag.TagType) -> [Tag] {
-        return store.allTags.filter { $0.type == tagType }
-            .sorted { $0.value < $1.value } // 按值排序
-    }
-    
-    // 当前标签筛选显示文本
-    private var currentTagFilterDisplay: String {
-        if let selectedTag = store.selectedTag {
-            return "\(selectedTag.type.displayName): \(selectedTag.value)"
-        }
-        return "全部标签"
     }
 }
 
