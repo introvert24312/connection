@@ -1842,7 +1842,7 @@ struct GitSyncSettingsView: View {
     @StateObject private var dataManager = ExternalDataManager.shared
     @StateObject private var statusManager = GitSyncStatusManager.shared
     @State private var remoteURLInput: String = ""
-    @State private var branchInput: String = "main"
+    @State private var branchInput: String = "master"
     @State private var githubUsername: String = ""
     @State private var githubToken: String = ""
     @State private var showingSetupAlert = false
@@ -2041,7 +2041,7 @@ struct GitSyncSettingsView: View {
                                         .font(.subheadline)
                                         .fontWeight(.medium)
                                     
-                                    TextField("main", text: $branchInput)
+                                    TextField("master", text: $branchInput)
                                         .textFieldStyle(.roundedBorder)
                                         .disabled(isGitEnabled)
                                 }
@@ -2255,7 +2255,7 @@ struct GitSyncSettingsView: View {
         let userDefaults = UserDefaults.standard
         isGitEnabled = userDefaults.bool(forKey: "WordTagger_GitEnabled")
         remoteURLInput = userDefaults.string(forKey: "WordTagger_GitRemoteURL") ?? ""
-        branchInput = userDefaults.string(forKey: "WordTagger_GitBranch") ?? "main"
+        branchInput = userDefaults.string(forKey: "WordTagger_GitBranch") ?? "master"
         githubUsername = userDefaults.string(forKey: "WordTagger_GitUsername") ?? ""
         githubToken = userDefaults.string(forKey: "WordTagger_GitToken") ?? ""
         totalSyncCount = userDefaults.integer(forKey: "WordTagger_TotalSyncCount")
@@ -2668,7 +2668,7 @@ struct GitSyncSettingsView: View {
     private func disableGit() {
         isGitEnabled = false
         remoteURLInput = ""
-        branchInput = "main"
+        branchInput = "master"
         githubUsername = ""
         githubToken = ""
         lastError = nil
