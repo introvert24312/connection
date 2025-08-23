@@ -164,12 +164,8 @@ public struct Node: Identifiable, Hashable, Codable {
     /// 格式：节点名 标签类型1 标签值1 标签类型2 标签值2 ...  # type1=展示名1, type2=展示名2
     /// 对于复合节点，使用简洁的 "c 复合节点名 子节点1 子节点2" 格式
     public var canonicalCommandRepresentation: String {
-        print("🔍 [canonicalCommandRepresentation] 开始生成节点 '\(text)' 的规范化命令")
-        
-        // 🔧 特殊处理复合节点：使用简洁的 c 格式
+        // 特殊处理复合节点：使用简洁的 c 格式
         if isCompound {
-            print("🔍 [canonicalCommandRepresentation] 检测到复合节点，使用简洁格式")
-            
             // 提取所有子节点引用
             let childNodes = tags.compactMap { tag -> String? in
                 if case .custom(let key) = tag.type, key == "child" {
@@ -179,25 +175,20 @@ public struct Node: Identifiable, Hashable, Codable {
             }
             
             if !childNodes.isEmpty {
-                let result = "c \(text) \(childNodes.joined(separator: " "))"
-                print("🔍 [canonicalCommandRepresentation] 复合节点简洁格式: '\(result)'")
-                return result
+                return "c \(text) \(childNodes.joined(separator: " "))"
             }
         }
         
         var components = [text]
-        var usedTagTypes = Set<String>()
         
         // 按标签类型分组
         let groupedTags = Dictionary(grouping: tags) { $0.type }
-        print("🔍 [canonicalCommandRepresentation] 标签分组完成，共 \(groupedTags.count) 个类型")
         
         // 按标签类型的rawValue排序，确保输出一致
         let sortedTagTypes = groupedTags.keys.sorted { $0.rawValue < $1.rawValue }
         
         for tagType in sortedTagTypes {
             let tagsOfType = groupedTags[tagType] ?? []
-            print("🔍 [canonicalCommandRepresentation] 处理标签类型: \(tagType.rawValue), 显示名: '\(tagType.displayName)', 标签数量: \(tagsOfType.count)")
             
             for tag in tagsOfType.sorted(by: { $0.value < $1.value }) {
                 // 获取原始的标签key，而不是displayName
@@ -214,12 +205,10 @@ public struct Node: Identifiable, Hashable, Codable {
                     if let mapping = tagManager.tagMappings.first(where: { $0.key == customKey }) {
                         displayName = mapping.typeName
                         shouldUseRenameFormat = (displayName != tagCode)
-                        print("🔍 [canonicalCommandRepresentation] 自定义标签映射: key=\(tagCode) -> typeName=\(displayName)")
                     } else {
                         // 如果找不到映射，使用customKey作为fallback
                         displayName = customKey
                         shouldUseRenameFormat = false
-                        print("⚠️ [canonicalCommandRepresentation] 未找到key '\(customKey)' 的映射，使用key作为displayName")
                     }
                 } else {
                     // 对于预定义标签类型，直接使用rawValue
@@ -231,23 +220,15 @@ public struct Node: Identifiable, Hashable, Codable {
                 // 使用重命名格式 key[displayName] 或简单格式 key
                 if shouldUseRenameFormat {
                     components.append("\(tagCode)[\(displayName)]")
-                    print("🔍 [canonicalCommandRepresentation] 添加重命名格式标签: \(tagCode)[\(displayName)] \(tag.value)")
                 } else {
                     components.append(tagCode)
-                    print("🔍 [canonicalCommandRepresentation] 添加简单格式标签: \(tagCode) \(tag.value)")
                 }
                 
                 components.append(quoteValueIfNeeded(tag.value))
-                
-                // 不再需要注释映射，因为已经包含在重命名格式中
-                usedTagTypes.insert(tagCode)
             }
         }
         
-        let result = components.joined(separator: " ")
-        
-        print("🔍 [canonicalCommandRepresentation] 最终结果: '\(result)'")
-        return result
+        return components.joined(separator: " ")
     }
     
     /// 给包含空格的值添加引号
@@ -293,27 +274,19 @@ public struct Node: Identifiable, Hashable, Codable {
     /// 格式：节点名 标签类型1 标签值1 标签类型2 标签值2 ...
     /// 支持内联改名：类型[展示名] 值 - 会更新该类型的全局展示名
     public static func fromCommandLine(_ commandLine: String, layerId: UUID) -> Node? {
-        print("🔍 [fromCommandLine] 开始解析命令: '\(commandLine)'")
-        
         // 移除行内注释
         let cleanCommandLine = removeInlineComments(commandLine)
-        print("🔍 [fromCommandLine] 清理后命令: '\(cleanCommandLine)'")
         
         let components = cleanCommandLine.trimmingCharacters(in: .whitespacesAndNewlines)
             .components(separatedBy: " ")
             .filter { !$0.isEmpty }
         
-        print("🔍 [fromCommandLine] 分割后组件: \(components)")
-        
         guard !components.isEmpty else { 
-            print("🔍 [fromCommandLine] 组件为空，返回nil")
             return nil 
         }
         
         let nodeName = components[0]
         var tags: [Tag] = []
-        
-        print("🔍 [fromCommandLine] 节点名: '\(nodeName)'")
         
         // 解析标签：每两个组件为一对（类型，值）
         var i = 1
@@ -321,15 +294,11 @@ public struct Node: Identifiable, Hashable, Codable {
             let tagTypeString = components[i]
             let tagValue = unquoteValue(components[i + 1])
             
-            print("🔍 [fromCommandLine] 解析标签: tagTypeString='\(tagTypeString)', tagValue='\(tagValue)'")
-            
             // 解析类型和可能的展示名
             let (tagCode, displayName) = parseTagTypeWithDisplayName(tagTypeString)
-            print("🔍 [fromCommandLine] 解析结果: tagCode='\(tagCode)', displayName=\(displayName ?? "nil")")
             
             // 如果有展示名，更新全局映射
             if let displayName = displayName {
-                print("🔍 [fromCommandLine] 更新全局映射: \(tagCode) -> \(displayName)")
                 updateTagDisplayName(tagCode: tagCode, displayName: displayName)
             }
             
@@ -340,8 +309,6 @@ public struct Node: Identifiable, Hashable, Codable {
                 tagType = .custom(tagCode)
             }
             
-            print("🔍 [fromCommandLine] 创建标签类型: \(tagType), rawValue=\(tagType.rawValue), displayName='\(tagType.displayName)'")
-            
             let tag = Tag(type: tagType, value: tagValue)
             tags.append(tag)
             
@@ -349,7 +316,6 @@ public struct Node: Identifiable, Hashable, Codable {
         }
         
         let result = Node(text: nodeName, layerId: layerId, tags: tags)
-        print("🔍 [fromCommandLine] 创建节点完成，标签数量: \(tags.count)")
         return result
     }
     
@@ -543,22 +509,17 @@ public struct Tag: Identifiable, Hashable, Codable {
         public var displayName: String {
             switch self {
             case .location: 
-                print("🏷️ [displayName] location类型 -> 地点")
                 return "地点"
             case .custom(let key): 
                 // 从TagMappingManager获取最新的typeName
                 let tagManager = TagMappingManager.shared
                 let normalizedKey = key.lowercased() // 使用规范化的key进行查找
-                print("🏷️ [displayName] 查找custom类型映射: key='\(key)', normalizedKey='\(normalizedKey)'")
                 
                 if let mapping = tagManager.tagMappings.first(where: { $0.key == normalizedKey }) {
-                    print("🏷️ [displayName] 找到映射: '\(key)' -> '\(mapping.typeName)'")
                     return mapping.typeName
                 } else {
-                    print("🏷️ [displayName] 未找到映射，使用原key: '\(key)'")
-                    print("🏷️ [displayName] 当前所有映射: \(tagManager.tagMappings.map { "\($0.key)->\($0.typeName)" })")
+                    return key // fallback to key if not found
                 }
-                return key // fallback to key if not found
             }
         }
         
@@ -663,14 +624,8 @@ public struct Tag: Identifiable, Hashable, Codable {
         return false
     }
     
-    // 显示名称：如果value包含[显示名]格式，则返回[]内的内容，否则返回原value
+    // 显示名称：直接返回完整的标签值，不进行任何解析
     public var displayName: String {
-        if let startIndex = value.firstIndex(of: "["),
-           let endIndex = value.firstIndex(of: "]"),
-           startIndex < endIndex {
-            let displayName = String(value[value.index(after: startIndex)..<endIndex])
-            return displayName.isEmpty ? value : displayName
-        }
         return value
     }
     

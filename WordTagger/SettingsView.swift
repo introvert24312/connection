@@ -3,6 +3,294 @@ import CoreLocation
 import MapKit
 import UniformTypeIdentifiers
 
+// MARK: - GitHub同步状态管理器
+
+@MainActor
+public class GitSyncStatusManager: ObservableObject {
+    @Published public var isEnabled: Bool = false
+    @Published public var isWorking: Bool = false
+    @Published public var status: String = "未配置"
+    @Published public var lastSyncTime: Date?
+    @Published public var lastError: String?
+    @Published public var totalSyncCount: Int = 0
+    
+    public static let shared = GitSyncStatusManager()
+    
+    private init() {
+        loadStatus()
+    }
+    
+    // MARK: - 状态更新
+    
+    public func updateStatus(
+        isEnabled: Bool? = nil,
+        isWorking: Bool? = nil,
+        status: String? = nil,
+        lastSyncTime: Date? = nil,
+        lastError: String? = nil,
+        totalSyncCount: Int? = nil
+    ) {
+        if let isEnabled = isEnabled { self.isEnabled = isEnabled }
+        if let isWorking = isWorking { self.isWorking = isWorking }
+        if let status = status { self.status = status }
+        if let lastSyncTime = lastSyncTime { self.lastSyncTime = lastSyncTime }
+        if let lastError = lastError { self.lastError = lastError }
+        if let totalSyncCount = totalSyncCount { self.totalSyncCount = totalSyncCount }
+        
+        saveStatus()
+        
+        print("🔄 GitSyncStatusManager状态更新:")
+        print("   - isEnabled: \(self.isEnabled)")
+        print("   - isWorking: \(self.isWorking)")
+        print("   - status: \(self.status)")
+        print("   - totalSyncCount: \(self.totalSyncCount)")
+    }
+    
+    public func startWorking(operation: String) {
+        isWorking = true
+        status = operation
+        lastError = nil
+        print("🟡 GitHub同步开始: \(operation)")
+    }
+    
+    public func finishWorking(success: Bool, finalStatus: String, error: String? = nil) {
+        isWorking = false
+        status = finalStatus
+        if success {
+            lastSyncTime = Date()
+            totalSyncCount += 1
+            lastError = nil
+            print("🟢 GitHub同步完成: \(finalStatus)")
+        } else {
+            lastError = error
+            print("🔴 GitHub同步失败: \(error ?? "未知错误")")
+        }
+        saveStatus()
+    }
+    
+    // MARK: - 状态计算
+    
+    public var statusColor: Color {
+        if !isEnabled {
+            return .secondary
+        } else if isWorking {
+            return .orange
+        } else if lastError != nil {
+            return .red
+        } else {
+            return .green
+        }
+    }
+    
+    public var statusIcon: String {
+        if !isEnabled {
+            return "externaldrive.badge.questionmark"
+        } else if isWorking {
+            return "externaldrive.badge.timemachine"
+        } else if lastError != nil {
+            return "externaldrive.badge.xmark"
+        } else {
+            return "externaldrive.badge.checkmark"
+        }
+    }
+    
+    public var displayStatus: String {
+        if !isEnabled {
+            return "GitHub同步未配置"
+        } else if isWorking {
+            return status
+        } else if let error = lastError {
+            return "同步错误: \(error)"
+        } else {
+            return "GitHub同步就绪"
+        }
+    }
+    
+    // MARK: - 持久化
+    
+    private func loadStatus() {
+        let userDefaults = UserDefaults.standard
+        isEnabled = userDefaults.bool(forKey: "GitSync_IsEnabled")
+        status = userDefaults.string(forKey: "GitSync_Status") ?? "未配置"
+        totalSyncCount = userDefaults.integer(forKey: "GitSync_TotalCount")
+        
+        if let lastSync = userDefaults.object(forKey: "GitSync_LastSyncTime") as? Date {
+            lastSyncTime = lastSync
+        }
+        
+        lastError = userDefaults.string(forKey: "GitSync_LastError")
+    }
+    
+    private func saveStatus() {
+        let userDefaults = UserDefaults.standard
+        userDefaults.set(isEnabled, forKey: "GitSync_IsEnabled")
+        userDefaults.set(status, forKey: "GitSync_Status")
+        userDefaults.set(totalSyncCount, forKey: "GitSync_TotalCount")
+        
+        if let lastSync = lastSyncTime {
+            userDefaults.set(lastSync, forKey: "GitSync_LastSyncTime")
+        }
+        
+        userDefaults.set(lastError, forKey: "GitSync_LastError")
+    }
+}
+
+// MARK: - GitHub同步状态指示器组件
+
+struct GitSyncStatusIndicator: View {
+    @StateObject private var statusManager = GitSyncStatusManager.shared
+    @State private var showingTooltip = false
+    
+    var body: some View {
+        HStack(spacing: 6) {
+            // 状态圆点
+            Circle()
+                .fill(statusManager.statusColor)
+                .frame(width: 8, height: 8)
+                .scaleEffect(statusManager.isWorking ? 1.2 : 1.0)
+                .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), 
+                          value: statusManager.isWorking)
+            
+            // 状态图标
+            Image(systemName: statusManager.statusIcon)
+                .font(.caption)
+                .foregroundColor(statusManager.statusColor)
+                .rotationEffect(.degrees(statusManager.isWorking ? 360 : 0))
+                .animation(.linear(duration: 2).repeatForever(autoreverses: false), 
+                          value: statusManager.isWorking)
+            
+            // 状态文本（可选）
+            if statusManager.isWorking {
+                Text(statusManager.status)
+                    .font(.caption2)
+                    .foregroundColor(statusManager.statusColor)
+                    .lineLimit(1)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(statusManager.statusColor.opacity(0.1))
+        .cornerRadius(8)
+        .onTapGesture {
+            showingTooltip.toggle()
+        }
+        .help(statusManager.displayStatus)
+        .popover(isPresented: $showingTooltip) {
+            GitSyncStatusPopover()
+        }
+    }
+}
+
+// MARK: - 状态详情弹出框
+
+struct GitSyncStatusPopover: View {
+    @StateObject private var statusManager = GitSyncStatusManager.shared
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // 标题
+            HStack {
+                Image(systemName: statusManager.statusIcon)
+                    .foregroundColor(statusManager.statusColor)
+                Text("GitHub同步状态")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+                
+                Button("×") {
+                    dismiss()
+                }
+                .font(.title2)
+                .foregroundColor(.secondary)
+                .buttonStyle(.plain)
+            }
+            
+            Divider()
+            
+            // 当前状态
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Circle()
+                        .fill(statusManager.statusColor)
+                        .frame(width: 10, height: 10)
+                    
+                    Text(statusManager.displayStatus)
+                        .font(.body)
+                        .fontWeight(.medium)
+                }
+                
+                if let lastSync = statusManager.lastSyncTime {
+                    Text("上次同步: \(formatTime(lastSync))")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                if statusManager.totalSyncCount > 0 {
+                    Text("总同步次数: \(statusManager.totalSyncCount)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            // 快速操作
+            if statusManager.isEnabled && !statusManager.isWorking {
+                Divider()
+                
+                HStack {
+                    Text("快速操作:")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    Button("打开设置") {
+                        // 这里可以添加打开设置的逻辑
+                        dismiss()
+                    }
+                    .font(.caption)
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
+                }
+            }
+        }
+        .padding()
+        .frame(width: 250)
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.dateTimeStyle = .named
+        return formatter.localizedString(for: date, relativeTo: Date())
+    }
+}
+
+// MARK: - 紧凑状态指示器（用于工具栏）
+
+struct CompactGitSyncIndicator: View {
+    @StateObject private var statusManager = GitSyncStatusManager.shared
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(statusManager.statusColor)
+                .frame(width: 6, height: 6)
+                .scaleEffect(statusManager.isWorking ? 1.3 : 1.0)
+                .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), 
+                          value: statusManager.isWorking)
+            
+            if statusManager.isEnabled {
+                Text("\(statusManager.totalSyncCount)")
+                    .font(.caption2)
+                    .foregroundColor(statusManager.statusColor)
+                    .fontWeight(.medium)
+            }
+        }
+        .help(statusManager.displayStatus)
+    }
+}
+
 struct SettingsView: View {
     @EnvironmentObject private var store: NodeStore
     @AppStorage("searchThreshold") private var searchThreshold: Double = 0.3
@@ -40,10 +328,10 @@ struct SettingsView: View {
                     Label("数据", systemImage: "externaldrive")
                 }
             
-            // Git 集成 - temporarily disabled due to compilation issues
-            Text("Git Settings - Coming Soon")
+            // Git 同步
+            GitSyncSettingsView()
                 .tabItem {
-                    Label("Git", systemImage: "externaldrive.connected.to.line.below")
+                    Label("GitHub同步", systemImage: "externaldrive.connected.to.line.below")
                 }
             
             // 关于
@@ -1546,7 +1834,997 @@ struct DataFolderSetupView: View {
         formatter.timeStyle = .short
         return formatter.string(from: date)
     }
+}
+
+// MARK: - GitHub同步设置
+
+struct GitSyncSettingsView: View {
+    @StateObject private var dataManager = ExternalDataManager.shared
+    @StateObject private var statusManager = GitSyncStatusManager.shared
+    @State private var remoteURLInput: String = ""
+    @State private var branchInput: String = "main"
+    @State private var showingSetupAlert = false
+    @State private var showingConfirmDialog = false
+    @State private var isGitEnabled: Bool = false
+    @State private var syncStatus: String = "未配置"
+    @State private var isWorking: Bool = false
+    @State private var lastSyncTime: Date?
+    @State private var lastError: String?
+    @State private var syncHistory: [SyncRecord] = []
+    @State private var lastCommitHash: String?
+    @State private var totalSyncCount: Int = 0
+    @State private var showingSyncHistory = false
     
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                
+                // 状态概览
+                GroupBox("GitHub同步状态") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Circle()
+                                .fill(isGitEnabled ? (isWorking ? .orange : .green) : .secondary)
+                                .frame(width: 8, height: 8)
+                            
+                            Text(syncStatus)
+                                .font(.body)
+                                .fontWeight(.medium)
+                            
+                            Spacer()
+                            
+                            if isWorking {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                            } else if isGitEnabled {
+                                Button("查看历史") {
+                                    showingSyncHistory = true
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            }
+                        }
+                        
+                        // 详细统计信息
+                        if isGitEnabled {
+                            Divider()
+                            
+                            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 6) {
+                                GridRow {
+                                    Text("总同步次数:")
+                                        .foregroundColor(.secondary)
+                                        .font(.caption)
+                                    Text("\(totalSyncCount) 次")
+                                        .font(.caption)
+                                        .fontWeight(.medium)
+                                    
+                                    if let lastSync = lastSyncTime {
+                                        Text("上次同步:")
+                                            .foregroundColor(.secondary)
+                                            .font(.caption)
+                                        Text(formatDateTime(lastSync))
+                                            .font(.caption)
+                                            .fontWeight(.medium)
+                                    }
+                                }
+                                
+                                if let commitHash = lastCommitHash {
+                                    GridRow {
+                                        Text("最新提交:")
+                                            .foregroundColor(.secondary)
+                                            .font(.caption)
+                                        Text(String(commitHash.prefix(8)))
+                                            .font(.caption)
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.blue)
+                                        
+                                        Spacer()
+                                        Spacer()
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if let error = lastError {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.red)
+                                    .font(.caption)
+                                
+                                Text(error)
+                                    .font(.caption)
+                                    .foregroundColor(.red)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.red.opacity(0.1))
+                            .cornerRadius(4)
+                        }
+                        
+                        // 成功提示
+                        if let lastRecord = syncHistory.last, lastRecord.success, lastRecord.timestamp > Date().addingTimeInterval(-10) {
+                            HStack {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                                    .font(.caption)
+                                
+                                Text("最近操作: \(lastRecord.operation.rawValue)成功")
+                                    .font(.caption)
+                                    .foregroundColor(.green)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.green.opacity(0.1))
+                            .cornerRadius(4)
+                        }
+                    }
+                    .padding(12)
+                }
+                
+                // 仓库配置
+                GroupBox("GitHub仓库配置") {
+                    VStack(alignment: .leading, spacing: 16) {
+                        
+                        if !dataManager.isDataPathSelected {
+                            // 提示用户先设置数据路径
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.orange)
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("需要先设置数据存储路径")
+                                        .font(.body)
+                                        .fontWeight(.medium)
+                                    
+                                    Text("请在\"数据\"标签页中设置外部数据存储位置")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                Spacer()
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color.orange.opacity(0.1))
+                            .cornerRadius(8)
+                        } else {
+                            VStack(alignment: .leading, spacing: 12) {
+                                // GitHub仓库URL
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("GitHub仓库URL")
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                    
+                                    TextField("https://github.com/username/my-wordtagger-data.git", text: $remoteURLInput)
+                                        .textFieldStyle(.roundedBorder)
+                                        .disabled(isGitEnabled)
+                                    
+                                    Text("创建一个新的GitHub仓库来存储你的学习数据")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                // 分支名称
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("分支名称")
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                    
+                                    TextField("main", text: $branchInput)
+                                        .textFieldStyle(.roundedBorder)
+                                        .disabled(isGitEnabled)
+                                }
+                                
+                                // 当前配置显示
+                                if isGitEnabled {
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        HStack {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .foregroundColor(.green)
+                                            Text("已配置的仓库")
+                                                .font(.subheadline)
+                                                .fontWeight(.medium)
+                                        }
+                                        
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            HStack {
+                                                Text("仓库:")
+                                                    .foregroundColor(.secondary)
+                                                Text(remoteURLInput)
+                                                    .font(.system(.caption, design: .monospaced))
+                                            }
+                                            
+                                            HStack {
+                                                Text("分支:")
+                                                    .foregroundColor(.secondary)
+                                                Text(branchInput)
+                                                    .font(.system(.caption, design: .monospaced))
+                                            }
+                                        }
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 8)
+                                        .background(Color(.controlBackgroundColor))
+                                        .cornerRadius(6)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(12)
+                }
+                
+                // 操作按钮
+                if dataManager.isDataPathSelected {
+                    GroupBox("操作") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            if isGitEnabled {
+                                // 已配置时的操作
+                                HStack(spacing: 12) {
+                                    Button("同步到GitHub") {
+                                        syncToGitHub()
+                                    }
+                                    .buttonStyle(.borderedProminent)
+                                    .disabled(isWorking)
+                                    
+                                    Button("从GitHub拉取") {
+                                        pullFromGitHub()
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .disabled(isWorking)
+                                    
+                                    Spacer()
+                                    
+                                    Button("重新配置") {
+                                        showingConfirmDialog = true
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .disabled(isWorking)
+                                }
+                            } else {
+                                // 未配置时的设置按钮
+                                Button("设置GitHub同步") {
+                                    if !remoteURLInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                        setupGitRepository()
+                                    } else {
+                                        showingSetupAlert = true
+                                    }
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(isWorking)
+                            }
+                        }
+                        .padding(12)
+                    }
+                }
+                
+                // 使用说明
+                GroupBox("使用说明") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("🎯 功能说明")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("• 将你的学习数据（节点、标签、层等）自动同步到GitHub")
+                                Text("• 支持多设备间的数据同步")
+                                Text("• 数据变化时自动推送到GitHub")
+                                Text("• 可以从其他设备拉取最新数据")
+                            }
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        }
+                        
+                        Divider()
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("⚠️ 系统要求")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.orange)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("• 需要安装Git命令行工具")
+                                Text("• 如果出现权限错误，请在终端运行：")
+                                Text("  xcode-select --install")
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundColor(.blue)
+                                Text("• 或下载完整版Xcode以获得命令行工具")
+                            }
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        }
+                        
+                        Divider()
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("📝 设置步骤")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("1. 在GitHub上创建一个新的私有仓库（推荐）")
+                                Text("2. 复制仓库的HTTPS地址")
+                                Text("3. 在上方填入仓库URL并点击\"设置GitHub同步\"")
+                                Text("4. 系统会自动初始化Git并连接到你的仓库")
+                            }
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        }
+                        
+                        Divider()
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("🔄 未来使用")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("• 在新设备上：clone你的GitHub仓库到本地文件夹")
+                                Text("• 在WordTagger设置中选择该文件夹作为数据存储位置")
+                                Text("• 系统会自动识别Git配置并启用同步功能")
+                                Text("• 你的所有学习数据就能在多设备间同步了！")
+                            }
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(12)
+                }
+                
+                Spacer()
+            }
+            .padding()
+        }
+        .onAppear {
+            loadSettings()
+        }
+        .sheet(isPresented: $showingSyncHistory) {
+            SyncHistoryView(history: syncHistory)
+        }
+        .alert("请填入GitHub仓库URL", isPresented: $showingSetupAlert) {
+            Button("确定") { }
+        }
+        .confirmationDialog("重新配置GitHub同步", isPresented: $showingConfirmDialog, titleVisibility: .visible) {
+            Button("重新配置", role: .destructive) {
+                disableGit()
+            }
+            Button("取消", role: .cancel) { }
+        } message: {
+            Text("这将清除当前的GitHub配置，但不会删除已有的数据。")
+        }
+    }
+    
+    private func formatDateTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+    
+    // MARK: - Git操作函数
+    
+    private func loadSettings() {
+        let userDefaults = UserDefaults.standard
+        isGitEnabled = userDefaults.bool(forKey: "WordTagger_GitEnabled")
+        remoteURLInput = userDefaults.string(forKey: "WordTagger_GitRemoteURL") ?? ""
+        branchInput = userDefaults.string(forKey: "WordTagger_GitBranch") ?? "main"
+        totalSyncCount = userDefaults.integer(forKey: "WordTagger_TotalSyncCount")
+        lastCommitHash = userDefaults.string(forKey: "WordTagger_LastCommitHash")
+        
+        if let lastSync = userDefaults.object(forKey: "WordTagger_LastGitSync") as? Date {
+            lastSyncTime = lastSync
+        }
+        
+        // 加载同步历史
+        if let historyData = userDefaults.data(forKey: "WordTagger_SyncHistory"),
+           let decodedHistory = try? JSONDecoder().decode([SyncRecord].self, from: historyData) {
+            syncHistory = decodedHistory
+        }
+        
+        updateSyncStatus()
+        
+        // 同步到全局状态管理器
+        statusManager.updateStatus(
+            isEnabled: isGitEnabled,
+            status: syncStatus,
+            lastSyncTime: lastSyncTime,
+            lastError: lastError,
+            totalSyncCount: totalSyncCount
+        )
+    }
+    
+    private func saveSettings() {
+        let userDefaults = UserDefaults.standard
+        userDefaults.set(isGitEnabled, forKey: "WordTagger_GitEnabled")
+        userDefaults.set(remoteURLInput, forKey: "WordTagger_GitRemoteURL")
+        userDefaults.set(branchInput, forKey: "WordTagger_GitBranch")
+        userDefaults.set(totalSyncCount, forKey: "WordTagger_TotalSyncCount")
+        
+        if let lastSync = lastSyncTime {
+            userDefaults.set(lastSync, forKey: "WordTagger_LastGitSync")
+        }
+        
+        if let commitHash = lastCommitHash {
+            userDefaults.set(commitHash, forKey: "WordTagger_LastCommitHash")
+        }
+        
+        // 保存同步历史（只保留最近50条记录）
+        let recentHistory = Array(syncHistory.sorted { $0.timestamp > $1.timestamp }.prefix(50))
+        if let historyData = try? JSONEncoder().encode(recentHistory) {
+            userDefaults.set(historyData, forKey: "WordTagger_SyncHistory")
+        }
+    }
+    
+    private func updateSyncStatus() {
+        if !isGitEnabled || remoteURLInput.isEmpty {
+            syncStatus = "未配置"
+        } else if isWorking {
+            syncStatus = "同步中..."
+        } else if lastError != nil {
+            syncStatus = "错误"
+        } else {
+            syncStatus = "就绪"
+        }
+    }
+    
+    private func findGitPath() async -> String? {
+        // 首先尝试静态路径
+        let staticPaths = [
+            "/opt/homebrew/bin/git",
+            "/usr/local/bin/git",
+            "/usr/bin/git"
+        ]
+        
+        for path in staticPaths {
+            if FileManager.default.fileExists(atPath: path) {
+                print("✅ 找到Git: \(path)")
+                return path
+            }
+        }
+        
+        // 如果静态路径都失败，尝试使用which命令
+        do {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/which")
+            process.arguments = ["git"]
+            
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            
+            var environment: [String: String] = [:]
+            environment["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+            process.environment = environment
+            
+            try process.run()
+            process.waitUntilExit()
+            
+            if process.terminationStatus == 0 {
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                if let path = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) {
+                    if !path.isEmpty && FileManager.default.fileExists(atPath: path) {
+                        print("✅ 通过which找到Git: \(path)")
+                        return path
+                    }
+                }
+            }
+        } catch {
+            print("❌ which命令失败: \(error)")
+        }
+        
+        print("❌ 所有方法都未能找到Git")
+        return nil
+    }
+    
+    private func recordSyncOperation(
+        operation: SyncRecord.SyncOperation,
+        success: Bool,
+        commitHash: String? = nil,
+        filesChanged: Int = 0,
+        errorMessage: String? = nil
+    ) {
+        let record = SyncRecord(
+            timestamp: Date(),
+            operation: operation,
+            success: success,
+            commitHash: commitHash,
+            filesChanged: filesChanged,
+            errorMessage: errorMessage
+        )
+        
+        syncHistory.append(record)
+        
+        if success {
+            totalSyncCount += 1
+            if let hash = commitHash {
+                lastCommitHash = hash
+            }
+        }
+        
+        saveSettings()
+        // 不立即更新状态，让调用者控制状态更新
+    }
+    
+    private func getCommitHash(at workingDirectory: URL) async -> String? {
+        do {
+            guard let validGitPath = await findGitPath() else {
+                print("❌ 获取commit hash失败: Git未找到")
+                return nil
+            }
+            
+            let pipe = Pipe()
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: validGitPath)
+            process.arguments = ["rev-parse", "HEAD"]
+            process.currentDirectoryURL = workingDirectory
+            process.standardOutput = pipe
+            
+            // 设置环境变量
+            var environment: [String: String] = [:]
+            environment["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin"
+            environment["GIT_TERMINAL_PROMPT"] = "0"
+            environment["GIT_CONFIG_NOSYSTEM"] = "1"
+            environment["GIT_CONFIG_GLOBAL"] = "/dev/null"
+            environment["HOME"] = NSHomeDirectory()
+            environment["HOMEBREW_NO_AUTO_UPDATE"] = "1"
+            process.environment = environment
+            
+            try process.run()
+            process.waitUntilExit()
+            
+            if process.terminationStatus == 0 {
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                if let hash = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) {
+                    print("✅ 获取到commit hash: \(String(hash.prefix(8)))")
+                    return hash
+                }
+            } else {
+                print("⚠️ 获取commit hash失败: 退出状态 \(process.terminationStatus)")
+            }
+        } catch {
+            print("❌ 获取commit hash异常: \(error)")
+        }
+        return nil
+    }
+    
+    private func setupGitRepository() {
+        guard let dataPath = dataManager.currentDataPath else {
+            lastError = "请先设置数据存储路径"
+            updateSyncStatus()
+            statusManager.updateStatus(lastError: lastError)
+            return
+        }
+        
+        isWorking = true
+        syncStatus = "设置中..."
+        lastError = nil
+        statusManager.startWorking(operation: "初始化Git仓库")
+        
+        Task {
+            do {
+                // 首先配置Git用户信息（如果没有的话）
+                try await configureGitUser(at: dataPath)
+                
+                // 运行Git命令初始化仓库
+                try await runGitCommand(["init"], at: dataPath)
+                try await runGitCommand(["remote", "add", "origin", remoteURLInput.trimmingCharacters(in: .whitespacesAndNewlines)], at: dataPath)
+                
+                await MainActor.run {
+                    print("✅ Git设置成功，更新UI状态...")
+                    isGitEnabled = true
+                    isWorking = false
+                    syncStatus = "设置完成"
+                    recordSyncOperation(operation: .setup, success: true, filesChanged: 0)
+                    saveSettings()
+                    
+                    statusManager.finishWorking(success: true, finalStatus: "GitHub同步已配置")
+                    
+                    print("🎯 当前状态: isGitEnabled=\(isGitEnabled), isWorking=\(isWorking), syncStatus=\(syncStatus)")
+                    
+                    // 3秒后重置状态为"就绪"
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                        print("🔄 3秒后重置状态为就绪")
+                        self.updateSyncStatus()
+                    }
+                }
+                
+            } catch {
+                await MainActor.run {
+                    lastError = "Git设置失败: \(error.localizedDescription)"
+                    recordSyncOperation(
+                        operation: .setup,
+                        success: false,
+                        errorMessage: error.localizedDescription
+                    )
+                    statusManager.finishWorking(success: false, finalStatus: "GitHub同步配置失败", error: error.localizedDescription)
+                    isWorking = false
+                }
+            }
+        }
+    }
+    
+    private func configureGitUser(at workingDirectory: URL) async throws {
+        do {
+            // 尝试获取当前用户信息
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+            process.arguments = ["config", "--local", "user.name"]
+            process.currentDirectoryURL = workingDirectory
+            
+            var environment: [String: String] = [:]
+            environment["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin"
+            environment["GIT_TERMINAL_PROMPT"] = "0"
+            environment["GIT_CONFIG_NOSYSTEM"] = "1"
+            environment["GIT_CONFIG_GLOBAL"] = "/dev/null"
+            environment["HOME"] = NSHomeDirectory()
+            environment["HOMEBREW_NO_AUTO_UPDATE"] = "1"
+            process.environment = environment
+            
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            
+            try process.run()
+            process.waitUntilExit()
+            
+            if process.terminationStatus != 0 {
+                // 用户信息不存在，设置默认值
+                try await runGitCommand(["config", "--local", "user.name", "WordTagger User"], at: workingDirectory)
+                try await runGitCommand(["config", "--local", "user.email", "wordtagger@local.app"], at: workingDirectory)
+                print("✅ 已配置默认Git用户信息")
+            } else {
+                print("✅ Git用户信息已存在")
+            }
+        } catch {
+            // 如果获取失败，直接设置默认值
+            try await runGitCommand(["config", "--local", "user.name", "WordTagger User"], at: workingDirectory)
+            try await runGitCommand(["config", "--local", "user.email", "wordtagger@local.app"], at: workingDirectory)
+            print("✅ 已设置默认Git用户信息")
+        }
+    }
+    
+    private func syncToGitHub() {
+        guard let dataPath = dataManager.currentDataPath else {
+            lastError = "数据路径未设置"
+            updateSyncStatus()
+            statusManager.updateStatus(lastError: lastError)
+            return
+        }
+        
+        isWorking = true
+        syncStatus = "推送中..."
+        lastError = nil
+        statusManager.startWorking(operation: "同步到GitHub")
+        
+        Task {
+            do {
+                // Git添加和提交
+                try await runGitCommand(["add", "."], at: dataPath)
+                let commitMessage = "Auto-sync WordTagger data - \(Date().formatted())"
+                try await runGitCommand(["commit", "-m", commitMessage], at: dataPath)
+                try await runGitCommand(["push", "origin", branchInput], at: dataPath)
+                
+                // 获取最新的commit hash
+                let commitHash = await getCommitHash(at: dataPath)
+                
+                await MainActor.run {
+                    lastSyncTime = Date()
+                    syncStatus = "同步完成"
+                    
+                    // 记录成功的同步操作
+                    recordSyncOperation(
+                        operation: .push,
+                        success: true,
+                        commitHash: commitHash,
+                        filesChanged: 1 // 简化计算，实际可以通过git status获取
+                    )
+                    
+                    statusManager.finishWorking(success: true, finalStatus: "已同步到GitHub")
+                    isWorking = false
+                    
+                    // 3秒后重置状态
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                        self.updateSyncStatus()
+                    }
+                }
+                
+            } catch {
+                await MainActor.run {
+                    lastError = "同步失败: \(error.localizedDescription)"
+                    
+                    // 记录失败的同步操作
+                    recordSyncOperation(
+                        operation: .push,
+                        success: false,
+                        errorMessage: error.localizedDescription
+                    )
+                    
+                    statusManager.finishWorking(success: false, finalStatus: "同步到GitHub失败", error: error.localizedDescription)
+                    isWorking = false
+                }
+            }
+        }
+    }
+    
+    private func pullFromGitHub() {
+        guard let dataPath = dataManager.currentDataPath else {
+            lastError = "数据路径未设置"
+            updateSyncStatus()
+            statusManager.updateStatus(lastError: lastError)
+            return
+        }
+        
+        isWorking = true
+        syncStatus = "拉取中..."
+        lastError = nil
+        statusManager.startWorking(operation: "从GitHub拉取")
+        
+        Task {
+            do {
+                try await runGitCommand(["pull", "origin", branchInput], at: dataPath)
+                
+                // 获取最新的commit hash
+                let commitHash = await getCommitHash(at: dataPath)
+                
+                await MainActor.run {
+                    lastSyncTime = Date()
+                    syncStatus = "拉取完成"
+                    
+                    // 记录成功的拉取操作
+                    recordSyncOperation(
+                        operation: .pull,
+                        success: true,
+                        commitHash: commitHash,
+                        filesChanged: 1 // 简化计算
+                    )
+                    
+                    statusManager.finishWorking(success: true, finalStatus: "已从GitHub拉取")
+                    isWorking = false
+                    
+                    // 3秒后重置状态
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                        self.updateSyncStatus()
+                    }
+                    
+                    // 通知数据已更新
+                    NotificationCenter.default.post(
+                        name: Notification.Name("ExternalDataPathChanged"),
+                        object: nil,
+                        userInfo: ["newPath": dataPath]
+                    )
+                }
+                
+            } catch {
+                await MainActor.run {
+                    lastError = "拉取失败: \(error.localizedDescription)"
+                    
+                    // 记录失败的拉取操作
+                    recordSyncOperation(
+                        operation: .pull,
+                        success: false,
+                        errorMessage: error.localizedDescription
+                    )
+                    
+                    statusManager.finishWorking(success: false, finalStatus: "从GitHub拉取失败", error: error.localizedDescription)
+                    isWorking = false
+                }
+            }
+        }
+    }
+    
+    private func disableGit() {
+        isGitEnabled = false
+        remoteURLInput = ""
+        branchInput = "main"
+        lastError = nil
+        saveSettings()
+        updateSyncStatus()
+        
+        statusManager.updateStatus(
+            isEnabled: false,
+            status: "未配置"
+        )
+        statusManager.lastError = nil
+    }
+    
+    private func runGitCommand(_ arguments: [String], at workingDirectory: URL) async throws {
+        // 首先查找Git路径
+        guard let gitPath = await findGitPath() else {
+            throw GitError.commandFailed("git", "Git未找到，请确保已安装Git\n已检查路径: /opt/homebrew/bin/git, /usr/local/bin/git, /usr/bin/git")
+        }
+        
+        return try await withCheckedThrowingContinuation { continuation in
+            let process = Process()
+            
+            process.executableURL = URL(fileURLWithPath: gitPath)
+            process.arguments = arguments
+            process.currentDirectoryURL = workingDirectory
+            
+            // 设置环境变量以避免一些Sandbox问题
+            var environment: [String: String] = [:]
+            environment["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin"
+            environment["GIT_TERMINAL_PROMPT"] = "0" // 禁用交互式提示
+            environment["GIT_CONFIG_NOSYSTEM"] = "1" // 避免读取系统Git配置
+            environment["GIT_CONFIG_GLOBAL"] = "/dev/null" // 避免读取全局Git配置
+            environment["HOME"] = NSHomeDirectory() // 确保HOME路径正确
+            // 特别针对Homebrew Git的设置
+            environment["HOMEBREW_NO_AUTO_UPDATE"] = "1"
+            process.environment = environment
+            
+            let pipe = Pipe()
+            let errorPipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = errorPipe
+            
+            do {
+                print("🔧 执行Git命令: \(gitPath) \(arguments.joined(separator: " "))")
+                print("🔧 工作目录: \(workingDirectory.path)")
+                
+                try process.run()
+                process.waitUntilExit()
+                
+                let outputData = pipe.fileHandleForReading.readDataToEndOfFile()
+                let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+                let output = String(data: outputData, encoding: .utf8) ?? ""
+                let errorOutput = String(data: errorData, encoding: .utf8) ?? ""
+                
+                print("🔧 Git命令退出状态: \(process.terminationStatus)")
+                if !output.isEmpty {
+                    print("🔧 Git输出: \(output)")
+                }
+                if !errorOutput.isEmpty {
+                    print("🔧 Git错误输出: \(errorOutput)")
+                }
+                
+                if process.terminationStatus != 0 {
+                    let fullError = errorOutput.isEmpty ? "命令执行失败" : errorOutput
+                    throw GitError.commandFailed(arguments.joined(separator: " "), fullError)
+                }
+                
+                continuation.resume(returning: ())
+            } catch {
+                print("❌ Git命令执行异常: \(error)")
+                continuation.resume(throwing: error)
+            }
+        }
+    }
+}
+
+private enum GitError: LocalizedError {
+    case commandFailed(String, String)
+    
+    var errorDescription: String? {
+        switch self {
+        case .commandFailed(let command, let output):
+            return "Git命令失败: \(command)\n输出: \(output)"
+        }
+    }
+}
+
+// MARK: - 同步记录数据结构
+struct SyncRecord: Codable, Identifiable {
+    var id = UUID()
+    let timestamp: Date
+    let operation: SyncOperation
+    let success: Bool
+    let commitHash: String?
+    let filesChanged: Int
+    let errorMessage: String?
+    
+    enum SyncOperation: String, Codable {
+        case push = "推送"
+        case pull = "拉取"
+        case setup = "初始化"
+    }
+    
+    var displayTime: String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .medium
+        return formatter.string(from: timestamp)
+    }
+}
+
+// MARK: - 同步历史视图
+struct SyncHistoryView: View {
+    let history: [SyncRecord]
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // 标题栏
+            HStack {
+                Text("同步历史")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                
+                Spacer()
+                
+                Button("关闭") {
+                    dismiss()
+                }
+                .buttonStyle(.bordered)
+            }
+            .padding()
+            .background(Color(NSColor.controlBackgroundColor))
+            
+            Divider()
+            
+            // 内容
+            if history.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "clock.badge.questionmark")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary)
+                    
+                    Text("暂无同步记录")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                    
+                    Text("开始使用GitHub同步功能后，这里会显示详细的同步历史")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List {
+                    ForEach(history.sorted { $0.timestamp > $1.timestamp }) { record in
+                        SyncRecordRow(record: record)
+                    }
+                }
+            }
+        }
+        .frame(width: 600, height: 400)
+    }
+}
+
+struct SyncRecordRow: View {
+    let record: SyncRecord
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // 状态图标
+            Image(systemName: record.success ? "checkmark.circle.fill" : "xmark.circle.fill")
+                .foregroundColor(record.success ? .green : .red)
+                .font(.title2)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(record.operation.rawValue)
+                        .font(.headline)
+                        .fontWeight(.medium)
+                    
+                    Spacer()
+                    
+                    Text(record.displayTime)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                if let commitHash = record.commitHash {
+                    Text("提交: \(String(commitHash.prefix(8)))")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                if record.filesChanged > 0 {
+                    Text("文件变化: \(record.filesChanged) 个")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                }
+                
+                if let error = record.errorMessage {
+                    Text("错误: \(error)")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .lineLimit(2)
+                }
+            }
+            
+            Spacer()
+        }
+        .padding(.vertical, 4)
+    }
 }
 
 #Preview {

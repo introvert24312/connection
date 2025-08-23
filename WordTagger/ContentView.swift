@@ -87,6 +87,11 @@ struct ContentView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
+                // GitHub同步状态指示器
+                GitSyncStatusIndicator()
+                
+                Divider()
+                
                 Button(action: {
                     openWindow(id: "map")
                 }) {
