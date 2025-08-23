@@ -1929,19 +1929,48 @@ struct GitSyncSettingsView: View {
                         }
                         
                         if let error = lastError {
-                            HStack {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundColor(.red)
-                                    .font(.caption)
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .foregroundColor(.red)
+                                        .font(.caption)
+                                    
+                                    Text(error)
+                                        .font(.caption)
+                                        .foregroundColor(.red)
+                                }
                                 
-                                Text(error)
-                                    .font(.caption)
-                                    .foregroundColor(.red)
+                                // 如果是403权限错误，提供详细的解决方案
+                                if error.contains("403") {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("解决方案：")
+                                            .font(.caption2)
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.orange)
+                                        
+                                        Text("1. 检查Personal Access Token是否正确")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                        
+                                        Text("2. 确保Token具有'repo'权限（完整仓库访问）")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                        
+                                        Text("3. 检查仓库是否为私有仓库且你有访问权限")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                        
+                                        Text("4. Token可能已过期，请重新生成")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .padding(.top, 4)
+                                }
                             }
                             .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
+                            .padding(.vertical, 6)
                             .background(Color.red.opacity(0.1))
-                            .cornerRadius(4)
+                            .cornerRadius(6)
                         }
                         
                         // 成功提示
@@ -2495,13 +2524,27 @@ struct GitSyncSettingsView: View {
                 
             } catch {
                 await MainActor.run {
-                    lastError = "Git设置失败: \(error.localizedDescription)"
+                    let errorMessage = error.localizedDescription
+                    
+                    // 特别处理常见的Git认证错误
+                    var userFriendlyError = errorMessage
+                    if errorMessage.contains("403") || errorMessage.contains("Permission denied") {
+                        userFriendlyError = "GitHub认证失败 (403)：请检查Personal Access Token是否正确且具有repo权限"
+                    } else if errorMessage.contains("401") || errorMessage.contains("Unauthorized") {
+                        userFriendlyError = "GitHub认证失败 (401)：用户名或Token无效"
+                    } else if errorMessage.contains("404") {
+                        userFriendlyError = "仓库不存在 (404)：请检查仓库URL是否正确"
+                    } else if errorMessage.contains("Git未找到") {
+                        userFriendlyError = "Git命令行工具未找到：请安装Xcode命令行工具 (xcode-select --install)"
+                    }
+                    
+                    lastError = "Git设置失败: \(userFriendlyError)"
                     recordSyncOperation(
                         operation: .setup,
                         success: false,
-                        errorMessage: error.localizedDescription
+                        errorMessage: userFriendlyError
                     )
-                    statusManager.finishWorking(success: false, finalStatus: "GitHub同步配置失败", error: error.localizedDescription)
+                    statusManager.finishWorking(success: false, finalStatus: "GitHub同步配置失败", error: userFriendlyError)
                     isWorking = false
                 }
             }
@@ -2594,16 +2637,28 @@ struct GitSyncSettingsView: View {
                 
             } catch {
                 await MainActor.run {
-                    lastError = "同步失败: \(error.localizedDescription)"
+                    let errorMessage = error.localizedDescription
+                    
+                    // 特别处理常见的Git认证错误
+                    var userFriendlyError = errorMessage
+                    if errorMessage.contains("403") || errorMessage.contains("Permission denied") {
+                        userFriendlyError = "GitHub认证失败 (403)：请检查Personal Access Token是否正确且具有repo权限"
+                    } else if errorMessage.contains("401") || errorMessage.contains("Unauthorized") {
+                        userFriendlyError = "GitHub认证失败 (401)：用户名或Token无效"
+                    } else if errorMessage.contains("404") {
+                        userFriendlyError = "仓库不存在 (404)：请检查仓库URL是否正确"
+                    }
+                    
+                    lastError = "同步失败: \(userFriendlyError)"
                     
                     // 记录失败的同步操作
                     recordSyncOperation(
                         operation: .push,
                         success: false,
-                        errorMessage: error.localizedDescription
+                        errorMessage: userFriendlyError
                     )
                     
-                    statusManager.finishWorking(success: false, finalStatus: "同步到GitHub失败", error: error.localizedDescription)
+                    statusManager.finishWorking(success: false, finalStatus: "同步到GitHub失败", error: userFriendlyError)
                     isWorking = false
                 }
             }
@@ -2660,16 +2715,28 @@ struct GitSyncSettingsView: View {
                 
             } catch {
                 await MainActor.run {
-                    lastError = "拉取失败: \(error.localizedDescription)"
+                    let errorMessage = error.localizedDescription
+                    
+                    // 特别处理常见的Git认证错误
+                    var userFriendlyError = errorMessage
+                    if errorMessage.contains("403") || errorMessage.contains("Permission denied") {
+                        userFriendlyError = "GitHub认证失败 (403)：请检查Personal Access Token是否正确且具有repo权限"
+                    } else if errorMessage.contains("401") || errorMessage.contains("Unauthorized") {
+                        userFriendlyError = "GitHub认证失败 (401)：用户名或Token无效"
+                    } else if errorMessage.contains("404") {
+                        userFriendlyError = "仓库不存在 (404)：请检查仓库URL是否正确"
+                    }
+                    
+                    lastError = "拉取失败: \(userFriendlyError)"
                     
                     // 记录失败的拉取操作
                     recordSyncOperation(
                         operation: .pull,
                         success: false,
-                        errorMessage: error.localizedDescription
+                        errorMessage: userFriendlyError
                     )
                     
-                    statusManager.finishWorking(success: false, finalStatus: "从GitHub拉取失败", error: error.localizedDescription)
+                    statusManager.finishWorking(success: false, finalStatus: "从GitHub拉取失败", error: userFriendlyError)
                     isWorking = false
                 }
             }
