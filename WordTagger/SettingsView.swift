@@ -2513,12 +2513,29 @@ struct GitSyncSettingsView: View {
                     
                     statusManager.finishWorking(success: true, finalStatus: "GitHub同步已配置")
                     
+                    // 立即同步所有状态到全局状态管理器
+                    statusManager.updateStatus(
+                        isEnabled: isGitEnabled,
+                        status: syncStatus,
+                        lastSyncTime: lastSyncTime,
+                        lastError: lastError,
+                        totalSyncCount: totalSyncCount
+                    )
+                    
                     print("🎯 当前状态: isGitEnabled=\(isGitEnabled), isWorking=\(isWorking), syncStatus=\(syncStatus)")
                     
                     // 3秒后重置状态为"就绪"
                     DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                         print("🔄 3秒后重置状态为就绪")
                         self.updateSyncStatus()
+                        // 重置后也要同步状态
+                        self.statusManager.updateStatus(
+                            isEnabled: self.isGitEnabled,
+                            status: self.syncStatus,
+                            lastSyncTime: self.lastSyncTime,
+                            lastError: self.lastError,
+                            totalSyncCount: self.totalSyncCount
+                        )
                     }
                 }
                 
@@ -2629,9 +2646,26 @@ struct GitSyncSettingsView: View {
                     statusManager.finishWorking(success: true, finalStatus: "已同步到GitHub")
                     isWorking = false
                     
+                    // 立即同步所有状态到全局状态管理器
+                    statusManager.updateStatus(
+                        isEnabled: isGitEnabled,
+                        status: syncStatus,
+                        lastSyncTime: lastSyncTime,
+                        lastError: lastError,
+                        totalSyncCount: totalSyncCount
+                    )
+                    
                     // 3秒后重置状态
                     DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                         self.updateSyncStatus()
+                        // 重置后也要同步状态
+                        self.statusManager.updateStatus(
+                            isEnabled: self.isGitEnabled,
+                            status: self.syncStatus,
+                            lastSyncTime: self.lastSyncTime,
+                            lastError: self.lastError,
+                            totalSyncCount: self.totalSyncCount
+                        )
                     }
                 }
                 
@@ -2700,9 +2734,26 @@ struct GitSyncSettingsView: View {
                     statusManager.finishWorking(success: true, finalStatus: "已从GitHub拉取")
                     isWorking = false
                     
+                    // 立即同步所有状态到全局状态管理器
+                    statusManager.updateStatus(
+                        isEnabled: isGitEnabled,
+                        status: syncStatus,
+                        lastSyncTime: lastSyncTime,
+                        lastError: lastError,
+                        totalSyncCount: totalSyncCount
+                    )
+                    
                     // 3秒后重置状态
                     DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                         self.updateSyncStatus()
+                        // 重置后也要同步状态
+                        self.statusManager.updateStatus(
+                            isEnabled: self.isGitEnabled,
+                            status: self.syncStatus,
+                            lastSyncTime: self.lastSyncTime,
+                            lastError: self.lastError,
+                            totalSyncCount: self.totalSyncCount
+                        )
                     }
                     
                     // 通知数据已更新
