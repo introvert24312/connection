@@ -6,7 +6,7 @@ struct NodeListView: View {
     @EnvironmentObject private var store: NodeStore
     @Binding var selectedNode: Node?
     @State private var searchFilter = SearchFilter()
-    @State private var sortOption: SortOption = .alphabetical
+    @State private var sortOption: SortOption = .tagCount
     @State private var selectedIndex: Int = 0
     @FocusState private var isListFocused: Bool
     @FocusState private var isSearchFieldFocused: Bool
@@ -17,7 +17,7 @@ struct NodeListView: View {
     @State private var lastSearchQuery: String = ""
     @State private var lastSelectedTag: Tag? = nil
     @State private var lastCurrentLayer: UUID? = nil
-    @State private var lastSortOption: SortOption = .alphabetical
+    @State private var lastSortOption: SortOption = .tagCount
     @State private var updateTask: Task<Void, Never>?
     @State private var isUpdating: Bool = false
     
@@ -26,7 +26,6 @@ struct NodeListView: View {
     @State private var nodeToEdit: Node?
     
     enum SortOption: String, CaseIterable {
-        case alphabetical = "字母顺序"
         case tagCount = "标签数量"
     }
     
@@ -97,18 +96,21 @@ struct NodeListView: View {
                             store.selectTag(nil)
                         }
                         Divider()
-                        ForEach(Tag.TagType.allCases, id: \.self) { type in
-                            Button(type.displayName) { 
-                                searchFilter.tagType = type
-                                // 找到第一个匹配类型的标签并选中
-                                if let firstTag = store.allTags.first(where: { $0.type == type }) {
-                                    store.selectTag(firstTag)
+                        // 显示实际存在的标签，按类型分组
+                        ForEach(uniqueTagTypes, id: \.self) { tagType in
+                            Menu(tagType.displayName) {
+                                // 显示该类型下的所有实际标签
+                                ForEach(tagsOfType(tagType), id: \.id) { tag in
+                                    Button(tag.value) {
+                                        store.selectTag(tag)
+                                        print("🏷️ 选择了标签: \(tag.type.displayName) - \(tag.value)")
+                                    }
                                 }
                             }
                         }
                     } label: {
                         HStack {
-                            Text(searchFilter.tagType?.displayName ?? "全部标签")
+                            Text(currentTagFilterDisplay)
                             Image(systemName: "chevron.down")
                         }
                         .font(.caption)
@@ -277,6 +279,28 @@ struct NodeListView: View {
     
     private var displayNodes: [Node] {
         return cachedDisplayNodes
+    }
+    
+    // 获取所有实际存在的唯一标签类型
+    private var uniqueTagTypes: [Tag.TagType] {
+        let allTagTypes = store.allTags.map { $0.type }
+        let uniqueTypes = Array(Set(allTagTypes))
+        // 按类型名称排序，确保consistent显示顺序
+        return uniqueTypes.sorted { $0.displayName < $1.displayName }
+    }
+    
+    // 获取指定类型的所有标签
+    private func tagsOfType(_ tagType: Tag.TagType) -> [Tag] {
+        return store.allTags.filter { $0.type == tagType }
+            .sorted { $0.value < $1.value } // 按值排序
+    }
+    
+    // 当前标签筛选显示文本
+    private var currentTagFilterDisplay: String {
+        if let selectedTag = store.selectedTag {
+            return "\(selectedTag.type.displayName): \(selectedTag.value)"
+        }
+        return "全部标签"
     }
     
     
@@ -456,10 +480,14 @@ struct NodeListView: View {
     
     private func sortNodes(_ nodes: [Node]) -> [Node] {
         switch sortOption {
-        case .alphabetical:
-            return nodes.sorted { $0.text.lowercased() < $1.text.lowercased() }
         case .tagCount:
-            return nodes.sorted { $0.tags.count > $1.tags.count }
+            // 按标签数量降序排列，标签多的在前面
+            let sorted = nodes.sorted { $0.tags.count > $1.tags.count }
+            print("📊 按标签数量排序: \(nodes.count) 个节点")
+            for (index, node) in sorted.prefix(5).enumerated() {
+                print("  排序结果[\(index)]: '\(node.text)' - 标签数: \(node.tags.count)")
+            }
+            return sorted
         }
     }
     

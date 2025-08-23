@@ -7,7 +7,7 @@
         "key": "节点",
         "location": {
           "startingColumn": 26,
-          "startingLine": 243
+          "startingLine": 245
         }
       },
       {
@@ -15,7 +15,7 @@
         "key": "搜索节点、音标、含义...",
         "location": {
           "startingColumn": 31,
-          "startingLine": 41
+          "startingLine": 40
         }
       },
       {
@@ -23,7 +23,7 @@
         "key": "%lld 个节点",
         "location": {
           "startingColumn": 26,
-          "startingLine": 140
+          "startingLine": 142
         }
       },
       {
@@ -31,7 +31,7 @@
         "key": "全部标签",
         "location": {
           "startingColumn": 32,
-          "startingLine": 95
+          "startingLine": 94
         }
       },
       {
@@ -39,7 +39,7 @@
         "key": "排序: %@",
         "location": {
           "startingColumn": 34,
-          "startingLine": 127
+          "startingLine": 129
         }
       },
       {
@@ -47,7 +47,7 @@
         "key": "搜索中...",
         "location": {
           "startingColumn": 34,
-          "startingLine": 154
+          "startingLine": 156
         }
       },
       {
@@ -55,7 +55,7 @@
         "key": "已编辑",
         "location": {
           "startingColumn": 26,
-          "startingLine": 650
+          "startingLine": 678
         }
       },
       {
@@ -63,7 +63,7 @@
         "key": "编辑命令",
         "location": {
           "startingColumn": 23,
-          "startingLine": 692
+          "startingLine": 720
         }
       },
       {
@@ -71,7 +71,7 @@
         "key": "删除节点",
         "location": {
           "startingColumn": 23,
-          "startingLine": 701
+          "startingLine": 729
         }
       },
       {
@@ -79,7 +79,7 @@
         "key": "添加你的第一个节点",
         "location": {
           "startingColumn": 22,
-          "startingLine": 797
+          "startingLine": 825
         }
       },
       {
@@ -87,7 +87,7 @@
         "key": "尝试使用不同的关键词搜索",
         "location": {
           "startingColumn": 22,
-          "startingLine": 801
+          "startingLine": 829
         }
       },
       {
@@ -95,7 +95,7 @@
         "key": "暂无节点",
         "location": {
           "startingColumn": 46,
-          "startingLine": 792
+          "startingLine": 820
         }
       },
       {
@@ -103,7 +103,7 @@
         "key": "未找到匹配的节点",
         "location": {
           "startingColumn": 63,
-          "startingLine": 792
+          "startingLine": 820
         }
       }
     ]
