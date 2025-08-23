@@ -2166,10 +2166,17 @@ struct WordTaggerApp: App {
             print("   - vditor JS: \(ResourceManager.getVditorJSPath() ?? "未找到")")
             print("   - mermaid JS: \(ResourceManager.getMermaidJSPath() ?? "未找到")")
         } else {
-            print("❌ 资源文件加载失败:")
+            print("❌资源文件加载失败:")
             for missingFile in verification.missingFiles {
                 print("   - \(missingFile)")
             }
+        }
+        
+        // 延迟初始化Git自动同步，确保设置已加载
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            print("🔧 WordTaggerApp: 延迟启动Git自动同步监听")
+            GitAutoSyncManager.shared.debugStatus()
+            GitAutoSyncManager.shared.startMonitoring()
         }
     }
 

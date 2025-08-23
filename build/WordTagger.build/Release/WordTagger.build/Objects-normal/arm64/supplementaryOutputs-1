@@ -1,9 +1,9 @@
 "/Users/Patronum/Desktop/WordTagger/WordTagger/ContentView.swift":
-  swiftsourceinfo: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Release/WordTagger.build/Objects-normal/arm64/Connection.swiftsourceinfo"
   swiftmodule: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Release/WordTagger.build/Objects-normal/arm64/Connection.swiftmodule"
   dependencies: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Release/WordTagger.build/Objects-normal/arm64/WordTagger-master.d"
-  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Release/WordTagger.build/Objects-normal/arm64/WordTagger-master.dia"
   const-values: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Release/WordTagger.build/Objects-normal/arm64/WordTagger-master.swiftconstvalues"
-  swiftdoc: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Release/WordTagger.build/Objects-normal/arm64/Connection.swiftdoc"
-  objc-header: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Release/WordTagger.build/Objects-normal/arm64/Connection-Swift.h"
   abi-baseline-json: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Release/WordTagger.build/Objects-normal/arm64/Connection.abi.json"
+  swiftsourceinfo: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Release/WordTagger.build/Objects-normal/arm64/Connection.swiftsourceinfo"
+  diagnostics: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Release/WordTagger.build/Objects-normal/arm64/WordTagger-master.dia"
+  objc-header: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Release/WordTagger.build/Objects-normal/arm64/Connection-Swift.h"
+  swiftdoc: "/Users/Patronum/Desktop/WordTagger/build/WordTagger.build/Release/WordTagger.build/Objects-normal/arm64/Connection.swiftdoc"

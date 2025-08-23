@@ -51,7 +51,18 @@
       "Bash(/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -c WordTagger/VditorWebView.swift -I /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk/usr/lib/swift -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk -target arm64-apple-macos14.0)",
       "Bash(timeout:*)",
       "Bash(sqlite3:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(awk:*)",
+      "Bash(git tag:*)",
+      "Bash(/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -c WordTagger/GitSyncService.swift -I /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk/usr/lib/swift -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk -target arm64-apple-macos14.0)",
+      "Bash(git config:*)",
+      "Bash(chmod:*)",
+      "Bash(./test_git_auth.sh:*)",
+      "Bash(/Users/Patronum/Desktop/quick_test.sh)",
+      "Bash(/Users/Patronum/Desktop/check_token_scopes.sh:*)",
+      "Bash(/Users/Patronum/Desktop/test_credential_helper.sh:*)",
+      "Bash(defaults read:*)",
+      "Bash(rg:*)"
     ],
     "deny": []
   }

@@ -317,8 +317,130 @@ public class ExternalDataService: ObservableObject {
             return [] // 返回空数组
         }
         
-        let data = try Data(contentsOf: url)
-        return try decoder.decode([Node].self, from: data)
+        do {
+            let data = try Data(contentsOf: url)
+            
+            // 验证JSON数据完整性
+            if data.isEmpty {
+                print("⚠️ 节点数据文件为空")
+                return []
+            }
+            
+            // 尝试解码JSON数据
+            let nodes = try decoder.decode([Node].self, from: data)
+            
+            // 验证解码的节点数据
+            print("📊 成功加载 \(nodes.count) 个节点")
+            
+            // 简单检查是否有明显损坏的数据
+            let corruptedCount = nodes.filter { node in
+                isCorruptedNodeData(node)
+            }.count
+            
+            if corruptedCount > 0 {
+                print("⚠️ 发现 \(corruptedCount) 个可能损坏的节点，将在加载后自动修复")
+            }
+            
+            return nodes
+            
+        } catch let decodingError as DecodingError {
+            print("❌ JSON解码错误: \(decodingError)")
+            
+            // 尝试从备份恢复
+            if let backupNodes = try? await loadFromBackup() {
+                print("🔄 从备份恢复了 \(backupNodes.count) 个节点")
+                return backupNodes
+            }
+            
+            throw DataError.corruptedData
+        } catch {
+            print("❌ 加载节点数据失败: \(error)")
+            throw error
+        }
+    }
+    
+    /// 检查节点数据是否损坏
+    private func isCorruptedNodeData(_ node: Node) -> Bool {
+        // 检查文本字段
+        if isTextFieldCorrupted(node.text) {
+            return true
+        }
+        
+        // 检查可选字段
+        if let phonetic = node.phonetic, isTextFieldCorrupted(phonetic) {
+            return true
+        }
+        
+        if let meaning = node.meaning, isTextFieldCorrupted(meaning) {
+            return true
+        }
+        
+        // 检查标签值
+        for tag in node.tags {
+            if isTextFieldCorrupted(tag.value) {
+                return true
+            }
+        }
+        
+        return false
+    }
+    
+    /// 检查文本字段是否损坏
+    private func isTextFieldCorrupted(_ text: String) -> Bool {
+        // 空文本不算损坏
+        if text.isEmpty {
+            return false
+        }
+        
+        // 检查是否包含明显的random字符组合（如"kdf dlf sdfj"）
+        let randomWordsPattern = #"(\b[a-z]{1,4}\s){2,}[a-z]{1,4}\b"#
+        if text.range(of: randomWordsPattern, options: .regularExpression) != nil {
+            return true
+        }
+        
+        return false
+    }
+    
+    /// 从最新备份恢复数据
+    private func loadFromBackup() async throws -> [Node]? {
+        guard let basePath = dataManager.currentDataPath else { return nil }
+        
+        let backupsPath = basePath.appendingPathComponent("backups")
+        
+        do {
+            let files = try FileManager.default.contentsOfDirectory(at: backupsPath, includingPropertiesForKeys: [.creationDateKey])
+            
+            let sortedFiles = files
+                .filter { $0.pathExtension == "json" }
+                .sorted { file1, file2 in
+                    let date1 = (try? file1.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? Date.distantPast
+                    let date2 = (try? file2.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? Date.distantPast
+                    return date1 > date2
+                }
+            
+            // 尝试从最新的备份恢复
+            for backupFile in sortedFiles.prefix(3) { // 尝试最新的3个备份
+                do {
+                    print("🔄 尝试从备份恢复: \(backupFile.lastPathComponent)")
+                    let data = try Data(contentsOf: backupFile)
+                    let backupData = try decoder.decode(ExternalDataFormat.self, from: data)
+                    
+                    // 验证备份数据
+                    if !backupData.nodes.isEmpty {
+                        print("✅ 成功从备份恢复 \(backupData.nodes.count) 个节点")
+                        return backupData.nodes
+                    }
+                } catch {
+                    print("⚠️ 备份文件损坏: \(backupFile.lastPathComponent) - \(error)")
+                    continue
+                }
+            }
+            
+        } catch {
+            print("⚠️ 无法访问备份文件夹: \(error)")
+        }
+        
+        return nil
     }
     
     

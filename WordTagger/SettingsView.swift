@@ -315,6 +315,9 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
         
         // 创建一个临时的GitSyncHelper来执行同步
         Task { @MainActor in
+            // 启动同步状态指示器
+            GitSyncStatusManager.shared.startWorking(operation: "自动同步中...")
+            print("🔧 GitAutoSyncManager: 已启动状态指示器")
             do {
                 print("🚀 GitAutoSyncManager: 创建GitSyncHelper并开始同步...")
                 let helper = GitSyncHelper()
@@ -323,21 +326,23 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
                 
                 // 更新状态管理器
                 let newCount = userDefaults.integer(forKey: "WordTagger_TotalSyncCount") + 1
-                GitSyncStatusManager.shared.updateStatus(
-                    lastSyncTime: Date(),
-                    totalSyncCount: newCount
-                )
                 userDefaults.set(Date(), forKey: "WordTagger_LastGitSync")
                 userDefaults.set(newCount, forKey: "WordTagger_TotalSyncCount")
                 
-                print("📊 GitAutoSyncManager: 同步统计已更新 - 总同步次数: \(newCount)")
+                GitSyncStatusManager.shared.finishWorking(
+                    success: true, 
+                    finalStatus: "自动同步完成"
+                )
+                print("📊 GitAutoSyncManager: 同步完成，状态指示器已停止 - 总同步次数: \(newCount)")
                 
             } catch {
                 print("❌ GitAutoSyncManager: 自动同步失败 - 触发原因: \(reason), 错误: \(error)")
                 
-                // 更新错误状态
-                GitSyncStatusManager.shared.updateStatus(
-                    lastError: "自动同步失败 (\(reason)): \(error.localizedDescription)"
+                // 更新错误状态并停止工作指示器
+                GitSyncStatusManager.shared.finishWorking(
+                    success: false,
+                    finalStatus: "自动同步失败",
+                    error: "自动同步失败 (\(reason)): \(error.localizedDescription)"
                 )
             }
         }
