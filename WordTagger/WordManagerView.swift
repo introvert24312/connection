@@ -579,12 +579,12 @@ struct TagEditCommandView: View {
     }
     
     private var initialCommand: String {
-        // 使用最新的节点数据和新的规范化命令表示
+        // 使用最新的节点数据和带展示名的命令表示
         let currentNodeData = currentNode
         
-        // 🔧 使用新的 canonicalCommandRepresentation 方法
-        // 这将自动处理复合节点的简洁格式 "c 复合节点名 子节点1 子节点2"
-        return currentNodeData.canonicalCommandRepresentation
+        // 🔧 使用 commandRepresentationWithDisplayNames 方法显示标签展示名
+        // 格式：节点名 标签类型1[展示名1] 标签值1 标签类型2[展示名2] 标签值2 ...
+        return currentNodeData.commandRepresentationWithDisplayNames
     }
     
     @State private var availableCommands: [Command] = []

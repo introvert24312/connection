@@ -114,7 +114,7 @@ struct CommandLineEditorSheet: View {
                                 .font(.system(.body, design: .monospaced))
                                 .lineLimit(3...10)
                                 .onChange(of: commandLineText) {
-                                    hasUnsavedChanges = commandLineText != node.commandLineRepresentation
+                                    hasUnsavedChanges = commandLineText != node.commandRepresentationWithDisplayNames
                                 }
                             
                             if !commandLineText.isEmpty {
@@ -236,11 +236,8 @@ struct CommandLineEditorSheet: View {
     }
     
     private func updateCommandText() {
-        if includeDisplayNames {
-            commandLineText = node.commandRepresentationWithDisplayNames
-        } else {
-            commandLineText = node.canonicalCommandRepresentation
-        }
+        // 始终使用带显示名的表示，确保方括号内容不丢失
+        commandLineText = node.commandRepresentationWithDisplayNames
     }
     
     private func handleSave() {
@@ -319,7 +316,7 @@ struct CommandLineEditorSheet: View {
     CommandLineEditorSheet(
         node: $sampleNode,
         onSave: { node in
-            print("保存节点: \(node.commandLineRepresentation)")
+            print("保存节点: \(node.commandRepresentationWithDisplayNames)")
         },
         onCancel: {
             print("取消编辑")

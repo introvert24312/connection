@@ -77,21 +77,58 @@ public struct Node: Identifiable, Hashable, Codable {
         self.updatedAt = Date()
     }
     
-    // 自定义解码器，确保向后兼容现有数据
+    // 自定义解码器，确保向后兼容现有数据和数据清理
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
         id = try container.decode(UUID.self, forKey: .id)
-        text = try container.decode(String.self, forKey: .text)
-        phonetic = try container.decodeIfPresent(String.self, forKey: .phonetic)
-        meaning = try container.decodeIfPresent(String.self, forKey: .meaning)
+        
+        // 安全解码并清理text字段，防止corruption
+        let rawText = try container.decode(String.self, forKey: .text)
+        text = Self.sanitizeText(rawText)
+        
+        // 安全解码可选字段
+        let rawPhonetic = try container.decodeIfPresent(String.self, forKey: .phonetic)
+        phonetic = rawPhonetic.map { Self.sanitizeText($0) }
+        
+        let rawMeaning = try container.decodeIfPresent(String.self, forKey: .meaning)
+        meaning = rawMeaning.map { Self.sanitizeText($0) }
+        
         layerId = try container.decode(UUID.self, forKey: .layerId)
-        tags = try container.decode([Tag].self, forKey: .tags)
+        
+        // 安全解码标签，包含corruption检查
+        let rawTags = try container.decode([Tag].self, forKey: .tags)
+        tags = rawTags.compactMap { tag in
+            // 过滤掉损坏的标签
+            let sanitizedValue = Self.sanitizeText(tag.value)
+            if sanitizedValue.isEmpty || Self.isCorruptedText(sanitizedValue) {
+                print("⚠️ 发现并移除损坏的标签: '\(tag.value)' -> '\(sanitizedValue)'")
+                return nil
+            }
+            // 创建清理后的标签
+            return Tag(
+                type: tag.type,
+                value: sanitizedValue,
+                latitude: tag.latitude,
+                longitude: tag.longitude,
+                isShortcutType: tag.isShortcutType
+            )
+        }
+        
         isCompound = try container.decode(Bool.self, forKey: .isCompound)
+        
         // 为markdown字段提供默认值，确保向后兼容
-        markdown = try container.decodeIfPresent(String.self, forKey: .markdown) ?? ""
+        let rawMarkdown = try container.decodeIfPresent(String.self, forKey: .markdown) ?? ""
+        markdown = Self.sanitizeText(rawMarkdown)
+        
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        
+        // 如果检测到corruption，记录并更新时间戳
+        if Self.isCorruptedText(rawText) {
+            print("🔧 检测到节点corruption，已自动修复: '\(rawText)' -> '\(text)'")
+            self.updatedAt = Date() // 标记为已修复
+        }
     }
     
     // 编码键
@@ -204,17 +241,17 @@ public struct Node: Identifiable, Hashable, Codable {
                     let tagManager = TagMappingManager.shared
                     if let mapping = tagManager.tagMappings.first(where: { $0.key == customKey }) {
                         displayName = mapping.typeName
-                        shouldUseRenameFormat = (displayName != tagCode)
+                        shouldUseRenameFormat = true  // 强制所有标签都显示方括号
                     } else {
                         // 如果找不到映射，使用customKey作为fallback
                         displayName = customKey
-                        shouldUseRenameFormat = false
+                        shouldUseRenameFormat = true  // 强制所有标签都显示方括号
                     }
                 } else {
                     // 对于预定义标签类型，直接使用rawValue
                     tagCode = tagType.rawValue
                     displayName = tagType.displayName
-                    shouldUseRenameFormat = (displayName != tagCode)
+                    shouldUseRenameFormat = true  // 强制所有标签都显示方括号
                 }
                 
                 // 使用重命名格式 key[displayName] 或简单格式 key
@@ -397,6 +434,92 @@ public struct Node: Identifiable, Hashable, Codable {
             self.updatedAt = Date()
             print("✅ 节点 '\(self.text)' 的标签类型已修复")
         }
+    }
+    
+    // MARK: - 数据清理和corruption检测方法
+    
+    /// 清理文本，移除非法字符和corruption
+    private static func sanitizeText(_ text: String) -> String {
+        // 如果文本为空或已经是正常的，直接返回
+        if text.isEmpty || !isCorruptedText(text) {
+            return text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        
+        // 清理各种可能的corruption
+        var sanitized = text
+        
+        // 移除连续的随机字符（如"kdf dlf sdfj"）
+        let randomPattern = #"(\b[a-z]{1,4}\s){2,}[a-z]{1,4}\b"#
+        sanitized = sanitized.replacingOccurrences(
+            of: randomPattern, 
+            with: "", 
+            options: .regularExpression
+        )
+        
+        // 移除无意义的字符组合
+        let meaninglessPatterns = [
+            #"\b[bcdfghjklmnpqrstvwxyz]{3,}\b"#, // 连续辅音
+            #"\b[aeiou]{3,}\b"#, // 连续元音超过3个
+            #"[^\w\s\[\](){}.,!?;:\"'-]+"# // 非标准符号
+        ]
+        
+        for pattern in meaninglessPatterns {
+            sanitized = sanitized.replacingOccurrences(
+                of: pattern,
+                with: "",
+                options: .regularExpression
+            )
+        }
+        
+        // 清理多余的空白
+        sanitized = sanitized.replacingOccurrences(
+            of: #"\s+"#,
+            with: " ",
+            options: .regularExpression
+        )
+        
+        // 最终清理
+        sanitized = sanitized.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // 如果清理后为空或仍然corrupt，返回默认值
+        if sanitized.isEmpty || isCorruptedText(sanitized) {
+            return "[已修复]" // 标记已修复的节点
+        }
+        
+        return sanitized
+    }
+    
+    /// 检测文本是否存在corruption
+    private static func isCorruptedText(_ text: String) -> Bool {
+        // 空文本不算corruption
+        if text.isEmpty {
+            return false
+        }
+        
+        // 检查是否包含明显的random字符组合（如"kdf dlf sdfj"）
+        let randomWordsPattern = #"(\b[a-z]{1,4}\s){2,}[a-z]{1,4}\b"#
+        if text.range(of: randomWordsPattern, options: .regularExpression) != nil {
+            return true
+        }
+        
+        // 检查是否包含过多无意义字符
+        let totalLength = text.count
+        let meaningfulChars = text.filter { char in
+            char.isLetter || char.isNumber || char.isWhitespace || "[](){}.,!?;:\"'-".contains(char)
+        }.count
+        
+        // 如果有意义字符比例低于70%，认为是corruption
+        if totalLength > 0 && Double(meaningfulChars) / Double(totalLength) < 0.7 {
+            return true
+        }
+        
+        // 检查是否包含过多连续的相同字符
+        let consecutivePattern = #"(.)\1{5,}"# // 连续6个以上相同字符
+        if text.range(of: consecutivePattern, options: .regularExpression) != nil {
+            return true
+        }
+        
+        return false
     }
     
     // MARK: - 命令行解析辅助方法

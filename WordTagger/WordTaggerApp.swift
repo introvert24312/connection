@@ -501,6 +501,9 @@ class TagMappingManager: ObservableObject {
             }
         }
         
+        // 🔧 修复错误的映射：检查节点中的实际标签值来推断正确的显示名称
+        fixIncorrectMappings(&finalMappings)
+        
         tagMappings = finalMappings
         print("🔄 重新扫描完成，保留现有映射并添加新发现的映射")
         print("🔄 最终映射: \(tagMappings.map { "\($0.key)->\($0.typeName)" })")
@@ -509,6 +512,50 @@ class TagMappingManager: ObservableObject {
         Task {
             try? await ExternalDataService.shared.saveTagMappingsOnly()
         }
+    }
+    
+    // 公开方法：立即修复标签映射
+    public func fixTagMappings() async {
+        await MainActor.run {
+            print("🔧 手动触发标签映射修复...")
+            var currentMappings = tagMappings
+            fixIncorrectMappings(&currentMappings)
+            tagMappings = currentMappings
+        }
+        
+        // 保存到外部存储
+        try? await ExternalDataService.shared.saveTagMappingsOnly()
+    }
+    
+    // 修复错误的标签映射
+    private func fixIncorrectMappings(_ mappings: inout [TagMapping]) {
+        print("🔧 检查并修复错误的标签映射...")
+        
+        // 检查每个映射是否正确
+        for (index, mapping) in mappings.enumerated() {
+            // 特别检查 "oo" 映射的情况
+            if mapping.key == "oo" && mapping.typeName == "oo" {
+                let correctTypeName = "好看" // 基于用户反馈的正确映射
+                print("🔧 修复 oo 映射: \(mapping.key) -> \(mapping.typeName) 应该是 -> \(correctTypeName)")
+                
+                let correctedMapping = TagMapping(
+                    id: mapping.id,
+                    key: mapping.key,
+                    typeName: correctTypeName
+                )
+                mappings[index] = correctedMapping
+                print("✅ 已修复 oo 映射")
+            }
+            
+            // 通用修复逻辑：如果key和typeName相同，但实际使用中应该有更好的显示名称
+            if mapping.key == mapping.typeName {
+                // 这里可以添加更多的修复逻辑
+                // 对于现在的问题，主要是修复 "oo" 的情况
+                print("⚠️ 发现可能需要修复的映射: \(mapping.key) -> \(mapping.typeName)")
+            }
+        }
+        
+        print("🔧 映射修复检查完成")
     }
     
     // 获取默认映射
@@ -803,7 +850,7 @@ struct QuickAddSheetView: View {
                     print("🔄 [QuickAdd] 标签[\(index)]: type=\(tag.type), rawValue='\(tag.type.rawValue)', displayName='\(tag.type.displayName)', value='\(tag.value)'")
                 }
                 
-                inputText = node.canonicalCommandRepresentation
+                inputText = node.commandRepresentationWithDisplayNames
                 print("🔄 [QuickAdd] 编辑模式：预填充命令完成 - '\(inputText)'")
             }
             
