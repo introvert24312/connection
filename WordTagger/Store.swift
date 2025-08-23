@@ -65,6 +65,12 @@ public final class NodeStore: ObservableObject {
                         // 修复旧的标签类型（移除custom_前缀）
                         self.fixLegacyTagTypesInAllNodes()
                         
+                        // 检测并修复损坏的节点数据
+                        let corruptionFixedCount = self.detectAndFixCorruptedNodes()
+                        if corruptionFixedCount > 0 {
+                            print("🔧 数据加载时自动修复了 \(corruptionFixedCount) 个损坏的节点")
+                        }
+                        
                         // 设置活跃层
                         if let activeLayer = loadedLayers.first(where: { $0.isActive }) {
                             self.currentLayer = activeLayer
@@ -316,6 +322,184 @@ public final class NodeStore: ObservableObject {
         }
     }
     
+    /// 检测并修复损坏的节点数据
+    @MainActor
+    public func detectAndFixCorruptedNodes() -> Int {
+        print("🔍 开始检测和修复损坏的节点数据...")
+        var fixedCount = 0
+        var nodesToRemove: [Int] = []
+        
+        for i in 0..<nodes.count {
+            let node = nodes[i]
+            var needsUpdate = false
+            var updatedNode = node
+            
+            // 检查节点文本corruption
+            if isTextCorrupted(node.text) {
+                let originalText = node.text
+                updatedNode.text = sanitizeCorruptedText(node.text)
+                print("🔧 修复节点文本: '\(originalText)' -> '\(updatedNode.text)'")
+                needsUpdate = true
+                fixedCount += 1
+            }
+            
+            // 检查phonetic字段
+            if let phonetic = node.phonetic, isTextCorrupted(phonetic) {
+                let originalPhonetic = phonetic
+                updatedNode.phonetic = sanitizeCorruptedText(phonetic).isEmpty ? nil : sanitizeCorruptedText(phonetic)
+                print("🔧 修复音标: '\(originalPhonetic)' -> '\(updatedNode.phonetic ?? "nil")'")
+                needsUpdate = true
+                fixedCount += 1
+            }
+            
+            // 检查meaning字段
+            if let meaning = node.meaning, isTextCorrupted(meaning) {
+                let originalMeaning = meaning
+                updatedNode.meaning = sanitizeCorruptedText(meaning).isEmpty ? nil : sanitizeCorruptedText(meaning)
+                print("🔧 修复含义: '\(originalMeaning)' -> '\(updatedNode.meaning ?? "nil")'")
+                needsUpdate = true
+                fixedCount += 1
+            }
+            
+            // 检查标签值corruption
+            var cleanedTags: [Tag] = []
+            for tag in node.tags {
+                if isTextCorrupted(tag.value) {
+                    let sanitized = sanitizeCorruptedText(tag.value)
+                    if !sanitized.isEmpty {
+                        let cleanedTag = Tag(
+                            type: tag.type,
+                            value: sanitized,
+                            latitude: tag.latitude,
+                            longitude: tag.longitude,
+                            isShortcutType: tag.isShortcutType
+                        )
+                        cleanedTags.append(cleanedTag)
+                        print("🔧 修复标签值: '\(tag.value)' -> '\(sanitized)'")
+                        needsUpdate = true
+                        fixedCount += 1
+                    } else {
+                        print("⚠️ 移除无法修复的损坏标签: '\(tag.value)'")
+                        needsUpdate = true
+                        fixedCount += 1
+                    }
+                } else {
+                    cleanedTags.append(tag)
+                }
+            }
+            
+            if needsUpdate {
+                updatedNode.tags = cleanedTags
+                updatedNode.updatedAt = Date()
+                
+                // 检查修复后的节点是否还有有效内容
+                if updatedNode.text == "[已修复]" || updatedNode.text.isEmpty {
+                    print("⚠️ 节点损坏严重，标记为删除: index \(i)")
+                    nodesToRemove.append(i)
+                } else {
+                    nodes[i] = updatedNode
+                }
+            }
+        }
+        
+        // 移除无法修复的损坏节点（从后向前删除以避免索引问题）
+        for index in nodesToRemove.reversed() {
+            let removedNode = nodes[index]
+            nodes.remove(at: index)
+            print("🗑️ 移除无法修复的损坏节点: '\(removedNode.text)' (原index: \(index))")
+            fixedCount += 1
+        }
+        
+        if fixedCount > 0 {
+            print("✅ 数据修复完成，共修复/移除 \(fixedCount) 个问题")
+            objectWillChange.send()
+            
+            // 自动保存修复后的数据
+            if !isLoadingFromExternal {
+                Task {
+                    await forceSaveToExternalStorage()
+                    print("💾 修复后的数据已自动保存")
+                }
+            }
+        } else {
+            print("✅ 未发现损坏的数据")
+        }
+        
+        return fixedCount
+    }
+    
+    /// 检查文本是否损坏
+    private func isTextCorrupted(_ text: String) -> Bool {
+        // 空文本不算损坏
+        if text.isEmpty {
+            return false
+        }
+        
+        // 检查是否包含明显的random字符组合（如"kdf dlf sdfj"）
+        let randomWordsPattern = #"(\b[a-z]{1,4}\s){2,}[a-z]{1,4}\b"#
+        if text.range(of: randomWordsPattern, options: .regularExpression) != nil {
+            return true
+        }
+        
+        // 检查是否包含过多无意义字符
+        let totalLength = text.count
+        let meaningfulChars = text.filter { char in
+            char.isLetter || char.isNumber || char.isWhitespace || "[](){}.,!?;:\"'-".contains(char)
+        }.count
+        
+        // 如果有意义字符比例低于70%，认为是损坏
+        if totalLength > 0 && Double(meaningfulChars) / Double(totalLength) < 0.7 {
+            return true
+        }
+        
+        return false
+    }
+    
+    /// 清理损坏的文本
+    private func sanitizeCorruptedText(_ text: String) -> String {
+        var sanitized = text
+        
+        // 移除连续的随机字符（如"kdf dlf sdfj"）
+        let randomPattern = #"(\b[a-z]{1,4}\s){2,}[a-z]{1,4}\b"#
+        sanitized = sanitized.replacingOccurrences(
+            of: randomPattern, 
+            with: "", 
+            options: .regularExpression
+        )
+        
+        // 移除无意义的字符组合
+        let meaninglessPatterns = [
+            #"\b[bcdfghjklmnpqrstvwxyz]{4,}\b"#, // 连续辅音4个以上
+            #"\b[aeiou]{4,}\b"#, // 连续元音4个以上
+            #"[^\w\s\[\](){}.,!?;:\"'-]+"# // 非标准符号
+        ]
+        
+        for pattern in meaninglessPatterns {
+            sanitized = sanitized.replacingOccurrences(
+                of: pattern,
+                with: "",
+                options: .regularExpression
+            )
+        }
+        
+        // 清理多余的空白
+        sanitized = sanitized.replacingOccurrences(
+            of: #"\s+"#,
+            with: " ",
+            options: .regularExpression
+        )
+        
+        // 最终清理
+        sanitized = sanitized.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // 如果清理后为空，返回默认值
+        if sanitized.isEmpty {
+            return "[已修复]"
+        }
+        
+        return sanitized
+    }
+    
     // 重复节点检测结果
     public struct DuplicateNodeAlert {
         let message: String
@@ -462,6 +646,13 @@ public final class NodeStore: ObservableObject {
             // 手动触发objectWillChange以确保UI更新
             objectWillChange.send()
             
+            // 发送节点更新通知，触发自动同步
+            NotificationCenter.default.post(
+                name: Notification.Name("nodeUpdated"),
+                object: nodeWithLayer
+            )
+            print("📡 已发送nodeUpdated通知，将触发Git自动同步")
+            
             // 自动保存到外部存储
             if !isLoadingFromExternal {
                 Task {
@@ -538,6 +729,13 @@ public final class NodeStore: ObservableObject {
             // 手动触发objectWillChange以确保UI更新
             objectWillChange.send()
             
+            // 发送节点更新通知，触发自动同步
+            NotificationCenter.default.post(
+                name: Notification.Name("nodeUpdated"),
+                object: updatedNode
+            )
+            print("📡 Store.updateNode: 已发送nodeUpdated通知，节点: '\(updatedNode.text)'")
+            
             // 自动保存到外部存储
             if !isLoadingFromExternal {
                 Task {
@@ -595,6 +793,8 @@ public final class NodeStore: ObservableObject {
     
     @MainActor
     public func deleteNode(_ node: Node) {
+        print("🗑️ Store.deleteNode: 删除节点 '\(node.text)'")
+        
         nodes.removeAll { $0.id == node.id }
         if selectedNode?.id == node.id {
             selectedNode = nil
@@ -603,17 +803,32 @@ public final class NodeStore: ObservableObject {
         // 手动触发objectWillChange以确保UI更新
         objectWillChange.send()
         
+        // 发送节点删除通知，触发自动同步
+        NotificationCenter.default.post(
+            name: Notification.Name("nodeUpdated"),
+            object: node
+        )
+        print("📡 Store.deleteNode: 已发送nodeUpdated通知，节点: '\(node.text)'")
+        
         // 自动保存到外部存储
         if !isLoadingFromExternal {
             Task {
                 await forceSaveToExternalStorage()
-                print("💾 节点删除后已自动保存到外部存储")
+                print("💾 Store.deleteNode: 节点删除后已自动保存到外部存储")
             }
         }
     }
     
     @MainActor
     public func deleteNode(_ nodeId: UUID) {
+        // 在删除前获取节点信息用于通知
+        let nodeToDelete = nodes.first { $0.id == nodeId }
+        
+        print("🗑️ Store.deleteNode(UUID): 删除节点ID \(nodeId)")
+        if let node = nodeToDelete {
+            print("🗑️ Store.deleteNode(UUID): 找到节点 '\(node.text)'")
+        }
+        
         nodes.removeAll { $0.id == nodeId }
         if selectedNode?.id == nodeId {
             selectedNode = nil
@@ -622,13 +837,29 @@ public final class NodeStore: ObservableObject {
         // 手动触发objectWillChange以确保UI更新
         objectWillChange.send()
         
+        // 发送节点删除通知，触发自动同步
+        if let deletedNode = nodeToDelete {
+            NotificationCenter.default.post(
+                name: Notification.Name("nodeUpdated"),
+                object: deletedNode
+            )
+            print("📡 Store.deleteNode(UUID): 已发送nodeUpdated通知，节点: '\(deletedNode.text)'")
+        } else {
+            // 即使没有找到节点，也发送通知（可能是其他操作导致的删除）
+            NotificationCenter.default.post(
+                name: Notification.Name("nodeUpdated"),
+                object: nil
+            )
+            print("📡 Store.deleteNode(UUID): 未找到删除的节点，发送空通知")
+        }
+        
         // 自动保存到外部存储
         if !isLoadingFromExternal {
             Task {
                 await forceSaveToExternalStorage()
-                print("💾 节点删除后已自动保存到外部存储")
+                print("💾 Store.deleteNode(UUID): 节点删除后已自动保存到外部存储")
             }
-            *thud*    }
+        }
     }
     
     @MainActor
@@ -869,6 +1100,34 @@ public final class NodeStore: ObservableObject {
         return layers.contains { compoundLayer in
             compoundLayer.isCompound && compoundLayer.childLayerIds.contains(layer.id)
         }
+    }
+    
+    // MARK: - 数据替换功能
+    
+    @MainActor
+    public func replaceAllData(layers: [Layer], nodes: [Node]) async {
+        print("🔄 替换所有数据: \(layers.count) 个层, \(nodes.count) 个节点")
+        
+        // 替换数据
+        self.layers = layers
+        self.nodes = nodes
+        
+        // 设置活跃层
+        if let activeLayer = layers.first(where: { $0.isActive }) {
+            self.currentLayer = activeLayer
+        } else if let firstLayer = layers.first {
+            // 如果没有活跃层，激活第一个层
+            self.currentLayer = firstLayer
+            // 更新层状态
+            for i in self.layers.indices {
+                self.layers[i].isActive = (self.layers[i].id == firstLayer.id)
+            }
+        }
+        
+        // 强制触发UI更新
+        objectWillChange.send()
+        
+        print("✅ 数据替换完成")
     }
     
     // MARK: - 数据清理功能

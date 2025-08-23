@@ -293,14 +293,16 @@ public struct Node: Identifiable, Hashable, Codable {
                 let tagCode = tagType.rawValue
                 let displayName = tagType.displayName
                 
-                // 如果展示名与代码不同，添加方括号
-                if displayName != tagCode {
-                    components.append("\(tagCode)[\(displayName)]")
+                // 检查是否为带坐标的地理标签
+                if tag.hasCoordinates, let lat = tag.latitude, let lng = tag.longitude {
+                    // 地理标签格式：tagCode @latitude,longitude[displayName]
+                    components.append("\(tagCode)")
+                    components.append("@\(lat),\(lng)[\(tag.value)]")
                 } else {
-                    components.append(tagCode)
+                    // 普通标签格式：tagCode[displayName] value
+                    components.append("\(tagCode)[\(displayName)]")
+                    components.append(quoteValueIfNeeded(tag.value))
                 }
-                
-                components.append(quoteValueIfNeeded(tag.value))
             }
         }
         
