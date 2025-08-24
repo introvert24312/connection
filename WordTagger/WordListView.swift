@@ -108,12 +108,7 @@ struct NodeListView: View {
                     List(Array(displayNodes.enumerated()), id: \.element.id) { index, node in
                         NodeRowView(
                             node: node,
-                            isSelected: selectedNode?.id == node.id || 
-                                       (store.showAllTagTypeNodes && 
-                                        store.selectedTag != nil && 
-                                        (store.expandedTagTypes.count > 1 ? 
-                                         node.tags.contains { store.expandedTagTypes.contains($0.type) } : 
-                                         node.hasTag(store.selectedTag!))),
+                            isSelected: selectedNode?.id == node.id,
                             searchQuery: store.searchQuery,
                             onTap: {
                                 print("🎯 NodeListView: 用户点击节点 \(node.text)")

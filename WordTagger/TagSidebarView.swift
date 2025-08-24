@@ -20,7 +20,7 @@ struct TagSidebarView: View {
         case tagSearch     // 标签搜索模块
     }
     @State private var currentMode: SidebarMode = .tagFiltering  // 默认显示标签筛选模块
-    @State private var expandedTagTypes: Set<Tag.TagType> = []  // 展开的标签类型
+    // 注意：expandedTagTypes 现在使用 Store 中的状态，不再是本地 @State
     
     var body: some View {
         VStack(spacing: 0) {
@@ -137,7 +137,7 @@ struct TagSidebarView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("clearTagFilter"))) { _ in
             print("🧹 TagSidebarView: 收到清除标签筛选通知")
             // 清除UI状态
-            expandedTagTypes.removeAll()
+            store.setExpandedTagTypes([])
             selectedTagTypes.removeAll()
             expandedGroups.removeAll()
             tagTypeSearchQuery = ""
@@ -145,7 +145,15 @@ struct TagSidebarView: View {
             currentMode = .tagFiltering
             print("✅ TagSidebarView: 标签筛选UI状态已清除")
         }
-        .onChange(of: expandedTagTypes) { _, newExpandedTypes in
+        .onChange(of: store.selectedNode) { _, newNode in
+            // 🔧 当store中的节点被选中时（如从地图选择），不清除标签筛选状态
+            // 因为我们现在希望地图选择能触发标签展开
+            if newNode != nil {
+                print("🗺️ TagSidebarView: 检测到节点选择，保持标签筛选状态")
+                currentMode = .tagFiltering
+            }
+        }
+        .onChange(of: store.expandedTagTypes) { _, newExpandedTypes in
             // 当展开的标签类型改变时，更新显示的节点
             updateDisplayedNodesForExpandedTypes(newExpandedTypes)
         }
@@ -193,18 +201,14 @@ struct TagSidebarView: View {
     // MARK: - 标签类型组件
     @ViewBuilder
     private func tagTypeSection(_ tagType: Tag.TagType) -> some View {
-        let isExpanded = expandedTagTypes.contains(tagType)
+        let isExpanded = store.expandedTagTypes.contains(tagType)
         let tags = tagsOfType(tagType)
         
         VStack(spacing: 0) {
             // 标签类型头部
             Button(action: {
                 // 只切换展开/折叠状态，不触发节点显示
-                if isExpanded {
-                    expandedTagTypes.remove(tagType)
-                } else {
-                    expandedTagTypes.insert(tagType)
-                }
+                store.toggleExpandedTagType(tagType)
                 
                 print("🏷️ 切换标签类型展开状态: \(tagType.displayName) - \(isExpanded ? "折叠" : "展开")")
             }) {

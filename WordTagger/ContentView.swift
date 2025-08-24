@@ -199,10 +199,9 @@ struct ContentView: View {
         }
         .onChange(of: store.selectedNode) { oldValue, newValue in
             print("🔄 ContentView: store.selectedNode 发生变化: \(oldValue?.text ?? "nil") -> \(newValue?.text ?? "nil")")
-            if selectedNode?.id != newValue?.id {
-                selectedNode = newValue
-                print("🔄 ContentView: 同步本地selectedNode: \(newValue?.text ?? "nil")")
-            }
+            // 🔧 强制同步，确保地图选择能正确反映到主界面
+            selectedNode = newValue
+            print("🔄 ContentView: 强制同步本地selectedNode: \(newValue?.text ?? "nil")")
         }
         .onChange(of: store.nodes) { _, _ in
             // 当nodes变化时，检查selectedNode是否还有效
