@@ -824,16 +824,13 @@ struct GitSyncStatusIndicator: View {
                 .fill(statusManager.statusColor)
                 .frame(width: 8, height: 8)
                 .scaleEffect(statusManager.isWorking ? 1.2 : 1.0)
-                .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), 
-                          value: statusManager.isWorking)
+                .animation(statusManager.isWorking ? 
+                    .easeInOut(duration: 0.6).repeatForever(autoreverses: true) : 
+                    .easeInOut(duration: 0.2), 
+                    value: statusManager.isWorking)
             
             // 状态图标
-            Image(systemName: statusManager.statusIcon)
-                .font(.caption)
-                .foregroundColor(statusManager.statusColor)
-                .rotationEffect(.degrees(statusManager.isWorking ? 360 : 0))
-                .animation(.linear(duration: 2).repeatForever(autoreverses: false), 
-                          value: statusManager.isWorking)
+            RotatingGitIcon(isWorking: statusManager.isWorking, icon: statusManager.statusIcon, color: statusManager.statusColor)
             
             // 状态文本（可选）
             if statusManager.isWorking {
@@ -854,6 +851,42 @@ struct GitSyncStatusIndicator: View {
         .popover(isPresented: $showingTooltip) {
             GitSyncStatusPopover()
         }
+    }
+}
+
+// MARK: - 旋转Git图标组件
+struct RotatingGitIcon: View {
+    let isWorking: Bool
+    let icon: String
+    let color: Color
+    
+    @State private var rotation: Double = 0
+    
+    var body: some View {
+        Image(systemName: icon)
+            .font(.caption)
+            .foregroundColor(color)
+            .rotationEffect(.degrees(rotation))
+            .onReceive(Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()) { _ in
+                if isWorking {
+                    withAnimation(.linear(duration: 0.1)) {
+                        rotation += 36 // 每0.1秒转36度，2秒转完一圈
+                    }
+                } else {
+                    // 停止时立即重置旋转
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        rotation = 0
+                    }
+                }
+            }
+            .onChange(of: isWorking) { _, newValue in
+                if !newValue {
+                    // 当停止工作时，立即停止并重置旋转
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        rotation = 0
+                    }
+                }
+            }
     }
 }
 
