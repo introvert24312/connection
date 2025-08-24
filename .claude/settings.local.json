@@ -62,7 +62,11 @@
       "Bash(/Users/Patronum/Desktop/check_token_scopes.sh:*)",
       "Bash(/Users/Patronum/Desktop/test_credential_helper.sh:*)",
       "Bash(defaults read:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "WebFetch(domain:swiftwithmajid.com)",
+      "WebFetch(domain:stackoverflow.com)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:developer.apple.com)"
     ],
     "deny": []
   }
