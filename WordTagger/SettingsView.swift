@@ -690,6 +690,12 @@ public class GitSyncStatusManager: ObservableObject {
         status = operation
         lastError = nil
         print("🟡 GitHub同步开始: \(operation)")
+        
+        // 强制触发UI更新
+        DispatchQueue.main.async {
+            print("🔄 GitSyncStatusManager: 强制触发UI更新 isWorking=\(self.isWorking)")
+            self.objectWillChange.send()
+        }
     }
     
     public func finishWorking(success: Bool, finalStatus: String, error: String? = nil) {
@@ -705,6 +711,12 @@ public class GitSyncStatusManager: ObservableObject {
             print("🔴 GitHub同步失败: \(error ?? "未知错误")")
         }
         saveStatus()
+        
+        // 强制触发UI更新
+        DispatchQueue.main.async {
+            print("🔄 GitSyncStatusManager: 强制触发UI更新 isWorking=\(self.isWorking)")
+            self.objectWillChange.send()
+        }
     }
     
     // MARK: - 状态计算
@@ -777,7 +789,7 @@ public class GitSyncStatusManager: ObservableObject {
 // MARK: - GitHub同步状态指示器组件
 
 struct GitSyncStatusIndicator: View {
-    @StateObject private var statusManager = GitSyncStatusManager.shared
+    @ObservedObject private var statusManager = GitSyncStatusManager.shared
     @State private var showingTooltip = false
     
     var body: some View {
@@ -823,7 +835,7 @@ struct GitSyncStatusIndicator: View {
 // MARK: - 状态详情弹出框
 
 struct GitSyncStatusPopover: View {
-    @StateObject private var statusManager = GitSyncStatusManager.shared
+    @ObservedObject private var statusManager = GitSyncStatusManager.shared
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -908,7 +920,7 @@ struct GitSyncStatusPopover: View {
 // MARK: - 紧凑状态指示器（用于工具栏）
 
 struct CompactGitSyncIndicator: View {
-    @StateObject private var statusManager = GitSyncStatusManager.shared
+    @ObservedObject private var statusManager = GitSyncStatusManager.shared
     
     var body: some View {
         HStack(spacing: 4) {
@@ -2354,7 +2366,7 @@ struct DataFolderSetupView: View {
 
 struct GitSyncSettingsView: View {
     @StateObject private var dataManager = ExternalDataManager.shared
-    @StateObject private var statusManager = GitSyncStatusManager.shared
+    @ObservedObject private var statusManager = GitSyncStatusManager.shared
     @EnvironmentObject private var store: NodeStore
     @State private var remoteURLInput: String = ""
     @State private var branchInput: String = "master"
