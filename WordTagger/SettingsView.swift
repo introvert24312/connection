@@ -431,6 +431,14 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
             statusManager.objectWillChange.send()
             print("🔧 紧急重置后状态: isWorking=\(statusManager.isWorking), status=\(statusManager.status)")
             
+            // 多重强制更新
+            for i in 0..<5 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.1) {
+                    statusManager.objectWillChange.send()
+                    print("🔄 强制更新 #\(i+1)")
+                }
+            }
+            
             // 1秒后重置为就绪状态
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                 statusManager.status = "就绪"
@@ -806,6 +814,11 @@ struct GitSyncStatusIndicator: View {
     
     var body: some View {
         HStack(spacing: 6) {
+            // 调试信息 - 临时添加
+            Text("Debug: \(statusManager.isWorking ? "转动" : "停止")")
+                .font(.system(size: 8))
+                .foregroundColor(.red)
+            
             // 状态圆点
             Circle()
                 .fill(statusManager.statusColor)
