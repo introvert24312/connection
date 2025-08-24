@@ -28,6 +28,8 @@ struct MapContainer: View {
     @State private var showManualInput: Bool = false
     @State private var manualCoordinateInput: String = ""
     @State private var mapViewSize: CGSize = CGSize(width: 800, height: 600)
+    @State private var currentHeading: Double = 0
+    @State private var currentPitch: Double = 0
     
     var body: some View {
         ZStack {
@@ -115,59 +117,80 @@ struct MapContainer: View {
     
     private var mapView: some View {
         ZStack {
-            GeometryReader { geometry in
-                Map(position: $cameraPosition) {
-                    ForEach(locationAnnotations, id: \.id) { annotation in
-                        Annotation(
-                            annotation.title,
-                            coordinate: annotation.coordinate,
-                            anchor: .center
-                        ) {
-                            LocationMarkerView(annotation: annotation) {
-                                selectedNode = annotation.word
+            MapReader { proxy in
+                GeometryReader { geometry in
+                    Map(position: $cameraPosition) {
+                        ForEach(locationAnnotations, id: \.id) { annotation in
+                            Annotation(
+                                "", // Remove title to avoid duplicate labels
+                                coordinate: annotation.coordinate,
+                                anchor: .center
+                            ) {
+                                LocationMarkerView(annotation: annotation) {
+                                    print("🎯 Map node clicked: \(annotation.word.text)")
+                                    // 使用完整的标签导航流程，不直接设置selectedNode
+                                    store.expandLocationTagAndSelect(annotation.word)
+                                }
+                            }
+                        }
+                        
+                        // 3D精美大头针 - 显示选中或搜索的位置
+                        if let selectedLocation = selectedLocation {
+                            Annotation(
+                                selectedLocationName.isEmpty ? "选中位置" : selectedLocationName,
+                                coordinate: selectedLocation,
+                                anchor: .bottom
+                            ) {
+                                if isLocationSelectionMode {
+                                    Premium3DPinView()
+                                } else {
+                                    // 搜索结果的临时标记，使用不同的样式
+                                    SearchLocationPinView()
+                                }
                             }
                         }
                     }
-                    
-                    // 3D精美大头针 - 显示选中或搜索的位置
-                    if let selectedLocation = selectedLocation {
-                        Annotation(
-                            selectedLocationName.isEmpty ? "选中位置" : selectedLocationName,
-                            coordinate: selectedLocation,
-                            anchor: .bottom
-                        ) {
-                            if isLocationSelectionMode {
-                                Premium3DPinView()
+                    .mapStyle(.standard)
+                    .onMapCameraChange { context in
+                        // 同步region和cameraPosition
+                        region = context.region
+                        
+                        // Track rotation/heading for coordinate conversion
+                        let camera = context.camera
+                        currentHeading = camera.heading
+                        currentPitch = camera.pitch
+                        
+                        print("🗺️ Map updated - Region: \(context.region.center), Heading: \(currentHeading)°, Pitch: \(currentPitch)°")
+                    }
+                    .onTapGesture(coordinateSpace: .local) { location in
+                        if isLocationSelectionMode {
+                            // Use MapProxy for accurate coordinate conversion (handles rotation automatically)
+                            if let tappedCoordinate = proxy.convert(location, from: .local) {
+                                selectedLocation = tappedCoordinate
+                                isPreviewingLocation = true
+                                reverseGeocodeLocation(coordinate: tappedCoordinate)
+                                print("🎯 Tapped coordinate (MapProxy): \(tappedCoordinate)")
                             } else {
-                                // 搜索结果的临时标记，使用不同的样式
-                                SearchLocationPinView()
+                                // Fallback to manual conversion with rotation handling
+                                let tappedCoordinate = convertScreenToMapCoordinate(screenPoint: location, mapSize: geometry.size)
+                                selectedLocation = tappedCoordinate
+                                isPreviewingLocation = true
+                                reverseGeocodeLocation(coordinate: tappedCoordinate)
+                                print("🎯 Tapped coordinate (Manual): \(tappedCoordinate)")
                             }
+                        } else {
+                            // 在非位置选择模式下，让节点点击事件优先处理
+                            print("🗺️ Map tapped in normal mode - allowing node clicks to handle")
                         }
                     }
-                }
-                .mapStyle(.standard)
-                .onMapCameraChange { context in
-                    // 同步region和cameraPosition
-                    region = context.region
-                    print("🗺️ Map region updated: center=\(context.region.center), span=\(context.region.span)")
-                }
-                .onTapGesture(coordinateSpace: .local) { location in
-                    if isLocationSelectionMode {
-                        // 使用改进的坐标转换
-                        let tappedCoordinate = convertScreenToMapCoordinate(screenPoint: location, mapSize: geometry.size)
-                        selectedLocation = tappedCoordinate
-                        isPreviewingLocation = true // 先进入预览模式
-                        reverseGeocodeLocation(coordinate: tappedCoordinate)
-                        print("🎯 Tapped coordinate: \(tappedCoordinate)")
+                    .onAppear {
+                        mapViewSize = geometry.size
+                        print("📏 Map view size: \(mapViewSize)")
                     }
-                }
-                .onAppear {
-                    mapViewSize = geometry.size
-                    print("📏 Map view size: \(mapViewSize)")
-                }
-                .onChange(of: geometry.size) { _, newSize in
-                    mapViewSize = newSize
-                    print("📏 Map view size changed to: \(mapViewSize)")
+                    .onChange(of: geometry.size) { _, newSize in
+                        mapViewSize = newSize
+                        print("📏 Map view size changed to: \(mapViewSize)")
+                    }
                 }
             }
         }
@@ -597,29 +620,85 @@ struct MapContainer: View {
     }
     
     private func convertScreenToMapCoordinate(screenPoint: CGPoint, mapSize: CGSize) -> CLLocationCoordinate2D {
-        // 使用当前地图区域进行更精确的坐标转换
-        let currentRegion = region
+        // Extract the current region from camera position
+        var currentRegion: MKCoordinateRegion
         
-        // 计算屏幕点相对于地图中心的偏移比例
+        // For now, just use the stored region as fallback
+        // TODO: Implement proper camera position extraction
+        currentRegion = region
+        
+        // Calculate screen point relative to map center
         let centerX = mapSize.width / 2
         let centerY = mapSize.height / 2
         
         let offsetX = screenPoint.x - centerX
         let offsetY = screenPoint.y - centerY
         
-        // 转换为地理坐标偏移（考虑缩放级别）
-        let longitudeOffset = Double(offsetX) * currentRegion.span.longitudeDelta / Double(mapSize.width)
-        let latitudeOffset = -Double(offsetY) * currentRegion.span.latitudeDelta / Double(mapSize.height) // Y轴翻转
+        // Apply rotation transformation if map is rotated
+        let rotatedOffsets = applyRotationTransform(
+            offsetX: offsetX,
+            offsetY: offsetY,
+            heading: currentHeading
+        )
+        
+        // Convert rotated offsets to geographic coordinates
+        let longitudeOffset = Double(rotatedOffsets.x) * currentRegion.span.longitudeDelta / Double(mapSize.width)
+        let latitudeOffset = -Double(rotatedOffsets.y) * currentRegion.span.latitudeDelta / Double(mapSize.height)
         
         let coordinate = CLLocationCoordinate2D(
             latitude: currentRegion.center.latitude + latitudeOffset,
             longitude: currentRegion.center.longitude + longitudeOffset
         )
         
-        print("🎯 Screen: \(screenPoint) -> Map: \(coordinate)")
+        print("🎯 Manual conversion - Screen: \(screenPoint) -> Map: \(coordinate)")
+        print("🎯 Rotation: \(currentHeading)°, Original offset: (\(offsetX), \(offsetY)), Rotated: (\(rotatedOffsets.x), \(rotatedOffsets.y))")
         print("🎯 Region center: \(currentRegion.center), span: \(currentRegion.span)")
         
         return coordinate
+    }
+    
+    /// Applies rotation transformation to screen coordinates
+    private func applyRotationTransform(offsetX: CGFloat, offsetY: CGFloat, heading: Double) -> CGPoint {
+        // If no rotation, return original offsets
+        guard abs(heading) > 0.1 else {
+            return CGPoint(x: offsetX, y: offsetY)
+        }
+        
+        // Convert heading to radians (negative because we need to reverse the rotation)
+        let headingRadians = -heading * .pi / 180.0
+        
+        // Apply rotation matrix transformation
+        let cos_theta = cos(headingRadians)
+        let sin_theta = sin(headingRadians)
+        
+        let rotatedX = offsetX * cos_theta - offsetY * sin_theta
+        let rotatedY = offsetX * sin_theta + offsetY * cos_theta
+        
+        return CGPoint(x: rotatedX, y: rotatedY)
+    }
+    
+    /// Calculates coordinate region from camera parameters
+    private func calculateRegionFromCamera(_ camera: MapCamera) -> MKCoordinateRegion {
+        // More accurate calculation considering distance and pitch
+        let distance = camera.distance
+        let pitch = camera.pitch
+        
+        // Adjust for pitch - higher pitch shows less area
+        let pitchFactor = cos(pitch * .pi / 180.0)
+        let effectiveDistance = distance / pitchFactor
+        
+        // Convert distance to approximate coordinate span
+        // These constants are empirically derived for reasonable accuracy
+        let latitudeDelta = effectiveDistance / 111320.0 * 0.008
+        let longitudeDelta = latitudeDelta / cos(camera.centerCoordinate.latitude * .pi / 180.0)
+        
+        return MKCoordinateRegion(
+            center: camera.centerCoordinate,
+            span: MKCoordinateSpan(
+                latitudeDelta: max(latitudeDelta, 0.0001), // Minimum span to avoid zero values
+                longitudeDelta: max(longitudeDelta, 0.0001)
+            )
+        )
     }
     
     private func reverseGeocodeLocation(coordinate: CLLocationCoordinate2D) {
@@ -738,31 +817,39 @@ struct LocationMarkerView: View {
     var body: some View {
         Button(action: onTap) {
             VStack(spacing: 4) {
-                ZStack {
-                    Circle()
-                        .fill(markerColor)
-                        .frame(width: 32, height: 32)
-                        .shadow(radius: 4)
+                VStack(spacing: 2) {
+                    // 圆形标记显示首字符
+                    ZStack {
+                        Circle()
+                            .fill(markerColor)
+                            .frame(width: 32, height: 32)
+                            .shadow(radius: 4)
+                        
+                        Text(String(annotation.locationTag.value.prefix(1)))
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                    }
                     
-                    Text(String(annotation.word.text.prefix(1)).uppercased())
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
+                    // 下方显示完整地点名称
+                    Text(annotation.locationTag.value)
+                        .font(.caption2)
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(.ultraThinMaterial)
+                                .shadow(radius: 2)
+                        )
+                        .lineLimit(1)
                 }
                 
-                Text(annotation.title)
-                    .font(.caption2)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.white.opacity(0.9))
-                            .shadow(radius: 2)
-                    )
-                    .lineLimit(1)
             }
         }
         .buttonStyle(.plain)
+        .contentShape(Rectangle())
     }
 }
 
@@ -1134,48 +1221,49 @@ struct MapSearchResultRow: View {
     let onTap: () -> Void
     
     var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 12) {
-                Circle()
-                    .fill(word.locationTags.isEmpty ? Color.gray : Color.red)
-                    .frame(width: 8, height: 8)
+        HStack(spacing: 12) {
+            Circle()
+                .fill(word.locationTags.isEmpty ? Color.gray : Color.red)
+                .frame(width: 8, height: 8)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(word.text)
+                    .font(.body)
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
                 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(word.text)
-                        .font(.body)
-                        .fontWeight(.medium)
-                        .foregroundColor(.primary)
-                    
-                    if let meaning = word.meaning {
-                        Text(meaning)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
-                    }
-                    
-                    if !word.locationTags.isEmpty {
-                        HStack(spacing: 4) {
-                            Image(systemName: "location.fill")
-                                .font(.caption2)
-                                .foregroundColor(.red)
-                            
-                            Text(word.locationTags.first?.displayName ?? "")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-                    }
+                if let meaning = word.meaning {
+                    Text(meaning)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
                 }
                 
-                Spacer()
-                
-                Image(systemName: "arrow.up.right")
-                    .font(.caption)
-                    .foregroundColor(.blue)
+                if !word.locationTags.isEmpty {
+                    HStack(spacing: 4) {
+                        Image(systemName: "location.fill")
+                            .font(.caption2)
+                            .foregroundColor(.red)
+                        
+                        Text(word.locationTags.first?.displayName ?? "")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            
+            Spacer()
+            
+            Image(systemName: "arrow.up.right")
+                .font(.caption)
+                .foregroundColor(.blue)
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onTap()
+        }
     }
 }
 
@@ -1185,47 +1273,48 @@ struct LocationSearchResultRow: View {
     let onTap: () -> Void
     
     var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 12) {
-                Circle()
-                    .fill(isLocationSelectionMode ? Color.blue : Color.red)
-                    .frame(width: 8, height: 8)
+        HStack(spacing: 12) {
+            Circle()
+                .fill(isLocationSelectionMode ? Color.blue : Color.red)
+                .frame(width: 8, height: 8)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(mapItem.name ?? "未知地点")
+                    .font(.body)
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
                 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(mapItem.name ?? "未知地点")
-                        .font(.body)
-                        .fontWeight(.medium)
-                        .foregroundColor(.primary)
-                    
-                    if let address = mapItem.placemark.title {
-                        Text(address)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .lineLimit(2)
-                    }
-                }
-                
-                Spacer()
-                
-                if isLocationSelectionMode {
-                    VStack(spacing: 2) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.caption)
-                            .foregroundColor(.blue)
-                        Text("选择")
-                            .font(.caption2)
-                            .foregroundColor(.blue)
-                    }
-                } else {
-                    Image(systemName: "location.fill")
+                if let address = mapItem.placemark.title {
+                    Text(address)
                         .font(.caption)
-                        .foregroundColor(.red)
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            
+            Spacer()
+            
+            if isLocationSelectionMode {
+                VStack(spacing: 2) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                    Text("选择")
+                        .font(.caption2)
+                        .foregroundColor(.blue)
+                }
+            } else {
+                Image(systemName: "location.fill")
+                    .font(.caption)
+                    .foregroundColor(.red)
+            }
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onTap()
+        }
     }
 }
 
