@@ -419,11 +419,23 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
         autoSyncTimer = nil
         
         Task { @MainActor in
-            if GitSyncStatusManager.shared.isWorking {
-                GitSyncStatusManager.shared.finishWorking(
-                    success: false,
-                    finalStatus: "同步已重置"
-                )
+            let statusManager = GitSyncStatusManager.shared
+            print("🔧 紧急重置前状态: isWorking=\(statusManager.isWorking), status=\(statusManager.status)")
+            
+            // 直接设置状态，不使用finishWorking避免可能的逻辑冲突
+            statusManager.isWorking = false
+            statusManager.status = "紧急重置"
+            statusManager.lastError = nil
+            
+            // 强制触发UI更新
+            statusManager.objectWillChange.send()
+            print("🔧 紧急重置后状态: isWorking=\(statusManager.isWorking), status=\(statusManager.status)")
+            
+            // 1秒后重置为就绪状态
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                statusManager.status = "就绪"
+                statusManager.objectWillChange.send()
+                print("✅ 重置为就绪状态完成")
             }
         }
         print("✅ GitAutoSyncManager: 紧急重置完成")
@@ -2417,6 +2429,39 @@ struct GitSyncSettingsView: View {
                             }
                         }
                         
+                        // 实时状态调试
+                        Divider()
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("🔍 实时状态调试:")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.orange)
+                            
+                            Text("isWorking: \(statusManager.isWorking ? "🔄 转动中" : "✅ 停止")")
+                                .font(.caption2)
+                                .foregroundColor(statusManager.isWorking ? .red : .green)
+                            
+                            Text("status: \(statusManager.status)")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            
+                            if let lastSync = statusManager.lastSyncTime {
+                                Text("上次同步: \(formatDateTime(lastSync))")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            if let error = statusManager.lastError {
+                                Text("错误: \(error)")
+                                    .font(.caption2)
+                                    .foregroundColor(.red)
+                                    .lineLimit(2)
+                            }
+                        }
+                        .padding(8)
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(6)
+                        
                         // 详细统计信息
                         if isGitEnabled {
                             Divider()
@@ -2712,8 +2757,28 @@ struct GitSyncSettingsView: View {
                                     
                                     Button("停止同步") {
                                         print("🚨 用户点击停止同步按钮")
+                                        
+                                        // 1. 强制重置AutoSyncManager
                                         GitAutoSyncManager.shared.emergencyReset()
+                                        
+                                        // 2. 强制重置StatusManager
+                                        Task { @MainActor in
+                                            statusManager.isWorking = false
+                                            statusManager.status = "手动停止"
+                                            statusManager.lastError = nil
+                                            statusManager.objectWillChange.send()
+                                            print("🔧 强制重置StatusManager: isWorking=\(statusManager.isWorking)")
+                                        }
+                                        
+                                        // 3. 输出调试信息
                                         GitAutoSyncManager.shared.debugStatus()
+                                        
+                                        // 4. 延迟重置为就绪状态
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                                            statusManager.status = "就绪"
+                                            statusManager.objectWillChange.send()
+                                            print("✅ 重置为就绪状态")
+                                        }
                                     }
                                     .buttonStyle(.bordered)
                                     .foregroundColor(.red)
