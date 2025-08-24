@@ -2,9 +2,69 @@ import SwiftUI
 import CoreLocation
 import MapKit
 import UniformTypeIdentifiers
+import Network
+import SystemConfiguration
+
+// MARK: - Network Connection Monitor
+
+@MainActor
+public final class NetworkConnectionMonitor: ObservableObject {
+    @Published public var isConnected: Bool = true
+    @Published public var connectionType: NWInterface.InterfaceType = .other
+    @Published public var lastConnectionChange: Date = Date()
+    
+    private let monitor = NWPathMonitor()
+    private let queue = DispatchQueue(label: "NetworkMonitor")
+    
+    public static let shared = NetworkConnectionMonitor()
+
+    private init() {
+        startMonitoring()
+    }
+    
+    private func startMonitoring() {
+        monitor.pathUpdateHandler = { [weak self] path in
+            DispatchQueue.main.async {
+                let wasConnected = self?.isConnected ?? false
+                self?.isConnected = path.status == .satisfied
+                self?.connectionType = path.availableInterfaces.first?.type ?? .other
+                
+                if wasConnected != self?.isConnected {
+                    self?.lastConnectionChange = Date()
+                    print("🌐 Network status changed: \(self?.isConnected == true ? "Connected" : "Disconnected")")
+                    
+                    // Notify Git sync manager about network changes
+                    NotificationCenter.default.post(
+                        name: .networkStatusChanged,
+                        object: self,
+                        userInfo: ["isConnected": self?.isConnected ?? false]
+                    )
+                }
+            }
+        }
+        monitor.start(queue: queue)
+    }
+    
+    deinit {
+        monitor.cancel()
+    }
+}
+
+// MARK: - Pending Git Operations
+
+enum PendingOperationType: String {
+    case sync = "Sync"
+}
+
+struct PendingGitOperation {
+    let type: PendingOperationType
+    let reason: String
+    let timestamp: Date
+}
 
 // MARK: - Git自动同步管理器
 
+@MainActor
 public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
     private var autoSyncTimer: Timer?
     private var isMonitoring = false
@@ -13,17 +73,177 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
     private var configCheckTimer: Timer?
     private var isCurrentlySyncing = false  // 防止重入
     private var lastSyncAttempt: Date?
+    private var periodicSyncTimer: Timer?  // 30秒定时同步计时器
     
-    public static let shared = GitAutoSyncManager()
+    // Network resilience properties
+    private var networkMonitor: NetworkConnectionMonitor {
+        NetworkConnectionMonitor.shared
+    }
+    private var consecutiveFailures = 0
+    private var maxRetryAttempts = 5
+    private var baseRetryInterval: TimeInterval = 2.0  // Start with 2 seconds
+    private var maxRetryInterval: TimeInterval = 300.0  // Cap at 5 minutes
+    private var isServiceSuspended = false
+    private var suspensionReason: String?
+    private var lastSuccessfulSync: Date?
+    private var pendingOperationsQueue: [PendingGitOperation] = []
+    private var keepAliveTimer: Timer?
+    private var networkStatusObserver: NSObjectProtocol?
     
-    private init() {}
+    nonisolated public static let shared = GitAutoSyncManager()
+    
+    nonisolated private init() {
+        Task { @MainActor in
+            self.setupNetworkObserver()
+        }
+    }
     
     // 添加公共属性用于状态检查
-    public var monitoringStatus: (isMonitoring: Bool, isConfigured: Bool, autoSyncEnabled: Bool) {
+    public var monitoringStatus: (isMonitoring: Bool, isConfigured: Bool, autoSyncEnabled: Bool, networkConnected: Bool, serviceHealth: String) {
         let userDefaults = UserDefaults.standard
         let isGitEnabled = userDefaults.bool(forKey: "WordTagger_GitEnabled")
         let autoSyncEnabled = userDefaults.object(forKey: "WordTagger_AutoSyncEnabled") as? Bool ?? true
-        return (isMonitoring, isGitEnabled, autoSyncEnabled)
+        let serviceHealth = getServiceHealthStatus()
+        return (isMonitoring, isGitEnabled, autoSyncEnabled, networkMonitor.isConnected, serviceHealth)
+    }
+    
+    private func getServiceHealthStatus() -> String {
+        if isServiceSuspended {
+            return "Suspended: \(suspensionReason ?? "Unknown")"
+        }
+        if !networkMonitor.isConnected {
+            return "Network Offline"
+        }
+        if consecutiveFailures > 0 {
+            return "Recovering (\(consecutiveFailures) failures)"
+        }
+        if isCurrentlySyncing {
+            return "Syncing"
+        }
+        return "Healthy"
+    }
+    
+    // MARK: - Network Monitoring
+    
+    private func setupNetworkObserver() {
+        networkStatusObserver = NotificationCenter.default.addObserver(
+            forName: .networkStatusChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            if let isConnected = notification.userInfo?["isConnected"] as? Bool {
+                Task { @MainActor in
+                    self?.handleNetworkStatusChange(isConnected: isConnected)
+                }
+            }
+        }
+    }
+    
+    private func handleNetworkStatusChange(isConnected: Bool) {
+        print("🌐 GitAutoSyncManager: Network status changed to \(isConnected ? "connected" : "disconnected")")
+        
+        if isConnected {
+            handleNetworkReconnected()
+        } else {
+            handleNetworkDisconnected()
+        }
+    }
+    
+    private func handleNetworkDisconnected() {
+        print("🔴 GitAutoSyncManager: Network disconnected - entering keep-alive mode")
+        
+        // Don't stop monitoring, but suspend active sync operations
+        isServiceSuspended = false  // Keep service running in background
+        suspensionReason = nil
+        
+        // If currently syncing, let it fail naturally and queue for retry
+        if isCurrentlySyncing {
+            print("📝 GitAutoSyncManager: Active sync operation will be retried when network returns")
+        }
+        
+        // Start keep-alive mechanism
+        startKeepAliveMode()
+    }
+    
+    private func handleNetworkReconnected() {
+        print("🟢 GitAutoSyncManager: Network reconnected - resuming operations")
+        
+        // Resume service if it was suspended
+        if isServiceSuspended {
+            isServiceSuspended = false
+            suspensionReason = nil
+            print("✅ GitAutoSyncManager: Service resumed after network reconnection")
+        }
+        
+        // Stop keep-alive mode
+        stopKeepAliveMode()
+        
+        // Reset failure count on successful reconnection
+        consecutiveFailures = 0
+        
+        // Process any pending operations
+        processPendingOperations()
+        
+        // Schedule immediate sync if we missed sync opportunities
+        if let lastSync = lastSuccessfulSync {
+            let timeSinceLastSync = Date().timeIntervalSince(lastSync)
+            if timeSinceLastSync > 120 { // More than 2 minutes
+                print("🔄 GitAutoSyncManager: Scheduling catch-up sync after \(Int(timeSinceLastSync))s offline")
+                scheduleAutoSync(reason: "Network reconnection catch-up")
+            }
+        } else {
+            // No previous sync, schedule one
+            scheduleAutoSync(reason: "Initial sync after network reconnection")
+        }
+    }
+    
+    private func startKeepAliveMode() {
+        print("💓 GitAutoSyncManager: Starting keep-alive mode")
+        
+        keepAliveTimer?.invalidate()
+        keepAliveTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.performKeepAliveCheck()
+            }
+        }
+    }
+    
+    private func stopKeepAliveMode() {
+        print("💓 GitAutoSyncManager: Stopping keep-alive mode")
+        keepAliveTimer?.invalidate()
+        keepAliveTimer = nil
+    }
+    
+    private func performKeepAliveCheck() {
+        print("💓 GitAutoSyncManager: Keep-alive check - Network: \(networkMonitor.isConnected), Service: \(isServiceSuspended ? "Suspended" : "Active")")
+        
+        // Verify service is still configured
+        guard isMonitoring else {
+            print("⚠️ GitAutoSyncManager: Keep-alive detected monitoring stopped, stopping keep-alive")
+            stopKeepAliveMode()
+            return
+        }
+        
+        // Check if network is back and we should resume
+        if networkMonitor.isConnected && !isCurrentlySyncing {
+            print("🔄 GitAutoSyncManager: Network available during keep-alive, attempting reconnection")
+            handleNetworkReconnected()
+        }
+    }
+    
+    private func processPendingOperations() {
+        guard !pendingOperationsQueue.isEmpty else { return }
+        
+        print("📋 GitAutoSyncManager: Processing \(pendingOperationsQueue.count) pending operations")
+        
+        for operation in pendingOperationsQueue {
+            switch operation.type {
+            case .sync:
+                scheduleAutoSync(reason: "Pending sync: \(operation.reason)")
+            }
+        }
+        
+        pendingOperationsQueue.removeAll()
     }
     
     public func startMonitoring(force: Bool = false) {
@@ -54,8 +274,8 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
         print("   - gitToken: '\(tokenStatus)'")
         // 异步获取外部数据路径信息
         Task { @MainActor in
-            let dataPath = ExternalDataManager.shared.currentDataPath
-            let isDataPathSelected = ExternalDataManager.shared.isDataPathSelected
+            let dataPath = await MainActor.run { ExternalDataManager.shared.currentDataPath }
+            let isDataPathSelected = await MainActor.run { ExternalDataManager.shared.isDataPathSelected }
             
             print("   - 外部数据路径: \(dataPath?.path ?? "未设置")")
             print("   - 完整Git配置: \(isGitEnabled && !gitRemoteURL.isEmpty && !gitUsername.isEmpty && !gitToken.isEmpty && isDataPathSelected)")
@@ -102,14 +322,16 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
             print("✅ GitAutoSyncManager: 启动监听 [\(timestamp)]")
             print("🔧 当前Git配置完整性验证通过: enabled=\(isGitEnabled), autoSync=\(autoSyncEnabled), url=已设置, auth=已设置, dataPath=已设置")
             
-            // 移除之前的观察者（防止重复）
+            // 简化逻辑：不再监听数据变化通知，只使用定时同步
             NotificationCenter.default.removeObserver(self)
-            self.setupNotificationObservers()
             
             // 启动配置检查定时器（每30秒检查一次配置变化）
             self.startConfigMonitoring()
             
-            print("✅ Git自动同步监听已启动，监听通知: nodeUpdated, nodesUpdated, tagTypeNameChanged, compoundNodeRefreshed, ExternalDataPathChanged")
+            // 启动60秒定时同步
+            self.startPeriodicSync()
+            
+            print("✅ Git定时同步已启动，每60秒自动提交和推送（已移除数据变化监听，只使用定时同步）")
         }
     }
     
@@ -128,7 +350,9 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
             } else {
                 print("📝 通知对象类型: \(type(of: notification.object))")
             }
-            self?.scheduleAutoSync(reason: "节点更新")
+            Task { @MainActor in
+                self?.scheduleAutoSync(reason: "节点更新")
+            }
         }
         
         // 监听批量节点更新通知
@@ -141,7 +365,9 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
             if let userInfo = notification.userInfo {
                 print("📝 更新信息: \(userInfo)")
             }
-            self?.scheduleAutoSync(reason: "批量节点更新")
+            Task { @MainActor in
+                self?.scheduleAutoSync(reason: "批量节点更新")
+            }
         }
         
         // 监听标签类型更改通知
@@ -151,7 +377,9 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
             queue: .main
         ) { [weak self] _ in
             print("📝 GitAutoSyncManager: 检测到标签类型更改通知 [\(Date())]")
-            self?.scheduleAutoSync(reason: "标签类型更改")
+            Task { @MainActor in
+                self?.scheduleAutoSync(reason: "标签类型更改")
+            }
         }
         
         // 监听复合节点刷新通知
@@ -161,7 +389,9 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
             queue: .main
         ) { [weak self] _ in
             print("📝 GitAutoSyncManager: 检测到复合节点刷新通知 [\(Date())]")
-            self?.scheduleAutoSync(reason: "复合节点刷新")
+            Task { @MainActor in
+                self?.scheduleAutoSync(reason: "复合节点刷新")
+            }
         }
         
         // 监听外部数据路径变化通知
@@ -171,16 +401,31 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
             queue: .main
         ) { [weak self] _ in
             print("📝 GitAutoSyncManager: 检测到外部数据路径变化通知 [\(Date())]")
-            self?.scheduleAutoSync(reason: "外部数据路径变化")
+            Task { @MainActor in
+                self?.scheduleAutoSync(reason: "外部数据路径变化")
+            }
         }
     }
     
     private func startConfigMonitoring() {
         configCheckTimer?.invalidate()
         configCheckTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
-            self?.checkConfigurationChanges()
+            Task { @MainActor in
+                self?.checkConfigurationChanges()
+            }
         }
         print("🔄 GitAutoSyncManager: 配置监控定时器已启动 (每30秒检查)")
+    }
+    
+    private func startPeriodicSync() {
+        periodicSyncTimer?.invalidate()
+        periodicSyncTimer = Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true) { [weak self] _ in
+            print("⏰ GitAutoSyncManager: 定时同步触发 (60秒)")
+            Task { @MainActor in
+                self?.scheduleAutoSync(reason: "定时同步")
+            }
+        }
+        print("🔄 GitAutoSyncManager: 定时同步计时器已启动 (每60秒)")
     }
     
     private func checkConfigurationChanges() {
@@ -192,10 +437,12 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
         let gitToken = userDefaults.string(forKey: "WordTagger_GitToken") ?? ""
         
         Task { @MainActor in
-            let hasDataPath = ExternalDataManager.shared.isDataPathSelected
+            let hasDataPath = await MainActor.run { ExternalDataManager.shared.isDataPathSelected }
             let isFullyConfigured = isGitEnabled && autoSyncEnabled && !gitRemoteURL.isEmpty && !gitUsername.isEmpty && !gitToken.isEmpty && hasDataPath
             
-            if self.isMonitoring && !isFullyConfigured {
+            let currentlyMonitoring = self.isMonitoring
+            
+            if currentlyMonitoring && !isFullyConfigured {
                 print("⚠️ GitAutoSyncManager: 配置不完整，停止监听")
                 print("   - Git启用: \(isGitEnabled)")
                 print("   - 自动同步: \(autoSyncEnabled)")
@@ -204,7 +451,7 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
                 print("   - Token设置: \(!gitToken.isEmpty)")
                 print("   - 数据路径设置: \(hasDataPath)")
                 self.stopMonitoring()
-            } else if !self.isMonitoring && isFullyConfigured {
+            } else if !currentlyMonitoring && isFullyConfigured {
                 print("🔄 GitAutoSyncManager: 配置已完整，重新启动监听")
                 self.startMonitoring()
             }
@@ -224,6 +471,22 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
         autoSyncTimer = nil
         configCheckTimer?.invalidate()
         configCheckTimer = nil
+        periodicSyncTimer?.invalidate()  // 停止定时同步
+        periodicSyncTimer = nil
+        
+        // Stop keep-alive and network monitoring
+        stopKeepAliveMode()
+        if let observer = networkStatusObserver {
+            NotificationCenter.default.removeObserver(observer)
+            networkStatusObserver = nil
+        }
+        
+        // Clear state
+        isServiceSuspended = false
+        suspensionReason = nil
+        consecutiveFailures = 0
+        pendingOperationsQueue.removeAll()
+        
         NotificationCenter.default.removeObserver(self)
         lastConfigCheck = nil
         lastSyncAttempt = nil
@@ -239,7 +502,7 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
             }
         }
         
-        print("🔧 GitAutoSyncManager: 已停止Git自动同步监听 [\(Date())]")
+        print("🔧 GitAutoSyncManager: 已停止Git自动同步监听和定时同步 [\(Date())]")
     }
     
     private func scheduleAutoSync(reason: String = "未知原因") {
@@ -260,7 +523,7 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
         let gitToken = userDefaults.string(forKey: "WordTagger_GitToken") ?? ""
         
         Task { @MainActor in
-            let hasDataPath = ExternalDataManager.shared.isDataPathSelected
+            let hasDataPath = await MainActor.run { ExternalDataManager.shared.isDataPathSelected }
             let isFullyConfigured = isGitEnabled && autoSyncEnabled && !gitRemoteURL.isEmpty && !gitUsername.isEmpty && !gitToken.isEmpty && hasDataPath
             
             guard isFullyConfigured else {
@@ -278,7 +541,9 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
                 print("📝 GitAutoSyncManager: 已有待执行的同步，刷新计时器 - 原因: \(reason)")
                 self.autoSyncTimer?.invalidate()
                 self.autoSyncTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] _ in
-                    self?.performAutoSync(triggeredBy: reason)
+                    Task { @MainActor in
+                        self?.performAutoSync(triggeredBy: reason)
+                    }
                 }
                 return
             }
@@ -290,7 +555,9 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
             self.autoSyncTimer?.invalidate()
             self.autoSyncTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] timer in
                 print("⏰ GitAutoSyncManager: 定时器触发，执行自动同步 - 原因: \(reason)")
-                self?.performAutoSync(triggeredBy: reason)
+                Task { @MainActor in
+                    self?.performAutoSync(triggeredBy: reason)
+                }
                 timer.invalidate()
             }
         }
@@ -299,6 +566,14 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
     private func performAutoSync(triggeredBy reason: String = "未知原因") {
         let timestamp = Date()
         print("🔄 GitAutoSyncManager.performAutoSync() 开始 - 触发原因: \(reason) [\(timestamp)]")
+        
+        // Check network connectivity first
+        guard networkMonitor.isConnected else {
+            print("🔴 GitAutoSyncManager: Network disconnected, queueing sync operation")
+            queuePendingOperation(type: .sync, reason: reason)
+            pendingSync = false
+            return
+        }
         
         guard isMonitoring else {
             print("⚠️ GitAutoSyncManager: 监听已停止，取消自动同步 - 触发原因: \(reason)")
@@ -313,11 +588,22 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
             return
         }
         
-        // 防止频繁同步（至少间隔10秒）
-        if let lastAttempt = lastSyncAttempt, Date().timeIntervalSince(lastAttempt) < 10 {
-            print("⚠️ GitAutoSyncManager: 距上次同步不足10秒，跳过 - 触发原因: \(reason)")
-            pendingSync = false
-            return
+        // Implement exponential backoff for failed attempts
+        if consecutiveFailures > 0 {
+            let backoffInterval = calculateBackoffInterval()
+            if let lastAttempt = lastSyncAttempt,
+               Date().timeIntervalSince(lastAttempt) < backoffInterval {
+                print("⏳ GitAutoSyncManager: 在退避期内，跳过同步 - 下次重试间隔: \(Int(backoffInterval))秒")
+                pendingSync = false
+                return
+            }
+        } else {
+            // 防止频繁同步（至少间隔10秒）
+            if let lastAttempt = lastSyncAttempt, Date().timeIntervalSince(lastAttempt) < 10 {
+                print("⚠️ GitAutoSyncManager: 距上次同步不足10秒，跳过 - 触发原因: \(reason)")
+                pendingSync = false
+                return
+            }
         }
         
         pendingSync = false
@@ -334,6 +620,8 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
         print("   - isGitEnabled: \(isGitEnabled)")
         print("   - autoSyncEnabled: \(autoSyncEnabled)")
         print("   - gitRemoteURL: '\(gitRemoteURL)'")
+        print("   - consecutiveFailures: \(consecutiveFailures)")
+        print("   - networkConnected: \(networkMonitor.isConnected)")
         
         guard isGitEnabled && autoSyncEnabled else {
             print("❌ GitAutoSyncManager: Git配置已变更，停止自动同步 - Git启用: \(isGitEnabled), 自动同步: \(autoSyncEnabled)")
@@ -351,21 +639,25 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
         Task { @MainActor in
             defer {
                 // 无论成功失败都要重置同步状态
-                self.isCurrentlySyncing = false
-                print("🔧 GitAutoSyncManager: 重置同步状态 isCurrentlySyncing = false")
+                Task { @MainActor in
+                    self.isCurrentlySyncing = false
+                    print("🔧 GitAutoSyncManager: 重置同步状态 isCurrentlySyncing = false")
+                }
             }
             
             do {
                 // 启动同步状态指示器
-                GitSyncStatusManager.shared.startWorking(operation: "自动同步中...")
+                await MainActor.run {
+                    GitSyncStatusManager.shared.startWorking(operation: "自动同步中...")
+                }
                 print("🔧 GitAutoSyncManager: 已启动状态指示器")
                 
-                print("🚀 GitAutoSyncManager: 创建GitSyncHelper并开始同步...")
-                let helper = GitSyncHelper()
+                print("🚀 GitAutoSyncManager: 创建ResilientGitSyncHelper并开始同步...")
+                let helper = ResilientGitSyncHelper()
                 
-                // 添加超时保护
+                // 添加超时保护 - increase timeout for network resilience
                 let syncTask = Task {
-                    try await helper.performSync()
+                    try await helper.performSyncWithRetry()
                 }
                 
                 // 等待同步完成或超时（60秒）
@@ -385,27 +677,118 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
                 
                 print("✅ GitAutoSyncManager: 自动同步完成 - 触发原因: \(reason) [\(Date())]")
                 
+                // Reset failure count on successful sync
+                self.consecutiveFailures = 0
+                self.lastSuccessfulSync = Date()
+                
                 // 更新状态管理器
                 let newCount = userDefaults.integer(forKey: "WordTagger_TotalSyncCount") + 1
                 userDefaults.set(Date(), forKey: "WordTagger_LastGitSync")
                 userDefaults.set(newCount, forKey: "WordTagger_TotalSyncCount")
                 
-                GitSyncStatusManager.shared.finishWorking(
-                    success: true, 
-                    finalStatus: "自动同步完成"
-                )
+                await MainActor.run {
+                    GitSyncStatusManager.shared.finishWorking(
+                        success: true, 
+                        finalStatus: "自动同步完成"
+                    )
+                }
                 print("📊 GitAutoSyncManager: 同步完成，状态指示器已停止 - 总同步次数: \(newCount)")
                 
             } catch {
                 print("❌ GitAutoSyncManager: 自动同步失败 - 触发原因: \(reason), 错误: \(error)")
                 
-                // 更新错误状态并停止工作指示器
-                GitSyncStatusManager.shared.finishWorking(
-                    success: false,
-                    finalStatus: "自动同步失败",
-                    error: "自动同步失败 (\(reason)): \(error.localizedDescription)"
-                )
+                // Handle failure with network awareness
+                self.handleSyncFailure(error: error, reason: reason)
             }
+        }
+    }
+    
+    private func handleSyncFailure(error: Error, reason: String) {
+        consecutiveFailures += 1
+        print("📈 GitAutoSyncManager: 连续失败次数: \(consecutiveFailures)")
+        
+        // Determine if this is a network-related error
+        let isNetworkError = isNetworkRelatedError(error)
+        
+        if isNetworkError && !networkMonitor.isConnected {
+            print("🌐 GitAutoSyncManager: 网络错误且当前离线，不增加失败计数")
+            consecutiveFailures = max(0, consecutiveFailures - 1)  // Don't count network failures when offline
+        }
+        
+        // If too many failures, suspend service temporarily
+        if consecutiveFailures >= maxRetryAttempts {
+            suspendServiceTemporarily(reason: "连续\(consecutiveFailures)次失败")
+        } else {
+            // Schedule retry with backoff
+            let retryInterval = calculateBackoffInterval()
+            print("🔄 GitAutoSyncManager: 将在\(Int(retryInterval))秒后重试")
+        }
+        
+        // 更新错误状态并停止工作指示器
+        let errorMessage: String
+        if isNetworkError {
+            errorMessage = "网络错误，将自动重试"
+        } else {
+            errorMessage = "自动同步失败 (\(reason)): \(error.localizedDescription)"
+        }
+        
+        Task { @MainActor in
+            GitSyncStatusManager.shared.finishWorking(
+                success: false,
+                finalStatus: "自动同步失败",
+                error: errorMessage
+            )
+        }
+    }
+    
+    private func isNetworkRelatedError(_ error: Error) -> Bool {
+        let errorString = error.localizedDescription.lowercased()
+        return errorString.contains("network") ||
+               errorString.contains("timeout") ||
+               errorString.contains("connection") ||
+               errorString.contains("unreachable") ||
+               errorString.contains("dns") ||
+               errorString.contains("ssl")
+    }
+    
+    private func calculateBackoffInterval() -> TimeInterval {
+        let exponentialBackoff = baseRetryInterval * pow(2.0, Double(min(consecutiveFailures, 8)))
+        let jitteredBackoff = exponentialBackoff * Double.random(in: 0.5...1.5)
+        return min(jitteredBackoff, maxRetryInterval)
+    }
+    
+    private func suspendServiceTemporarily(reason: String) {
+        print("⏸️ GitAutoSyncManager: 临时暂停服务 - 原因: \(reason)")
+        isServiceSuspended = true
+        suspensionReason = reason
+        
+        // Schedule service resumption after a longer interval
+        DispatchQueue.main.asyncAfter(deadline: .now() + maxRetryInterval) { [weak self] in
+            self?.resumeServiceAfterSuspension()
+        }
+    }
+    
+    private func resumeServiceAfterSuspension() {
+        print("▶️ GitAutoSyncManager: 恢复暂停的服务")
+        isServiceSuspended = false
+        suspensionReason = nil
+        consecutiveFailures = max(0, consecutiveFailures - 2)  // Reduce failure count
+        
+        // Try a sync if network is available
+        if networkMonitor.isConnected {
+            scheduleAutoSync(reason: "服务恢复后重试")
+        }
+    }
+    
+    private func queuePendingOperation(type: PendingOperationType, reason: String) {
+        let operation = PendingGitOperation(type: type, reason: reason, timestamp: Date())
+        pendingOperationsQueue.append(operation)
+        print("📋 GitAutoSyncManager: 已排队操作: \(type) - \(reason)")
+        
+        // Limit queue size
+        if pendingOperationsQueue.count > 10 {
+            pendingOperationsQueue.removeFirst()
+            print("📋 GitAutoSyncManager: 队列已满，移除最旧操作")
         }
     }
     
@@ -417,6 +800,8 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
         lastSyncAttempt = nil
         autoSyncTimer?.invalidate()
         autoSyncTimer = nil
+        periodicSyncTimer?.invalidate()
+        periodicSyncTimer = nil
         
         Task { @MainActor in
             let statusManager = GitSyncStatusManager.shared
@@ -460,7 +845,7 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
         let gitToken = userDefaults.string(forKey: "WordTagger_GitToken") ?? ""
         
         Task { @MainActor in
-            let hasDataPath = ExternalDataManager.shared.isDataPathSelected
+            let hasDataPath = await MainActor.run { ExternalDataManager.shared.isDataPathSelected }
             let isFullyConfigured = isGitEnabled && autoSyncEnabled && !gitRemoteURL.isEmpty && !gitUsername.isEmpty && !gitToken.isEmpty && hasDataPath
             
             print("🔍 === GitAutoSyncManager 状态诊断 [\(Date())] ===")
@@ -477,7 +862,7 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
             print("   外部数据路径: \(hasDataPath ? "✅ 已设置" : "❌ 未设置")")
             print("   配置完整性: \(isFullyConfigured ? "✅ 完整" : "❌ 不完整")")
             print("   最后配置检查: \(self.lastConfigCheck?.description ?? "无")")
-            print("   定时器状态: 自动同步=\(self.autoSyncTimer != nil ? "运行中" : "停止"), 配置检查=\(self.configCheckTimer != nil ? "运行中" : "停止")")
+            print("   定时器状态: 自动同步=\(self.autoSyncTimer != nil ? "运行中" : "停止"), 配置检查=\(self.configCheckTimer != nil ? "运行中" : "停止"), 定时同步=\(self.periodicSyncTimer != nil ? "运行中" : "停止")")
             print("   GitSyncStatusManager工作状态: \(GitSyncStatusManager.shared.isWorking ? "🔄 工作中" : "✅ 空闲")")
             print("🔍 =====================================")
         }
@@ -505,7 +890,7 @@ class GitSyncHelper {
             throw GitSyncError.configurationMissing
         }
         
-        guard let dataPath = await ExternalDataManager.shared.currentDataPath else {
+        guard let dataPath = await MainActor.run(body: { ExternalDataManager.shared.currentDataPath }) else {
             print("❌ GitSyncHelper: 数据路径未设置")
             throw GitSyncError.dataPathNotSet
         }
@@ -523,15 +908,15 @@ class GitSyncHelper {
                     let statusResult = try await runGitCommand(["status", "--porcelain"], at: dataPath)
                     
                     if statusResult.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        print("📝 GitSyncHelper: 没有数据变化，跳过同步")
-                        continuation.resume()
-                        return
+                        print("📝 GitSyncHelper: 没有数据变化，但强制创建空提交以保证定时同步")
+                        // 不跳过，继续执行，创建空提交
+                    } else {
+                        print("📝 GitSyncHelper: 发现数据变化，创建提交")
                     }
                     
-                    print("🔄 GitSyncHelper: 发现变化，创建提交")
-                    // 提交变化
+                    // 创建提交（允许空提交以确保定时同步）
                     let commitMessage = "Auto-sync: \(Date().formatted())"
-                    let _ = try await runGitCommand(["commit", "-m", commitMessage], at: dataPath)
+                    let _ = try await runGitCommand(["commit", "-m", commitMessage, "--allow-empty"], at: dataPath)
                     
                     print("🔄 GitSyncHelper: 推送到远程仓库")
                     // 构建带认证的URL进行推送
@@ -660,6 +1045,114 @@ enum GitSyncError: Error {
     case dataPathNotSet
     case gitNotFound
     case commandFailed(String, String)
+    case networkUnavailable
+    case retryLimitExceeded
+}
+
+// MARK: - Resilient Git Sync Helper
+
+class ResilientGitSyncHelper: GitSyncHelper {
+    private let maxRetryAttempts = 3
+    private let baseRetryInterval: TimeInterval = 1.0
+    @MainActor
+    private var networkMonitor: NetworkConnectionMonitor {
+        NetworkConnectionMonitor.shared
+    }
+    
+    override func performSync() async throws {
+        // Use the resilient version
+        try await performSyncWithRetry()
+    }
+    
+    func performSyncWithRetry() async throws {
+        var lastError: Error?
+        
+        for attempt in 1...maxRetryAttempts {
+            do {
+                print("🔄 ResilientGitSyncHelper: Sync attempt \(attempt)/\(maxRetryAttempts)")
+                
+                // Check network before attempting sync
+                guard await MainActor.run(body: { self.networkMonitor.isConnected }) else {
+                    print("🔴 ResilientGitSyncHelper: Network unavailable, skipping attempt \(attempt)")
+                    throw GitSyncError.networkUnavailable
+                }
+                
+                // Perform the actual sync using parent class implementation
+                try await super.performSync()
+                
+                print("✅ ResilientGitSyncHelper: Sync successful on attempt \(attempt)")
+                return // Success!
+                
+            } catch {
+                lastError = error
+                print("❌ ResilientGitSyncHelper: Attempt \(attempt) failed: \(error.localizedDescription)")
+                
+                // Don't retry on last attempt
+                if attempt == maxRetryAttempts {
+                    print("🚫 ResilientGitSyncHelper: Max retry attempts reached")
+                    break
+                }
+                
+                // Check if error is worth retrying
+                if !shouldRetryError(error) {
+                    print("🚫 ResilientGitSyncHelper: Error not retryable: \(error)")
+                    break
+                }
+                
+                // Calculate backoff delay
+                let retryDelay = calculateRetryDelay(attempt: attempt)
+                print("⏳ ResilientGitSyncHelper: Waiting \(Int(retryDelay))s before retry...")
+                
+                do {
+                    try await Task.sleep(nanoseconds: UInt64(retryDelay * 1_000_000_000))
+                } catch {
+                    // Task was cancelled
+                    throw lastError ?? error
+                }
+            }
+        }
+        
+        throw lastError ?? GitSyncError.retryLimitExceeded
+    }
+    
+    private func shouldRetryError(_ error: Error) -> Bool {
+        let errorString = error.localizedDescription.lowercased()
+        
+        // Retry network-related errors
+        if errorString.contains("network") ||
+           errorString.contains("timeout") ||
+           errorString.contains("connection") ||
+           errorString.contains("unreachable") ||
+           errorString.contains("dns") ||
+           errorString.contains("ssl") {
+            return true
+        }
+        
+        // Don't retry authentication or permission errors
+        if errorString.contains("authentication") ||
+           errorString.contains("permission") ||
+           errorString.contains("forbidden") ||
+           errorString.contains("unauthorized") {
+            return false
+        }
+        
+        // Retry server errors
+        if errorString.contains("server error") ||
+           errorString.contains("internal server error") ||
+           errorString.contains("service unavailable") {
+            return true
+        }
+        
+        // Default to not retrying
+        return false
+    }
+    
+    private func calculateRetryDelay(attempt: Int) -> TimeInterval {
+        // Exponential backoff with jitter
+        let exponentialDelay = baseRetryInterval * pow(2.0, Double(attempt - 1))
+        let jitter = Double.random(in: 0.5...1.5)
+        return exponentialDelay * jitter
+    }
 }
 
 // MARK: - GitHub同步状态管理器
@@ -706,10 +1199,11 @@ public class GitSyncStatusManager: ObservableObject {
     }
     
     public func startWorking(operation: String) {
+        print("🟡 GitHub同步开始: \(operation) - 设置 isWorking = true")
         isWorking = true
         status = operation
         lastError = nil
-        print("🟡 GitHub同步开始: \(operation)")
+        saveStatus()
         
         // 强制触发UI更新
         DispatchQueue.main.async {
@@ -719,6 +1213,7 @@ public class GitSyncStatusManager: ObservableObject {
     }
     
     public func finishWorking(success: Bool, finalStatus: String, error: String? = nil) {
+        print("🔴 GitHub同步结束: \(finalStatus) - 设置 isWorking = false (之前: \(isWorking))")
         isWorking = false
         status = finalStatus
         if success {
@@ -732,10 +1227,21 @@ public class GitSyncStatusManager: ObservableObject {
         }
         saveStatus()
         
-        // 强制触发UI更新
+        // 强制触发UI更新并确保动画停止
         DispatchQueue.main.async {
             print("🔄 GitSyncStatusManager: 强制触发UI更新 isWorking=\(self.isWorking)")
             self.objectWillChange.send()
+            
+            // 延迟验证确保状态已更新
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                if !self.isWorking {
+                    print("✅ 验证: isWorking 已正确设为 false")
+                } else {
+                    print("⚠️ 警告: isWorking 仍为 true，强制重置")
+                    self.isWorking = false
+                    self.objectWillChange.send()
+                }
+            }
         }
     }
     
@@ -781,25 +1287,45 @@ public class GitSyncStatusManager: ObservableObject {
     
     private func loadStatus() {
         let userDefaults = UserDefaults.standard
-        isEnabled = userDefaults.bool(forKey: "GitSync_IsEnabled")
-        status = userDefaults.string(forKey: "GitSync_Status") ?? "未配置"
-        totalSyncCount = userDefaults.integer(forKey: "GitSync_TotalCount")
         
-        if let lastSync = userDefaults.object(forKey: "GitSync_LastSyncTime") as? Date {
+        // 修复：使用正确的键名检查Git是否启用
+        let isGitEnabled = userDefaults.bool(forKey: "WordTagger_GitEnabled")
+        let autoSyncEnabled = userDefaults.object(forKey: "WordTagger_AutoSyncEnabled") as? Bool ?? true
+        let hasRemoteURL = !(userDefaults.string(forKey: "WordTagger_GitRemoteURL") ?? "").isEmpty
+        
+        // Git功能启用需要同时满足：Git启用 + 有远程URL配置
+        isEnabled = isGitEnabled && hasRemoteURL
+        
+        status = userDefaults.string(forKey: "GitSync_Status") ?? (isEnabled ? "就绪" : "未配置")
+        totalSyncCount = userDefaults.integer(forKey: "WordTagger_TotalSyncCount") // 使用正确的键名
+        
+        // 使用正确的键名加载同步时间
+        if let lastSync = userDefaults.object(forKey: "WordTagger_LastGitSync") as? Date {
             lastSyncTime = lastSync
         }
         
         lastError = userDefaults.string(forKey: "GitSync_LastError")
+        
+        print("🔍 GitSyncStatusManager.loadStatus():")
+        print("   - isGitEnabled: \(isGitEnabled)")
+        print("   - hasRemoteURL: \(hasRemoteURL)")
+        print("   - autoSyncEnabled: \(autoSyncEnabled)")
+        print("   - final isEnabled: \(isEnabled)")
+        print("   - status: \(status)")
+        print("   - totalSyncCount: \(totalSyncCount)")
+        print("   - lastSyncTime: \(lastSyncTime?.description ?? "nil")")
     }
     
     private func saveStatus() {
         let userDefaults = UserDefaults.standard
-        userDefaults.set(isEnabled, forKey: "GitSync_IsEnabled")
+        
+        // 注意：isEnabled不应该直接保存，它应该根据Git配置动态计算
+        // 只保存状态相关的信息
         userDefaults.set(status, forKey: "GitSync_Status")
-        userDefaults.set(totalSyncCount, forKey: "GitSync_TotalCount")
+        userDefaults.set(totalSyncCount, forKey: "WordTagger_TotalSyncCount") // 使用正确的键名
         
         if let lastSync = lastSyncTime {
-            userDefaults.set(lastSync, forKey: "GitSync_LastSyncTime")
+            userDefaults.set(lastSync, forKey: "WordTagger_LastGitSync") // 使用正确的键名
         }
         
         userDefaults.set(lastError, forKey: "GitSync_LastError")
@@ -810,85 +1336,152 @@ public class GitSyncStatusManager: ObservableObject {
 
 struct GitSyncStatusIndicator: View {
     @ObservedObject private var statusManager = GitSyncStatusManager.shared
+    @ObservedObject private var networkMonitor = NetworkConnectionMonitor.shared
     @State private var showingTooltip = false
     
-    var body: some View {
-        HStack(spacing: 6) {
-            // 调试信息 - 临时添加
-            Text("Debug: \(statusManager.isWorking ? "转动" : "停止")")
-                .font(.system(size: 8))
-                .foregroundColor(.red)
-            
-            // 状态圆点
-            Circle()
-                .fill(statusManager.statusColor)
-                .frame(width: 8, height: 8)
-                .scaleEffect(statusManager.isWorking ? 1.2 : 1.0)
-                .animation(statusManager.isWorking ? 
-                    .easeInOut(duration: 0.6).repeatForever(autoreverses: true) : 
-                    .easeInOut(duration: 0.2), 
-                    value: statusManager.isWorking)
-            
-            // 状态图标
-            RotatingGitIcon(isWorking: statusManager.isWorking, icon: statusManager.statusIcon, color: statusManager.statusColor)
-            
-            // 状态文本（可选）
-            if statusManager.isWorking {
-                Text(statusManager.status)
-                    .font(.caption2)
-                    .foregroundColor(statusManager.statusColor)
-                    .lineLimit(1)
+    // 修复：总是显示指示器，根据状态显示不同颜色
+    private var shouldShowIndicator: Bool {
+        // 动态检查Git配置状态，不依赖statusManager.isEnabled
+        let userDefaults = UserDefaults.standard
+        let isGitEnabled = userDefaults.bool(forKey: "WordTagger_GitEnabled")
+        let hasRemoteURL = !(userDefaults.string(forKey: "WordTagger_GitRemoteURL") ?? "").isEmpty
+        let hasUsername = !(userDefaults.string(forKey: "WordTagger_GitUsername") ?? "").isEmpty
+        let hasToken = !(userDefaults.string(forKey: "WordTagger_GitToken") ?? "").isEmpty
+        let isGitConfigured = isGitEnabled && hasRemoteURL && hasUsername && hasToken
+        
+        print("🔍 Git状态指示器调试:")
+        print("   - isGitEnabled: \(isGitEnabled)")
+        print("   - hasRemoteURL: \(hasRemoteURL)")
+        print("   - hasUsername: \(hasUsername)")
+        print("   - hasToken: \(hasToken)")
+        print("   - isGitConfigured: \(isGitConfigured)")
+        print("   - shouldShowIndicator: true (总是显示)")
+        
+        // 总是显示指示器，方便用户了解Git状态
+        return true
+    }
+    
+    // 计算指示器的颜色和状态 - 修复网络状态检查和2分钟规则
+    private var indicatorColor: Color {
+        let userDefaults = UserDefaults.standard
+        let isGitEnabled = userDefaults.bool(forKey: "WordTagger_GitEnabled")
+        let hasRemoteURL = !(userDefaults.string(forKey: "WordTagger_GitRemoteURL") ?? "").isEmpty
+        let hasUsername = !(userDefaults.string(forKey: "WordTagger_GitUsername") ?? "").isEmpty
+        let hasToken = !(userDefaults.string(forKey: "WordTagger_GitToken") ?? "").isEmpty
+        let isGitConfigured = isGitEnabled && hasRemoteURL && hasUsername && hasToken
+        
+        // 未配置Git时显示红色
+        guard isGitConfigured else { return .red }
+        
+        // 网络断开时显示红色
+        if !networkMonitor.isConnected {
+            return .red
+        }
+        
+        // 如果有错误，显示红色
+        if statusManager.lastError != nil {
+            return .red
+        }
+        
+        // 检查5分钟规则 - 简化逻辑，正常显示绿色，不正常显示红色
+        if let lastSync = statusManager.lastSyncTime {
+            let timeSinceLastSync = Date().timeIntervalSince(lastSync)
+            if timeSinceLastSync <= 300 { // 5分钟内有同步，显示绿色
+                return .green
+            } else {
+                return .red    // 超过5分钟，显示红色
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(statusManager.statusColor.opacity(0.1))
-        .cornerRadius(8)
-        .onTapGesture {
-            showingTooltip.toggle()
+        
+        // 未同步过，显示红色
+        return .red
+    }
+    
+    private var statusText: String {
+        let userDefaults = UserDefaults.standard
+        let isGitEnabled = userDefaults.bool(forKey: "WordTagger_GitEnabled")
+        let hasRemoteURL = !(userDefaults.string(forKey: "WordTagger_GitRemoteURL") ?? "").isEmpty
+        let hasUsername = !(userDefaults.string(forKey: "WordTagger_GitUsername") ?? "").isEmpty
+        let hasToken = !(userDefaults.string(forKey: "WordTagger_GitToken") ?? "").isEmpty
+        let isGitConfigured = isGitEnabled && hasRemoteURL && hasUsername && hasToken
+        
+        // 增强的状态信息，包含网络状态
+        var statusInfo = "Git状态监控:\n"
+        statusInfo += "• Git配置: \(isGitConfigured ? "✓ 完整" : "✗ 不完整")\n"
+        statusInfo += "• 网络状态: \(networkMonitor.isConnected ? "✓ 已连接" : "✗ 断开连接")\n"
+        
+        if !isGitConfigured {
+            statusInfo += "• 配置检查:\n"
+            statusInfo += "  - Git启用: \(isGitEnabled ? "✓" : "✗")\n"
+            statusInfo += "  - 远程URL: \(hasRemoteURL ? "✓" : "✗")\n"
+            statusInfo += "  - 用户名: \(hasUsername ? "✓" : "✗")\n"
+            statusInfo += "  - Token: \(hasToken ? "✓" : "✗")\n\n"
+            return statusInfo + "请在设置中完成Git配置"
         }
-        .help(statusManager.displayStatus)
-        .popover(isPresented: $showingTooltip) {
-            GitSyncStatusPopover()
+        
+        // 网络状态检查（优先显示）
+        if !networkMonitor.isConnected {
+            return statusInfo + "• 状态: ⚠️ 网络断开\n\n网络连接断开时无法进行Git同步\n请检查网络连接"
+        }
+        
+        if statusManager.isWorking {
+            return statusInfo + "• 状态: 🔄 正在同步\n\n正在进行Git同步操作..."
+        }
+        
+        if let error = statusManager.lastError {
+            return statusInfo + "• 状态: ❌ 同步失败\n• 错误: \(error)\n\n请检查网络连接和Git配置"
+        }
+        
+        if let lastSync = statusManager.lastSyncTime {
+            let timeSinceLastSync = Date().timeIntervalSince(lastSync)
+            let minutes = Int(timeSinceLastSync / 60)
+            let seconds = Int(timeSinceLastSync) % 60
+            
+            statusInfo += "• 上次同步: \(minutes > 0 ? "\(minutes)分" : "")\(seconds)秒前\n"
+            
+            if timeSinceLastSync <= 120 {
+                return statusInfo + "• 状态: ✅ 正常\n\n最近2分钟内有Git提交活动"
+            } else {
+                return statusInfo + "• 状态: ⚠️ 警告\n\n超过2分钟无Git提交活动\n可能需要手动同步"
+            }
+        }
+        
+        return statusInfo + "• 状态: ⚠️ 等待首次同步\n\n尚未进行过Git同步\n将显示红色警告直到首次同步完成"
+    }
+    
+    var body: some View {
+        Group {
+            if shouldShowIndicator {
+                HStack(spacing: 4) {
+                    // 显示状态指示器，颜色根据状态动态变化
+                    Circle()
+                        .fill(indicatorColor)
+                        .frame(width: 10, height: 10) // 增大圆点以便更容易看见
+                    
+                    // Git图标，颜色与圆点保持一致，保持静态不转圈
+                    Image(systemName: statusManager.isWorking ? "externaldrive.badge.timemachine" : "externaldrive")
+                        .font(.system(size: 16)) // 增大图标大小
+                        .foregroundColor(indicatorColor)
+                }
+                .help(statusText)
+                .onTapGesture {
+                    showingTooltip.toggle()
+                }
+                .popover(isPresented: $showingTooltip) {
+                    GitSyncStatusPopover()
+                }
+                .onAppear {
+                    print("🎯 GitSyncStatusIndicator 已显示！状态: \(indicatorColor), 网络: \(networkMonitor.isConnected)")
+                }
+            } else {
+                // 不显示任何指示器（隐形状态）
+                EmptyView()
+            }
         }
     }
+    
 }
 
-// MARK: - 旋转Git图标组件
-struct RotatingGitIcon: View {
-    let isWorking: Bool
-    let icon: String
-    let color: Color
-    
-    @State private var rotation: Double = 0
-    
-    var body: some View {
-        Image(systemName: icon)
-            .font(.caption)
-            .foregroundColor(color)
-            .rotationEffect(.degrees(rotation))
-            .onReceive(Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()) { _ in
-                if isWorking {
-                    withAnimation(.linear(duration: 0.1)) {
-                        rotation += 36 // 每0.1秒转36度，2秒转完一圈
-                    }
-                } else {
-                    // 停止时立即重置旋转
-                    withAnimation(.easeOut(duration: 0.3)) {
-                        rotation = 0
-                    }
-                }
-            }
-            .onChange(of: isWorking) { _, newValue in
-                if !newValue {
-                    // 当停止工作时，立即停止并重置旋转
-                    withAnimation(.easeOut(duration: 0.3)) {
-                        rotation = 0
-                    }
-                }
-            }
-    }
-}
 
 // MARK: - 状态详情弹出框
 
@@ -900,9 +1493,7 @@ struct GitSyncStatusPopover: View {
         VStack(alignment: .leading, spacing: 12) {
             // 标题
             HStack {
-                Image(systemName: statusManager.statusIcon)
-                    .foregroundColor(statusManager.statusColor)
-                Text("GitHub同步状态")
+                Text("Git同步状态")
                     .font(.headline)
                     .fontWeight(.semibold)
                 
@@ -918,54 +1509,64 @@ struct GitSyncStatusPopover: View {
             
             Divider()
             
-            // 当前状态
-            VStack(alignment: .leading, spacing: 6) {
+            // 简化的状态显示 - 只显示警告状态
+            VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Circle()
-                        .fill(statusManager.statusColor)
-                        .frame(width: 10, height: 10)
+                    let shouldShowWarning = statusManager.isEnabled && (statusManager.lastSyncTime == nil || Date().timeIntervalSince(statusManager.lastSyncTime!) > 120)
                     
-                    Text(statusManager.displayStatus)
-                        .font(.body)
-                        .fontWeight(.medium)
+                    if shouldShowWarning {
+                        Circle()
+                            .fill(.red)
+                            .frame(width: 10, height: 10)
+                        
+                        Text("警告状态")
+                            .font(.body)
+                            .fontWeight(.medium)
+                            .foregroundColor(.red)
+                    } else if statusManager.isEnabled {
+                        Text("正常状态")
+                            .font(.body)
+                            .fontWeight(.medium)
+                            .foregroundColor(.secondary)
+                    } else {
+                        Circle()
+                            .fill(.secondary)
+                            .frame(width: 10, height: 10)
+                        
+                        Text("Git未启用")
+                            .font(.body)
+                            .fontWeight(.medium)
+                    }
                 }
                 
                 if let lastSync = statusManager.lastSyncTime {
-                    Text("上次同步: \(formatTime(lastSync))")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                
-                if statusManager.totalSyncCount > 0 {
-                    Text("总同步次数: \(statusManager.totalSyncCount)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            // 快速操作
-            if statusManager.isEnabled && !statusManager.isWorking {
-                Divider()
-                
-                HStack {
-                    Text("快速操作:")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Spacer()
-                    
-                    Button("打开设置") {
-                        // 这里可以添加打开设置的逻辑
-                        dismiss()
+                    let timeSinceLastSync = Date().timeIntervalSince(lastSync)
+                    if timeSinceLastSync > 120 {
+                        let minutes = Int(timeSinceLastSync / 60)
+                        Text("已超过2分钟无提交活动 (\(minutes)分钟前)")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                    } else {
+                        Text("最近2分钟内有提交活动")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
-                    .font(.caption)
-                    .buttonStyle(.bordered)
-                    .controlSize(.mini)
+                    
+                    Text("上次提交: \(formatTime(lastSync))")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.top, 4)
+                }
+                
+                if statusManager.isEnabled && statusManager.totalSyncCount == 0 {
+                    Text("等待首次提交 - 将显示红色警告")
+                        .font(.caption)
+                        .foregroundColor(.orange)
                 }
             }
         }
         .padding()
-        .frame(width: 250)
+        .frame(width: 220)
     }
     
     private func formatTime(_ date: Date) -> String {
@@ -975,30 +1576,6 @@ struct GitSyncStatusPopover: View {
     }
 }
 
-// MARK: - 紧凑状态指示器（用于工具栏）
-
-struct CompactGitSyncIndicator: View {
-    @ObservedObject private var statusManager = GitSyncStatusManager.shared
-    
-    var body: some View {
-        HStack(spacing: 4) {
-            Circle()
-                .fill(statusManager.statusColor)
-                .frame(width: 6, height: 6)
-                .scaleEffect(statusManager.isWorking ? 1.3 : 1.0)
-                .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), 
-                          value: statusManager.isWorking)
-            
-            if statusManager.isEnabled {
-                Text("\(statusManager.totalSyncCount)")
-                    .font(.caption2)
-                    .foregroundColor(statusManager.statusColor)
-                    .fontWeight(.medium)
-            }
-        }
-        .help(statusManager.displayStatus)
-    }
-}
 
 struct SettingsView: View {
     @EnvironmentObject private var store: NodeStore
@@ -2475,38 +3052,18 @@ struct GitSyncSettingsView: View {
                             }
                         }
                         
-                        // 实时状态调试
-                        Divider()
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("🔍 实时状态调试:")
+                        if let lastSync = statusManager.lastSyncTime {
+                            Text("上次同步: \(formatDateTime(lastSync))")
                                 .font(.caption)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.orange)
-                            
-                            Text("isWorking: \(statusManager.isWorking ? "🔄 转动中" : "✅ 停止")")
-                                .font(.caption2)
-                                .foregroundColor(statusManager.isWorking ? .red : .green)
-                            
-                            Text("status: \(statusManager.status)")
-                                .font(.caption2)
                                 .foregroundColor(.secondary)
-                            
-                            if let lastSync = statusManager.lastSyncTime {
-                                Text("上次同步: \(formatDateTime(lastSync))")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            if let error = statusManager.lastError {
-                                Text("错误: \(error)")
-                                    .font(.caption2)
-                                    .foregroundColor(.red)
-                                    .lineLimit(2)
-                            }
                         }
-                        .padding(8)
-                        .background(Color.orange.opacity(0.1))
-                        .cornerRadius(6)
+                        
+                        if let error = statusManager.lastError {
+                            Text("错误: \(error)")
+                                .font(.caption)
+                                .foregroundColor(.red)
+                                .lineLimit(2)
+                        }
                         
                         // 详细统计信息
                         if isGitEnabled {
@@ -2758,9 +3315,16 @@ struct GitSyncSettingsView: View {
                                             saveSettings()
                                         }
                                     Spacer()
-                                    Text(autoSyncEnabled ? "数据变化时自动同步" : "需手动同步")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+                                    VStack(alignment: .trailing, spacing: 2) {
+                                        Text(autoSyncEnabled ? "后台自动同步已启用" : "需手动同步")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                        if autoSyncEnabled {
+                                            Text("数据变更时自动提交到GitHub")
+                                                .font(.caption2)
+                                                .foregroundColor(.blue)
+                                        }
+                                    }
                                 }
                                 .padding(.vertical, 4)
                                 
@@ -2768,7 +3332,7 @@ struct GitSyncSettingsView: View {
                                 
                                 // 已配置时的操作
                                 HStack(spacing: 12) {
-                                    Button("同步到GitHub") {
+                                    Button("手动同步") {
                                         syncToGitHub()
                                     }
                                     .buttonStyle(.borderedProminent)
@@ -2779,56 +3343,6 @@ struct GitSyncSettingsView: View {
                                     }
                                     .buttonStyle(.bordered)
                                     .disabled(isWorking)
-                                    
-                                    Button("强制推送") {
-                                        forcePushToGitHub()
-                                    }
-                                    .buttonStyle(.bordered)
-                                    .foregroundColor(.orange)
-                                    .disabled(isWorking)
-                                    
-                                    Button("强制拉取") {
-                                        forcePullFromGitHub()
-                                    }
-                                    .buttonStyle(.bordered)
-                                    .foregroundColor(.red)
-                                    .disabled(isWorking)
-                                    
-                                    Button("修复数据") {
-                                        fixCorruptedData()
-                                    }
-                                    .buttonStyle(.bordered)
-                                    .foregroundColor(.orange)
-                                    .disabled(isWorking)
-                                    
-                                    Button("停止同步") {
-                                        print("🚨 用户点击停止同步按钮")
-                                        
-                                        // 1. 强制重置AutoSyncManager
-                                        GitAutoSyncManager.shared.emergencyReset()
-                                        
-                                        // 2. 强制重置StatusManager
-                                        Task { @MainActor in
-                                            statusManager.isWorking = false
-                                            statusManager.status = "手动停止"
-                                            statusManager.lastError = nil
-                                            statusManager.objectWillChange.send()
-                                            print("🔧 强制重置StatusManager: isWorking=\(statusManager.isWorking)")
-                                        }
-                                        
-                                        // 3. 输出调试信息
-                                        GitAutoSyncManager.shared.debugStatus()
-                                        
-                                        // 4. 延迟重置为就绪状态
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                                            statusManager.status = "就绪"
-                                            statusManager.objectWillChange.send()
-                                            print("✅ 重置为就绪状态")
-                                        }
-                                    }
-                                    .buttonStyle(.bordered)
-                                    .foregroundColor(.red)
-                                    .help("如果Git图标一直转动，点击此按钮强制停止")
                                     
                                     Spacer()
                                     
@@ -2870,7 +3384,7 @@ struct GitSyncSettingsView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("• 将你的学习数据（节点、标签、层等）自动同步到GitHub")
                                 Text("• 支持多设备间的数据同步")
-                                Text("• 数据变化时自动推送到GitHub")
+                                Text("• 自动定时同步，保持数据最新")
                                 Text("• 可以从其他设备拉取最新数据")
                             }
                             .font(.caption)
@@ -2943,7 +3457,10 @@ struct GitSyncSettingsView: View {
             setupAutoSync()
         }
         .onDisappear {
-            stopAutoSyncMonitoring()
+            // 不再在设置窗口关闭时停止监听
+            // Git自动同步监听应该保持活跃状态，除非用户明确禁用Git功能
+            print("🔧 GitSyncSettingsView: 设置窗口关闭，但保持自动同步监听活跃")
+            GitAutoSyncManager.shared.debugStatus()
         }
         .sheet(isPresented: $showingSyncHistory) {
             SyncHistoryView(history: syncHistory, onClearHistory: clearSyncHistory)
@@ -4667,4 +5184,10 @@ struct DangerousOperationsSection: View {
 #Preview {
     SettingsView()
         .environmentObject(NodeStore.shared)
+}
+
+// MARK: - Notification Names Extension
+
+extension Notification.Name {
+    static let networkStatusChanged = Notification.Name("NetworkStatusChanged")
 }
