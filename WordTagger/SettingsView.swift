@@ -11,6 +11,8 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
     private var pendingSync = false
     private var lastConfigCheck: Date?
     private var configCheckTimer: Timer?
+    private var isCurrentlySyncing = false  // 防止重入
+    private var lastSyncAttempt: Date?
     
     public static let shared = GitAutoSyncManager()
     
@@ -217,12 +219,26 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
         
         isMonitoring = false
         pendingSync = false
+        isCurrentlySyncing = false  // 重置同步状态
         autoSyncTimer?.invalidate()
         autoSyncTimer = nil
         configCheckTimer?.invalidate()
         configCheckTimer = nil
         NotificationCenter.default.removeObserver(self)
         lastConfigCheck = nil
+        lastSyncAttempt = nil
+        
+        // 如果GitSyncStatusManager还在工作状态，强制停止
+        Task { @MainActor in
+            if GitSyncStatusManager.shared.isWorking {
+                print("🔧 GitAutoSyncManager: 强制停止GitSyncStatusManager工作状态")
+                GitSyncStatusManager.shared.finishWorking(
+                    success: false,
+                    finalStatus: "自动同步已停止"
+                )
+            }
+        }
+        
         print("🔧 GitAutoSyncManager: 已停止Git自动同步监听 [\(Date())]")
     }
     
@@ -290,7 +306,23 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
             return
         }
         
+        // 防重入保护
+        guard !isCurrentlySyncing else {
+            print("⚠️ GitAutoSyncManager: 已有同步在进行中，忽略新的同步请求 - 触发原因: \(reason)")
+            pendingSync = false
+            return
+        }
+        
+        // 防止频繁同步（至少间隔10秒）
+        if let lastAttempt = lastSyncAttempt, Date().timeIntervalSince(lastAttempt) < 10 {
+            print("⚠️ GitAutoSyncManager: 距上次同步不足10秒，跳过 - 触发原因: \(reason)")
+            pendingSync = false
+            return
+        }
+        
         pendingSync = false
+        isCurrentlySyncing = true
+        lastSyncAttempt = Date()
         
         // 重新验证配置
         let userDefaults = UserDefaults.standard
@@ -305,23 +337,52 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
         
         guard isGitEnabled && autoSyncEnabled else {
             print("❌ GitAutoSyncManager: Git配置已变更，停止自动同步 - Git启用: \(isGitEnabled), 自动同步: \(autoSyncEnabled)")
+            isCurrentlySyncing = false
             return
         }
         
         guard !gitRemoteURL.isEmpty else {
             print("❌ GitAutoSyncManager: 远程URL为空，无法执行同步")
+            isCurrentlySyncing = false
             return
         }
         
         // 创建一个临时的GitSyncHelper来执行同步
         Task { @MainActor in
-            // 启动同步状态指示器
-            GitSyncStatusManager.shared.startWorking(operation: "自动同步中...")
-            print("🔧 GitAutoSyncManager: 已启动状态指示器")
+            defer {
+                // 无论成功失败都要重置同步状态
+                self.isCurrentlySyncing = false
+                print("🔧 GitAutoSyncManager: 重置同步状态 isCurrentlySyncing = false")
+            }
+            
             do {
+                // 启动同步状态指示器
+                GitSyncStatusManager.shared.startWorking(operation: "自动同步中...")
+                print("🔧 GitAutoSyncManager: 已启动状态指示器")
+                
                 print("🚀 GitAutoSyncManager: 创建GitSyncHelper并开始同步...")
                 let helper = GitSyncHelper()
-                try await helper.performSync()
+                
+                // 添加超时保护
+                let syncTask = Task {
+                    try await helper.performSync()
+                }
+                
+                // 等待同步完成或超时（60秒）
+                try await withThrowingTaskGroup(of: Void.self) { group in
+                    group.addTask {
+                        try await syncTask.value
+                    }
+                    
+                    group.addTask {
+                        try await Task.sleep(nanoseconds: 60_000_000_000) // 60秒
+                        throw GitSyncError.commandFailed("timeout", "同步操作超时")
+                    }
+                    
+                    try await group.next()
+                    group.cancelAll()
+                }
+                
                 print("✅ GitAutoSyncManager: 自动同步完成 - 触发原因: \(reason) [\(Date())]")
                 
                 // 更新状态管理器
@@ -348,6 +409,26 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
         }
     }
     
+    // 紧急重置方法 - 强制停止所有同步操作并重置状态
+    public func emergencyReset() {
+        print("🚨 GitAutoSyncManager: 执行紧急重置")
+        isCurrentlySyncing = false
+        pendingSync = false
+        lastSyncAttempt = nil
+        autoSyncTimer?.invalidate()
+        autoSyncTimer = nil
+        
+        Task { @MainActor in
+            if GitSyncStatusManager.shared.isWorking {
+                GitSyncStatusManager.shared.finishWorking(
+                    success: false,
+                    finalStatus: "同步已重置"
+                )
+            }
+        }
+        print("✅ GitAutoSyncManager: 紧急重置完成")
+    }
+    
     // 添加公共方法用于调试和状态检查
     public func debugStatus() {
         let userDefaults = UserDefaults.standard
@@ -364,7 +445,9 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
             
             print("🔍 === GitAutoSyncManager 状态诊断 [\(Date())] ===")
             print("   监听状态: \(self.isMonitoring ? "✅ 监听中" : "❌ 未监听")")
+            print("   同步状态: \(self.isCurrentlySyncing ? "🔄 正在同步" : "✅ 空闲")")
             print("   待同步状态: \(self.pendingSync ? "⏳ 有待执行同步" : "✅ 无待执行同步")")
+            print("   上次同步尝试: \(self.lastSyncAttempt?.description ?? "无")")
             print("   Git启用: \(isGitEnabled ? "✅ 已启用" : "❌ 未启用")")
             print("   自动同步启用: \(autoSyncEnabled ? "✅ 已启用" : "❌ 未启用")")
             print("   远程URL: \(gitRemoteURL.isEmpty ? "❌ 空" : "✅ 已设置")")
@@ -375,6 +458,7 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
             print("   配置完整性: \(isFullyConfigured ? "✅ 完整" : "❌ 不完整")")
             print("   最后配置检查: \(self.lastConfigCheck?.description ?? "无")")
             print("   定时器状态: 自动同步=\(self.autoSyncTimer != nil ? "运行中" : "停止"), 配置检查=\(self.configCheckTimer != nil ? "运行中" : "停止")")
+            print("   GitSyncStatusManager工作状态: \(GitSyncStatusManager.shared.isWorking ? "🔄 工作中" : "✅ 空闲")")
             print("🔍 =====================================")
         }
     }
@@ -2613,6 +2697,15 @@ struct GitSyncSettingsView: View {
                                     .buttonStyle(.bordered)
                                     .foregroundColor(.orange)
                                     .disabled(isWorking)
+                                    
+                                    Button("停止同步") {
+                                        print("🚨 用户点击停止同步按钮")
+                                        GitAutoSyncManager.shared.emergencyReset()
+                                        GitAutoSyncManager.shared.debugStatus()
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .foregroundColor(.red)
+                                    .help("如果Git图标一直转动，点击此按钮强制停止")
                                     
                                     Spacer()
                                     
