@@ -1,0 +1,211 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wordtagger.com/schemas/node.schema.json",
+  "title": "WordTagger Node Schema",
+  "description": "Schema for WordTagger Node data structure with comprehensive validation rules",
+  "type": "object",
+  "required": ["id", "text", "layerId", "tags", "isCompound", "createdAt", "updatedAt"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for the node"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "pattern": "^(?!.*[\\x00-\\x1F\\x7F-\\x9F]).*$",
+      "description": "Main text content of the node (no control characters)"
+    },
+    "phonetic": {
+      "type": ["string", "null"],
+      "maxLength": 200,
+      "pattern": "^(?!.*[\\x00-\\x1F\\x7F-\\x9F]).*$",
+      "description": "Phonetic transcription (optional)"
+    },
+    "meaning": {
+      "type": ["string", "null"],
+      "maxLength": 1000,
+      "pattern": "^(?!.*[\\x00-\\x1F\\x7F-\\x9F]).*$",
+      "description": "Meaning or definition (optional)"
+    },
+    "layerId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ID of the layer containing this node"
+    },
+    "tags": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "$ref": "#/$defs/Tag"
+      },
+      "description": "Tags associated with the node"
+    },
+    "isCompound": {
+      "type": "boolean",
+      "description": "Whether this node is a compound node containing child references"
+    },
+    "markdown": {
+      "type": "string",
+      "maxLength": 10000,
+      "description": "Markdown content for rich text display"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Node creation timestamp"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last modification timestamp"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Tag": {
+      "type": "object",
+      "required": ["id", "type", "value"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Unique identifier for the tag"
+        },
+        "type": {
+          "$ref": "#/$defs/TagType"
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "^(?!.*[\\x00-\\x1F\\x7F-\\x9F]).*$",
+          "description": "Tag value content"
+        },
+        "latitude": {
+          "type": ["number", "null"],
+          "minimum": -90,
+          "maximum": 90,
+          "description": "Latitude coordinate for location tags"
+        },
+        "longitude": {
+          "type": ["number", "null"],
+          "minimum": -180,
+          "maximum": 180,
+          "description": "Longitude coordinate for location tags"
+        },
+        "isShortcutType": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether this tag type uses keyboard shortcuts"
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "description": "Location tags must have both latitude and longitude",
+          "if": {
+            "properties": {
+              "latitude": { "type": "number" }
+            }
+          },
+          "then": {
+            "properties": {
+              "longitude": { "type": "number" }
+            },
+            "required": ["longitude"]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "longitude": { "type": "number" }
+            }
+          },
+          "then": {
+            "properties": {
+              "latitude": { "type": "number" }
+            },
+            "required": ["latitude"]
+          }
+        }
+      ]
+    },
+    "TagType": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": ["location", "date", "priority"],
+          "description": "Built-in tag types"
+        },
+        {
+          "type": "string",
+          "pattern": "^custom\\([a-zA-Z][a-zA-Z0-9_]{0,49}\\)$",
+          "description": "Custom tag type in format 'custom(key)' where key is alphanumeric"
+        }
+      ]
+    }
+  },
+  "examples": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "text": "visible",
+      "phonetic": "/ˈvɪzəbəl/",
+      "meaning": "可见的",
+      "layerId": "550e8400-e29b-41d4-a716-446655440001",
+      "tags": [
+        {
+          "id": "550e8400-e29b-41d4-a716-446655440002",
+          "type": "custom(root)",
+          "value": "vis",
+          "latitude": null,
+          "longitude": null,
+          "isShortcutType": false
+        },
+        {
+          "id": "550e8400-e29b-41d4-a716-446655440003",
+          "type": "location",
+          "value": "教室A",
+          "latitude": 39.9042,
+          "longitude": 116.4074,
+          "isShortcutType": false
+        }
+      ],
+      "isCompound": false,
+      "markdown": "",
+      "createdAt": "2024-01-01T10:00:00Z",
+      "updatedAt": "2024-01-01T10:00:00Z"
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440004",
+      "text": "vocabulary_set_1",
+      "phonetic": null,
+      "meaning": "Basic vocabulary set",
+      "layerId": "550e8400-e29b-41d4-a716-446655440001",
+      "tags": [
+        {
+          "id": "550e8400-e29b-41d4-a716-446655440005",
+          "type": "custom(child)",
+          "value": "visible",
+          "latitude": null,
+          "longitude": null,
+          "isShortcutType": false
+        },
+        {
+          "id": "550e8400-e29b-41d4-a716-446655440006",
+          "type": "custom(child)",
+          "value": "hidden",
+          "latitude": null,
+          "longitude": null,
+          "isShortcutType": false
+        }
+      ],
+      "isCompound": true,
+      "markdown": "# Vocabulary Set 1\n\nBasic visibility-related words",
+      "createdAt": "2024-01-01T11:00:00Z",
+      "updatedAt": "2024-01-01T11:30:00Z"
+    }
+  ]
+}

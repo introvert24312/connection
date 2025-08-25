@@ -1,0 +1,300 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wordtagger.com/schemas/external-data-format.schema.json",
+  "title": "WordTagger External Data Format Schema",
+  "description": "Complete schema for WordTagger external data storage format including metadata and configuration",
+  "type": "object",
+  "required": ["config", "layers", "nodes", "metadata"],
+  "properties": {
+    "config": {
+      "$ref": "#/$defs/DataConfig"
+    },
+    "layers": {
+      "type": "array",
+      "items": {
+        "$ref": "layer.schema.json"
+      },
+      "maxItems": 100,
+      "description": "All layers in the application"
+    },
+    "nodes": {
+      "type": "array", 
+      "items": {
+        "$ref": "node.schema.json"
+      },
+      "maxItems": 10000,
+      "description": "All nodes across all layers"
+    },
+    "metadata": {
+      "$ref": "#/$defs/DataMetadata"
+    },
+    "tagMappings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/TagMapping"
+      },
+      "maxItems": 50,
+      "description": "Custom tag type mappings"
+    },
+    "backup": {
+      "$ref": "#/$defs/BackupInfo"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "DataConfig": {
+      "type": "object",
+      "required": ["version", "createdAt", "lastModified"],
+      "properties": {
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+(\\.\\d+)?$",
+          "description": "Data format version (semantic versioning)"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When this data was first created"
+        },
+        "lastModified": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last modification timestamp"
+        },
+        "appVersion": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+(\\.\\d+)?$",
+          "description": "WordTagger app version that created this data"
+        },
+        "schemaUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to the schema used for validation"
+        }
+      },
+      "additionalProperties": false
+    },
+    "DataMetadata": {
+      "type": "object",
+      "required": ["totalLayers", "totalNodes", "totalTags"],
+      "properties": {
+        "totalLayers": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of layers"
+        },
+        "totalNodes": {
+          "type": "integer", 
+          "minimum": 0,
+          "description": "Total number of nodes"
+        },
+        "totalTags": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of tags across all nodes"
+        },
+        "lastBackup": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "When the last backup was created"
+        },
+        "syncEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether automatic synchronization is enabled"
+        },
+        "dataIntegrityHash": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{64}$",
+          "description": "SHA-256 hash for data integrity verification"
+        },
+        "statistics": {
+          "type": "object",
+          "properties": {
+            "nodesByLayer": {
+              "type": "object",
+              "patternProperties": {
+                "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "description": "Node count by layer ID"
+            },
+            "tagsByType": {
+              "type": "object",
+              "patternProperties": {
+                "^.*$": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "description": "Tag count by type"
+            },
+            "compoundNodes": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of compound nodes"
+            },
+            "nodesWithLocation": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of nodes with location tags"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "TagMapping": {
+      "type": "object",
+      "required": ["key", "typeName"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50,
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$",
+          "description": "Tag type key (alphanumeric with underscores)"
+        },
+        "typeName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^(?!.*[\\x00-\\x1F\\x7F-\\x9F]).*$",
+          "description": "Human-readable type name"
+        },
+        "isShortcutEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether keyboard shortcuts are enabled for this type"
+        },
+        "shortcut": {
+          "type": ["string", "null"],
+          "pattern": "^[a-zA-Z0-9]$",
+          "description": "Single character keyboard shortcut"
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$|^[a-z]+$",
+          "description": "Color for UI display"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Optional description of the tag type"
+        }
+      },
+      "additionalProperties": false,
+      "if": {
+        "properties": { "isShortcutEnabled": { "const": true } }
+      },
+      "then": {
+        "required": ["shortcut"],
+        "properties": {
+          "shortcut": { "type": "string" }
+        }
+      }
+    },
+    "BackupInfo": {
+      "type": "object",
+      "properties": {
+        "isBackup": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether this file is a backup"
+        },
+        "originalPath": {
+          "type": "string",
+          "description": "Path to the original data file"
+        },
+        "backupReason": {
+          "type": "string",
+          "enum": ["scheduled", "manual", "before_update", "corruption_recovery"],
+          "description": "Reason for creating this backup"
+        },
+        "parentBackupId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "ID of the parent backup (for incremental backups)"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "examples": [
+    {
+      "config": {
+        "version": "1.0.0",
+        "createdAt": "2024-01-01T09:00:00Z",
+        "lastModified": "2024-01-01T15:30:00Z",
+        "appVersion": "1.9.0",
+        "schemaUrl": "https://wordtagger.com/schemas/external-data-format.schema.json"
+      },
+      "layers": [
+        {
+          "id": "550e8400-e29b-41d4-a716-446655440000",
+          "name": "english",
+          "displayName": "英语节点",
+          "color": "blue",
+          "isActive": true,
+          "isCompound": false,
+          "childLayerIds": [],
+          "createdAt": "2024-01-01T09:00:00Z"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "550e8400-e29b-41d4-a716-446655440001",
+          "text": "visible",
+          "phonetic": "/ˈvɪzəbəl/",
+          "meaning": "可见的",
+          "layerId": "550e8400-e29b-41d4-a716-446655440000",
+          "tags": [
+            {
+              "id": "550e8400-e29b-41d4-a716-446655440002",
+              "type": "custom(root)",
+              "value": "vis",
+              "latitude": null,
+              "longitude": null,
+              "isShortcutType": false
+            }
+          ],
+          "isCompound": false,
+          "markdown": "",
+          "createdAt": "2024-01-01T10:00:00Z",
+          "updatedAt": "2024-01-01T10:00:00Z"
+        }
+      ],
+      "metadata": {
+        "totalLayers": 1,
+        "totalNodes": 1,
+        "totalTags": 1,
+        "lastBackup": null,
+        "syncEnabled": true,
+        "dataIntegrityHash": "a1b2c3d4e5f6789012345678901234567890123456789012345678901234567890",
+        "statistics": {
+          "nodesByLayer": {
+            "550e8400-e29b-41d4-a716-446655440000": 1
+          },
+          "tagsByType": {
+            "custom(root)": 1
+          },
+          "compoundNodes": 0,
+          "nodesWithLocation": 0
+        }
+      },
+      "tagMappings": [
+        {
+          "key": "root",
+          "typeName": "词根",
+          "isShortcutEnabled": true,
+          "shortcut": "r",
+          "color": "#3498db",
+          "description": "Word root or etymology"
+        }
+      ]
+    }
+  ]
+}

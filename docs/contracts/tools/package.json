@@ -1,0 +1,49 @@
+{
+  "name": "@wordtagger/contract-validation",
+  "version": "1.0.0",
+  "description": "Contract validation tools for WordTagger service interfaces",
+  "main": "contract-test-suite.js",
+  "bin": {
+    "validate-contracts": "./contract-test-suite.js"
+  },
+  "scripts": {
+    "test": "node contract-test-suite.js",
+    "test:verbose": "node contract-test-suite.js --verbose",
+    "validate": "node contract-test-suite.js ../",
+    "install-deps": "npm install",
+    "generate-types": "node generate-types.js"
+  },
+  "keywords": [
+    "contract-testing",
+    "api-validation", 
+    "asyncapi",
+    "json-schema",
+    "openapi",
+    "interface-validation"
+  ],
+  "author": "WordTagger Development Team",
+  "license": "MIT",
+  "dependencies": {
+    "ajv": "^8.12.0",
+    "ajv-formats": "^2.1.1",
+    "yaml": "^2.3.4",
+    "@asyncapi/parser": "^3.0.2",
+    "swagger-parser": "^10.0.3"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "@types/node": "^20.8.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wordtagger/wordtagger.git",
+    "directory": "docs/contracts/tools"
+  },
+  "bugs": {
+    "url": "https://github.com/wordtagger/wordtagger/issues"
+  },
+  "homepage": "https://github.com/wordtagger/wordtagger#readme"
+}

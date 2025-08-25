@@ -1,44 +1,76 @@
 graph TD
-    %% L2 Architecture Diagram - Generated from Service Catalog
+    %% L2 Architecture Diagram - Updated with Current Implementation
+    %% Version: 2.0 - Comprehensive Service Architecture
+    %% Last Updated: 2025-08-25
 
-    context_menu_manager["context-menu-manager<br/>/ Optimized context menu manager that handles creation and disposal efficiently class ContextMenuManager"]
-    data_manager["data-manager<br/>DataManager - Manages and coordinates system resources"]
-    example_service["example-service<br/>Example service for testing governance framework"]
-    external_data_manager["external-data-manager<br/>ExternalDataManager - Manages and coordinates system resources"]
-    external_data_service["external-data-service<br/>ExternalDataService - Provides core business logic and functionality"]
-    fullscreen_graph_window_manager["fullscreen-graph-window-manager<br/>MARK - SwiftUI原生全屏图谱管理器 class FullscreenGraphWindowManager"]
-    geocoder_service["geocoder-service<br/>GeocoderService - Provides core business logic and functionality"]
-    git_service["git-service<br/>GitService - Provides core business logic and functionality"]
-    governance_validation["governance-validation<br/>Engineering governance framework validation and compliance checking"]
-    graph_manager["graph-manager<br/>MARK - 全局图谱管理器 class GraphManager"]
-    graph_service["graph-service<br/>GraphService - Provides core business logic and functionality"]
-    keyboard_event_manager["keyboard-event-manager<br/>/ Manages keyboard event state and prevents rapid-fire command execution class KeyboardEventManager"]
-    location_manager["location-manager<br/>MARK - Location Manager class LocationManager"]
-    search_service["search-service<br/>SearchService - Provides core business logic and functionality"]
-    tag_mapping_manager["tag-mapping-manager<br/>TagMappingManager - Manages and coordinates system resources"]
-    wordtagger_app["wordtagger-app<br/>Main WordTagger macOS application for word and node management"]
+    %% Core Services
+    node_store["NodeStore<br/>🏪 Central State Management<br/>• @Published properties<br/>• Layer/Node CRUD<br/>• Search coordination<br/>• Tag filtering state"]
+    data_manager["DataManager<br/>📁 Import/Export Service<br/>• JSON data handling<br/>• File I/O operations<br/>• Data validation<br/>• Migration support"]
+    external_data_service["ExternalDataService<br/>💾 Persistence Engine<br/>• Async save/load operations<br/>• Backup management<br/>• Data corruption recovery<br/>• Sync coordination"]
+    external_data_manager["ExternalDataManager<br/>🔗 Storage Manager<br/>• Path management<br/>• Folder structure validation<br/>• Access permissions<br/>• Security bookmarks"]
 
-    database["database<br/>(External)"]
-    example_service --> database
-    style database fill:#ffcccc
-    cache["cache<br/>(External)"]
-    example_service --> cache
-    style cache fill:#ffcccc
-    file_manager["file-manager<br/>(External)"]
-    external_data_manager --> file_manager
-    style file_manager fill:#ffcccc
+    %% Specialized Services
+    search_service["SearchService<br/>🔍 Advanced Search Engine<br/>• Multi-field search<br/>• Semantic matching<br/>• Location-based queries<br/>• Fuzzy string matching"]
+    graph_service["GraphService<br/>🕸️ Relationship Analysis<br/>• Node graph construction<br/>• Similarity detection<br/>• Tag-based clustering<br/>• Connection strength scoring"]
+    git_service["GitService<br/>🔄 Version Control<br/>• Repository management<br/>• Auto-commit workflows<br/>• Credential handling<br/>• Sync operations"]
+    
+    %% Infrastructure Services
+    tag_mapping_manager["TagMappingManager<br/>🏷️ Tag System Manager<br/>• Type mappings<br/>• Display name resolution<br/>• Custom tag definitions<br/>• Built-in tag types"]
+    keyboard_event_manager["KeyboardEventManager<br/>⌨️ Input Event Handler<br/>• Command throttling<br/>• Error recovery<br/>• Focus state tracking<br/>• Conflict resolution"]
+    keychain_manager["KeychainManager<br/>🔐 Security Service<br/>• Credential storage<br/>• Git token management<br/>• Secure access"]
+    memory_leak_detection["MemoryLeakDetection<br/>🩺 Performance Monitor<br/>• Memory usage tracking<br/>• Leak detection<br/>• Performance metrics"]
+    
+    %% Communication Infrastructure
+    notification_center["NotificationCenter<br/>📢 Event Coordination<br/>• Data path changes<br/>• Node updates<br/>• Tag modifications<br/>• Git sync events<br/>• UI refresh triggers"]
+
+    %% External Dependencies
+    file_system["File System<br/>📁 Local Storage<br/>• JSON persistence<br/>• Backup management<br/>• Configuration files"]
+    git_repository["Git Repository<br/>🌐 Remote Storage<br/>• GitHub integration<br/>• Version history<br/>• Conflict resolution"]
+    macos_keychain["macOS Keychain<br/>🔑 System Security<br/>• Encrypted storage<br/>• Access control<br/>• Secure authentication"]
+    core_location["Core Location<br/>📍 System Services<br/>• GPS coordinates<br/>• Location permissions<br/>• Geocoding support"]
+
+    %% Primary Data Flow
+    node_store --> external_data_service
+    node_store --> search_service
+    node_store --> tag_mapping_manager
     external_data_service --> external_data_manager
-    keychain_manager["keychain-manager<br/>(External)"]
+    external_data_manager --> file_system
+    data_manager --> file_system
+
+    %% Service Dependencies
     git_service --> keychain_manager
-    style keychain_manager fill:#ffcccc
-    cllocation_manager["cllocation-manager<br/>(External)"]
-    location_manager --> cllocation_manager
-    style cllocation_manager fill:#ffcccc
-    wordtagger_app --> external_data_service
-    wordtagger_app --> git_service
-    wordtagger_app --> graph_service
-    wordtagger_app --> search_service
+    keychain_manager --> macos_keychain
+    git_service --> git_repository
+    graph_service --> node_store
+    search_service --> node_store
+
+    %% Notification System (Event Bus)
+    tag_mapping_manager -.-> notification_center
+    external_data_service -.-> notification_center  
+    git_service -.-> notification_center
+    keyboard_event_manager -.-> notification_center
+    
+    notification_center -.-> node_store
+    notification_center -.-> external_data_service
+    notification_center -.-> tag_mapping_manager
+
+    %% Memory Management
+    memory_leak_detection -.-> node_store
+    memory_leak_detection -.-> external_data_service
+    memory_leak_detection -.-> graph_service
+
+    %% Geographic Services
+    search_service --> core_location
 
     %% Styling
-    classDef default fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    classDef external fill:#ffcccc,stroke:#d32f2f,stroke-width:2px
+    classDef coreService fill:#e3f2fd,stroke:#1976d2,stroke-width:3px,color:#000
+    classDef specializedService fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
+    classDef infraService fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#000
+    classDef communication fill:#f1f8e9,stroke:#689f38,stroke-width:2px,color:#000
+    classDef external fill:#ffebee,stroke:#d32f2f,stroke-width:2px,color:#000
+
+    class node_store,data_manager,external_data_service,external_data_manager coreService
+    class search_service,graph_service,git_service specializedService
+    class tag_mapping_manager,keyboard_event_manager,keychain_manager,memory_leak_detection infraService
+    class notification_center communication
+    class file_system,git_repository,macos_keychain,core_location external

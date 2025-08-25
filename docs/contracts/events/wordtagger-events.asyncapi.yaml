@@ -1,0 +1,1399 @@
+asyncapi: 2.6.0
+info:
+  title: WordTagger Service Events
+  version: 1.0.0
+  description: |
+    Comprehensive event specifications for WordTagger application services.
+    These events enable decoupled communication between services using NotificationCenter,
+    reactive @Published properties, and async operations.
+  contact:
+    name: WordTagger Development Team
+    email: dev@wordtagger.com
+  license:
+    name: MIT
+servers:
+  local:
+    url: notificationcenter://local
+    protocol: notificationcenter
+    description: Local NotificationCenter-based event system
+  reactive:
+    url: combine://reactive
+    protocol: combine
+    description: Reactive streams using Combine framework
+defaultContentType: application/json
+
+channels:
+  # MARK: - Node Management Events
+  node.created:
+    description: Published when a new node is successfully created
+    publish:
+      operationId: publishNodeCreated
+      summary: Node created event
+      message:
+        $ref: '#/components/messages/NodeCreated'
+      bindings:
+        notificationcenter:
+          name: "nodeCreated"
+          
+  node.updated:
+    description: Published when a node is modified (content, tags, or metadata)
+    publish:
+      operationId: publishNodeUpdated
+      summary: Node updated event
+      message:
+        $ref: '#/components/messages/NodeUpdated'
+      bindings:
+        notificationcenter:
+          name: "nodeUpdated"
+          
+  node.deleted:
+    description: Published when a node is permanently removed
+    publish:
+      operationId: publishNodeDeleted
+      summary: Node deleted event
+      message:
+        $ref: '#/components/messages/NodeDeleted'
+      bindings:
+        notificationcenter:
+          name: "nodeDeleted"
+          
+  node.selected:
+    description: Published when a node becomes the current selection
+    publish:
+      operationId: publishNodeSelected
+      summary: Node selection changed event
+      message:
+        $ref: '#/components/messages/NodeSelected'
+      bindings:
+        notificationcenter:
+          name: "nodeSelectionChanged"
+
+  # MARK: - Layer Management Events
+  layer.created:
+    description: Published when a new layer is created
+    publish:
+      operationId: publishLayerCreated
+      summary: Layer created event
+      message:
+        $ref: '#/components/messages/LayerCreated'
+      bindings:
+        notificationcenter:
+          name: "layerCreated"
+          
+  layer.updated:
+    description: Published when layer properties are modified
+    publish:
+      operationId: publishLayerUpdated
+      summary: Layer updated event
+      message:
+        $ref: '#/components/messages/LayerUpdated'
+      bindings:
+        notificationcenter:
+          name: "layerUpdated"
+          
+  layer.deleted:
+    description: Published when a layer is permanently removed
+    publish:
+      operationId: publishLayerDeleted
+      summary: Layer deleted event
+      message:
+        $ref: '#/components/messages/LayerDeleted'
+      bindings:
+        notificationcenter:
+          name: "layerDeleted"
+          
+  layer.switched:
+    description: Published when the current active layer changes
+    publish:
+      operationId: publishLayerSwitched
+      summary: Active layer changed event
+      message:
+        $ref: '#/components/messages/LayerSwitched'
+      bindings:
+        notificationcenter:
+          name: "layerSwitched"
+
+  # MARK: - Tag Management Events
+  tag.added:
+    description: Published when a tag is added to a node
+    publish:
+      operationId: publishTagAdded
+      summary: Tag added to node event
+      message:
+        $ref: '#/components/messages/TagAdded'
+      bindings:
+        notificationcenter:
+          name: "tagAdded"
+          
+  tag.removed:
+    description: Published when a tag is removed from a node
+    publish:
+      operationId: publishTagRemoved
+      summary: Tag removed from node event
+      message:
+        $ref: '#/components/messages/TagRemoved'
+      bindings:
+        notificationcenter:
+          name: "tagRemoved"
+          
+  tag.selected:
+    description: Published when a tag becomes the current filter selection
+    publish:
+      operationId: publishTagSelected
+      summary: Tag selection changed event
+      message:
+        $ref: '#/components/messages/TagSelected'
+      bindings:
+        notificationcenter:
+          name: "tagSelectionChanged"
+          
+  tag.type.expanded:
+    description: Published when a tag type is expanded in the sidebar
+    publish:
+      operationId: publishTagTypeExpanded
+      summary: Tag type expansion state changed
+      message:
+        $ref: '#/components/messages/TagTypeExpanded'
+      bindings:
+        notificationcenter:
+          name: "tagTypeExpanded"
+          
+  tag.mapping.changed:
+    description: Published when tag type mappings are modified
+    publish:
+      operationId: publishTagMappingChanged
+      summary: Tag mapping configuration changed
+      message:
+        $ref: '#/components/messages/TagMappingChanged'
+      bindings:
+        notificationcenter:
+          name: "tagTypeNameChanged"
+
+  # MARK: - Search Events
+  search.started:
+    description: Published when a search operation begins
+    publish:
+      operationId: publishSearchStarted
+      summary: Search operation started
+      message:
+        $ref: '#/components/messages/SearchStarted'
+      bindings:
+        notificationcenter:
+          name: "searchStarted"
+          
+  search.completed:
+    description: Published when a search operation completes
+    publish:
+      operationId: publishSearchCompleted
+      summary: Search operation completed
+      message:
+        $ref: '#/components/messages/SearchCompleted'
+      bindings:
+        notificationcenter:
+          name: "searchCompleted"
+          
+  search.query.changed:
+    description: Published when the search query is modified
+    publish:
+      operationId: publishSearchQueryChanged
+      summary: Search query updated
+      message:
+        $ref: '#/components/messages/SearchQueryChanged'
+      bindings:
+        reactive:
+          property: "searchQuery"
+          debounce: 300
+
+  # MARK: - Git Service Events
+  git.connection.established:
+    description: Published when Git repository connection is established
+    publish:
+      operationId: publishGitConnectionEstablished
+      summary: Git connection established
+      message:
+        $ref: '#/components/messages/GitConnectionEstablished'
+      bindings:
+        notificationcenter:
+          name: "gitOperationSucceeded"
+          
+  git.operation.started:
+    description: Published when a Git operation (commit, push, pull) begins
+    publish:
+      operationId: publishGitOperationStarted
+      summary: Git operation started
+      message:
+        $ref: '#/components/messages/GitOperationStarted'
+      bindings:
+        notificationcenter:
+          name: "gitOperationStarted"
+          
+  git.operation.completed:
+    description: Published when a Git operation completes successfully
+    publish:
+      operationId: publishGitOperationCompleted
+      summary: Git operation completed
+      message:
+        $ref: '#/components/messages/GitOperationCompleted'
+      bindings:
+        notificationcenter:
+          name: "gitOperationSucceeded"
+          
+  git.operation.failed:
+    description: Published when a Git operation encounters an error
+    publish:
+      operationId: publishGitOperationFailed
+      summary: Git operation failed
+      message:
+        $ref: '#/components/messages/GitOperationFailed'
+      bindings:
+        notificationcenter:
+          name: "gitOperationFailed"
+          
+  git.authentication.required:
+    description: Published when Git operations require user authentication
+    publish:
+      operationId: publishGitAuthenticationRequired
+      summary: Git authentication required
+      message:
+        $ref: '#/components/messages/GitAuthenticationRequired'
+      bindings:
+        notificationcenter:
+          name: "gitAuthenticationRequired"
+
+  # MARK: - External Data Events
+  data.save.started:
+    description: Published when external data save operation begins
+    publish:
+      operationId: publishDataSaveStarted
+      summary: Data save operation started
+      message:
+        $ref: '#/components/messages/DataSaveStarted'
+      bindings:
+        reactive:
+          property: "isSaving"
+          
+  data.save.completed:
+    description: Published when external data save completes
+    publish:
+      operationId: publishDataSaveCompleted
+      summary: Data save operation completed
+      message:
+        $ref: '#/components/messages/DataSaveCompleted'
+      bindings:
+        notificationcenter:
+          name: "dataSaveCompleted"
+          
+  data.load.started:
+    description: Published when external data load operation begins
+    publish:
+      operationId: publishDataLoadStarted
+      summary: Data load operation started
+      message:
+        $ref: '#/components/messages/DataLoadStarted'
+      bindings:
+        reactive:
+          property: "isLoading"
+          
+  data.load.completed:
+    description: Published when external data load completes
+    publish:
+      operationId: publishDataLoadCompleted
+      summary: Data load operation completed
+      message:
+        $ref: '#/components/messages/DataLoadCompleted'
+      bindings:
+        notificationcenter:
+          name: "dataLoadCompleted"
+          
+  data.path.changed:
+    description: Published when external data path is changed
+    publish:
+      operationId: publishDataPathChanged
+      summary: External data path changed
+      message:
+        $ref: '#/components/messages/DataPathChanged'
+      bindings:
+        notificationcenter:
+          name: "dataPathChanged"
+          
+  data.save.before.switch:
+    description: Published to request data save before path switch
+    publish:
+      operationId: publishDataSaveBeforeSwitch
+      summary: Request data save before path switch
+      message:
+        $ref: '#/components/messages/DataSaveBeforeSwitch'
+      bindings:
+        notificationcenter:
+          name: "saveCurrentDataBeforeSwitch"
+
+  # MARK: - Map Events
+  map.location.selected:
+    description: Published when a location is selected on the map
+    publish:
+      operationId: publishMapLocationSelected
+      summary: Map location selected
+      message:
+        $ref: '#/components/messages/MapLocationSelected'
+      bindings:
+        notificationcenter:
+          name: "locationSelected"
+          
+  map.node.clicked:
+    description: Published when a node annotation is clicked on the map
+    publish:
+      operationId: publishMapNodeClicked
+      summary: Map node annotation clicked
+      message:
+        $ref: '#/components/messages/MapNodeClicked'
+      bindings:
+        notificationcenter:
+          name: "mapNodeClicked"
+          
+  map.open.for.selection:
+    description: Published to open map in location selection mode
+    publish:
+      operationId: publishMapOpenForSelection
+      summary: Open map for location selection
+      message:
+        $ref: '#/components/messages/MapOpenForSelection'
+      bindings:
+        notificationcenter:
+          name: "openMapForLocationSelection"
+          
+  map.preview.location:
+    description: Published to preview a specific location on the map
+    publish:
+      operationId: publishMapPreviewLocation
+      summary: Preview location on map
+      message:
+        $ref: '#/components/messages/MapPreviewLocation'
+      bindings:
+        notificationcenter:
+          name: "previewLocation"
+
+  # MARK: - UI State Events
+  ui.refresh.requested:
+    description: Published when UI refresh is explicitly requested
+    publish:
+      operationId: publishUIRefreshRequested
+      summary: UI refresh requested
+      message:
+        $ref: '#/components/messages/UIRefreshRequested'
+      bindings:
+        notificationcenter:
+          name: "refreshUI"
+          
+  ui.tag.filter.cleared:
+    description: Published when tag filter state should be cleared
+    publish:
+      operationId: publishUITagFilterCleared
+      summary: Tag filter cleared
+      message:
+        $ref: '#/components/messages/UITagFilterCleared'
+      bindings:
+        notificationcenter:
+          name: "clearTagFilter"
+          
+  compound.node.refreshed:
+    description: Published when a compound node needs UI refresh due to child changes
+    publish:
+      operationId: publishCompoundNodeRefreshed
+      summary: Compound node refreshed
+      message:
+        $ref: '#/components/messages/CompoundNodeRefreshed'
+      bindings:
+        notificationcenter:
+          name: "compoundNodeRefreshed"
+
+  # MARK: - Performance Events
+  performance.warning:
+    description: Published when performance issues are detected
+    publish:
+      operationId: publishPerformanceWarning
+      summary: Performance warning
+      message:
+        $ref: '#/components/messages/PerformanceWarning'
+      bindings:
+        notificationcenter:
+          name: "performanceWarning"
+          
+  memory.pressure.detected:
+    description: Published when high memory usage is detected
+    publish:
+      operationId: publishMemoryPressureDetected
+      summary: Memory pressure detected
+      message:
+        $ref: '#/components/messages/MemoryPressureDetected'
+      bindings:
+        notificationcenter:
+          name: "memoryPressureDetected"
+
+components:
+  messages:
+    # MARK: - Node Messages
+    NodeCreated:
+      name: NodeCreated
+      title: Node Created Event
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/NodeEventPayload'
+      examples:
+        - name: New English word node
+          payload:
+            eventId: "evt_node_created_001"
+            eventType: "node.created"
+            timestamp: "2024-01-01T10:00:00Z"
+            version: "1.0"
+            source: "NodeStore"
+            data:
+              nodeId: "node_123e4567-e89b-12d3-a456-426614174000"
+              layerId: "layer_123e4567-e89b-12d3-a456-426614174001"
+              text: "visible"
+              phonetic: "/ˈvɪzəbəl/"
+              meaning: "可见的"
+              tags: 
+                - type: "custom(root)"
+                  value: "vis"
+              isCompound: false
+              
+    NodeUpdated:
+      name: NodeUpdated
+      title: Node Updated Event
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/NodeEventPayload'
+      examples:
+        - name: Node content updated
+          payload:
+            eventId: "evt_node_updated_001"
+            eventType: "node.updated"
+            timestamp: "2024-01-01T10:05:00Z"
+            version: "1.0"
+            source: "NodeStore"
+            data:
+              nodeId: "node_123e4567-e89b-12d3-a456-426614174000"
+              layerId: "layer_123e4567-e89b-12d3-a456-426614174001"
+              text: "visible"
+              phonetic: "/ˈvɪzəbəl/"
+              meaning: "可见的，明显的"
+              updatedFields: ["meaning"]
+              
+    NodeDeleted:
+      name: NodeDeleted
+      title: Node Deleted Event
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/NodeDeletedPayload'
+      examples:
+        - name: Node permanently deleted
+          payload:
+            eventId: "evt_node_deleted_001"
+            eventType: "node.deleted"
+            timestamp: "2024-01-01T10:10:00Z"
+            version: "1.0"
+            source: "NodeStore"
+            data:
+              nodeId: "node_123e4567-e89b-12d3-a456-426614174000"
+              text: "visible"
+              layerId: "layer_123e4567-e89b-12d3-a456-426614174001"
+              deletedBy: "user"
+              
+    NodeSelected:
+      name: NodeSelected
+      title: Node Selected Event
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/NodeSelectionPayload'
+      examples:
+        - name: Node selected for editing
+          payload:
+            eventId: "evt_node_selected_001"
+            eventType: "node.selected"
+            timestamp: "2024-01-01T10:15:00Z"
+            version: "1.0"
+            source: "NodeStore"
+            data:
+              selectedNodeId: "node_123e4567-e89b-12d3-a456-426614174000"
+              previousSelectedNodeId: null
+              selectionSource: "map_click"
+
+    # MARK: - Layer Messages
+    LayerCreated:
+      name: LayerCreated
+      title: Layer Created Event
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/LayerEventPayload'
+      examples:
+        - name: New layer created
+          payload:
+            eventId: "evt_layer_created_001"
+            eventType: "layer.created"
+            timestamp: "2024-01-01T09:00:00Z"
+            version: "1.0"
+            source: "NodeStore"
+            data:
+              layerId: "layer_123e4567-e89b-12d3-a456-426614174001"
+              name: "vocabulary"
+              displayName: "英语词汇"
+              color: "blue"
+              isActive: false
+              isCompound: false
+              
+    LayerSwitched:
+      name: LayerSwitched
+      title: Layer Switched Event
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/LayerSwitchedPayload'
+      examples:
+        - name: Layer switched from English to Statistics
+          payload:
+            eventId: "evt_layer_switched_001"
+            eventType: "layer.switched"
+            timestamp: "2024-01-01T09:30:00Z"
+            version: "1.0"
+            source: "NodeStore"
+            data:
+              fromLayerId: "layer_123e4567-e89b-12d3-a456-426614174001"
+              toLayerId: "layer_123e4567-e89b-12d3-a456-426614174002"
+              fromLayerName: "English"
+              toLayerName: "Statistics"
+
+    # MARK: - Tag Messages  
+    TagAdded:
+      name: TagAdded
+      title: Tag Added Event
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/TagEventPayload'
+      examples:
+        - name: Location tag added to node
+          payload:
+            eventId: "evt_tag_added_001"
+            eventType: "tag.added"
+            timestamp: "2024-01-01T11:00:00Z"
+            version: "1.0"
+            source: "NodeStore"
+            data:
+              nodeId: "node_123e4567-e89b-12d3-a456-426614174000"
+              tag:
+                type: "custom(location)"
+                value: "教室A"
+                latitude: 39.9042
+                longitude: 116.4074
+                
+    TagMappingChanged:
+      name: TagMappingChanged
+      title: Tag Mapping Changed Event
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/TagMappingChangedPayload'
+      examples:
+        - name: Tag type display name changed
+          payload:
+            eventId: "evt_tag_mapping_changed_001"
+            eventType: "tag.mapping.changed"
+            timestamp: "2024-01-01T11:30:00Z"
+            version: "1.0"
+            source: "TagMappingManager"
+            data:
+              key: "loc"
+              oldName: "位置"
+              newName: "地点"
+              affectedNodesCount: 15
+
+    # MARK: - Search Messages
+    SearchStarted:
+      name: SearchStarted
+      title: Search Started Event
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/SearchEventPayload'
+      examples:
+        - name: Text search started
+          payload:
+            eventId: "evt_search_started_001"
+            eventType: "search.started"
+            timestamp: "2024-01-01T12:00:00Z"
+            version: "1.0"
+            source: "SearchService"
+            data:
+              query: "visible"
+              searchType: "text"
+              filters:
+                layerId: "layer_123e4567-e89b-12d3-a456-426614174001"
+                
+    SearchCompleted:
+      name: SearchCompleted
+      title: Search Completed Event
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/SearchCompletedPayload'
+      examples:
+        - name: Search completed with results
+          payload:
+            eventId: "evt_search_completed_001"
+            eventType: "search.completed"
+            timestamp: "2024-01-01T12:00:05Z"
+            version: "1.0"
+            source: "SearchService"
+            data:
+              query: "visible"
+              resultCount: 3
+              executionTime: 45.2
+              results:
+                - nodeId: "node_123e4567-e89b-12d3-a456-426614174000"
+                  score: 1.0
+                  matchedFields: ["text"]
+
+    # MARK: - Git Messages
+    GitConnectionEstablished:
+      name: GitConnectionEstablished
+      title: Git Connection Established Event
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/GitEventPayload'
+      examples:
+        - name: Successfully connected to GitHub repository
+          payload:
+            eventId: "evt_git_connected_001"
+            eventType: "git.connection.established"
+            timestamp: "2024-01-01T08:00:00Z"
+            version: "1.0"
+            source: "GitService"
+            data:
+              repositoryUrl: "https://github.com/user/wordtagger-data.git"
+              username: "user@example.com"
+              branch: "main"
+              
+    GitOperationStarted:
+      name: GitOperationStarted
+      title: Git Operation Started Event
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/GitOperationPayload'
+      examples:
+        - name: Git commit operation started
+          payload:
+            eventId: "evt_git_op_started_001"
+            eventType: "git.operation.started"
+            timestamp: "2024-01-01T14:00:00Z"
+            version: "1.0"
+            source: "GitService"
+            data:
+              operation: "commit"
+              message: "Update vocabulary nodes"
+              filesChanged: 3
+              
+    GitOperationFailed:
+      name: GitOperationFailed
+      title: Git Operation Failed Event
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/GitErrorPayload'
+      examples:
+        - name: Git push failed due to authentication
+          payload:
+            eventId: "evt_git_op_failed_001"
+            eventType: "git.operation.failed"
+            timestamp: "2024-01-01T14:05:00Z"
+            version: "1.0"
+            source: "GitService"
+            data:
+              operation: "push"
+              error:
+                code: "authentication_failed"
+                message: "Invalid credentials"
+                isRetryable: false
+                suggestedAction: "Please check your username and personal access token"
+
+    # MARK: - External Data Messages
+    DataPathChanged:
+      name: DataPathChanged
+      title: Data Path Changed Event
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/DataPathChangedPayload'
+      examples:
+        - name: External data path switched
+          payload:
+            eventId: "evt_data_path_changed_001"
+            eventType: "data.path.changed"
+            timestamp: "2024-01-01T13:00:00Z"
+            version: "1.0"
+            source: "ExternalDataManager"
+            data:
+              oldPath: "/Users/user/Documents/WordTagger/old"
+              newPath: "/Users/user/Documents/WordTagger/new"
+              dataExists: true
+
+    # MARK: - Map Messages
+    MapLocationSelected:
+      name: MapLocationSelected
+      title: Map Location Selected Event
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/MapLocationPayload'
+      examples:
+        - name: User selected location on map
+          payload:
+            eventId: "evt_map_location_selected_001"
+            eventType: "map.location.selected"
+            timestamp: "2024-01-01T15:00:00Z"
+            version: "1.0"
+            source: "MapContainer"
+            data:
+              coordinate:
+                latitude: 39.9042
+                longitude: 116.4074
+              locationName: "教室A"
+              selectionMethod: "tap"
+              
+    MapNodeClicked:
+      name: MapNodeClicked
+      title: Map Node Clicked Event
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/MapNodeClickedPayload'
+      examples:
+        - name: User clicked node on map
+          payload:
+            eventId: "evt_map_node_clicked_001"
+            eventType: "map.node.clicked"
+            timestamp: "2024-01-01T15:30:00Z"
+            version: "1.0"
+            source: "MapContainer"
+            data:
+              nodeId: "node_123e4567-e89b-12d3-a456-426614174000"
+              nodeName: "visible"
+              coordinate:
+                latitude: 39.9042
+                longitude: 116.4074
+              locationTag: "教室A"
+
+    # MARK: - Performance Messages
+    PerformanceWarning:
+      name: PerformanceWarning
+      title: Performance Warning Event
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/PerformanceWarningPayload'
+      examples:
+        - name: High CPU usage detected
+          payload:
+            eventId: "evt_perf_warning_001"
+            eventType: "performance.warning"
+            timestamp: "2024-01-01T16:00:00Z"
+            version: "1.0"
+            source: "PerformanceMonitor"
+            data:
+              metricType: "cpu_usage"
+              currentValue: 85.5
+              threshold: 80.0
+              unit: "percent"
+              recommendation: "Consider optimizing search operations"
+
+  schemas:
+    # MARK: - Base Event Schema
+    EventMetadata:
+      type: object
+      required:
+        - eventId
+        - eventType
+        - timestamp
+        - version
+        - source
+      properties:
+        eventId:
+          type: string
+          format: uuid
+          description: Unique identifier for this event
+        eventType:
+          type: string
+          description: Type of event (dot-separated, e.g., node.created)
+        timestamp:
+          type: string
+          format: date-time
+          description: When the event occurred (ISO 8601)
+        version:
+          type: string
+          description: Event schema version
+        source:
+          type: string
+          description: Service or component that generated the event
+        correlationId:
+          type: string
+          format: uuid
+          description: Optional correlation ID for tracing related events
+
+    # MARK: - Node Event Schemas
+    NodeEventPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventMetadata'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              type: object
+              required:
+                - nodeId
+                - layerId
+                - text
+              properties:
+                nodeId:
+                  type: string
+                  format: uuid
+                  description: Unique identifier for the node
+                layerId:
+                  type: string
+                  format: uuid
+                  description: Layer containing the node
+                text:
+                  type: string
+                  description: Node text content
+                phonetic:
+                  type: string
+                  description: Phonetic transcription
+                meaning:
+                  type: string
+                  description: Node meaning or definition
+                tags:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Tag'
+                  description: Tags associated with the node
+                isCompound:
+                  type: boolean
+                  description: Whether this is a compound node
+                markdown:
+                  type: string
+                  description: Markdown content for the node
+                updatedFields:
+                  type: array
+                  items:
+                    type: string
+                  description: List of fields that were updated (for update events)
+
+    NodeDeletedPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventMetadata'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              type: object
+              required:
+                - nodeId
+                - text
+                - layerId
+              properties:
+                nodeId:
+                  type: string
+                  format: uuid
+                text:
+                  type: string
+                layerId:
+                  type: string
+                  format: uuid
+                deletedBy:
+                  type: string
+                  enum: [user, system, cleanup]
+                reason:
+                  type: string
+                  description: Reason for deletion
+
+    NodeSelectionPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventMetadata'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              type: object
+              properties:
+                selectedNodeId:
+                  type: string
+                  format: uuid
+                  description: ID of newly selected node (null if deselected)
+                previousSelectedNodeId:
+                  type: string
+                  format: uuid
+                  description: ID of previously selected node
+                selectionSource:
+                  type: string
+                  enum: [user_click, map_click, search_result, programmatic]
+                  description: How the selection was made
+
+    # MARK: - Layer Event Schemas
+    LayerEventPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventMetadata'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              type: object
+              required:
+                - layerId
+                - name
+                - displayName
+              properties:
+                layerId:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+                  description: Internal layer name
+                displayName:
+                  type: string
+                  description: User-friendly layer name
+                color:
+                  type: string
+                  description: Layer color identifier
+                isActive:
+                  type: boolean
+                  description: Whether this is the active layer
+                isCompound:
+                  type: boolean
+                  description: Whether this is a compound layer
+                childLayerIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  description: Child layer IDs (for compound layers)
+
+    LayerSwitchedPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventMetadata'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              type: object
+              required:
+                - toLayerId
+                - toLayerName
+              properties:
+                fromLayerId:
+                  type: string
+                  format: uuid
+                  description: Previous active layer ID
+                toLayerId:
+                  type: string
+                  format: uuid
+                  description: New active layer ID
+                fromLayerName:
+                  type: string
+                  description: Previous active layer name
+                toLayerName:
+                  type: string
+                  description: New active layer name
+                nodeCount:
+                  type: integer
+                  description: Number of nodes in the new layer
+
+    # MARK: - Tag Event Schemas
+    TagEventPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventMetadata'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              type: object
+              required:
+                - nodeId
+                - tag
+              properties:
+                nodeId:
+                  type: string
+                  format: uuid
+                  description: Node the tag was added to/removed from
+                tag:
+                  $ref: '#/components/schemas/Tag'
+                previousTags:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Tag'
+                  description: Previous tag list (for comparison)
+
+    TagMappingChangedPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventMetadata'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              type: object
+              required:
+                - key
+                - oldName
+                - newName
+              properties:
+                key:
+                  type: string
+                  description: Tag type key that changed
+                oldName:
+                  type: string
+                  description: Previous display name
+                newName:
+                  type: string
+                  description: New display name
+                affectedNodesCount:
+                  type: integer
+                  description: Number of nodes with this tag type
+
+    Tag:
+      type: object
+      required:
+        - type
+        - value
+      properties:
+        type:
+          type: string
+          description: Tag type (e.g., "custom(root)", "location")
+        value:
+          type: string
+          description: Tag value content
+        latitude:
+          type: number
+          format: double
+          description: Latitude for location tags
+        longitude:
+          type: number
+          format: double
+          description: Longitude for location tags
+        isShortcutType:
+          type: boolean
+          description: Whether this tag type uses shortcuts
+
+    # MARK: - Search Event Schemas
+    SearchEventPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventMetadata'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              type: object
+              required:
+                - query
+                - searchType
+              properties:
+                query:
+                  type: string
+                  description: Search query string
+                searchType:
+                  type: string
+                  enum: [text, tag, location, semantic]
+                  description: Type of search being performed
+                filters:
+                  type: object
+                  properties:
+                    layerId:
+                      type: string
+                      format: uuid
+                    tagType:
+                      type: string
+                    hasLocation:
+                      type: boolean
+
+    SearchCompletedPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventMetadata'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              type: object
+              required:
+                - query
+                - resultCount
+                - executionTime
+              properties:
+                query:
+                  type: string
+                resultCount:
+                  type: integer
+                  minimum: 0
+                executionTime:
+                  type: number
+                  description: Execution time in milliseconds
+                results:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      nodeId:
+                        type: string
+                        format: uuid
+                      score:
+                        type: number
+                        minimum: 0
+                        maximum: 1
+                      matchedFields:
+                        type: array
+                        items:
+                          type: string
+                          enum: [text, meaning, phonetic, tagValue]
+
+    # MARK: - Git Event Schemas
+    GitEventPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventMetadata'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              type: object
+              required:
+                - repositoryUrl
+              properties:
+                repositoryUrl:
+                  type: string
+                  format: uri
+                  description: Git repository URL
+                username:
+                  type: string
+                  description: Git username
+                branch:
+                  type: string
+                  description: Current branch name
+
+    GitOperationPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventMetadata'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              type: object
+              required:
+                - operation
+              properties:
+                operation:
+                  type: string
+                  enum: [commit, push, pull, clone, status]
+                  description: Git operation type
+                message:
+                  type: string
+                  description: Commit message (for commit operations)
+                filesChanged:
+                  type: integer
+                  description: Number of files affected
+                progress:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                  description: Operation progress (0-1)
+
+    GitErrorPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventMetadata'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              type: object
+              required:
+                - operation
+                - error
+              properties:
+                operation:
+                  type: string
+                  enum: [commit, push, pull, clone, status]
+                error:
+                  type: object
+                  required:
+                    - code
+                    - message
+                  properties:
+                    code:
+                      type: string
+                      enum: [authentication_failed, network_error, repository_not_found, 
+                             permission_denied, conflict_detected, rate_limit_exceeded]
+                    message:
+                      type: string
+                    isRetryable:
+                      type: boolean
+                    suggestedAction:
+                      type: string
+                retryAttempt:
+                  type: integer
+                  description: Current retry attempt number
+
+    # MARK: - Data Event Schemas
+    DataPathChangedPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventMetadata'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              type: object
+              required:
+                - newPath
+              properties:
+                oldPath:
+                  type: string
+                  description: Previous data path
+                newPath:
+                  type: string
+                  description: New data path
+                dataExists:
+                  type: boolean
+                  description: Whether data exists at the new path
+
+    # MARK: - Map Event Schemas
+    MapLocationPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventMetadata'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              type: object
+              required:
+                - coordinate
+              properties:
+                coordinate:
+                  $ref: '#/components/schemas/Coordinate'
+                locationName:
+                  type: string
+                  description: Human-readable location name
+                selectionMethod:
+                  type: string
+                  enum: [tap, search, programmatic]
+                  description: How the location was selected
+
+    MapNodeClickedPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventMetadata'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              type: object
+              required:
+                - nodeId
+                - nodeName
+                - coordinate
+              properties:
+                nodeId:
+                  type: string
+                  format: uuid
+                nodeName:
+                  type: string
+                coordinate:
+                  $ref: '#/components/schemas/Coordinate'
+                locationTag:
+                  type: string
+                  description: Associated location tag value
+
+    Coordinate:
+      type: object
+      required:
+        - latitude
+        - longitude
+      properties:
+        latitude:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+
+    # MARK: - Performance Event Schemas
+    PerformanceWarningPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventMetadata'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              type: object
+              required:
+                - metricType
+                - currentValue
+                - threshold
+              properties:
+                metricType:
+                  type: string
+                  enum: [cpu_usage, memory_usage, disk_usage, response_time, error_rate]
+                currentValue:
+                  type: number
+                  description: Current metric value
+                threshold:
+                  type: number
+                  description: Warning threshold that was exceeded
+                unit:
+                  type: string
+                  description: Unit of measurement
+                recommendation:
+                  type: string
+                  description: Suggested action to resolve the issue
+                severity:
+                  type: string
+                  enum: [low, medium, high, critical]
+
+    # MARK: - Generic Event Schemas
+    UIRefreshRequested:
+      allOf:
+        - $ref: '#/components/schemas/EventMetadata'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                component:
+                  type: string
+                  description: Specific UI component to refresh
+                reason:
+                  type: string
+                  description: Reason for the refresh request
+
+    CompoundNodeRefreshed:
+      allOf:
+        - $ref: '#/components/schemas/EventMetadata'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              type: object
+              required:
+                - compoundNodeId
+                - compoundNodeName
+                - childNodeName
+              properties:
+                compoundNodeId:
+                  type: string
+                  format: uuid
+                compoundNodeName:
+                  type: string
+                childNodeName:
+                  type: string
+                  description: Child node that triggered the refresh

@@ -1,5 +1,56 @@
 name: graph-service
-purpose: GraphService - Provides core business logic and functionality
+version: "1.9.0"
+type: specialized-service
+purpose: Graph visualization and relationship management for nodes, tags, and compound layer hierarchies
 owner: WordTagger Team @wordtagger-oncall
-health: /health
+status: active
+health: /health/graph
+depends_on:
+  - node-store
+  - search-service
 runbook: ../runbooks/graph-service.md
+apis:
+  internal:
+    - method: generateGraph
+      description: "Create graph representation of nodes and relationships"
+      parameters: ["[Node]", "GraphConfig"]
+      returns: "GraphData"
+    - method: updateNodePosition
+      description: "Update node position in graph layout"
+      parameters: ["UUID", "CGPoint"]
+      returns: "Void"
+    - method: calculateLayout
+      description: "Calculate optimal graph layout"
+      parameters: ["[Node]", "LayoutAlgorithm"]
+      returns: "[NodePosition]"
+    - method: findNodeRelationships
+      description: "Discover relationships between nodes"
+      parameters: ["Node", "[Node]"]
+      returns: "[Relationship]"
+performance:
+  memory_usage: "High (graph data structures and layout calculations)"
+  cpu_usage: "Very High (graph algorithms and physics simulation)"
+  io_operations: "Low (caching only)"
+  layout_algorithms: ["force_directed", "hierarchical", "circular"]
+monitoring:
+  metrics:
+    - graph_generation_time_ms
+    - layout_calculation_duration_ms
+    - relationship_discovery_accuracy
+    - graph_complexity_score
+  alerts:
+    - graph_generation_timeout
+    - memory_usage_critical
+    - layout_calculation_failed
+resilience:
+  timeout_ms: 15000
+  fallback_strategy: "Simplified layout algorithm"
+  memory_limit_mb: 500
+  progressive_rendering: true
+features:
+  - multiple_layout_algorithms
+  - real_time_updates
+  - relationship_discovery
+  - compound_layer_visualization
+  - interactive_positioning
+  - performance_optimization

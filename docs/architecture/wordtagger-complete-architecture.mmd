@@ -1,0 +1,133 @@
+graph TB
+    %% WordTagger Complete Architecture Diagram
+    %% Generated: 2025-08-25
+    %% Version: 2.0 - Complete Service Architecture
+
+    subgraph "🎯 Core Layer"
+        NodeStore["NodeStore<br/>🏪 Central State Management<br/>• Published properties<br/>• Layer/Node management<br/>• Search coordination<br/>• Tag filtering state"]
+        
+        DataManager["DataManager<br/>📁 Import/Export<br/>• JSON data handling<br/>• File I/O operations<br/>• Data validation"]
+        
+        ExternalDataManager["ExternalDataManager<br/>🔗 External Storage<br/>• Path management<br/>• Folder structure<br/>• Access permissions"]
+    end
+
+    subgraph "⚡ Service Layer"
+        ExternalDataService["ExternalDataService<br/>💾 Persistence Service<br/>• Async save/load<br/>• Backup management<br/>• Data validation<br/>• Corruption recovery"]
+        
+        SearchService["SearchService<br/>🔍 Advanced Search<br/>• Multi-field search<br/>• Semantic matching<br/>• Location-based search<br/>• Fuzzy matching"]
+        
+        GraphService["GraphService<br/>🕸️ Relationship Engine<br/>• Node graph building<br/>• Similarity detection<br/>• Tag relationships<br/>• Cluster analysis"]
+        
+        GitService["GitService<br/>🔄 Version Control<br/>• Repository management<br/>• Auto-commit<br/>• Credential storage<br/>• Sync operations"]
+    end
+
+    subgraph "🛠️ Infrastructure Layer"
+        TagMappingManager["TagMappingManager<br/>🏷️ Tag System<br/>• Type mappings<br/>• Display names<br/>• Custom tags<br/>• Built-in types"]
+        
+        KeyboardEventManager["KeyboardEventManager<br/>⌨️ Event Management<br/>• Command throttling<br/>• Error recovery<br/>• Focus tracking<br/>• Conflict resolution"]
+        
+        KeychainManager["KeychainManager<br/>🔐 Security<br/>• Credential storage<br/>• Git token management<br/>• Secure access"]
+        
+        MemoryLeakDetection["MemoryLeakDetection<br/>🩺 Monitoring<br/>• Memory tracking<br/>• Leak detection<br/>• Performance metrics"]
+    end
+
+    subgraph "🎨 Presentation Layer"
+        ContentView["ContentView<br/>📱 Main Interface<br/>• SwiftUI root view<br/>• Navigation coordination"]
+        
+        WordManagerView["WordManagerView<br/>📝 Node Editor<br/>• CRUD operations<br/>• Tag management<br/>• Form validation"]
+        
+        TagSidebarView["TagSidebarView<br/>🏷️ Tag Browser<br/>• Hierarchical display<br/>• Filter controls<br/>• Selection state"]
+        
+        DetailPanel["DetailPanel<br/>📄 Content Display<br/>• Markdown rendering<br/>• Rich text editing<br/>• Media support"]
+        
+        GraphView["GraphView<br/>🌐 Visualization<br/>• Interactive graph<br/>• Node relationships<br/>• Force-directed layout"]
+        
+        MapWindow["MapWindow<br/>🗺️ Geographic View<br/>• Location display<br/>• Pin clustering<br/>• Navigation controls"]
+        
+        CommandPaletteView["CommandPaletteView<br/>⌘ Quick Access<br/>• Fuzzy command search<br/>• Keyboard shortcuts<br/>• Action dispatch"]
+    end
+
+    subgraph "🔧 Utility Layer"
+        ResourceManager["ResourceManager<br/>📦 Asset Management<br/>• JavaScript libraries<br/>• CSS resources<br/>• Template files"]
+        
+        Geocoder["Geocoder<br/>🌍 Location Services<br/>• Address resolution<br/>• Coordinate lookup<br/>• Map integration"]
+        
+        VditorWebView["VditorWebView<br/>✍️ Rich Editor<br/>• Markdown editing<br/>• Live preview<br/>• Plugin support"]
+    end
+
+    subgraph "📡 Communication System"
+        NotificationCenter["NotificationCenter<br/>📢 Event Bus<br/>• Data path changes<br/>• Node updates<br/>• Tag modifications<br/>• Git sync events"]
+    end
+
+    subgraph "💾 External Dependencies"
+        FileSystem["File System<br/>📁 Local Storage<br/>• JSON files<br/>• Backup folders<br/>• Configuration"]
+        
+        GitRepository["Git Repository<br/>🌐 Remote Sync<br/>• GitHub integration<br/>• Version history<br/>• Conflict resolution"]
+        
+        MacOSKeychain["macOS Keychain<br/>🔑 System Security<br/>• Encrypted storage<br/>• Access control"]
+        
+        CoreLocation["Core Location<br/>📍 System Services<br/>• GPS data<br/>• Location permissions"]
+    end
+
+    %% Core Relationships
+    NodeStore --> ExternalDataService
+    NodeStore --> SearchService
+    NodeStore --> TagMappingManager
+    
+    ExternalDataService --> ExternalDataManager
+    DataManager --> FileSystem
+    ExternalDataManager --> FileSystem
+    
+    %% Service Coordination
+    GitService --> KeychainManager
+    GitService --> GitRepository
+    SearchService --> NodeStore
+    GraphService --> NodeStore
+    KeychainManager --> MacOSKeychain
+    
+    %% Infrastructure Support
+    TagMappingManager --> NotificationCenter
+    KeyboardEventManager --> NotificationCenter
+    ExternalDataService --> NotificationCenter
+    
+    %% Presentation to Services
+    ContentView --> NodeStore
+    WordManagerView --> NodeStore
+    TagSidebarView --> NodeStore
+    DetailPanel --> VditorWebView
+    GraphView --> GraphService
+    MapWindow --> Geocoder
+    MapWindow --> CoreLocation
+    CommandPaletteView --> KeyboardEventManager
+    
+    %% Utility Integration
+    VditorWebView --> ResourceManager
+    Geocoder --> CoreLocation
+    
+    %% Notification Flow
+    NotificationCenter -.-> NodeStore
+    NotificationCenter -.-> ExternalDataService
+    NotificationCenter -.-> GitService
+    NotificationCenter -.-> TagMappingManager
+    
+    %% Memory Management
+    MemoryLeakDetection -.-> NodeStore
+    MemoryLeakDetection -.-> ExternalDataService
+    MemoryLeakDetection -.-> GraphService
+
+    %% Styling
+    classDef coreLayer fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#000
+    classDef serviceLayer fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
+    classDef infraLayer fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#000
+    classDef presentationLayer fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#000
+    classDef utilityLayer fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#000
+    classDef communicationLayer fill:#f1f8e9,stroke:#689f38,stroke-width:2px,color:#000
+    classDef externalLayer fill:#ffebee,stroke:#d32f2f,stroke-width:2px,color:#000
+
+    class NodeStore,DataManager,ExternalDataManager coreLayer
+    class ExternalDataService,SearchService,GraphService,GitService serviceLayer
+    class TagMappingManager,KeyboardEventManager,KeychainManager,MemoryLeakDetection infraLayer
+    class ContentView,WordManagerView,TagSidebarView,DetailPanel,GraphView,MapWindow,CommandPaletteView presentationLayer
+    class ResourceManager,Geocoder,VditorWebView utilityLayer
+    class NotificationCenter communicationLayer
+    class FileSystem,GitRepository,MacOSKeychain,CoreLocation externalLayer

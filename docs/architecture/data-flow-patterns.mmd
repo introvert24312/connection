@@ -1,0 +1,85 @@
+graph TD
+    %% WordTagger Data Flow Patterns
+    %% Notification-Based Communication System
+    %% Version: 1.0
+
+    subgraph "🎯 User Actions"
+        UserInput["User Input<br/>📝 UI Interactions<br/>• Node creation/editing<br/>• Tag modifications<br/>• Layer switching<br/>• Data path changes"]
+    end
+
+    subgraph "📢 Notification Center (Event Bus)"
+        NotificationBus["NotificationCenter<br/>📡 Event Coordination<br/>• dataPathChanged<br/>• nodeUpdated<br/>• tagTypeNameChanged<br/>• clearTagFilter<br/>• gitAuthenticationRequired"]
+    end
+
+    subgraph "🏪 State Management"
+        NodeStore["NodeStore<br/>📊 Central State<br/>• @Published properties<br/>• Reactive updates<br/>• State coordination"]
+    end
+
+    subgraph "💾 Persistence Layer"
+        ExternalDataService["ExternalDataService<br/>💿 Data Operations<br/>• Auto-save triggers<br/>• Backup management<br/>• Corruption recovery"]
+        
+        ExternalDataManager["ExternalDataManager<br/>🔗 Path Management<br/>• Folder validation<br/>• Access permissions<br/>• Bookmark security"]
+    end
+
+    subgraph "🏷️ Tag System"
+        TagMappingManager["TagMappingManager<br/>🏷️ Type Management<br/>• Mapping updates<br/>• Display names<br/>• Custom definitions"]
+    end
+
+    subgraph "🔄 Version Control"
+        GitService["GitService<br/>📂 Auto-Sync<br/>• Commit automation<br/>• Credential handling<br/>• Repository status"]
+    end
+
+    subgraph "🎨 UI Layer"
+        UIComponents["UI Components<br/>🖥️ Reactive Views<br/>• @Published subscriptions<br/>• State-driven updates<br/>• User feedback"]
+    end
+
+    %% Primary Data Flow: Node CRUD Operations
+    UserInput -->|"1. Create/Update Node"| NodeStore
+    NodeStore -->|"2. State Change"| ExternalDataService
+    ExternalDataService -->|"3. Persist Data"| ExternalDataManager
+    NodeStore -->|"4. Post nodeUpdated"| NotificationBus
+    NotificationBus -->|"5. Auto-commit trigger"| GitService
+    NodeStore -->|"6. @Published update"| UIComponents
+
+    %% Data Path Change Flow
+    UserInput -->|"1. Select new path"| ExternalDataManager
+    ExternalDataManager -->|"2. Post saveCurrentDataBeforeSwitch"| NotificationBus
+    NotificationBus -->|"3. Save current data"| NodeStore
+    NodeStore -->|"4. Immediate save"| ExternalDataService
+    ExternalDataManager -->|"5. Post dataPathChanged"| NotificationBus
+    NotificationBus -->|"6. Reload from new path"| NodeStore
+    NodeStore -->|"7. Update UI"| UIComponents
+
+    %% Tag System Flow
+    UserInput -->|"1. Modify tag type"| TagMappingManager
+    TagMappingManager -->|"2. Post tagTypeNameChanged"| NotificationBus
+    NotificationBus -->|"3. Update affected nodes"| NodeStore
+    NodeStore -->|"4. Trigger save"| ExternalDataService
+    TagMappingManager -->|"5. Save mappings"| ExternalDataService
+    NodeStore -->|"6. UI refresh"| UIComponents
+
+    %% Error Recovery Flow
+    UIComponents -->|"1. Command execution"| NodeStore
+    NodeStore -.->|"2. Error occurs"| NotificationBus
+    NotificationBus -.->|"3. Error notification"| UIComponents
+    UIComponents -.->|"4. Error recovery"| NodeStore
+
+    %% Search and Filter Flow
+    UserInput -->|"Search/Filter"| NodeStore
+    NodeStore -->|"State update"| UIComponents
+    NodeStore -->|"Background operations"| ExternalDataService
+
+    %% Styling
+    classDef userAction fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#000
+    classDef notification fill:#f1f8e9,stroke:#689f38,stroke-width:3px,color:#000
+    classDef coreState fill:#e3f2fd,stroke:#1976d2,stroke-width:3px,color:#000
+    classDef persistence fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
+    classDef infrastructure fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#000
+    classDef ui fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#000
+
+    class UserInput userAction
+    class NotificationBus notification
+    class NodeStore coreState
+    class ExternalDataService,ExternalDataManager persistence
+    class TagMappingManager,GitService infrastructure
+    class UIComponents ui

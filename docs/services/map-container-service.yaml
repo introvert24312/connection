@@ -1,0 +1,55 @@
+name: map-container-service
+version: "1.9.0"
+type: ui-service
+purpose: Geographic visualization service displaying nodes with location tags on interactive maps
+owner: WordTagger Team @wordtagger-oncall
+status: active
+health: /health/map
+depends_on:
+  - node-store
+  - geocoder-service
+runbook: ../runbooks/map-container-service.md
+apis:
+  internal:
+    - method: displayNodesOnMap
+      description: "Display nodes with location tags on map"
+      parameters: ["[Node]"]
+      returns: "Void"
+    - method: centerOnLocation
+      description: "Center map on specific coordinates"
+      parameters: ["CLLocationCoordinate2D"]
+      returns: "Void"
+    - method: handleNodeSelection
+      description: "Handle user selection of map node"
+      parameters: ["UUID"]
+      returns: "Void"
+    - method: updateNodePosition
+      description: "Update node position on map"
+      parameters: ["UUID", "CLLocationCoordinate2D"]
+      returns: "Void"
+performance:
+  memory_usage: "Medium (map tiles and node annotations)"
+  cpu_usage: "Medium (map rendering and animations)"
+  io_operations: "High (map tile loading)"
+  max_concurrent_nodes: 1000
+monitoring:
+  metrics:
+    - map_load_time_ms
+    - node_rendering_performance
+    - user_interaction_events
+    - tile_loading_success_rate
+  alerts:
+    - map_rendering_failures
+    - excessive_memory_usage
+    - tile_loading_timeout
+resilience:
+  offline_mode: "Cached tile support"
+  fallback_renderer: "Simple pin annotations"
+  error_recovery: "Graceful degradation to list view"
+features:
+  - interactive_map_visualization
+  - node_clustering
+  - location_tag_navigation
+  - zoom_controls
+  - fullscreen_mode
+  - export_capabilities

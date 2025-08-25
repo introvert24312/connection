@@ -1,0 +1,56 @@
+name: command-palette-service
+version: "1.9.0"
+type: ui-service
+purpose: Command palette interface providing keyboard-driven navigation and quick actions
+owner: WordTagger Team @wordtagger-oncall
+status: active
+health: /health/command-palette
+depends_on:
+  - node-store
+  - search-service
+  - keyboard-event-manager
+runbook: ../runbooks/command-palette-service.md
+apis:
+  internal:
+    - method: showPalette
+      description: "Display command palette with current context"
+      parameters: ["CommandContext?"]
+      returns: "Void"
+    - method: executeCommand
+      description: "Execute selected command with parameters"
+      parameters: ["Command", "[Any]"]
+      returns: "CommandResult"
+    - method: filterCommands
+      description: "Filter available commands by query"
+      parameters: ["String"]
+      returns: "[Command]"
+    - method: registerCommand
+      description: "Register new command handler"
+      parameters: ["String", "CommandHandler"]
+      returns: "Void"
+performance:
+  memory_usage: "Low (command registry and UI state)"
+  cpu_usage: "Low (text filtering and UI rendering)"
+  io_operations: "None (in-memory operations)"
+  response_time_target_ms: 50
+monitoring:
+  metrics:
+    - command_executions_per_hour
+    - palette_open_duration_ms
+    - command_search_accuracy
+    - keyboard_shortcut_usage
+  alerts:
+    - command_execution_failures
+    - palette_response_time_exceeded
+resilience:
+  error_handling: "Graceful degradation with user feedback"
+  timeout_ms: 2000
+  fallback: "Direct menu access"
+features:
+  - fuzzy_command_search
+  - context_aware_commands
+  - keyboard_shortcuts
+  - command_history
+  - extensible_command_system
+  - quick_node_creation
+  - layer_switching

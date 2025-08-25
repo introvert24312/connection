@@ -1,0 +1,56 @@
+name: node-store
+version: "1.9.0"
+type: core-service
+purpose: Central data store managing nodes, layers, tags and application state with real-time synchronization
+owner: WordTagger Team @wordtagger-oncall
+status: active
+health: /health/node-store
+depends_on:
+  - external-data-service
+  - external-data-manager
+  - tag-mapping-manager
+runbook: ../runbooks/node-store.md
+apis:
+  internal:
+    - method: addNode
+      description: "Add new node to current layer with duplicate detection"
+      parameters: ["Node"]
+      returns: "Bool"
+    - method: updateNode
+      description: "Update existing node properties"
+      parameters: ["UUID", "String?", "String?", "String?"]
+      returns: "Void"
+    - method: deleteNode
+      description: "Remove node from store"
+      parameters: ["UUID"]
+      returns: "Void"
+    - method: performSearch
+      description: "Search nodes in current layer"
+      parameters: ["String"]
+      returns: "Void"
+    - method: setCurrentLayer
+      description: "Switch active layer"
+      parameters: ["Layer"]
+      returns: "Void"
+    - method: addTag
+      description: "Add tag to specific node"
+      parameters: ["UUID", "Tag"]
+      returns: "Void"
+performance:
+  memory_usage: "High (in-memory data store)"
+  cpu_usage: "Medium (search operations)"
+  io_operations: "High (auto-sync to external storage)"
+monitoring:
+  metrics:
+    - nodes_count
+    - layers_count
+    - search_operations_per_second
+    - sync_operations_per_minute
+  alerts:
+    - memory_usage_high
+    - sync_failures
+    - data_corruption_detected
+resilience:
+  backup_strategy: "Auto-backup before major operations"
+  recovery_mechanism: "Data corruption detection and auto-repair"
+  failover: "External data service fallback"

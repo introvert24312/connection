@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wordtagger.com/schemas/search-result.schema.json",
+  "title": "WordTagger Search Result Schema",
+  "description": "Schema for search operation results with scoring and relevance information",
+  "type": "object",
+  "required": ["id", "node", "score", "matchedFields"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this search result"
+    },
+    "node": {
+      "$ref": "node.schema.json",
+      "description": "The node that matched the search"
+    },
+    "score": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "multipleOf": 0.001,
+      "description": "Relevance score from 0.0 to 1.0"
+    },
+    "matchedFields": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": ["text", "meaning", "phonetic", "tagValue"]
+      },
+      "description": "Fields that matched the search query"
+    },
+    "fieldScores": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "meaning": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "phonetic": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "tagValue": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        }
+      },
+      "additionalProperties": false,
+      "description": "Individual scores for each matched field"
+    },
+    "highlights": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Highlight" }
+        },
+        "meaning": {
+          "type": "array", 
+          "items": { "$ref": "#/$defs/Highlight" }
+        },
+        "phonetic": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Highlight" }
+        },
+        "tagValue": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Highlight" }
+        }
+      },
+      "additionalProperties": false,
+      "description": "Text highlighting information for matched terms"
+    },
+    "matchType": {
+      "type": "string",
+      "enum": ["exact", "prefix", "contains", "fuzzy", "semantic"],
+      "description": "Type of match that occurred"
+    },
+    "searchContext": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "Original search query"
+        },
+        "layerId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Layer context for the search"
+        },
+        "filters": {
+          "$ref": "#/$defs/SearchFilter"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Context information about the search"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Highlight": {
+      "type": "object",
+      "required": ["start", "end"],
+      "properties": {
+        "start": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Starting character index of highlight"
+        },
+        "end": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Ending character index of highlight"
+        },
+        "term": {
+          "type": "string",
+          "description": "The highlighted term"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SearchFilter": {
+      "type": "object",
+      "properties": {
+        "tagType": {
+          "type": "string",
+          "description": "Filter by specific tag type"
+        },
+        "hasLocation": {
+          "type": "boolean",
+          "description": "Filter by presence of location tags"
+        },
+        "layerId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Filter by specific layer"
+        },
+        "dateRange": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "end": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": ["start", "end"],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "examples": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "node": {
+        "id": "550e8400-e29b-41d4-a716-446655440001",
+        "text": "visible",
+        "phonetic": "/ˈvɪzəbəl/",
+        "meaning": "可见的",
+        "layerId": "550e8400-e29b-41d4-a716-446655440002",
+        "tags": [
+          {
+            "id": "550e8400-e29b-41d4-a716-446655440003",
+            "type": "custom(root)",
+            "value": "vis",
+            "latitude": null,
+            "longitude": null,
+            "isShortcutType": false
+          }
+        ],
+        "isCompound": false,
+        "markdown": "",
+        "createdAt": "2024-01-01T10:00:00Z",
+        "updatedAt": "2024-01-01T10:00:00Z"
+      },
+      "score": 0.95,
+      "matchedFields": ["text", "meaning"],
+      "fieldScores": {
+        "text": 1.0,
+        "meaning": 0.8
+      },
+      "highlights": {
+        "text": [
+          {
+            "start": 0,
+            "end": 7,
+            "term": "visible"
+          }
+        ],
+        "meaning": [
+          {
+            "start": 0,
+            "end": 3,
+            "term": "可见的"
+          }
+        ]
+      },
+      "matchType": "exact",
+      "searchContext": {
+        "query": "visible",
+        "layerId": "550e8400-e29b-41d4-a716-446655440002",
+        "filters": {}
+      }
+    }
+  ]
+}

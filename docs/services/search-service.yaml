@@ -1,5 +1,54 @@
 name: search-service
-purpose: SearchService - Provides core business logic and functionality
+version: "1.9.0"
+type: specialized-service
+purpose: Advanced search engine providing multi-field search, fuzzy matching, location-based search and similarity analysis
 owner: WordTagger Team @wordtagger-oncall
-health: /health
+status: active
+health: /health/search
+depends_on:
+  - node-store
 runbook: ../runbooks/search-service.md
+apis:
+  internal:
+    - method: search
+      description: "Perform advanced search with filters"
+      parameters: ["String", "[Node]", "SearchFilter?"]
+      returns: "[SearchResult]"
+    - method: searchByTag
+      description: "Search nodes by specific tag type"
+      parameters: ["Tag.TagType", "[Node]"]
+      returns: "[Node]"
+    - method: searchByLocation
+      description: "Search nodes within geographic radius"
+      parameters: ["CLLocationCoordinate2D", "Double", "[Node]"]
+      returns: "[Node]"
+    - method: findSimilarNodes
+      description: "Find semantically similar nodes"
+      parameters: ["Node", "[Node]", "Double?"]
+      returns: "[Node]"
+performance:
+  memory_usage: "Low (stateless operations)"
+  cpu_usage: "High (text processing and scoring)"
+  io_operations: "None (in-memory operations)"
+  search_threshold: 0.3
+  max_results: 100
+monitoring:
+  metrics:
+    - search_requests_per_second
+    - average_search_time_ms
+    - search_result_accuracy
+    - fuzzy_match_ratio
+  alerts:
+    - search_time_exceeded_threshold
+    - high_cpu_usage_during_search
+resilience:
+  timeout_ms: 5000
+  fallback_strategy: "Simple text matching"
+  rate_limiting: "100 requests per second per client"
+features:
+  - multi_field_search
+  - fuzzy_matching
+  - location_based_search
+  - semantic_similarity
+  - performance_metrics
+  - configurable_thresholds

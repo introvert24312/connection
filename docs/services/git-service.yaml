@@ -1,7 +1,58 @@
 name: git-service
-purpose: GitService - Provides core business logic and functionality
+version: "1.9.0"
+type: specialized-service
+purpose: Git repository integration providing automated commits, push operations, and credential management
 owner: WordTagger Team @wordtagger-oncall
-health: /health
+status: active
+health: /health/git
 depends_on:
   - keychain-manager
+  - external-data-service
 runbook: ../runbooks/git-service.md
+apis:
+  internal:
+    - method: connect
+      description: "Connect to Git repository with credentials"
+      parameters: ["String", "GitCredentials"]
+      returns: "Result<Void, GitError>"
+    - method: commitAndPush
+      description: "Commit changes and push to remote"
+      parameters: ["String"]
+      returns: "Result<Void, GitError>"
+    - method: isConnected
+      description: "Check if connected to repository"
+      parameters: []
+      returns: "Bool"
+    - method: getStatus
+      description: "Get current repository status"
+      parameters: []
+      returns: "GitStatus"
+performance:
+  memory_usage: "Low (credential caching only)"
+  cpu_usage: "Low (network bound operations)"
+  io_operations: "High (file system and network)"
+monitoring:
+  metrics:
+    - commit_operations_per_hour
+    - push_success_rate
+    - network_request_duration_ms
+    - credential_refresh_count
+  alerts:
+    - authentication_failures
+    - push_operation_failures
+    - network_timeout_exceeded
+resilience:
+  retry_strategy: "Exponential backoff with jitter"
+  max_retries: 3
+  timeout_ms: 30000
+  circuit_breaker: "Open after 5 consecutive failures"
+security:
+  credential_storage: "macOS Keychain"
+  token_encryption: "System-managed"
+  network_encryption: "TLS 1.3"
+features:
+  - automated_commits
+  - credential_management
+  - error_handling
+  - retry_mechanisms
+  - status_monitoring

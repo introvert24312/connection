@@ -1,0 +1,54 @@
+name: performance-optimization-service
+version: "1.9.0"
+type: infrastructure-service
+purpose: Performance monitoring and optimization utilities for memory management and UI responsiveness
+owner: WordTagger Team @wordtagger-oncall
+status: active
+health: /health/performance
+depends_on: []
+runbook: ../runbooks/performance-optimization-service.md
+apis:
+  internal:
+    - method: measurePerformance
+      description: "Measure execution time of operations"
+      parameters: ["String", "() throws -> T"]
+      returns: "T"
+    - method: monitorMemoryUsage
+      description: "Monitor current memory usage"
+      parameters: []
+      returns: "MemoryUsage"
+    - method: optimizeForLowMemory
+      description: "Apply memory optimization strategies"
+      parameters: []
+      returns: "Void"
+    - method: detectMemoryLeaks
+      description: "Detect potential memory leaks"
+      parameters: []
+      returns: "[MemoryLeak]"
+performance:
+  memory_usage: "Very Low (monitoring only)"
+  cpu_usage: "Low (periodic measurements)"
+  io_operations: "Low (logging and reporting)"
+  monitoring_interval_ms: 5000
+monitoring:
+  metrics:
+    - memory_usage_mb
+    - cpu_usage_percentage
+    - ui_responsiveness_ms
+    - operation_execution_times
+  alerts:
+    - memory_usage_critical
+    - cpu_usage_sustained_high
+    - ui_responsiveness_degraded
+    - memory_leak_detected
+resilience:
+  auto_optimization: "Enabled for memory pressure"
+  performance_degradation_response: "Automatic optimization triggers"
+  monitoring_fallback: "Basic system metrics only"
+features:
+  - real_time_performance_monitoring
+  - memory_leak_detection
+  - automatic_optimization
+  - performance_profiling
+  - ui_responsiveness_tracking
+  - resource_usage_alerts

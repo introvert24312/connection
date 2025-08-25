@@ -1,0 +1,59 @@
+name: keychain-manager
+version: "1.9.0"
+type: infrastructure-service
+purpose: Secure credential storage and management using macOS Keychain Services
+owner: WordTagger Team @wordtagger-oncall
+status: active
+health: /health/keychain
+depends_on: []
+runbook: ../runbooks/keychain-manager.md
+apis:
+  internal:
+    - method: save
+      description: "Store Codable item securely in keychain"
+      parameters: ["T: Codable", "String"]
+      returns: "throws Void"
+    - method: load
+      description: "Retrieve Codable item from keychain"
+      parameters: ["T.Type", "String"]
+      returns: "throws T?"
+    - method: delete
+      description: "Remove item from keychain"
+      parameters: ["String"]
+      returns: "throws Void"
+    - method: saveGitCredentials
+      description: "Store Git credentials for repository"
+      parameters: ["GitCredentials", "String"]
+      returns: "throws Void"
+    - method: loadGitCredentials
+      description: "Retrieve Git credentials for repository"
+      parameters: ["String", "String"]
+      returns: "throws GitCredentials?"
+performance:
+  memory_usage: "Very Low (keychain interaction only)"
+  cpu_usage: "Very Low (system API calls)"
+  io_operations: "Low (secure storage operations)"
+monitoring:
+  metrics:
+    - keychain_operations_per_minute
+    - credential_retrieval_success_rate
+    - keychain_access_failures
+  alerts:
+    - keychain_access_denied
+    - credential_corruption_detected
+    - excessive_keychain_operations
+resilience:
+  error_handling: "Comprehensive error categorization"
+  retry_strategy: "Single retry on transient failures"
+  fallback: "None (security-critical service)"
+security:
+  access_level: "kSecAttrAccessibleWhenUnlocked"
+  encryption: "Hardware-backed encryption (Secure Enclave when available)"
+  service_identifier: "com.wordtagger.git"
+  data_protection: "System-managed key encryption"
+features:
+  - generic_codable_storage
+  - git_credential_specialization
+  - comprehensive_error_handling
+  - secure_deletion
+  - multi_credential_support
