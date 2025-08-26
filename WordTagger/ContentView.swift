@@ -11,6 +11,8 @@ struct ContentView: View {
     @State private var wordListWidth: CGFloat = 280 // 收窄WordList默认宽度
     @State private var isDraggingDivider = false // 是否正在拖动分割线
     @Environment(\.openWindow) private var openWindow
+    
+    
 
     var body: some View {
         HStack(spacing: 0) {
@@ -73,16 +75,47 @@ struct ContentView: View {
             return .ignored
         }
         .onKeyPress(.escape) {
-            // 如果标签管理打开，按ESC键关闭它
-            print("🔑 ContentView: ESC键事件接收，showSidebar=\(showSidebar)")
             if showSidebar {
                 withAnimation(.easeInOut(duration: 0.3)) {
                     showSidebar = false
                 }
-                print("🔑 ContentView: ESC键按下，关闭标签管理")
                 return .handled
             }
-            print("🔑 ContentView: ESC键忽略，标签管理未打开")
+            return .ignored
+        }
+        // 为独立窗口添加快捷键支持
+        .onKeyPress(.init("e"), phases: .down) { keyPress in
+            if keyPress.modifiers == .command {
+                print("🔑 ContentView: Command+E键按下 - 切换侧边栏")
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showSidebar.toggle()
+                }
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(.init("m"), phases: .down) { keyPress in
+            if keyPress.modifiers == .command {
+                print("🔑 ContentView: Command+M键按下 - 打开地图")
+                openWindow(id: "map")
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(.init("g"), phases: .down) { keyPress in
+            if keyPress.modifiers == .command {
+                print("🔑 ContentView: Command+G键按下 - 打开图谱")
+                openWindow(id: "graph")
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(.init("i"), phases: .down) { keyPress in
+            if keyPress.modifiers == .command {
+                print("🔑 ContentView: Command+I键按下 - 快速添加节点")
+                NotificationCenter.default.post(name: NSNotification.Name("addNewNode"), object: nil)
+                return .handled
+            }
             return .ignored
         }
         .toolbar {
@@ -135,6 +168,26 @@ struct ContentView: View {
                 queue: .main
             ) { _ in
                 openWindow(id: "graph")
+            }
+            
+            // 只有主窗口（共享实例）监听 openNewWindow 通知
+            if store.isSharedInstance {
+                NotificationCenter.default.addObserver(
+                    forName: NSNotification.Name("openNewWindow"),
+                    object: nil,
+                    queue: .main
+                ) { notification in
+                    if let source = notification.object as? String {
+                        if source == "mainWindow" {
+                            print("🔔 [DEBUG] 主窗口收到 openNewWindow 通知，打开新独立窗口")
+                            openWindow(id: "layerView")
+                        }
+                    }
+                }
+                
+                print("🔔 [DEBUG] 主窗口已注册 openNewWindow 通知监听")
+            } else {
+                print("🔔 [DEBUG] 独立窗口不监听 openNewWindow 通知")
             }
             
             NotificationCenter.default.addObserver(

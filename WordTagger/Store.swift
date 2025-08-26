@@ -38,12 +38,23 @@ public final class NodeStore: ObservableObject {
     
     public static let shared = NodeStore()
     
-    private init() {
+    // 标记是否为共享实例
+    public let isSharedInstance: Bool
+    
+    // 工厂方法：创建独立的NodeStore实例（用于独立窗口）
+    public static func createIndependentInstance() -> NodeStore {
+        return NodeStore(isIndependent: true)
+    }
+    
+    private init(isIndependent: Bool = false) {
+        self.isSharedInstance = !isIndependent
         setupInitialData()
         setupSearchBinding()
-        setupExternalDataSync()
-        setupDataPathChangeListener()
-        setupTagTypeNameChangeListener()
+        if !isIndependent {
+            setupExternalDataSync()
+            setupDataPathChangeListener()
+            setupTagTypeNameChangeListener()
+        }
     }
     
     // MARK: - 初始化

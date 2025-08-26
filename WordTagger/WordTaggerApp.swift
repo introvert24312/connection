@@ -1828,6 +1828,7 @@ struct QuickSearchView: View {
             return store.nodes.filter { node in
                 node.text.localizedCaseInsensitiveContains(searchText) ||
                 node.meaning?.localizedCaseInsensitiveContains(searchText) == true ||
+                node.markdown.localizedCaseInsensitiveContains(searchText) ||
                 node.tags.contains { tag in
                     tag.value.localizedCaseInsensitiveContains(searchText)
                 }
@@ -2146,6 +2147,7 @@ struct WordTaggerApp: App {
     @State private var showTagManager = false
     @State private var showCompoundNodeAdd = false
     @State private var nodeToEditInManager: Node? = nil
+    @State private var isOpeningWindow = false // 防止重复打开窗口的标志
     
     init() {
         // 设置环境变量以抑制SQLite系统数据库访问警告
@@ -2212,6 +2214,14 @@ struct WordTaggerApp: App {
                         },
                         onNodeSelected: { node in
                             print("🔍 WordTaggerApp: QuickSearchView 选择了节点: \(node.text)")
+                            
+                            // 首先切换到节点所在的层
+                            if let nodeLayer = store.layers.first(where: { $0.id == node.layerId }) {
+                                print("🔄 切换到节点所在层: \(nodeLayer.displayName)")
+                                store.setCurrentLayer(nodeLayer)
+                            }
+                            
+                            // 然后选择节点
                             store.selectNode(node)
                         }
                     )
@@ -2372,6 +2382,27 @@ struct WordTaggerApp: App {
                 
                 Divider()
                 
+                Button("新建独立窗口") {
+                    print("🔔 [DEBUG] 主窗口 Command+B 被按下，isOpeningWindow: \(isOpeningWindow)")
+                    
+                    guard !isOpeningWindow else {
+                        print("🔔 [DEBUG] 窗口正在打开中，忽略重复请求")
+                        return
+                    }
+                    
+                    isOpeningWindow = true
+                    print("🔔 [DEBUG] 主窗口直接打开独立窗口")
+                    
+                    // 使用通知打开窗口，但添加标识
+                    NotificationCenter.default.post(name: Notification.Name("openNewWindow"), object: "mainWindow")
+                    
+                    // 1秒后重置标志，防止连续打开
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        isOpeningWindow = false
+                        print("🔔 [DEBUG] 重置 isOpeningWindow 标志")
+                    }
+                }
+                .keyboardShortcut("b", modifiers: [.command])
 
             }
         }
@@ -2380,7 +2411,6 @@ struct WordTaggerApp: App {
         WindowGroup("地图视图", id: "map") {
             MapWindow()
                 .environmentObject(store)
-                .frame(minWidth: 750, minHeight: 500)
         }
         .defaultSize(width: 1000, height: 700)
         
@@ -2388,7 +2418,6 @@ struct WordTaggerApp: App {
         WindowGroup("全局图谱", id: "graph") {
             GraphView()
                 .environmentObject(store)
-                .frame(minWidth: 900, minHeight: 560)
         }
         .defaultSize(width: 1200, height: 800)
         
@@ -2396,7 +2425,6 @@ struct WordTaggerApp: App {
         WindowGroup("节点管理", id: "nodeManager") {
             NodeManagerView(nodeToEdit: $nodeToEditInManager)
                 .environmentObject(store)
-                .frame(minWidth: 750, minHeight: 500)
         }
         .defaultSize(width: 1000, height: 700)
         
@@ -2404,19 +2432,15 @@ struct WordTaggerApp: App {
         WindowGroup("全屏图谱", id: "fullscreenGraph") {
             FullscreenGraphView()
                 .environmentObject(store)
-                .frame(minWidth: 900, minHeight: 520)
-                .onAppear {
-                    // 窗口级别的焦点设置
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                        NSApp.keyWindow?.makeKey()
-                        Swift.print("🎯 WindowGroup: 设置窗口焦点完成")
-                    }
-                }
         }
         .defaultSize(width: 1200, height: 800)
         .windowToolbarStyle(.unified)
         
-
+        // 独立窗口 - 完全分离的数据和状态
+        WindowGroup("独立窗口", id: "layerView") {
+            IndependentWindowWrapper()
+        }
+        .defaultSize(width: 1200, height: 800)
         
         // 设置窗口
         Settings {
@@ -3153,4 +3177,187 @@ struct CompoundNodeAddSheetView: View {
     }
 }
 
+// MARK: - Independent Window Wrapper
+
+struct IndependentWindowWrapper: View {
+    @StateObject private var store = NodeStore.createIndependentInstance()
+    @State private var showPalette = false
+    @State private var showQuickAdd = false
+    @State private var showQuickSearch = false
+    @State private var showTagManager = false
+    @State private var showCompoundNodeAdd = false
+    @State private var nodeToEditInManager: Node? = nil
+    @State private var isOpeningWindow = false
+    @Environment(\.openWindow) private var openWindow
+    
+    // 生成唯一的窗口ID
+    private let windowId = "independent-\(UUID().uuidString.prefix(8))"
+    
+    var body: some View {
+        ZStack {
+            ContentView()
+                .environmentObject(store)
+            
+            if showPalette {
+                ZStack {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            print("🛡️ 独立窗口背景遮罩被点击，不关闭命令面板")
+                        }
+                    
+                    CommandPaletteView(isPresented: $showPalette)
+                        .environmentObject(store)
+                        .transition(.asymmetric(insertion: AnyTransition.scale.combined(with: .opacity), removal: .opacity))
+                }
+            }
+            
+            if showQuickSearch {
+                QuickSearchView(
+                    onDismiss: { 
+                        print("🔍 IndependentWindow: QuickSearchView onDismiss 被调用")
+                        showQuickSearch = false 
+                    },
+                    onNodeSelected: { node in
+                        print("🔍 IndependentWindow: QuickSearchView 选择了节点: \(node.text)")
+                        
+                        if let nodeLayer = store.layers.first(where: { $0.id == node.layerId }) {
+                            print("🔄 切换到节点所在层: \(nodeLayer.displayName)")
+                            store.setCurrentLayer(nodeLayer)
+                        }
+                        
+                        store.selectNode(node)
+                    }
+                )
+                .environmentObject(store)
+                .onAppear {
+                    print("🔍 IndependentWindow: QuickSearchView 出现")
+                }
+            }
+            
+            if showTagManager {
+                TagManagerView {
+                    showTagManager = false
+                }
+                .transition(.asymmetric(insertion: AnyTransition.scale.combined(with: .opacity), removal: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: showPalette)
+        .animation(.easeInOut(duration: 0.2), value: showTagManager)
+        .onChange(of: showQuickSearch) { _, newValue in
+            print("🔍 IndependentWindow: showQuickSearch 状态变化: \(newValue)")
+        }
+        .onKeyPress(.escape) {
+            if showTagManager {
+                showTagManager = false
+                return .handled
+            }
+            if showPalette {
+                showPalette = false
+                return .handled
+            }
+            if showQuickSearch {
+                showQuickSearch = false
+                return .handled
+            }
+            return .ignored
+        }
+        // 添加独立窗口的键盘快捷键支持
+        .onKeyPress(.init("k"), phases: .down) { keyPress in
+            if keyPress.modifiers == .command {
+                print("🔑 IndependentWindow: Command+K键按下 - 命令面板")
+                showPalette = true
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(.init("i"), phases: .down) { keyPress in
+            if keyPress.modifiers == .command {
+                print("🔑 IndependentWindow: Command+I键按下 - 快速添加节点")
+                showQuickAdd = true
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(.init("f"), phases: .down) { keyPress in
+            if keyPress.modifiers == [.command, .shift] {
+                print("🔑 IndependentWindow: Command+Shift+F键按下 - 快速搜索")
+                showQuickSearch = true
+                return .handled
+            } else if keyPress.modifiers == .command {
+                print("🔑 IndependentWindow: Command+F键按下 - 标签搜索")
+                NotificationCenter.default.post(name: Notification.Name("openTagSearch"), object: nil)
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(.init("e"), phases: .down) { keyPress in
+            if keyPress.modifiers == .command {
+                print("🔑 IndependentWindow: Command+E键按下 - 切换侧边栏")
+                NotificationCenter.default.post(name: Notification.Name("toggleSidebar"), object: nil)
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(.init("m"), phases: .down) { keyPress in
+            if keyPress.modifiers == .command {
+                print("🔑 IndependentWindow: Command+M键按下 - 打开地图")
+                openWindow(id: "map")
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(.init("g"), phases: .down) { keyPress in
+            if keyPress.modifiers == .command {
+                print("🔑 IndependentWindow: Command+G键按下 - 打开图谱")
+                openWindow(id: "graph")
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(.init("n"), phases: .down) { keyPress in
+            if keyPress.modifiers == .command {
+                print("🔑 IndependentWindow: Command+N键按下 - 清除标签筛选")
+                NotificationCenter.default.post(name: Notification.Name("clearTagFilter"), object: nil)
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(.init("u"), phases: .down) { keyPress in
+            if keyPress.modifiers == .command {
+                print("🔑 IndependentWindow: Command+U键按下 - 添加复合节点")
+                showCompoundNodeAdd = true
+                return .handled
+            }
+            return .ignored
+        }
+        .onKeyPress(.init("r"), phases: .down) { keyPress in
+            if keyPress.modifiers == .command {
+                print("🔑 IndependentWindow: Command+R键按下 - 创建新层或复合层")
+                showPalette = true
+                return .handled
+            }
+            return .ignored
+        }
+        .sheet(isPresented: $showQuickAdd) {
+            QuickAddSheetView()
+                .environmentObject(store)
+        }
+        .sheet(isPresented: $showCompoundNodeAdd) {
+            CompoundNodeAddSheetView()
+                .environmentObject(store)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("addNewNode"))) { _ in
+            showQuickAdd = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openNodeManagerForEdit"))) { notification in
+            if let node = notification.object as? Node {
+                print("📝 IndependentWindow: 收到节点编辑请求，节点: \(node.text)")
+                nodeToEditInManager = node
+                NotificationCenter.default.post(name: Notification.Name("openNodeManager"), object: nil)
+            }
+        }
+    }
+}
 
