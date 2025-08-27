@@ -2468,6 +2468,8 @@ struct WordTaggerApp: App {
                 if let node = notification.object as? Node {
                     print("📝 WordTaggerApp: 收到节点编辑请求，节点: \(node.text)")
                     nodeToEditInManager = node
+                    // 直接通知NodeManagerView进行编辑，而不依赖绑定
+                    NotificationCenter.default.post(name: Notification.Name("nodeManagerEditNode"), object: node)
                     // 打开节点管理窗口
                     NotificationCenter.default.post(name: Notification.Name("openNodeManager"), object: nil)
                 }
@@ -2527,6 +2529,17 @@ struct WordTaggerApp: App {
                 
                 print("✅ 主窗口: 处理openNodeManager通知 - 打开节点管理")
                 NotificationCenter.default.post(name: NSNotification.Name("executeOpenNodeManager"), object: nil)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("executeOpenNodeManager"))) { notification in
+                // 检查当前窗口是否应该响应此通知
+                guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true, commandName: "executeOpenNodeManager") else {
+                    print("🚫 主窗口: 忽略executeOpenNodeManager通知 - 非key窗口或冷却期")
+                    return
+                }
+                
+                print("✅ 主窗口: 处理executeOpenNodeManager通知 - 通过ContentView打开节点管理")
+                // 通过ContentView的openWindow执行
+                NotificationCenter.default.post(name: NSNotification.Name("executeOpenWindow"), object: "nodeManager")
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("toggleSidebar"))) { _ in
                 // toggleSidebar 是全局命令，只在当前key窗口处理
@@ -3578,6 +3591,8 @@ struct IndependentWindowModifier: ViewModifier {
                 if let node = notification.object as? Node {
                     print("📝 IndependentWindow: 收到节点编辑请求，节点: \(node.text)")
                     nodeToEditInManager = node
+                    // 直接通知NodeManagerView进行编辑，而不依赖绑定
+                    NotificationCenter.default.post(name: Notification.Name("nodeManagerEditNode"), object: node)
                     NotificationCenter.default.post(name: Notification.Name("openNodeManager"), object: nil)
                 }
             }
@@ -3662,6 +3677,21 @@ struct IndependentWindowModifier: ViewModifier {
                 }
                 print("✅ 独立窗口: 处理clearTagFilter通知，清除标签筛选")
                 NotificationCenter.default.post(name: NSNotification.Name("clearAllFilters"), object: nil)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("executeOpenNodeManager"))) { notification in
+                // 只处理来自独立窗口的请求
+                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "executeOpenNodeManager") else {
+                    print("🚫 独立窗口: 忽略executeOpenNodeManager通知 - 非key窗口或冷却期")
+                    return
+                }
+                
+                print("🔔 独立窗口: 收到executeOpenNodeManager通知，打开节点管理窗口")
+                if let source = notification.object as? String, source == "independent" {
+                    print("🎯 独立窗口: 处理来自独立窗口的节点管理请求")
+                    openWindow(id: "nodeManager")
+                } else {
+                    print("🚫 独立窗口: 忽略来自主窗口的节点管理请求")
+                }
             }
     }
 }
