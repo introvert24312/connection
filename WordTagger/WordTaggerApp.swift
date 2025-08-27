@@ -2460,11 +2460,20 @@ struct WordTaggerApp: App {
                 showQuickAdd = true
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openNodeManagerForEdit"))) { notification in
-                // 检查当前窗口是否应该响应此通知
-                guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId) else {
-                    print("🚫 主窗口: 忽略openNodeManagerForEdit通知 - 窗口非活跃状态")
-                    return
+                // 对于编辑节点请求，使用更宽松的验证 - 如果WindowFocusManager有问题，也要能响应
+                let shouldHandle = WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId) || 
+                                 WindowFocusManager.shared.shouldHandleNotificationForActiveWindow()
+                
+                if !shouldHandle {
+                    // 最后的fallback：如果有key窗口但WindowFocusManager出问题，也要处理
+                    guard let keyWindow = NSApplication.shared.keyWindow,
+                          keyWindow.isKeyWindow && keyWindow.isVisible else {
+                        print("🚫 主窗口: 忽略openNodeManagerForEdit通知 - 没有key窗口")
+                        return
+                    }
+                    print("⚠️ 主窗口: WindowFocusManager验证失败，但有key窗口，强制处理编辑请求")
                 }
+                
                 if let node = notification.object as? Node {
                     print("📝 WordTaggerApp: 收到节点编辑请求，节点: \(node.text)")
                     nodeToEditInManager = node
