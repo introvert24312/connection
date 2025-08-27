@@ -712,188 +712,218 @@ struct QuickAddSheetView: View {
     }
     
     var body: some View {
+        mainView
+            .frame(width: 600)
+            .navigationTitle(prefilledNode != nil ? "编辑节点" : "快速添加节点")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") {
+                        cleanupAndDismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(prefilledNode != nil ? "保存" : "添加") {
+                        processInput()
+                    }
+                    .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .keyboardShortcut("r", modifiers: .command)
+                }
+            }
+            .alert("重复检测", isPresented: $showingDuplicateAlert) {
+                Button("确定") { }
+            } message: {
+                if let alert = store.duplicateNodeAlert {
+                    Text(alert.message)
+                }
+            }
+            .onReceive(store.$duplicateNodeAlert) { alert in
+                handleDuplicateAlert(alert)
+            }
+            .onAppear {
+                setupView()
+            }
+            .onKeyPress(.init("p"), phases: .down) { keyPress in
+                if keyPress.modifiers.contains(.command) && isInputFocused {
+                    openMapForLocationSelection()
+                    return .handled
+                }
+                return .ignored
+            }
+    }
+    
+    @ViewBuilder
+    private var mainView: some View {
         VStack(spacing: 0) {
-            // 搜索输入框 - 采用CommandPalette样式
-            HStack {
-                Image(systemName: "plus.circle.fill")
-                    .foregroundColor(.blue)
-                
-                TextField("输入: 节点 root 词根内容 memory 记忆内容...", text: $inputText)
-                    .textFieldStyle(.plain)
-                    .font(.title3)
-                    .focused($isInputFocused)
-                    .onChange(of: inputText) { _, newValue in updateSuggestions(for: newValue) }
-                    .onKeyPress(.upArrow) {
-                        if !suggestions.isEmpty {
-                            selectedSuggestionIndex = max(0, selectedSuggestionIndex - 1)
-                        }
-                        return .handled
-                    }
-                    .onKeyPress(.downArrow) {
-                        if !suggestions.isEmpty {
-                            selectedSuggestionIndex = min(suggestions.count - 1, selectedSuggestionIndex + 1)
-                        }
-                        return .handled
-                    }
-                    .onKeyPress(.tab) {
-                        if selectedSuggestionIndex >= 0 && selectedSuggestionIndex < suggestions.count {
-                            selectSuggestion(suggestions[selectedSuggestionIndex])
-                        }
-                        return .handled
-                    }
-                    .onKeyPress(.escape) {
-                        // 清理状态后再关闭
-                        isInputFocused = false
-                        inputText = ""
-                        selectedSuggestionIndex = -1
-                        suggestions = []
-                        
-                        // 延迟关闭，确保状态清理完成
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                            dismiss()
-                        }
-                        return .handled
-                    }
-                
-                Button(action: openMapForLocationSelection) {
-                    Image(systemName: "location.fill")
-                        .foregroundColor(.blue)
-                }
-                .buttonStyle(.plain)
-                .help("选择地点位置 (⌘P)")
-                .keyboardShortcut("p", modifiers: .command)
-            }
-            .padding(16)
-            .background(Color(NSColor.controlBackgroundColor))
-            
+            inputSection
             Divider()
+            suggestionsList
+            emptyStateView
+        }
+    }
+    
+    @ViewBuilder
+    private var inputSection: some View {
+        HStack {
+            Image(systemName: "plus.circle.fill")
+                .foregroundColor(.blue)
             
-            // 建议列表 - 采用CommandPalette的NewCommandRowView样式
-            if !suggestions.isEmpty {
-                ScrollViewReader { proxy in
-                    List(Array(suggestions.enumerated()), id: \.offset) { index, suggestion in
-                        QuickAddSuggestionRow(
-                            suggestion: suggestion,
-                            tagTypeName: tagManager.mappingDictionary[suggestion]?.0 ?? "自定义",
-                            isSelected: index == selectedSuggestionIndex
-                        ) {
-                            selectSuggestion(suggestion)
-                        }
-                        .id(index)
+            TextField("输入: 节点 root 词根内容 memory 记忆内容...", text: $inputText)
+                .textFieldStyle(.plain)
+                .font(.title3)
+                .focused($isInputFocused)
+                .onChange(of: inputText) { _, newValue in 
+                    updateSuggestions(for: newValue) 
+                }
+                .onKeyPress(.upArrow) { handleUpArrow() }
+                .onKeyPress(.downArrow) { handleDownArrow() }
+                .onKeyPress(.tab) { handleTab() }
+                .onKeyPress(.escape) { handleEscape() }
+            
+            Button(action: openMapForLocationSelection) {
+                Image(systemName: "location.fill")
+                    .foregroundColor(.blue)
+            }
+            .buttonStyle(.plain)
+            .help("选择地点位置 (⌘P)")
+            .keyboardShortcut("p", modifiers: .command)
+        }
+        .padding(16)
+        .background(Color(NSColor.controlBackgroundColor))
+    }
+    
+    @ViewBuilder
+    private var suggestionsList: some View {
+        if !suggestions.isEmpty {
+            ScrollViewReader { proxy in
+                List(Array(suggestions.enumerated()), id: \.offset) { index, suggestion in
+                    QuickAddSuggestionRow(
+                        suggestion: suggestion,
+                        tagTypeName: tagManager.mappingDictionary[suggestion]?.0 ?? "自定义",
+                        isSelected: index == selectedSuggestionIndex
+                    ) {
+                        selectSuggestion(suggestion)
                     }
-                    .listStyle(.plain)
-                    .frame(height: min(CGFloat(suggestions.count) * 44, 300))
-                    .onChange(of: selectedSuggestionIndex) { _, newIndex in
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            proxy.scrollTo(newIndex, anchor: .center)
-                        }
+                    .id(index)
+                }
+                .listStyle(.plain)
+                .frame(height: min(CGFloat(suggestions.count) * 44, 300))
+                .onChange(of: selectedSuggestionIndex) { _, newIndex in
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        proxy.scrollTo(newIndex, anchor: .center)
                     }
                 }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var emptyStateView: some View {
+        if suggestions.isEmpty && !inputText.isEmpty {
+            VStack {
+                Text("输入标签快捷键获得建议")
+                    .foregroundColor(.secondary)
+                    .padding()
+            }
+            .frame(height: 100)
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func handleUpArrow() -> KeyPress.Result {
+        if !suggestions.isEmpty {
+            selectedSuggestionIndex = max(0, selectedSuggestionIndex - 1)
+        }
+        return .handled
+    }
+    
+    private func handleDownArrow() -> KeyPress.Result {
+        if !suggestions.isEmpty {
+            selectedSuggestionIndex = min(suggestions.count - 1, selectedSuggestionIndex + 1)
+        }
+        return .handled
+    }
+    
+    private func handleTab() -> KeyPress.Result {
+        if selectedSuggestionIndex >= 0 && selectedSuggestionIndex < suggestions.count {
+            selectSuggestion(suggestions[selectedSuggestionIndex])
+        }
+        return .handled
+    }
+    
+    private func handleEscape() -> KeyPress.Result {
+        cleanupAndDismiss()
+        return .handled
+    }
+    
+    private func cleanupAndDismiss() {
+        isInputFocused = false
+        inputText = ""
+        selectedSuggestionIndex = -1
+        suggestions = []
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            dismiss()
+        }
+    }
+    
+    private func handleDuplicateAlert(_ alert: NodeStore.DuplicateNodeAlert?) {
+        if alert != nil {
+            showingDuplicateAlert = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                store.duplicateNodeAlert = nil
+            }
+        }
+    }
+    
+    private func setupView() {
+        setupPrefilledNode()
+        setupAutoFocus()
+        setupLocationNotifications()
+    }
+    
+    private func setupPrefilledNode() {
+        if let node = prefilledNode {
+            print("🔄 [QuickAdd] 编辑模式开始预填充节点: '\(node.text)'")
+            print("🔄 [QuickAdd] 节点标签数量: \(node.tags.count)")
+            for (index, tag) in node.tags.enumerated() {
+                print("🔄 [QuickAdd] 标签[\(index)]: type=\(tag.type), rawValue='\(tag.type.rawValue)', displayName='\(tag.type.displayName)', value='\(tag.value)'")
             }
             
-            if suggestions.isEmpty && !inputText.isEmpty {
-                VStack {
-                    Text("输入标签快捷键获得建议")
-                        .foregroundColor(.secondary)
-                        .padding()
-                }
-                .frame(height: 100)
-            }
-            
+            inputText = node.commandRepresentationWithDisplayNames
+            print("🔄 [QuickAdd] 编辑模式：预填充命令完成 - '\(inputText)'")
         }
-        .frame(width: 600)
-        .navigationTitle(prefilledNode != nil ? "编辑节点" : "快速添加节点")
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("取消") {
-                    // 清理状态后再关闭
-                    isInputFocused = false
-                    inputText = ""
-                    selectedSuggestionIndex = -1
-                    suggestions = []
-                    
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                        dismiss()
-                    }
-                }
-            }
-            ToolbarItem(placement: .confirmationAction) {
-                Button(prefilledNode != nil ? "保存" : "添加") {
-                    processInput()
-                }
-                .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                .keyboardShortcut("r", modifiers: .command)
-            }
+    }
+    
+    private func setupAutoFocus() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            isInputFocused = true
         }
-        .alert("重复检测", isPresented: $showingDuplicateAlert) {
-            Button("确定") { }
-        } message: {
-            if let alert = store.duplicateNodeAlert {
-                Text(alert.message)
-            }
-        }
-        .onReceive(store.$duplicateNodeAlert) { alert in
-            if alert != nil {
-                showingDuplicateAlert = true
-                // 稍微延长延迟，避免状态竞态
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    store.duplicateNodeAlert = nil
-                }
-            }
-        }
-        .onAppear {
-            // 如果是编辑模式，预填充现有节点的命令
-            if let node = prefilledNode {
-                print("🔄 [QuickAdd] 编辑模式开始预填充节点: '\(node.text)'")
-                print("🔄 [QuickAdd] 节点标签数量: \(node.tags.count)")
-                for (index, tag) in node.tags.enumerated() {
-                    print("🔄 [QuickAdd] 标签[\(index)]: type=\(tag.type), rawValue='\(tag.type.rawValue)', displayName='\(tag.type.displayName)', value='\(tag.value)'")
-                }
+    }
+    
+    private func setupLocationNotifications() {
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("locationSelected"),
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let locationData = notification.object as? [String: Any],
+               let latitude = locationData["latitude"] as? Double,
+               let longitude = locationData["longitude"] as? Double {
                 
-                inputText = node.commandRepresentationWithDisplayNames
-                print("🔄 [QuickAdd] 编辑模式：预填充命令完成 - '\(inputText)'")
-            }
-            
-            // 自动聚焦到输入框
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                isInputFocused = true
-            }
-            
-            // 监听位置选择通知
-            NotificationCenter.default.addObserver(
-                forName: NSNotification.Name("locationSelected"),
-                object: nil,
-                queue: .main
-            ) { notification in
-                if let locationData = notification.object as? [String: Any],
-                   let latitude = locationData["latitude"] as? Double,
-                   let longitude = locationData["longitude"] as? Double {
-                    
-                    // 如果有地名信息，使用地名；否则让用户自己输入
-                    if let locationName = locationData["name"] as? String {
-                        let locationCommand = "@\(latitude),\(longitude)[\(locationName)]"
-                        insertLocationIntoInput(locationCommand)
-                        print("🎯 QuickAdd: Using location with name: \(locationName)")
-                    } else {
-                        // 只使用坐标，让用户自己输入地名
-                        let locationCommand = "@\(latitude),\(longitude)[]"
-                        insertLocationIntoInput(locationCommand)
-                        print("🎯 QuickAdd: Using coordinates only, user needs to fill name")
-                    }
-                } else if let locationName = notification.object as? String {
-                    // 向后兼容旧格式
-                    insertLocationIntoInput("location \(locationName)")
+                if let locationName = locationData["name"] as? String {
+                    let locationCommand = "@\(latitude),\(longitude)[\(locationName)]"
+                    insertLocationIntoInput(locationCommand)
+                    print("🎯 QuickAdd: Using location with name: \(locationName)")
+                } else {
+                    let locationCommand = "@\(latitude),\(longitude)[]"
+                    insertLocationIntoInput(locationCommand)
+                    print("🎯 QuickAdd: Using coordinates only, user needs to fill name")
                 }
+            } else if let locationName = notification.object as? String {
+                insertLocationIntoInput("location \(locationName)")
             }
         }
-        // TODO: 修复onKeyPress API调用
-        // .onKeyPress(KeyEquivalent("p"), modifiers: .command) { _ in
-        //     if isInputFocused {
-        //         openMapForLocationSelection()
-        //         return .handled
-        //     }
-        //     return .ignored
-        // }
     }
     
     private func updateSuggestions(for input: String) {
@@ -1497,14 +1527,22 @@ struct QuickAddSheetView: View {
     
     private func openMapForLocationSelection() {
         print("📍 QuickAddSheetView: Opening map for location selection...")
+        print("📍 QuickAddSheetView: Current store type: \(type(of: store)) - isSharedInstance: \(store.isSharedInstance)")
         isWaitingForLocationSelection = true
         
-        // 打开地图窗口
-        print("📍 QuickAddSheetView: Posting openMapWindow notification")
-        NotificationCenter.default.post(name: NSNotification.Name("openMapWindow"), object: nil)
+        // 🔧 修复：需要从父视图上下文获取正确的窗口ID，而不是依赖全局活跃窗口
+        // 通过环境或其他方式获取当前所属窗口的ID
+        // 暂时使用通知方式让父窗口处理
+        print("📍 QuickAddSheetView: 发送请求让父窗口打开地图")
+        
+        // 发送一个特殊的通知，让包含此QuickAddSheetView的窗口来处理
+        NotificationCenter.default.post(
+            name: NSNotification.Name("requestMapForLocationSelection"), 
+            object: store.isSharedInstance ? "MAIN_WINDOW" : "INDEPENDENT_WINDOW"
+        )
         
         // 设置为位置选择模式
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
             print("📍 QuickAddSheetView: About to post openMapForLocationSelection notification")
             NotificationCenter.default.post(name: NSNotification.Name("openMapForLocationSelection"), object: nil)
             print("📍 QuickAddSheetView: Posted openMapForLocationSelection notification")
@@ -2285,6 +2323,7 @@ struct WordTaggerApp: App {
     private let mainWindowId = UUID()
     @State private var isOpeningWindow = false // 防止重复打开窗口的标志
     
+    
     init() {
         // 设置环境变量以抑制SQLite系统数据库访问警告
         setenv("SQLITE_ENABLE_FTS4", "0", 1)
@@ -2496,15 +2535,6 @@ struct WordTaggerApp: App {
                 print("✅ 主窗口: 处理openQuickSearch通知 - 打开快速搜索")
                 showQuickSearch = true
             }
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openMapWindow"))) { _ in
-                // openMapWindow 是全局命令，应该在任何活跃窗口中可用
-                guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true) else {
-                    print("🚫 主窗口: 忽略openMapWindow通知 - 应用无活跃窗口")
-                    return
-                }
-                print("✅ 主窗口: 处理openMapWindow通知 - 打开地图窗口")
-                NotificationCenter.default.post(name: NSNotification.Name("executeOpenMapWindow"), object: nil)
-            }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openGraphWindow"))) { _ in
                 // openGraphWindow 是全局命令，应该在任何活跃窗口中可用
                 guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true) else {
@@ -2513,6 +2543,41 @@ struct WordTaggerApp: App {
                 }
                 print("✅ 主窗口: 处理openGraphWindow通知 - 打开图谱窗口")
                 NotificationCenter.default.post(name: NSNotification.Name("executeOpenGraphWindow"), object: nil)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("requestMapForLocationSelection"))) { notification in
+                // 🔧 处理来自QuickAddSheetView的位置选择请求
+                if let requestSource = notification.object as? String {
+                    if requestSource == "MAIN_WINDOW" {
+                        print("📍 主窗口: 处理位置选择请求，打开地图")
+                        NotificationCenter.default.post(name: NSNotification.Name("executeOpenMapWindow"), object: ["sourceWindowId": "MAIN_WINDOW"])
+                    } else {
+                        print("📍 主窗口: 忽略独立窗口的位置选择请求")
+                    }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openMapWindow"))) { notification in
+                // 🔧 修复：检查通知是否包含源窗口信息，如果包含则只有匹配的窗口才处理
+                if let sourceInfo = notification.object as? [String: String],
+                   let targetSourceWindowId = sourceInfo["sourceWindowId"] {
+                    print("🎯 主窗口: 收到带源窗口ID的openMapWindow通知 - \(targetSourceWindowId.prefix(8))")
+                    
+                    // 检查是否是发给主窗口的（通过MAIN_WINDOW标识符）
+                    if targetSourceWindowId == "MAIN_WINDOW" {
+                        print("✅ 主窗口: 处理指定给主窗口的openMapWindow通知")
+                        NotificationCenter.default.post(name: NSNotification.Name("executeOpenMapWindow"), object: ["sourceWindowId": "MAIN_WINDOW"])
+                    } else {
+                        print("🚫 主窗口: 忽略发给其他窗口的openMapWindow通知 - 目标: \(targetSourceWindowId.prefix(8))")
+                    }
+                    return
+                }
+                
+                // 如果没有源窗口信息，使用原有的全局命令逻辑（向后兼容）
+                guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true) else {
+                    print("🚫 主窗口: 忽略openMapWindow通知 - 应用无活跃窗口")
+                    return
+                }
+                print("✅ 主窗口: 处理openMapWindow通知 - 打开地图窗口")
+                NotificationCenter.default.post(name: NSNotification.Name("executeOpenMapWindow"), object: ["sourceWindowId": "MAIN_WINDOW"])
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagManager"))) { _ in
                 // openTagManager 是全局命令，只在当前key窗口处理
@@ -2545,6 +2610,55 @@ struct WordTaggerApp: App {
                 // 通过ContentView的openWindow执行
                 NotificationCenter.default.post(name: NSNotification.Name("executeOpenWindow"), object: "nodeManager")
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("executeOpenMapWindow"))) { notification in
+                // 中间层：处理地图窗口打开的执行通知，设置窗口映射
+                print("🗺️ 主窗口中间层: 收到executeOpenMapWindow通知")
+                print("🗺️ 主窗口中间层: notification.object = \(notification.object ?? "nil")")
+                
+                // 这里是中间层，负责：
+                // 1. 接收来自ContentView的executeOpenMapWindow通知
+                // 2. 转发给地图窗口进行窗口映射设置
+                // 3. 不处理来自地图窗口的通知（避免循环）
+                
+                if let sourceInfo = notification.object as? [String: String] {
+                    print("🗺️ 主窗口中间层: 转发窗口映射信息给地图窗口，sourceInfo: \(sourceInfo)")
+                    // 转发给地图窗口，使用不同的通知名称避免循环
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("mapWindowSetupMapping"),
+                        object: sourceInfo
+                    )
+                } else {
+                    print("⚠️ 主窗口中间层: executeOpenMapWindow通知缺少sourceInfo，使用默认值")
+                    // 使用默认的主窗口ID
+                    let defaultSourceInfo = ["sourceWindowId": "MAIN_WINDOW"]
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("mapWindowSetupMapping"),
+                        object: defaultSourceInfo
+                    )
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("requestWindowMapping"))) { notification in
+                // 处理窗口映射请求 - 解决时序问题
+                print("🔧 主窗口: 收到窗口映射请求")
+                
+                if let requestInfo = notification.object as? [String: String],
+                   let childWindowId = requestInfo["childWindowId"],
+                   let windowType = requestInfo["windowType"] {
+                    print("🔧 主窗口: 处理窗口映射请求 - 窗口类型: \(windowType), 子窗口ID: \(childWindowId.prefix(8))")
+                    
+                    // 🔧 重要修复：使用智能源窗口检测
+                    let sourceWindowId = WindowFocusManager.shared.getSourceWindowId()
+                    print("🔧 主窗口: 智能确定源窗口ID: \(sourceWindowId.prefix(8))")
+                    
+                    // 发送映射信息
+                    let mappingInfo = ["sourceWindowId": sourceWindowId]
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("mapWindowSetupMapping"),
+                        object: mappingInfo
+                    )
+                    print("🔧 主窗口: 已发送窗口映射信息到 \(windowType) 窗口")
+                }
+            }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("toggleSidebar"))) { _ in
                 // toggleSidebar 是全局命令，只在当前key窗口处理
                 guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true, commandName: "toggleSidebar") else {
@@ -2576,13 +2690,73 @@ struct WordTaggerApp: App {
                 NotificationCenter.default.post(name: NSNotification.Name("executeGraphTabSwitch"), object: nil)
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("clearTagFilter"))) { _ in
-                // 检查当前窗口是否应该响应此通知
-                guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId) else {
-                    print("🚫 主窗口: 忽略clearTagFilter通知 - 窗口非活跃状态")
+                // clearTagFilter是全局命令，应该在任何活跃窗口中可用
+                guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true, commandName: "clearTagFilter") else {
+                    print("🚫 主窗口: 忽略clearTagFilter通知 - 应用无活跃窗口")
                     return
                 }
                 print("✅ 主窗口: 处理clearTagFilter通知，清除标签筛选")
-                NotificationCenter.default.post(name: NSNotification.Name("clearAllFilters"), object: nil)
+                store.clearTagFilter()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("handleMapPinTap"))) { notification in
+                guard let userInfo = notification.userInfo,
+                      let targetNodeId = userInfo["targetNodeId"] as? String,
+                      let targetLayerId = userInfo["targetLayerId"] as? String else {
+                    print("⚠️ 主窗口: handleMapPinTap通知格式错误 - 缺少节点ID或层ID")
+                    return
+                }
+                
+                // 🔧 从当前store实例中查找对应的节点和层
+                guard let targetNodeUUID = UUID(uuidString: targetNodeId),
+                      let targetNode = store.nodes.first(where: { $0.id == targetNodeUUID }) else {
+                    print("⚠️ 主窗口: 未在当前store中找到目标节点 - ID: \(targetNodeId.prefix(8))")
+                    return
+                }
+                
+                guard let targetLayerUUID = UUID(uuidString: targetLayerId),
+                      let targetLayer = store.layers.first(where: { $0.id == targetLayerUUID }) else {
+                    print("⚠️ 主窗口: 未在当前store中找到目标层 - ID: \(targetLayerId.prefix(8))")
+                    return
+                }
+                
+                // 🔧 重新设计通知路由逻辑：优先检查目标窗口ID，然后检查活跃状态
+                // 如果指定了目标窗口ID，必须完全匹配才处理
+                if let targetWindowId = userInfo["targetWindowId"] as? String {
+                    // 🔧 支持固定的主窗口ID
+                    let isMatchingMainWindow = (targetWindowId == mainWindowId.uuidString) || (targetWindowId == "MAIN_WINDOW")
+                    if !isMatchingMainWindow {
+                        print("🚫 主窗口: 忽略handleMapPinTap通知 - 目标窗口不匹配 (\(targetWindowId))")
+                        return
+                    }
+                    print("🎯 主窗口: 处理指定目标的地图节点点击 (targetWindowId: \(targetWindowId))")
+                } else {
+                    // 如果没有指定目标窗口ID，则使用WindowFocusManager进行活跃窗口检查
+                    guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: false, commandName: "handleMapPinTap") else {
+                        print("🚫 主窗口: 忽略handleMapPinTap通知 - 窗口非活跃状态且无目标窗口ID")
+                        return
+                    }
+                    print("✅ 主窗口: 作为活跃窗口处理地图节点点击")
+                }
+                
+                print("🗺️ 主窗口: 处理地图标注点击 - 节点: \(targetNode.text), 层: \(targetLayer.displayName)")
+                
+                // 执行层切换和标签展开操作
+                Task {
+                    await store.switchToLayer(targetLayer)
+                    
+                    await MainActor.run {
+                        store.expandLocationTagAndSelect(targetNode)
+                        print("✅ 主窗口: 已切换到层 '\(targetLayer.displayName)' 并展开地点标签")
+                        
+                        // 发送通知切换到地图标签
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            NotificationCenter.default.post(
+                                name: NSNotification.Name("switchToMapTab"),
+                                object: targetNode
+                            )
+                        }
+                    }
+                }
             }
         }
         .defaultSize(width: 1200, height: 800)
@@ -2600,6 +2774,7 @@ struct WordTaggerApp: App {
                 .environmentObject(store)
         }
         .defaultSize(width: 1000, height: 700)
+        .handlesExternalEvents(matching: Set(arrayLiteral: "map"))
         
         // 图谱窗口
         WindowGroup("全局图谱", id: "graph") {
@@ -3547,7 +3722,7 @@ struct IndependentWindowModifier: ViewModifier {
                 NotificationCenter.default.post(name: NSNotification.Name("switchToGraphTab"), object: nil)
             })
             .focusedSceneValue(\.clearTagFilter, ShowCardAction {
-                NotificationCenter.default.post(name: NSNotification.Name("clearAllFilters"), object: nil)
+                NotificationCenter.default.post(name: NSNotification.Name("clearTagFilter"), object: nil)
             })
             .focusedSceneValue(\.openTagSearch, ShowCardAction {
                 NotificationCenter.default.post(name: NSNotification.Name("switchToTagSearch"), object: nil)
@@ -3620,14 +3795,6 @@ struct IndependentWindowModifier: ViewModifier {
                 print("✅ 独立窗口: 处理openQuickSearch通知 - 打开快速搜索")
                 showQuickSearch = true
             }
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openMapWindow"))) { _ in
-                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
-                    print("🚫 独立窗口: 忽略openMapWindow通知 - 应用无活跃窗口")
-                    return
-                }
-                print("✅ 独立窗口: 处理openMapWindow通知 - 打开地图窗口")
-                NotificationCenter.default.post(name: NSNotification.Name("executeOpenMapWindow"), object: "independent")
-            }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openGraphWindow"))) { _ in
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
                     print("🚫 独立窗口: 忽略openGraphWindow通知 - 应用无活跃窗口")
@@ -3635,6 +3802,41 @@ struct IndependentWindowModifier: ViewModifier {
                 }
                 print("✅ 独立窗口: 处理openGraphWindow通知 - 打开图谱窗口")
                 NotificationCenter.default.post(name: NSNotification.Name("executeOpenGraphWindow"), object: "independent")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("requestMapForLocationSelection"))) { notification in
+                // 🔧 处理来自QuickAddSheetView的位置选择请求
+                if let requestSource = notification.object as? String {
+                    if requestSource == "INDEPENDENT_WINDOW" {
+                        print("📍 独立窗口: 处理位置选择请求，打开地图")
+                        NotificationCenter.default.post(name: NSNotification.Name("executeOpenMapWindow"), object: ["sourceWindowId": windowId.uuidString])
+                    } else {
+                        print("📍 独立窗口: 忽略主窗口的位置选择请求")
+                    }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openMapWindow"))) { notification in
+                // 🔧 修复：检查通知是否包含源窗口信息，如果包含则只有匹配的窗口才处理
+                if let sourceInfo = notification.object as? [String: String],
+                   let targetSourceWindowId = sourceInfo["sourceWindowId"] {
+                    print("🎯 独立窗口: 收到带源窗口ID的openMapWindow通知 - \(targetSourceWindowId.prefix(8))")
+                    
+                    // 检查是否是发给这个独立窗口的
+                    if targetSourceWindowId == windowId.uuidString {
+                        print("✅ 独立窗口: 处理指定给当前独立窗口的openMapWindow通知")
+                        NotificationCenter.default.post(name: NSNotification.Name("executeOpenMapWindow"), object: ["sourceWindowId": windowId.uuidString])
+                    } else {
+                        print("🚫 独立窗口: 忽略发给其他窗口的openMapWindow通知 - 目标: \(targetSourceWindowId.prefix(8)), 当前: \(windowId.uuidString.prefix(8))")
+                    }
+                    return
+                }
+                
+                // 如果没有源窗口信息，使用原有的全局命令逻辑（向后兼容）
+                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
+                    print("🚫 独立窗口: 忽略openMapWindow通知 - 应用无活跃窗口")
+                    return
+                }
+                print("✅ 独立窗口: 处理openMapWindow通知 - 打开地图窗口")
+                NotificationCenter.default.post(name: NSNotification.Name("executeOpenMapWindow"), object: ["sourceWindowId": windowId.uuidString])
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagManager"))) { _ in
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "openTagManager") else {
@@ -3679,12 +3881,71 @@ struct IndependentWindowModifier: ViewModifier {
                 NotificationCenter.default.post(name: NSNotification.Name("executeGraphTabSwitch"), object: nil)
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("clearTagFilter"))) { _ in
-                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId) else {
-                    print("🚫 独立窗口: 忽略clearTagFilter通知 - 窗口非活跃状态")
+                // clearTagFilter是全局命令，应该在任何活跃窗口中可用
+                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "clearTagFilter") else {
+                    print("🚫 独立窗口: 忽略clearTagFilter通知 - 应用无活跃窗口")
                     return
                 }
                 print("✅ 独立窗口: 处理clearTagFilter通知，清除标签筛选")
-                NotificationCenter.default.post(name: NSNotification.Name("clearAllFilters"), object: nil)
+                store.clearTagFilter()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("handleMapPinTap"))) { notification in
+                guard let userInfo = notification.userInfo,
+                      let targetNodeId = userInfo["targetNodeId"] as? String,
+                      let targetLayerId = userInfo["targetLayerId"] as? String else {
+                    print("⚠️ 独立窗口: handleMapPinTap通知格式错误 - 缺少节点ID或层ID")
+                    return
+                }
+                
+                // 🔧 从当前store实例中查找对应的节点和层
+                guard let targetNodeUUID = UUID(uuidString: targetNodeId),
+                      let targetNode = store.nodes.first(where: { $0.id == targetNodeUUID }) else {
+                    print("⚠️ 独立窗口: 未在当前store中找到目标节点 - ID: \(targetNodeId.prefix(8))")
+                    return
+                }
+                
+                guard let targetLayerUUID = UUID(uuidString: targetLayerId),
+                      let targetLayer = store.layers.first(where: { $0.id == targetLayerUUID }) else {
+                    print("⚠️ 独立窗口: 未在当前store中找到目标层 - ID: \(targetLayerId.prefix(8))")
+                    return
+                }
+                
+                // 🔧 重新设计通知路由逻辑：优先检查目标窗口ID，然后检查活跃状态
+                // 如果指定了目标窗口ID，必须完全匹配才处理
+                if let targetWindowId = userInfo["targetWindowId"] as? String {
+                    if targetWindowId != windowId.uuidString {
+                        print("🚫 独立窗口: 忽略handleMapPinTap通知 - 目标窗口不匹配 (\(targetWindowId.prefix(8)))")
+                        return
+                    }
+                    print("🎯 独立窗口: 处理指定目标的地图节点点击")
+                } else {
+                    // 如果没有指定目标窗口ID，则使用WindowFocusManager进行活跃窗口检查
+                    guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: false, commandName: "handleMapPinTap") else {
+                        print("🚫 独立窗口: 忽略handleMapPinTap通知 - 窗口非活跃状态且无目标窗口ID")
+                        return
+                    }
+                    print("✅ 独立窗口: 作为活跃窗口处理地图节点点击")
+                }
+                
+                print("🗺️ 独立窗口: 处理地图标注点击 - 节点: \(targetNode.text), 层: \(targetLayer.displayName)")
+                
+                // 执行层切换和标签展开操作
+                Task {
+                    await store.switchToLayer(targetLayer)
+                    
+                    await MainActor.run {
+                        store.expandLocationTagAndSelect(targetNode)
+                        print("✅ 独立窗口: 已切换到层 '\(targetLayer.displayName)' 并展开地点标签")
+                        
+                        // 发送通知切换到地图标签
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            NotificationCenter.default.post(
+                                name: NSNotification.Name("switchToMapTab"),
+                                object: targetNode
+                            )
+                        }
+                    }
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("executeOpenNodeManager"))) { notification in
                 // 只处理来自独立窗口的请求
@@ -3699,6 +3960,58 @@ struct IndependentWindowModifier: ViewModifier {
                     openWindow(id: "nodeManager")
                 } else {
                     print("🚫 独立窗口: 忽略来自主窗口的节点管理请求")
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("executeOpenMapWindow"))) { notification in
+                // 🔧 关键修复：独立窗口处理executeOpenMapWindow通知
+                print("🗺️ 独立窗口中间层: 收到executeOpenMapWindow通知")
+                print("🗺️ 独立窗口中间层: notification.object = \(notification.object ?? "nil")")
+                
+                if let sourceInfo = notification.object as? [String: String] {
+                    print("🗺️ 独立窗口中间层: 转发窗口映射信息给地图窗口，sourceInfo: \(sourceInfo)")
+                    // 转发给地图窗口，使用不同的通知名称避免循环
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("mapWindowSetupMapping"),
+                        object: sourceInfo
+                    )
+                    
+                    // 实际打开地图窗口
+                    print("🗺️ 独立窗口: 打开地图窗口")
+                    openWindow(id: "map")
+                } else {
+                    print("⚠️ 独立窗口中间层: executeOpenMapWindow通知缺少sourceInfo，使用默认值")
+                    // 使用默认的独立窗口ID
+                    let defaultSourceInfo = ["sourceWindowId": windowId.uuidString]
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("mapWindowSetupMapping"),
+                        object: defaultSourceInfo
+                    )
+                    
+                    // 实际打开地图窗口
+                    print("🗺️ 独立窗口: 打开地图窗口（使用默认参数）")
+                    openWindow(id: "map")
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("requestWindowMapping"))) { notification in
+                // 独立窗口处理窗口映射请求 - 这是关键修复！
+                print("🔧 独立窗口: 收到窗口映射请求")
+                
+                if let requestInfo = notification.object as? [String: String],
+                   let childWindowId = requestInfo["childWindowId"],
+                   let windowType = requestInfo["windowType"] {
+                    print("🔧 独立窗口: 处理窗口映射请求 - 窗口类型: \(windowType), 子窗口ID: \(childWindowId.prefix(8))")
+                    
+                    // 独立窗口的ID作为源窗口
+                    let sourceWindowId = windowId.uuidString
+                    print("🔧 独立窗口: 使用独立窗口作为源窗口ID: \(sourceWindowId.prefix(8))")
+                    
+                    // 发送映射信息
+                    let mappingInfo = ["sourceWindowId": sourceWindowId]
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("mapWindowSetupMapping"),
+                        object: mappingInfo
+                    )
+                    print("🔧 独立窗口: 已发送窗口映射信息到 \(windowType) 窗口")
                 }
             }
     }

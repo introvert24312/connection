@@ -5,6 +5,7 @@ import MapKit
 struct MapContainer: View {
     @EnvironmentObject private var store: NodeStore
     @Binding var isLocationSelectionMode: Bool
+    var sourceWindowId: String? = nil
     @State private var region = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 39.9042, longitude: 116.4074), // 北京
         span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
@@ -40,6 +41,7 @@ struct MapContainer: View {
         .onAppear {
             locationManager.requestLocation()
             print("MapContainer appeared, isLocationSelectionMode: \(isLocationSelectionMode)")
+            print("🔗 MapContainer: sourceWindowId = \(sourceWindowId ?? "nil")")
             
             // 监听位置选择模式通知
             NotificationCenter.default.addObserver(
@@ -792,31 +794,49 @@ struct MapContainer: View {
         
         print("🎯 目标层: \(targetLayer.displayName)")
         
-        // 2. 切换到目标层并展开标签
-        Task {
-            await store.switchToLayer(targetLayer)
+        // 2. 🔧 修复：使用ID而不是对象，避免跨store实例的问题
+        let userInfo: [String: Any] = [
+            "targetNodeId": node.id.uuidString,
+            "targetLayerId": targetLayer.id.uuidString,
+            "targetNodeText": node.text, // 用于调试
+            "targetLayerName": targetLayer.displayName // 用于调试
+        ]
+        
+        // 如果有sourceWindowId（来自MapWindow），使用映射系统发送
+        print("🔍 MapContainer: 检查sourceWindowId状态")
+        print("🔍 MapContainer: sourceWindowId = \(sourceWindowId ?? "nil")")
+        
+        if let sourceWindowId = sourceWindowId {
+            // 直接发送到指定的源窗口
+            var finalUserInfo = userInfo
+            finalUserInfo["targetWindowId"] = sourceWindowId
+            finalUserInfo["fromMapWindow"] = true
             
-            // 3. 在主线程上进行UI操作 - 使用专门的地图标签展开方法
-            await MainActor.run {
-                // 使用专门的地图标签展开方法，这会：
-                // - 展开location标签类型
-                // - 选中具体的地点标签
-                // - 显示所有带这个地点标签的节点
-                // - 在筛选结果中选中被点击的节点
-                store.expandLocationTagAndSelect(node)
-                print("✅ 已切换到层 '\(targetLayer.displayName)' 并展开地点标签 '\(node.text)'")
-                
-                // 4. 发送通知请求切换到地图标签（这样用户可以看到地图上的定位）
-                // 延迟一点确保层切换和标签展开完成
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    // 发送通知切换详情面板到地图标签
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("switchToMapTab"),
-                        object: node
-                    )
-                }
-            }
+            print("🎯 MapContainer: 直接发送到源窗口 - \(sourceWindowId)")
+            
+            NotificationCenter.default.post(
+                name: NSNotification.Name("handleMapPinTap"),
+                object: nil,
+                userInfo: finalUserInfo
+            )
+        } else {
+            // 没有源窗口信息，使用默认的主窗口
+            print("🔧 MapContainer: sourceWindowId为空，使用默认主窗口")
+            var finalUserInfo = userInfo
+            finalUserInfo["targetWindowId"] = "MAIN_WINDOW" // 🔧 使用固定的主窗口ID
+            finalUserInfo["fromMapWindow"] = true
+            
+            print("🎯 MapContainer: 发送到默认主窗口")
+            
+            NotificationCenter.default.post(
+                name: NSNotification.Name("handleMapPinTap"),
+                object: nil,
+                userInfo: finalUserInfo
+            )
         }
+        
+        print("✅ MapContainer: handleMapPinTap 通知已发送")
+        print("📋 通知内容: 节点=\(node.text), 层=\(targetLayer.displayName)")
     }
 }
 
@@ -1614,6 +1634,6 @@ struct ManualCoordinateInputView: View {
 
 
 #Preview {
-    MapContainer(isLocationSelectionMode: .constant(false))
+    MapContainer(isLocationSelectionMode: .constant(false), sourceWindowId: nil)
         .environmentObject(NodeStore.shared)
 }
