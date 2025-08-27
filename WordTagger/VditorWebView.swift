@@ -94,6 +94,52 @@ struct VditorWebView: NSViewRepresentable {
 
         // 文本变化：在 ready 后才下发
         if context.coordinator.isReady {
+            // 🚀 增强的内容覆盖保护机制
+            let currentContent = context.coordinator.latestMarkdown
+            let newContent = markdown
+            
+            // 多层保护策略：
+            // 1. 防止空内容或极短内容覆盖有实质内容的现有内容
+            let isNewContentTrivial = newContent.isEmpty || 
+                                     newContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || 
+                                     newContent == "\n" || 
+                                     newContent.count <= 2
+            
+            let hasSubstantialCurrentContent = currentContent.count > 10 // 至少10个字符才算有实质内容
+            
+            if hasSubstantialCurrentContent && isNewContentTrivial {
+                print("🛡️ 第一层保护：阻止空内容覆盖实质内容")
+                print("🛡️ 当前:\(currentContent.count)字符, 新:\(newContent.count)字符")
+                print("🛡️ 新内容: '\(newContent)'")
+                return
+            }
+            
+            // 2. 防止内容大幅缩减（可能是图片插入后被意外覆盖）
+            let thresholdLength = Int(Double(currentContent.count) * 0.3)
+            if !currentContent.isEmpty && newContent.count < thresholdLength {
+                let reductionPercent = Int((1.0 - Double(newContent.count) / Double(currentContent.count)) * 100)
+                print("🛡️ 第二层保护：阻止内容大幅缩减")
+                print("🛡️ 当前:\(currentContent.count)字符, 新:\(newContent.count)字符 (缩减\(reductionPercent)%)")
+                return
+            }
+            
+            // 3. 检测图片链接丢失（特殊保护）
+            let currentImageCount = currentContent.components(separatedBy: "![").count - 1
+            let newImageCount = newContent.components(separatedBy: "![").count - 1
+            
+            if currentImageCount > newImageCount {
+                print("🛡️ 第三层保护：检测到图片链接丢失")
+                print("🛡️ 当前图片数:\(currentImageCount), 新图片数:\(newImageCount)")
+                return
+            }
+            
+            // 4. 如果内容相同，跳过更新避免不必要的重渲染
+            if currentContent == newContent {
+                print("🔄 内容相同，跳过更新")
+                return
+            }
+            
+            print("✅ 内容保护检查通过，更新编辑器内容")
             context.coordinator.setMarkdown(markdown, forceUpdate: false)
         } else {
             context.coordinator.latestMarkdown = markdown
@@ -147,7 +193,10 @@ struct VditorWebView: NSViewRepresentable {
                 if let fileName = body["fileName"] as? String,
                    let base64Data = body["data"] as? String,
                    let imageData = Data(base64Encoded: base64Data) {
-                    saveImageToFile(fileName: fileName, data: imageData)
+                    let loadingId = body["loadingId"] as? String
+                    let directMode = body["directMode"] as? Bool ?? false
+                    print("🖼️ 收到saveImage请求: fileName=\(fileName), directMode=\(directMode)")
+                    saveImageToFile(fileName: fileName, data: imageData, loadingId: loadingId, directMode: directMode)
                 }
                 break
 
@@ -201,8 +250,10 @@ struct VditorWebView: NSViewRepresentable {
                 
             case "commandD":
                 // 转发 Command+D 给原生 App - 在图谱和详情标签间切换
+                print("🎯 VditorWebView: 收到 Command+D，发送标签切换通知")
                 DispatchQueue.main.async {
                     NotificationCenter.default.post(name: NSNotification.Name("toggleDetailPanelTab"), object: nil)
+                    print("✅ VditorWebView: toggleDetailPanelTab 通知已发送")
                 }
                 break
                 
@@ -297,19 +348,19 @@ struct VditorWebView: NSViewRepresentable {
             evaluateJS("window.__applyNativeTheme(\(isDark ? "true" : "false"));", delayMS: 0) // 立即执行，无延迟
         }
         
-        // 图片保存功能
-        private func saveImageToFile(fileName: String, data: Data) {
+        // 原生图片保存功能 - 绕过JavaScript回调机制
+        private func saveImageToFile(fileName: String, data: Data, loadingId: String? = nil, directMode: Bool = true) {
             // 强制使用外部数据管理器获取图片路径，不提供后备选项
             guard let imagesURL = ExternalDataManager.shared.getImagesURL() else {
                 print("错误：必须先设置外部数据存储路径才能保存图片")
-                evaluateJS("window.__onImageSaveError && window.__onImageSaveError('\(fileName)', '请先在设置中选择数据存储文件夹');")
+                showImageSaveError(fileName: fileName, error: "请先在设置中选择数据存储文件夹", loadingId: loadingId)
                 return
             }
             
             // 确保外部数据管理器有访问权限
             guard ExternalDataManager.shared.ensureAccess() else {
                 print("错误：无法访问外部数据存储路径")
-                evaluateJS("window.__onImageSaveError && window.__onImageSaveError('\(fileName)', '无法访问数据存储文件夹，请重新选择');")
+                showImageSaveError(fileName: fileName, error: "无法访问数据存储文件夹，请重新选择", loadingId: loadingId)
                 return
             }
             
@@ -322,14 +373,251 @@ struct VditorWebView: NSViewRepresentable {
             do {
                 // 直接保存原始图片，不压缩
                 try data.write(to: fileURL)
-                print("图片已保存到: \(fileURL.path)")
+                print("✅ 图片已保存到: \(fileURL.path)")
                 
-                // 通知前端保存成功
+                // 🚀 使用原生Swift方法直接插入图片链接，不依赖JavaScript回调
                 let relativePath = "Images/\(fileName)"
-                evaluateJS("window.__onImageSaved && window.__onImageSaved('\(fileName)', '\(relativePath)');")
+                
+                if directMode {
+                    print("🚀 使用直接插入模式")
+                    nativeInsertImageLink(fileName: fileName, relativePath: relativePath, loadingId: loadingId)
+                } else {
+                    print("🔄 使用传统回调模式")
+                    // 传统模式：通过JavaScript回调更新
+                    let jsCallback = "window.__onImageSaved('\(fileName)', '\(relativePath)', '\(loadingId ?? "")');"
+                    evaluateJS(jsCallback)
+                }
+                
             } catch {
-                print("保存图片失败: \(error)")
-                evaluateJS("window.__onImageSaveError && window.__onImageSaveError('\(fileName)', '\(error.localizedDescription)');")
+                print("❌ 保存图片失败: \(error)")
+                showImageSaveError(fileName: fileName, error: error.localizedDescription, loadingId: loadingId)
+            }
+        }
+        
+        // 🚀 简化版图片链接插入 - 直接插入最终链接，无占位符
+        private func nativeInsertImageLink(fileName: String, relativePath: String, loadingId: String?) {
+            print("🚀 使用简化机制直接插入图片链接: \(fileName)")
+            print("   - 相对路径: \(relativePath)")
+            
+            guard let webView = webView else {
+                print("❌ WebView为nil，无法插入图片链接")
+                return
+            }
+            
+            // 生成最终的markdown图片链接
+            let imageMarkdown = "![\(fileName)](\(relativePath))"
+            print("📝 生成的图片链接: \(imageMarkdown)")
+            
+            // 🎯 简化策略：直接插入最终图片链接，无需处理占位符
+            let escapedImageMarkdown = Self.escapeForJavaScript(imageMarkdown)
+            
+            let directInsertJS = """
+            try {
+                // 首先检查Vditor是否可用
+                if (!window.vditor) {
+                    console.error('❌ window.vditor不存在');
+                    return { success: false, error: 'VDITOR_NOT_FOUND' };
+                }
+                
+                if (typeof window.vditor.getValue !== 'function') {
+                    console.error('❌ vditor.getValue函数不可用');
+                    return { success: false, error: 'GET_VALUE_UNAVAILABLE' };
+                }
+                
+                if (typeof window.vditor.setValue !== 'function') {
+                    console.error('❌ vditor.setValue函数不可用');
+                    return { success: false, error: 'SET_VALUE_UNAVAILABLE' };
+                }
+                
+                // 清理任何现有的loading占位符
+                const imageMarkdown = `\(escapedImageMarkdown)`;
+                let currentContent = window.vditor.getValue() || '';
+                console.log('🎯 直接插入模式 - 当前内容长度: ' + currentContent.length);
+                
+                // 移除所有loading占位符
+                const loadingPattern = /!\\[加载中\\.\\.\\.\\]\\([^)]+\\)/g;
+                const cleanedContent = currentContent.replace(loadingPattern, '');
+                console.log('🧹 清理loading占位符: ' + (currentContent.length - cleanedContent.length) + ' 字符被移除');
+                
+                // 检查是否已经存在相同的图片链接，避免重复插入
+                if (cleanedContent.includes(imageMarkdown)) {
+                    console.log('⚠️ 图片链接已存在，跳过重复插入');
+                    return {
+                        success: true,
+                        content: cleanedContent,
+                        operation: 'DUPLICATE_SKIP'
+                    };
+                }
+                
+                // 添加图片链接
+                const separator = cleanedContent.endsWith('\\n') ? '' : '\\n';
+                const finalContent = cleanedContent + separator + imageMarkdown;
+                
+                console.log('📎 直接插入图片链接: ' + imageMarkdown);
+                
+                // 使用setValue更新内容
+                window.vditor.setValue(finalContent);
+                console.log('✅ 直接插入完成，最终内容长度: ' + finalContent.length);
+                
+                return {
+                    success: true,
+                    content: finalContent,
+                    operation: 'DIRECT_INSERT'
+                };
+            } catch(e) {
+                console.error('❌ 直接插入异常: ' + e.message);
+                console.error('❌ 异常堆栈: ' + e.stack);
+                return { success: false, error: e.message, stack: e.stack };
+            }
+            """
+            
+            // 执行直接插入操作并立即同步状态
+            webView.evaluateJavaScript(directInsertJS) { [weak self] result, error in
+                guard let self = self else { 
+                    print("❌ self已被释放，无法处理图片插入结果")
+                    return 
+                }
+                
+                if let error = error {
+                    print("❌ 直接图片插入JavaScript执行失败:")
+                    print("   - 错误信息: \(error.localizedDescription)")
+                    print("   - 错误代码: \((error as NSError).code)")
+                    print("   - 错误域: \((error as NSError).domain)")
+                    print("🔄 启动备用插入方案...")
+                    self.fallbackImageInsert(imageMarkdown: imageMarkdown, loadingId: loadingId)
+                    return
+                }
+                
+                // 解析JavaScript返回的结果
+                if let resultDict = result as? [String: Any] {
+                    print("📊 JavaScript返回结果: \(resultDict)")
+                    
+                    if let success = resultDict["success"] as? Bool {
+                        if success {
+                            let operation = resultDict["operation"] as? String ?? "UNKNOWN"
+                            print("🎉 直接插入成功完成: \(operation)")
+                            
+                            if let finalContent = resultDict["content"] as? String {
+                                print("📄 最终内容长度: \(finalContent.count)字符")
+                                print("🔍 内容预览: \(String(finalContent.suffix(200)))")
+                                
+                                // 🚀 关键：立即同步latestMarkdown状态，阻止后续覆盖
+                                self.latestMarkdown = finalContent
+                                print("🔄 latestMarkdown已同步，长度: \(self.latestMarkdown.count)")
+                            }
+                            
+                            // 发送成功通知
+                            DispatchQueue.main.async {
+                                NotificationCenter.default.post(
+                                    name: NSNotification.Name("imageInsertSuccess"),
+                                    object: nil,
+                                    userInfo: [
+                                        "fileName": fileName,
+                                        "relativePath": relativePath,
+                                        "operation": operation
+                                    ]
+                                )
+                            }
+                        } else {
+                            let errorMsg = resultDict["error"] as? String ?? "未知错误"
+                            let stack = resultDict["stack"] as? String
+                            print("⚠️ 直接插入报告错误: \(errorMsg)")
+                            if let stack = stack {
+                                print("🔍 错误堆栈: \(stack)")
+                            }
+                            print("🔄 启动备用插入方案...")
+                            self.fallbackImageInsert(imageMarkdown: imageMarkdown, loadingId: loadingId)
+                        }
+                    } else {
+                        print("⚠️ JavaScript结果缺少success字段")
+                        print("🔄 启动备用插入方案...")
+                        self.fallbackImageInsert(imageMarkdown: imageMarkdown, loadingId: loadingId)
+                    }
+                } else {
+                    print("⚠️ 无法解析直接插入结果为字典:")
+                    print("   - 结果类型: \(type(of: result))")
+                    print("   - 结果内容: \(String(describing: result))")
+                    print("🔄 启动备用插入方案...")
+                    self.fallbackImageInsert(imageMarkdown: imageMarkdown, loadingId: loadingId)
+                }
+            }
+        }
+        
+        // 📋 备用图片插入方案 - 当主要方案失败时使用
+        private func fallbackImageInsert(imageMarkdown: String, loadingId: String?) {
+            print("🔄 执行备用图片插入方案...")
+            
+            guard let webView = webView else {
+                print("❌ 备用方案失败: WebView为nil")
+                return
+            }
+            
+            // 更简单的备用插入方法
+            let fallbackJS = """
+            try {
+                // 尝试多种方式插入内容
+                if (window.vditor) {
+                    // 方法1: 直接插入值到编辑器
+                    if (typeof window.vditor.insertValue === 'function') {
+                        window.vditor.insertValue('\(imageMarkdown)');
+                        console.log('✅ 备用方案1成功: insertValue');
+                        'FALLBACK_INSERT_SUCCESS';
+                    }
+                    // 方法2: 获取当前内容并追加
+                    else if (typeof window.vditor.getValue === 'function' && typeof window.vditor.setValue === 'function') {
+                        const current = window.vditor.getValue() || '';
+                        const separator = current.endsWith('\\n') ? '' : '\\n';
+                        window.vditor.setValue(current + separator + '\(imageMarkdown)');
+                        console.log('✅ 备用方案2成功: getValue+setValue');
+                        'FALLBACK_APPEND_SUCCESS';
+                    } else {
+                        console.error('❌ 所有备用方案都失败');
+                        'FALLBACK_FAILED';
+                    }
+                } else {
+                    console.error('❌ window.vditor不存在');
+                    'FALLBACK_NO_VDITOR';
+                }
+            } catch(e) {
+                console.error('❌ 备用方案异常: ' + e.message);
+                'FALLBACK_ERROR: ' + e.message;
+            }
+            """
+            
+            webView.evaluateJavaScript(fallbackJS) { result, error in
+                if let error = error {
+                    print("❌ 备用图片插入方案也失败: \(error.localizedDescription)")
+                    print("💥 所有图片插入方案均失败，需要用户手动刷新或检查WebView状态")
+                } else {
+                    let resultString = result as? String ?? "nil"
+                    print("🔄 备用方案执行结果: \(resultString)")
+                    
+                    if resultString.contains("SUCCESS") {
+                        print("✅ 备用方案成功挽救了图片插入！")
+                    } else {
+                        print("💥 备用方案最终失败: \(resultString)")
+                    }
+                }
+            }
+        }
+        
+        // 显示图片保存错误
+        private func showImageSaveError(fileName: String, error: String, loadingId: String?) {
+            // 尝试通过JavaScript显示错误
+            let loadingIdParam = loadingId != nil ? "'\(loadingId!)'" : "null"
+            evaluateJS("window.__onImageSaveError && window.__onImageSaveError('\(fileName)', '\(error)', \(loadingIdParam));")
+            
+            // 同时通过原生方式显示错误（备用）
+            DispatchQueue.main.async {
+                // 可以在这里添加原生错误提示，比如通知或弹窗
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("imageInsertError"),
+                    object: nil,
+                    userInfo: [
+                        "fileName": fileName,
+                        "error": error
+                    ]
+                )
             }
         }
         
@@ -374,17 +662,42 @@ struct VditorWebView: NSViewRepresentable {
             NotificationCenter.default.post(name: NSNotification.Name("webViewDidLoad"), object: nil)
         }
         
-        // Helpers
+        // 简化的JavaScript执行助手（移除了图片回调失败处理）
         private func evaluateJS(_ js: String, delayMS: Int = 0) {
-            guard let webView = webView else { return }
+            guard let webView = webView else { 
+                print("❌ evaluateJS: webView为nil")
+                return 
+            }
+            
+            let executeJS = { [weak webView] in
+                guard let webView = webView else { 
+                    print("❌ evaluateJS: webView已被释放")
+                    return 
+                }
+                
+                print("🔄 执行JavaScript: \(js.prefix(100))...")
+                webView.evaluateJavaScript(js) { result, error in
+                    if let error = error {
+                        print("❌ JavaScript执行失败: \(error.localizedDescription)")
+                        print("   JS代码: \(js)")
+                    } else {
+                        print("✅ JavaScript执行成功")
+                        if let result = result {
+                            print("   返回值: \(result)")
+                        }
+                    }
+                }
+            }
+            
             if delayMS <= 0 {
-                webView.evaluateJavaScript(js, completionHandler: nil)
+                executeJS()
             } else {
                 DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(delayMS)) {
-                    webView.evaluateJavaScript(js, completionHandler: nil)
+                    executeJS()
                 }
             }
         }
+        
 
         static func escapeForJavaScript(_ string: String) -> String {
             string
@@ -678,6 +991,39 @@ struct VditorWebView: NSViewRepresentable {
               });
             }
 
+            // 🚀 精简的回调函数 - 仅用于调试和兼容性
+            window.__onImageSaved = (name, path, id) => {
+              console.log(`🖼️ [传统模式] __onImageSaved 被调用: name=${name}, path=${path}, id=${id}`);
+              
+              // 仅在传统模式下处理loading占位符替换
+              if (id && id !== '') {
+                const content = window.vditor ? window.vditor.getValue() : '';
+                const targetMark = `![加载中...](${id})`;
+                
+                if (content.includes(targetMark) && window.vditor) {
+                  const fileName = name.split('/').pop() || name;
+                  const updated = content.replace(targetMark, `![${fileName}](${path})`);
+                  window.vditor.setValue(updated);
+                  console.log(`🖼️ [传统模式] 替换成功: ${targetMark} -> ![${fileName}](${path})`);
+                }
+              } else {
+                console.log(`🖼️ [传统模式] 无loadingId，跳过占位符处理`);
+              }
+            };
+            
+            window.__onImageSaveError = (name, error, id) => {
+              console.error(`🖼️ [传统模式] 图片保存失败: ${error}`);
+              alert(`保存图片失败: ${error}`);
+              
+              // 清理loading占位符
+              if (id && id !== '' && window.vditor) {
+                const content = window.vditor.getValue();
+                const targetMark = `![加载中...](${id})`;
+                const updated = content.replace(targetMark, '');
+                window.vditor.setValue(updated);
+              }
+            };
+
             // Vditor 初始化（固定浅色占位；真实主题由 Native 注入）
             const vditor = new Vditor('vditor', {
               mode: 'ir',
@@ -850,41 +1196,37 @@ struct VditorWebView: NSViewRepresentable {
                     const ext = file.name.split('.').pop() || 'jpg';
                     const fileName = `img_${timestamp}.${ext}`;
                     
-                    // 显示加载提示
-                    vditor.insertValue(`![加载中...]()`);
+                    console.log(`🖼️ 开始处理图片上传: ${fileName}`);
+                    console.log(`🖼️ 使用直接插入模式，跳过loading占位符`);
                     
+                    // 🚀 直接模式：不插入loading占位符，让Swift端直接插入最终链接
                     // 读取文件
                     const reader = new FileReader();
                     reader.onload = (e) => {
                       const base64 = e.target.result.split(',')[1]; // 去掉 data:image/xxx;base64, 前缀
                       
-                      // 发送到 Swift 保存
+                      console.log(`🖼️ 文件读取完成，发送到Swift处理: ${fileName}`);
+                      
+                      // 发送到 Swift 保存，不传递loadingId（表示使用直接插入模式）
                       window.webkit?.messageHandlers?.bridge?.postMessage({ 
                         type: 'saveImage',
                         fileName: fileName,
-                        data: base64
+                        data: base64,
+                        directMode: true  // 标记为直接插入模式
                       });
                       
-                      // 设置回调处理
-                      window.__onImageSaved = (name, path) => {
-                        // 替换加载提示为实际图片路径（使用相对路径）
-                        const content = vditor.getValue();
-                        const updated = content.replace('![加载中...]()', `![${file.name}](${path})`);
-                        vditor.setValue(updated);
-                      };
-                      
-                      window.__onImageSaveError = (name, error) => {
-                        alert(`保存图片失败: ${error}`);
-                        const content = vditor.getValue();
-                        const updated = content.replace('![加载中...]()', '');
-                        vditor.setValue(updated);
-                      };
+                      console.log(`🖼️ 图片上传请求已发送到Swift，等待直接插入...`);
+                    };
+                    
+                    reader.onerror = (error) => {
+                      console.error('🖼️ 文件读取失败:', error);
+                      alert('文件读取失败');
                     };
                     
                     reader.readAsDataURL(file);
                   } catch (error) {
-                    console.error('处理图片失败:', error);
-                    alert('处理图片失败');
+                    console.error('🖼️ 处理图片失败:', error);
+                    alert('处理图片失败: ' + error.message);
                   }
                   
                   return null; // 阻止默认处理
