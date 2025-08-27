@@ -12,9 +12,52 @@ struct ContentView: View {
     @State private var isDraggingDivider = false // 是否正在拖动分割线
     @Environment(\.openWindow) private var openWindow
     
+    // 状态管理 - 用于快捷键响应
+    @State private var showCommandPalette = false
+    @State private var showQuickSearch = false
+    @State private var showQuickAdd = false
+    @State private var showTagManager = false
+    
+    // 集中的防重复执行机制
+    @State private var commandCooldowns: [String: Date] = [:]
+    private let cooldownPeriod: TimeInterval = 0.5
+    
+    private func shouldExecuteCommand(_ commandName: String) -> Bool {
+        let now = Date()
+        if let lastExecution = commandCooldowns[commandName] {
+            let timeSinceLastExecution = now.timeIntervalSince(lastExecution)
+            if timeSinceLastExecution < cooldownPeriod {
+                print("🚫 忽略命令 '\(commandName)' - 冷却期内 (剩余: \(String(format: "%.3f", cooldownPeriod - timeSinceLastExecution))s)")
+                return false
+            }
+        }
+        commandCooldowns[commandName] = now
+        print("✅ 执行命令 '\(commandName)'")
+        return true
+    }
+    
     
 
     var body: some View {
+        mainContentView
+            .modifier(ContentViewModifier(
+                showSidebar: $showSidebar,
+                selectedNode: $selectedNode,
+                showingDataSetup: $showingDataSetup,
+                showCommandPalette: $showCommandPalette,
+                showQuickAdd: $showQuickAdd,
+                showTagManager: $showTagManager,
+                showQuickSearch: $showQuickSearch,
+                store: store,
+                dataManager: dataManager,
+                openWindow: openWindow
+            ))
+    }
+    
+    // MARK: - View Components
+    
+    @ViewBuilder
+    private var mainContentView: some View {
         HStack(spacing: 0) {
             // 左侧：标签和搜索
             if showSidebar {
@@ -51,398 +94,277 @@ struct ContentView: View {
             let maxWidth: CGFloat = newValue ? 350 : 400
             wordListWidth = max(minWidth, min(maxWidth, wordListWidth))
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("requestOpenFullscreenGraph"))) { _ in
-            Swift.print("📝 ContentView: 收到打开全屏图谱请求")
-            openWindow(id: "fullscreenGraph")
-        }
-        .onKeyPress(.init("t"), phases: .down) { keyPress in
-            if keyPress.modifiers == .command {
-                print("🔑 ContentView: Command+T键按下")
-                // 如果有选中的节点，切换到详情面板并切换编辑模式
-                if let node = selectedNode {
-                    print("🔑 ContentView: 有选中节点，切换详情编辑模式")
-                    // 发送通知给DetailPanel切换编辑模式
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("toggleDetailEditMode"),
-                        object: node
-                    )
-                    return .handled
-                } else {
-                    print("🔑 ContentView: 无选中节点，忽略Command+T")
-                    return .ignored
+    }
+}
+
+// MARK: - ContentViewModifier
+
+struct ContentViewModifier: ViewModifier {
+    @Binding var showSidebar: Bool
+    @Binding var selectedNode: Node?
+    @Binding var showingDataSetup: Bool
+    @Binding var showCommandPalette: Bool
+    @Binding var showQuickAdd: Bool
+    @Binding var showTagManager: Bool
+    @Binding var showQuickSearch: Bool
+    let store: NodeStore
+    let dataManager: ExternalDataManager
+    let openWindow: OpenWindowAction
+    
+    func body(content: Content) -> some View {
+        content
+            .modifier(ContentViewKeyboardModifier(
+                showSidebar: $showSidebar,
+                selectedNode: $selectedNode
+            ))
+            .modifier(ContentViewSheetModifier(
+                showingDataSetup: $showingDataSetup,
+                showCommandPalette: $showCommandPalette,
+                showQuickAdd: $showQuickAdd,
+                showTagManager: $showTagManager,
+                store: store
+            ))
+            .modifier(ContentViewFocusedValueModifier(
+                showSidebar: $showSidebar,
+                showCommandPalette: $showCommandPalette,
+                showQuickAdd: $showQuickAdd,
+                showTagManager: $showTagManager,
+                showQuickSearch: $showQuickSearch,
+                openWindow: openWindow
+            ))
+            .modifier(ContentViewLifecycleModifier(
+                selectedNode: $selectedNode,
+                showingDataSetup: $showingDataSetup,
+                store: store,
+                dataManager: dataManager
+            ))
+            .toolbar {
+                toolbarContent
+            }
+            .overlay {
+                if showQuickSearch {
+                    quickSearchOverlay
                 }
             }
-            return .ignored
-        }
-        .onKeyPress(.escape) {
-            if showSidebar {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    showSidebar = false
-                }
-                return .handled
-            }
-            return .ignored
-        }
-        // 移除重复的快捷键定义 - 统一使用 WordTaggerApp.commands 中的 Menu 快捷键
-        // 保留下列特殊的本地功能快捷键
-        .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                // GitHub同步状态指示器
-                GitSyncStatusIndicator()
-                
-                Divider()
-                
-                Button(action: {
-                    openWindow(id: "map")
-                }) {
-                    Image(systemName: "map")
-                        .foregroundColor(.blue)
-                }
-                .help("打开地图视图 (⌘M)")
-                
-                Button(action: {
-                    openWindow(id: "graph")
-                }) {
-                    Image(systemName: "circle.hexagonpath")
-                        .foregroundColor(.purple)
-                }
-                .help("打开全局图谱 (⌘G)")
-                
-                Button(action: {
-                    store.selectNode(nil)
-                    selectedNode = nil
-                }) {
-                    Image(systemName: "clear")
-                        .foregroundColor(.gray)
-                }
-                .help("清除选择")
-            }
-        }
-        .onAppear {
-            print("🚀 [DEBUG] ContentView.onAppear - 开始注册通知监听器，isSharedInstance: \(store.isSharedInstance)")
+    }
+    
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItemGroup(placement: .primaryAction) {
+            GitSyncStatusIndicator()
+            Divider()
             
-            // 注册通知监听器
-            
-            // 新的执行通知监听器
-            NotificationCenter.default.addObserver(
-                forName: NSNotification.Name("executeOpenMapWindow"),
-                object: nil,
-                queue: .main
-            ) { notification in
-                // executeOpenMapWindow 应该根据发送方区分处理
-                let isIndependentNotification = (notification.object as? String) == "independent"
-                let isMainWindow = store.isSharedInstance
-                
-                if isMainWindow && isIndependentNotification {
-                    print("🏠 ContentView(主): 忽略独立窗口的executeOpenMapWindow通知")
-                    return
-                }
-                if !store.isSharedInstance && !isIndependentNotification {
-                    print("🏠 ContentView(独立): 忽略主窗口的executeOpenMapWindow通知")
-                    return
-                }
-                
-                // 防重复执行机制：使用静态变量记录最近一次执行时间
-                struct ExecutionTracker {
-                    static var lastExecutionTime: [String: Date] = [:]
-                    static let cooldownPeriod: TimeInterval = 0.5 // 500ms冷却期
-                }
-                
-                let commandKey = isIndependentNotification ? "executeOpenMapWindow_independent" : "executeOpenMapWindow_main"
-                let now = Date()
-                
-                if let lastTime = ExecutionTracker.lastExecutionTime[commandKey] {
-                    let timeSinceLastExecution = now.timeIntervalSince(lastTime)
-                    if timeSinceLastExecution < ExecutionTracker.cooldownPeriod {
-                        print("🏠 ContentView: 忽略executeOpenMapWindow通知 - 冷却期内 (\(String(format: "%.3f", timeSinceLastExecution))s)")
-                        return
-                    }
-                }
-                
-                ExecutionTracker.lastExecutionTime[commandKey] = now
-                
-                print("🏠 ContentView: 处理executeOpenMapWindow通知 - 打开地图窗口")
+            Button(action: {
                 openWindow(id: "map")
+            }) {
+                Image(systemName: "map")
+                    .foregroundColor(.blue)
             }
+            .help("打开地图视图 (⌘M)")
             
-            NotificationCenter.default.addObserver(
-                forName: NSNotification.Name("executeOpenGraphWindow"),
-                object: nil,
-                queue: .main
-            ) { notification in
-                // executeOpenGraphWindow 应该根据发送方区分处理
-                let isIndependentNotification = (notification.object as? String) == "independent"
-                let isMainWindow = store.isSharedInstance
-                
-                if isMainWindow && isIndependentNotification {
-                    print("🏠 ContentView(主): 忽略独立窗口的executeOpenGraphWindow通知")
-                    return
-                }
-                if !store.isSharedInstance && !isIndependentNotification {
-                    print("🏠 ContentView(独立): 忽略主窗口的executeOpenGraphWindow通知")
-                    return
-                }
-                
-                // 防重复执行机制：使用静态变量记录最近一次执行时间
-                struct ExecutionTracker {
-                    static var lastExecutionTime: [String: Date] = [:]
-                    static let cooldownPeriod: TimeInterval = 0.5 // 500ms冷却期
-                }
-                
-                let commandKey = isIndependentNotification ? "executeOpenGraphWindow_independent" : "executeOpenGraphWindow_main"
-                let now = Date()
-                
-                if let lastTime = ExecutionTracker.lastExecutionTime[commandKey] {
-                    let timeSinceLastExecution = now.timeIntervalSince(lastTime)
-                    if timeSinceLastExecution < ExecutionTracker.cooldownPeriod {
-                        print("🏠 ContentView: 忽略executeOpenGraphWindow通知 - 冷却期内 (\(String(format: "%.3f", timeSinceLastExecution))s)")
-                        return
-                    }
-                }
-                
-                ExecutionTracker.lastExecutionTime[commandKey] = now
-                
-                print("🏠 ContentView: 处理executeOpenGraphWindow通知 - 打开图谱窗口")
+            Button(action: {
                 openWindow(id: "graph")
+            }) {
+                Image(systemName: "circle.hexagonpath")
+                    .foregroundColor(.purple)
             }
+            .help("打开全局图谱 (⌘G)")
             
-            NotificationCenter.default.addObserver(
-                forName: NSNotification.Name("executeOpenNodeManager"),
-                object: nil,
-                queue: .main
-            ) { notification in
-                // executeOpenNodeManager 应该根据发送方区分处理
-                // 主窗口发送 object: nil，独立窗口发送 object: "independent"
-                // 只处理与当前窗口类型匹配的通知
-                
-                let isIndependentNotification = (notification.object as? String) == "independent"
-                let isMainWindow = store.isSharedInstance
-                
-                // 如果是主窗口但收到独立窗口通知，或反之，则忽略
-                if isMainWindow && isIndependentNotification {
-                    print("🏠 ContentView(主): 忽略独立窗口的executeOpenNodeManager通知")
-                    return
+            Button(action: {
+                store.selectNode(nil)
+                selectedNode = nil
+            }) {
+                Image(systemName: "clear")
+                    .foregroundColor(.gray)
+            }
+            .help("清除选择")
+        }
+    }
+    
+    @ViewBuilder
+    private var quickSearchOverlay: some View {
+        QuickSearchView(
+            onDismiss: { 
+                showQuickSearch = false
+            },
+            onNodeSelected: { node in
+                if let nodeLayer = store.layers.first(where: { $0.id == node.layerId }) {
+                    store.setCurrentLayer(nodeLayer)
                 }
-                if !store.isSharedInstance && !isIndependentNotification {
-                    print("🏠 ContentView(独立): 忽略主窗口的executeOpenNodeManager通知")
-                    return
-                }
-                
-                // 防重复执行机制：使用静态变量记录最近一次执行时间
-                struct ExecutionTracker {
-                    static var lastExecutionTime: [String: Date] = [:]
-                    static let cooldownPeriod: TimeInterval = 0.5 // 500ms冷却期
-                }
-                
-                let commandKey = isIndependentNotification ? "executeOpenNodeManager_independent" : "executeOpenNodeManager_main"
-                let now = Date()
-                
-                if let lastTime = ExecutionTracker.lastExecutionTime[commandKey] {
-                    let timeSinceLastExecution = now.timeIntervalSince(lastTime)
-                    if timeSinceLastExecution < ExecutionTracker.cooldownPeriod {
-                        print("🏠 ContentView: 忽略executeOpenNodeManager通知 - 冷却期内 (\(String(format: "%.3f", timeSinceLastExecution))s)")
-                        return
-                    }
-                }
-                
-                ExecutionTracker.lastExecutionTime[commandKey] = now
-                
-                print("🏠 ContentView: 处理executeOpenNodeManager通知 - 打开节点管理器")
+                store.selectNode(node)
+                selectedNode = node
+                showQuickSearch = false
+            }
+        )
+        .environmentObject(store)
+        .transition(.opacity)
+        .zIndex(1000)
+    }
+}
+
+// MARK: - ContentView Sub-Modifiers
+
+struct ContentViewKeyboardModifier: ViewModifier {
+    @Binding var showSidebar: Bool
+    @Binding var selectedNode: Node?
+    
+    func body(content: Content) -> some View {
+        content
+            .onKeyPress(.init("t"), phases: .down) { keyPress in
+                handleCommandTKey(keyPress)
+            }
+            .onKeyPress(.escape) {
+                handleEscapeKey()
+            }
+    }
+    
+    private func handleCommandTKey(_ keyPress: KeyPress) -> KeyPress.Result {
+        if keyPress.modifiers == .command {
+            print("🔑 ContentView: Command+T键按下")
+            if let node = selectedNode {
+                print("🔑 ContentView: 有选中节点，切换详情编辑模式")
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("toggleDetailEditMode"),
+                    object: node
+                )
+                return .handled
+            } else {
+                print("🔑 ContentView: 无选中节点，忽略Command+T")
+                return .ignored
+            }
+        }
+        return .ignored
+    }
+    
+    private func handleEscapeKey() -> KeyPress.Result {
+        if showSidebar {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                showSidebar = false
+            }
+            return .handled
+        }
+        return .ignored
+    }
+}
+
+struct ContentViewSheetModifier: ViewModifier {
+    @Binding var showingDataSetup: Bool
+    @Binding var showCommandPalette: Bool
+    @Binding var showQuickAdd: Bool
+    @Binding var showTagManager: Bool
+    let store: NodeStore
+    
+    func body(content: Content) -> some View {
+        content
+            .sheet(isPresented: $showingDataSetup) {
+                DataFolderSetupView(isPresented: $showingDataSetup)
+            }
+            .sheet(isPresented: $showCommandPalette) {
+                CommandPaletteSheetView(isPresented: $showCommandPalette)
+                    .environmentObject(store)
+            }
+            .sheet(isPresented: $showQuickAdd) {
+                QuickAddSheetView()
+                    .environmentObject(store)
+            }
+            .sheet(isPresented: $showTagManager) {
+                TagManagerSheetView(isPresented: $showTagManager)
+            }
+    }
+}
+
+struct ContentViewFocusedValueModifier: ViewModifier {
+    @Binding var showSidebar: Bool
+    @Binding var showCommandPalette: Bool
+    @Binding var showQuickAdd: Bool
+    @Binding var showTagManager: Bool
+    @Binding var showQuickSearch: Bool
+    let openWindow: OpenWindowAction
+    
+    func body(content: Content) -> some View {
+        content
+            .focusedSceneValue(\.showCommandPalette, ShowCardAction {
+                showCommandPalette = true
+            })
+            .focusedSceneValue(\.addNewNode, ShowCardAction {
+                showQuickAdd = true
+            })
+            .focusedSceneValue(\.openQuickSearch, ShowCardAction {
+                showQuickSearch = true
+            })
+            .focusedSceneValue(\.openTagManager, ShowCardAction {
+                showTagManager = true
+            })
+            .focusedSceneValue(\.openNodeManager, ShowCardAction {
                 openWindow(id: "nodeManager")
-            }
-            
-            NotificationCenter.default.addObserver(
-                forName: NSNotification.Name("executeToggleSidebar"),
-                object: nil,
-                queue: .main
-            ) { notification in
-                // executeToggleSidebar 应该根据发送方区分处理
-                // 主窗口发送 object: nil，独立窗口发送 object: "independent"
-                // 只处理与当前窗口类型匹配的通知
-                
-                let isIndependentNotification = (notification.object as? String) == "independent"
-                let isMainWindow = store.isSharedInstance
-                
-                // 如果是主窗口但收到独立窗口通知，或反之，则忽略
-                if isMainWindow && isIndependentNotification {
-                    print("🏠 ContentView(主): 忽略独立窗口的executeToggleSidebar通知")
-                    return
-                }
-                if !store.isSharedInstance && !isIndependentNotification {
-                    print("🏠 ContentView(独立): 忽略主窗口的executeToggleSidebar通知") 
-                    return
-                }
-                
-                // 防重复执行机制：使用静态变量记录最近一次执行时间
-                struct ExecutionTracker {
-                    static var lastExecutionTime: [String: Date] = [:]
-                    static let cooldownPeriod: TimeInterval = 0.5 // 500ms冷却期
-                }
-                
-                let commandKey = isIndependentNotification ? "executeToggleSidebar_independent" : "executeToggleSidebar_main"
-                let now = Date()
-                
-                if let lastTime = ExecutionTracker.lastExecutionTime[commandKey] {
-                    let timeSinceLastExecution = now.timeIntervalSince(lastTime)
-                    if timeSinceLastExecution < ExecutionTracker.cooldownPeriod {
-                        print("🏠 ContentView: 忽略executeToggleSidebar通知 - 冷却期内 (\(String(format: "%.3f", timeSinceLastExecution))s)")
-                        return
-                    }
-                }
-                
-                ExecutionTracker.lastExecutionTime[commandKey] = now
-                
-                print("🏠 ContentView: 处理executeToggleSidebar通知 - 当前showSidebar=\(showSidebar)")
+            })
+            .focusedSceneValue(\.openMapWindow, ShowCardAction {
+                openWindow(id: "map")
+            })
+            .focusedSceneValue(\.openGraphWindow, ShowCardAction {
+                openWindow(id: "graph")
+            })
+            .focusedSceneValue(\.toggleSidebar, ShowCardAction {
                 withAnimation(.easeInOut(duration: 0.3)) {
                     showSidebar.toggle()
                 }
-                print("🏠 ContentView: executeToggleSidebar执行完成 - 新showSidebar=\(showSidebar)")
-            }
-            
-            // 只有主窗口（共享实例）监听 executeOpenWindow 通知
-            if store.isSharedInstance {
-                NotificationCenter.default.addObserver(
-                    forName: NSNotification.Name("executeOpenWindow"),
-                    object: nil,
-                    queue: .main
-                ) { notification in
-                    if let windowId = notification.object as? String {
-                        print("✅ [DEBUG] 主窗口收到executeOpenWindow通知，打开窗口: \(windowId)")
-                        openWindow(id: windowId)
-                    } else {
-                        print("⚠️ [WARNING] executeOpenWindow通知缺少windowId")
-                    }
-                }
-                
-                print("🔔 [DEBUG] 主窗口已注册executeOpenWindow通知监听")
-            } else {
-                print("🔔 [DEBUG] 独立窗口不监听executeOpenWindow通知")
-            }
-            
-            // 所有窗口都监听 openNewWindow 通知以便创建新的独立窗口
-            NotificationCenter.default.addObserver(
-                forName: NSNotification.Name("openNewWindow"),
-                object: nil,
-                queue: .main
-            ) { notification in
-                // 使用WindowFocusManager来防重复执行
-                // 注意：这里无法直接获取当前ContentView所属窗口的UUID，但可以通过isSharedInstance判断窗口类型
-                print("🔔 [DEBUG] ContentView收到openNewWindow通知，窗口类型: \(store.isSharedInstance ? "主窗口" : "独立窗口")")
-                
-                // 防重复执行机制：使用静态变量记录最近一次执行时间
-                struct ExecutionTracker {
-                    static var lastExecutionTime: Date?
-                    static let cooldownPeriod: TimeInterval = 0.5 // 500ms冷却期
-                }
-                
-                let now = Date()
-                
-                if let lastTime = ExecutionTracker.lastExecutionTime {
-                    let timeSinceLastExecution = now.timeIntervalSince(lastTime)
-                    if timeSinceLastExecution < ExecutionTracker.cooldownPeriod {
-                        print("🏠 ContentView: 忽略openNewWindow通知 - 冷却期内 (\(String(format: "%.3f", timeSinceLastExecution))s)")
-                        return
-                    }
-                }
-                
-                ExecutionTracker.lastExecutionTime = now
-                
-                print("✅ ContentView: 处理openNewWindow通知 - 打开新的独立窗口")
+            })
+            .focusedSceneValue(\.openNewWindow, ShowCardAction {
                 openWindow(id: "layerView")
+            })
+            .focusedSceneValue(\.switchToDetailTab, ShowCardAction {
+                NotificationCenter.default.post(name: NSNotification.Name("switchToDetailTab"), object: nil)
+            })
+            .focusedSceneValue(\.switchToGraphTab, ShowCardAction {
+                NotificationCenter.default.post(name: NSNotification.Name("switchToGraphTab"), object: nil)
+            })
+            .focusedSceneValue(\.clearTagFilter, ShowCardAction {
+                NotificationCenter.default.post(name: NSNotification.Name("clearAllFilters"), object: nil)
+            })
+            .focusedSceneValue(\.openTagSearch, ShowCardAction {
+                NotificationCenter.default.post(name: NSNotification.Name("switchToTagSearch"), object: nil)
+            })
+    }
+}
+
+struct ContentViewLifecycleModifier: ViewModifier {
+    @Binding var selectedNode: Node?
+    @Binding var showingDataSetup: Bool
+    let store: NodeStore
+    let dataManager: ExternalDataManager
+    
+    func body(content: Content) -> some View {
+        content
+            .onAppear {
+                handleOnAppear()
             }
-            
-            NotificationCenter.default.addObserver(
-                forName: Notification.Name("openMarkdownEditor"),
-                object: nil,
-                queue: .main
-            ) { _ in
-                openWindow(id: "markdownEditor")
+            .onChange(of: store.selectedNode) { oldValue, newValue in
+                handleSelectedNodeChange(oldValue, newValue)
             }
-            
-            // 旧的通用通知监听器保留用于向后兼容
-            NotificationCenter.default.addObserver(
-                forName: Notification.Name("openNodeManager"),
-                object: nil,
-                queue: .main
-            ) { notification in
-                // 检查窗口焦点状态，只有活跃窗口响应
-                guard WindowFocusManager.shared.shouldHandleNotificationForActiveWindow(isGlobalCommand: true) else {
-                    print("🏠 ContentView: 忽略openNodeManager通知 - 窗口非活跃状态")
-                    return
-                }
-                
-                // 只处理内部的执行通知
-                if let source = notification.object as? String, source == "internal" {
-                    openWindow(id: "nodeManager")
-                } else {
-                    // 默认情况下也打开窗口（向后兼容）
-                    openWindow(id: "nodeManager")
-                }
+            .onChange(of: store.nodes) { _, _ in
+                handleNodesChange()
             }
-            
-            // 旧的通用通知监听器保留用于向后兼容
-            NotificationCenter.default.addObserver(
-                forName: Notification.Name("toggleSidebar"),
-                object: nil,
-                queue: .main
-            ) { notification in
-                // 只处理内部的执行通知
-                if let source = notification.object as? String, source == "internal" {
-                    print("🔔 ContentView: 收到toggleSidebar通知，当前showSidebar=\(showSidebar)")
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        showSidebar.toggle()
-                    }
-                    print("🔔 ContentView: 切换后showSidebar=\(showSidebar)")
-                }
-            }
-            
-            // 移除多余的Command+O通知监听器 - WordTaggerApp现在直接发送给DetailPanel
-            
-            // 移除多余的Command+L通知监听器 - WordTaggerApp现在直接发送给DetailPanel
-            
-            // 监听打开全屏图谱的通知
-            NotificationCenter.default.addObserver(
-                forName: Notification.Name("openFullscreenGraphForNode"),
-                object: nil,
-                queue: .main
-            ) { notification in
-                if let node = notification.object as? Node {
-                    print("🔔 ContentView: 收到openFullscreenGraphForNode通知，节点: \(node.text)")
-                    
-                    // 通过DetailPanel的图谱功能触发全屏图谱
-                    if node.id == selectedNode?.id {
-                        // 发送通知给DetailPanel，让它打开全屏图谱
-                        NotificationCenter.default.post(
-                            name: NSNotification.Name("requestOpenFullscreenGraphFromDetail"),
-                            object: node
-                        )
-                    }
-                }
-            }
-            
-            // 检查数据路径设置
-            if !dataManager.isDataPathSelected {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    showingDataSetup = true
-                }
+    }
+    
+    private func handleOnAppear() {
+        if !dataManager.isDataPathSelected {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                showingDataSetup = true
             }
         }
-        .onChange(of: store.selectedNode) { oldValue, newValue in
-            print("🔄 ContentView: store.selectedNode 发生变化: \(oldValue?.text ?? "nil") -> \(newValue?.text ?? "nil")")
-            // 🔧 强制同步，确保地图选择能正确反映到主界面
-            selectedNode = newValue
-            print("🔄 ContentView: 强制同步本地selectedNode: \(newValue?.text ?? "nil")")
-        }
-        .onChange(of: store.nodes) { _, _ in
-            // 当nodes变化时，检查selectedNode是否还有效
-            DispatchQueue.main.async {
-                if let current = selectedNode, !store.nodes.contains(where: { $0.id == current.id }) {
-                    selectedNode = nil
-                }
+    }
+    
+    private func handleSelectedNodeChange(_ oldValue: Node?, _ newValue: Node?) {
+        print("🔄 ContentView: store.selectedNode 发生变化: \(oldValue?.text ?? "nil") -> \(newValue?.text ?? "nil")")
+        selectedNode = newValue
+        print("🔄 ContentView: 强制同步本地selectedNode: \(newValue?.text ?? "nil")")
+    }
+    
+    private func handleNodesChange() {
+        DispatchQueue.main.async {
+            if let current = selectedNode, !store.nodes.contains(where: { $0.id == current.id }) {
+                selectedNode = nil
             }
-        }
-        .sheet(isPresented: $showingDataSetup) {
-            DataFolderSetupView(isPresented: $showingDataSetup)
         }
     }
 }
@@ -597,6 +519,31 @@ struct ResizableDivider: View {
                         }
                 )
         }
+    }
+}
+
+// MARK: - Command Palette Sheet View
+
+struct CommandPaletteSheetView: View {
+    @Binding var isPresented: Bool
+    @EnvironmentObject private var store: NodeStore
+    
+    var body: some View {
+        CommandPaletteView(isPresented: $isPresented)
+            .frame(width: 600, height: 400)
+    }
+}
+
+// MARK: - Tag Manager Sheet View
+
+struct TagManagerSheetView: View {
+    @Binding var isPresented: Bool
+    
+    var body: some View {
+        TagManagerView {
+            isPresented = false
+        }
+        .frame(width: 700, height: 600)
     }
 }
 

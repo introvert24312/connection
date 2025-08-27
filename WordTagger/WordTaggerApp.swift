@@ -2138,6 +2138,139 @@ struct CommonLocation: Identifiable, Hashable {
     static func == (lhs: CommonLocation, rhs: CommonLocation) -> Bool { lhs.id == rhs.id }
 }
 
+// MARK: - FocusedValues for Global Commands
+
+struct ShowCardAction {
+    let action: () -> Void
+    
+    init(_ action: @escaping () -> Void) {
+        self.action = action
+    }
+    
+    func callAsFunction() {
+        action()
+    }
+}
+
+struct ShowCommandPaletteKey: FocusedValueKey {
+    typealias Value = ShowCardAction
+}
+
+struct AddNewNodeKey: FocusedValueKey {
+    typealias Value = ShowCardAction
+}
+
+struct OpenQuickSearchKey: FocusedValueKey {
+    typealias Value = ShowCardAction
+}
+
+struct OpenTagManagerKey: FocusedValueKey {
+    typealias Value = ShowCardAction
+}
+
+struct OpenNodeManagerKey: FocusedValueKey {
+    typealias Value = ShowCardAction
+}
+
+struct OpenMapWindowKey: FocusedValueKey {
+    typealias Value = ShowCardAction
+}
+
+struct OpenGraphWindowKey: FocusedValueKey {
+    typealias Value = ShowCardAction
+}
+
+struct ToggleSidebarKey: FocusedValueKey {
+    typealias Value = ShowCardAction
+}
+
+struct OpenNewWindowKey: FocusedValueKey {
+    typealias Value = ShowCardAction
+}
+
+struct SwitchToDetailTabKey: FocusedValueKey {
+    typealias Value = ShowCardAction
+}
+
+struct SwitchToGraphTabKey: FocusedValueKey {
+    typealias Value = ShowCardAction
+}
+
+struct ClearTagFilterKey: FocusedValueKey {
+    typealias Value = ShowCardAction
+}
+
+struct OpenTagSearchKey: FocusedValueKey {
+    typealias Value = ShowCardAction
+}
+
+extension FocusedValues {
+    var showCommandPalette: ShowCardAction? {
+        get { self[ShowCommandPaletteKey.self] }
+        set { self[ShowCommandPaletteKey.self] = newValue }
+    }
+    
+    var addNewNode: ShowCardAction? {
+        get { self[AddNewNodeKey.self] }
+        set { self[AddNewNodeKey.self] = newValue }
+    }
+    
+    var openQuickSearch: ShowCardAction? {
+        get { self[OpenQuickSearchKey.self] }
+        set { self[OpenQuickSearchKey.self] = newValue }
+    }
+    
+    var openTagManager: ShowCardAction? {
+        get { self[OpenTagManagerKey.self] }
+        set { self[OpenTagManagerKey.self] = newValue }
+    }
+    
+    var openNodeManager: ShowCardAction? {
+        get { self[OpenNodeManagerKey.self] }
+        set { self[OpenNodeManagerKey.self] = newValue }
+    }
+    
+    var openMapWindow: ShowCardAction? {
+        get { self[OpenMapWindowKey.self] }
+        set { self[OpenMapWindowKey.self] = newValue }
+    }
+    
+    var openGraphWindow: ShowCardAction? {
+        get { self[OpenGraphWindowKey.self] }
+        set { self[OpenGraphWindowKey.self] = newValue }
+    }
+    
+    var toggleSidebar: ShowCardAction? {
+        get { self[ToggleSidebarKey.self] }
+        set { self[ToggleSidebarKey.self] = newValue }
+    }
+    
+    var openNewWindow: ShowCardAction? {
+        get { self[OpenNewWindowKey.self] }
+        set { self[OpenNewWindowKey.self] = newValue }
+    }
+    
+    var switchToDetailTab: ShowCardAction? {
+        get { self[SwitchToDetailTabKey.self] }
+        set { self[SwitchToDetailTabKey.self] = newValue }
+    }
+    
+    var switchToGraphTab: ShowCardAction? {
+        get { self[SwitchToGraphTabKey.self] }
+        set { self[SwitchToGraphTabKey.self] = newValue }
+    }
+    
+    var clearTagFilter: ShowCardAction? {
+        get { self[ClearTagFilterKey.self] }
+        set { self[ClearTagFilterKey.self] = newValue }
+    }
+    
+    var openTagSearch: ShowCardAction? {
+        get { self[OpenTagSearchKey.self] }
+        set { self[OpenTagSearchKey.self] = newValue }
+    }
+}
+
 @main
 struct WordTaggerApp: App {
     @StateObject private var store = NodeStore.shared
@@ -2286,9 +2419,36 @@ struct WordTaggerApp: App {
                 showPalette = true
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openNewWindow"))) { notification in
-                // openNewWindow 现在由ContentView统一处理，主窗口不需要额外处理
-                // 这样可以确保只有一个地方处理openNewWindow，避免重复执行
-                print("🔔 主窗口: openNewWindow通知将由ContentView统一处理")
+                // openNewWindow 是全局命令，应该在任何活跃窗口中可用
+                guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true, commandName: "openNewWindow") else {
+                    print("🚫 主窗口: 忽略openNewWindow通知")
+                    return
+                }
+                
+                print("✅ 主窗口: 处理openNewWindow通知 - 打开独立窗口")
+                
+                // 防止重复打开：检查当前是否已有独立窗口
+                guard !isOpeningWindow else {
+                    print("🔔 [DEBUG] 窗口正在打开中，忽略重复请求")
+                    return
+                }
+                
+                isOpeningWindow = true
+                
+                // 直接使用环境中的openWindow打开窗口
+                DispatchQueue.main.async {
+                    // 通知ContentView执行openWindow
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("executeOpenWindow"),
+                        object: "layerView"
+                    )
+                }
+                
+                // 500ms后重置标志
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    isOpeningWindow = false
+                    print("🔔 [DEBUG] 重置isOpeningWindow标志")
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("addNewNode"))) { _ in
                 // addNewNode 是全局命令，应该在任何活跃窗口中可用
@@ -2408,116 +2568,11 @@ struct WordTaggerApp: App {
         }
         .defaultSize(width: 1200, height: 800)
         .commands {
+            // 全局命令组 - 使用 FocusedValues
             CommandGroup(replacing: .appInfo) {}
-            CommandMenu("节点标签") {
-                Button("命令面板") { 
-                    // 发送通知以支持所有窗口
-                    NotificationCenter.default.post(name: Notification.Name("showCommandPalette"), object: nil)
-                }
-                .keyboardShortcut("k", modifiers: [.command])
-                
-                Button("创建新层或复合层") { 
-                    showPalette = true 
-                }
-                .keyboardShortcut("r", modifiers: [.command])
-                
-                Divider()
-                
-                Button("快速添加节点") {
-                    // 发送通知以支持所有窗口
-                    NotificationCenter.default.post(name: Notification.Name("addNewNode"), object: nil)
-                }
-                .keyboardShortcut("i", modifiers: [.command])
-                
-                Button("添加复合节点") {
-                    showCompoundNodeAdd = true
-                }
-                .keyboardShortcut("u", modifiers: [.command])
-                
-                Button("标签搜索") {
-                    print("🏷️ WordTaggerApp: Command+F 快捷键被触发，切换到标签搜索")
-                    NotificationCenter.default.post(name: Notification.Name("openTagSearch"), object: nil)
-                }
-                .keyboardShortcut("f", modifiers: [.command])
-                
-                Button("快速搜索") {
-                    print("🔍 WordTaggerApp: Command+Shift+F 快捷键被触发，显示快速搜索")
-                    showQuickSearch = true
-                    print("🔍 WordTaggerApp: showQuickSearch 设置为 true")
-                }
-                .keyboardShortcut("f", modifiers: [.command, .shift])
-                
-                Button("切换侧边栏") {
-                    NotificationCenter.default.post(name: Notification.Name("toggleSidebar"), object: nil)
-                }
-                .keyboardShortcut("e", modifiers: [.command])
-                
-                Button("标签管理") {
-                    showTagManager = true
-                }
-                .keyboardShortcut("i", modifiers: [.command, .shift])
-                
-                Button("节点管理") {
-                    NotificationCenter.default.post(name: Notification.Name("openNodeManager"), object: nil)
-                }
-                .keyboardShortcut("w", modifiers: [.command, .shift])
-                
-                Divider()
-                
-                Button("清除标签筛选") {
-                    // 清除所有标签筛选状态，回到初始状态
-                    NotificationCenter.default.post(name: Notification.Name("clearTagFilter"), object: nil)
-                }
-                .keyboardShortcut("n", modifiers: [.command])
-                
-                Divider()
-                
-                Button("打开地图") {
-                    NotificationCenter.default.post(name: Notification.Name("openMapWindow"), object: nil)
-                }
-                .keyboardShortcut("m", modifiers: [.command])
-                
-                Button("打开图谱") {
-                    NotificationCenter.default.post(name: Notification.Name("openGraphWindow"), object: nil)
-                }
-                .keyboardShortcut("g", modifiers: [.command])
-                
-                Divider()
-                
-                Button("详情面板：详情") {
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("switchToDetailTab"), 
-                        object: nil
-                    )
-                }
-                .keyboardShortcut("o", modifiers: [.command])
-                
-                Button("详情面板：图谱") {
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("switchToGraphTab"), 
-                        object: nil
-                    )
-                }
-                .keyboardShortcut("d", modifiers: [.command])
-                
-                Button("切换到图谱视图") {
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("switchToGraphTab"), 
-                        object: nil
-                    )
-                }
-                .keyboardShortcut("l", modifiers: [.command])
-                
-                Divider()
-                
-                Button("新建独立窗口") {
-                    print("🔔 [DEBUG] Command+B 被按下，直接发送openNewWindow通知")
-                    // 简化处理：直接发送通知，像Command+K一样
-                    NotificationCenter.default.post(name: Notification.Name("openNewWindow"), object: nil)
-                }
-                .keyboardShortcut("b", modifiers: [.command])
-
-            }
+            
+            // 全局命令处理器
+            GlobalCommands()
         }
         
         // 地图窗口
@@ -3303,10 +3358,30 @@ struct IndependentWindowWrapper: View {
     @State private var isOpeningWindow = false
     @Environment(\.openWindow) private var openWindow
     
+    // 状态管理 - 用于快捷键响应
+    @State private var showCommandPalette = false
+    
     // 生成唯一的窗口ID
     private let windowId = UUID()
     
     var body: some View {
+        mainContentView
+            .modifier(IndependentWindowModifier(
+                showPalette: $showPalette,
+                showQuickAdd: $showQuickAdd,
+                showQuickSearch: $showQuickSearch,
+                showTagManager: $showTagManager,
+                showCompoundNodeAdd: $showCompoundNodeAdd,
+                showCommandPalette: $showCommandPalette,
+                nodeToEditInManager: $nodeToEditInManager,
+                windowId: windowId,
+                store: store,
+                openWindow: openWindow
+            ))
+    }
+    
+    @ViewBuilder
+    private var mainContentView: some View {
         ZStack {
             ContentView()
                 .environmentObject(store)
@@ -3385,166 +3460,321 @@ struct IndependentWindowWrapper: View {
             }
             return .ignored
         }
-        // 移除独立窗口的重复快捷键定义 - 统一使用 Menu 快捷键确保跨窗口一致性
-        // 所有快捷键现在都通过 WordTaggerApp.commands 中的 Menu 统一处理
-        .sheet(isPresented: $showQuickAdd) {
-            QuickAddSheetView()
-                .environmentObject(store)
-        }
-        .sheet(isPresented: $showCompoundNodeAdd) {
-            CompoundNodeAddSheetView()
-                .environmentObject(store)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("showCommandPalette"))) { _ in
-            // showCommandPalette 是全局命令，应该在任何活跃窗口中可用
-            guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
-                print("🚫 独立窗口: 忽略showCommandPalette通知 - 应用无活跃窗口")
-                return
+    }
+}
+
+// MARK: - IndependentWindowModifier
+
+struct IndependentWindowModifier: ViewModifier {
+    @Binding var showPalette: Bool
+    @Binding var showQuickAdd: Bool
+    @Binding var showQuickSearch: Bool
+    @Binding var showTagManager: Bool
+    @Binding var showCompoundNodeAdd: Bool
+    @Binding var showCommandPalette: Bool
+    @Binding var nodeToEditInManager: Node?
+    let windowId: UUID
+    let store: NodeStore
+    let openWindow: OpenWindowAction
+    
+    func body(content: Content) -> some View {
+        content
+            .sheet(isPresented: $showQuickAdd) {
+                QuickAddSheetView()
+                    .environmentObject(store)
             }
-            print("✅ 独立窗口: 处理showCommandPalette通知 - 打开命令面板")
-            showPalette = true
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openNewWindow"))) { notification in
-            // openNewWindow 是全局命令，独立窗口也应该能创建新窗口
-            guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "openNewWindow") else {
-                print("🚫 独立窗口: 忽略openNewWindow通知")
-                return
+            .sheet(isPresented: $showCompoundNodeAdd) {
+                CompoundNodeAddSheetView()
+                    .environmentObject(store)
             }
-            
-            print("✅ 独立窗口: 收到openNewWindow通知，直接打开独立窗口")
-            
-            // 防止重复打开：检查当前是否已有窗口正在打开
-            guard !isOpeningWindow else {
-                print("🔔 [DEBUG] 独立窗口正在打开中，忽略重复请求")
-                return
+            .sheet(isPresented: $showCommandPalette) {
+                CommandPaletteSheetView(isPresented: $showCommandPalette)
+                    .environmentObject(store)
             }
-            
-            isOpeningWindow = true
-            
-            // 直接打开新的独立窗口
-            DispatchQueue.main.async {
+            .sheet(isPresented: $showTagManager) {
+                TagManagerSheetView(isPresented: $showTagManager)
+            }
+            .focusedSceneValue(\.showCommandPalette, ShowCardAction {
+                showCommandPalette = true
+            })
+            .focusedSceneValue(\.addNewNode, ShowCardAction {
+                showQuickAdd = true
+            })
+            .focusedSceneValue(\.openQuickSearch, ShowCardAction {
+                showQuickSearch = true
+            })
+            .focusedSceneValue(\.openTagManager, ShowCardAction {
+                showTagManager = true
+            })
+            .focusedSceneValue(\.openNodeManager, ShowCardAction {
+                openWindow(id: "nodeManager")
+            })
+            .focusedSceneValue(\.openMapWindow, ShowCardAction {
+                openWindow(id: "map")
+            })
+            .focusedSceneValue(\.openGraphWindow, ShowCardAction {
+                openWindow(id: "graph")
+            })
+            .focusedSceneValue(\.toggleSidebar, ShowCardAction {
+                NotificationCenter.default.post(name: NSNotification.Name("executeToggleSidebar"), object: "independent")
+            })
+            .focusedSceneValue(\.openNewWindow, ShowCardAction {
                 openWindow(id: "layerView")
+            })
+            .focusedSceneValue(\.switchToDetailTab, ShowCardAction {
+                NotificationCenter.default.post(name: NSNotification.Name("executeSwitchToDetailTab"), object: "independent")
+            })
+            .focusedSceneValue(\.switchToGraphTab, ShowCardAction {
+                NotificationCenter.default.post(name: NSNotification.Name("executeSwitchToGraphTab"), object: "independent")
+            })
+            .focusedSceneValue(\.clearTagFilter, ShowCardAction {
+                NotificationCenter.default.post(name: NSNotification.Name("clearAllFilters"), object: nil)
+            })
+            .focusedSceneValue(\.openTagSearch, ShowCardAction {
+                NotificationCenter.default.post(name: NSNotification.Name("switchToTagSearch"), object: nil)
+            })
+            .overlay {
+                if showQuickSearch {
+                    QuickSearchView(
+                        onDismiss: { 
+                            showQuickSearch = false
+                        },
+                        onNodeSelected: { node in
+                            if let nodeLayer = store.layers.first(where: { $0.id == node.layerId }) {
+                                store.setCurrentLayer(nodeLayer)
+                            }
+                            store.selectNode(node)
+                            showQuickSearch = false
+                        }
+                    )
+                    .environmentObject(store)
+                    .transition(.opacity)
+                    .zIndex(1000)
+                }
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("showCommandPalette"))) { _ in
+                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
+                    print("🚫 独立窗口: 忽略showCommandPalette通知 - 应用无活跃窗口")
+                    return
+                }
+                print("✅ 独立窗口: 处理showCommandPalette通知 - 打开命令面板")
+                showPalette = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("addNewNode"))) { _ in
+                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
+                    print("🚫 独立窗口: 忽略addNewNode通知 - 应用无活跃窗口")
+                    return
+                }
+                print("✅ 独立窗口: 处理addNewNode通知 - 打开快速添加")
+                showQuickAdd = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openNodeManagerForEdit"))) { notification in
+                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId) else {
+                    print("🚫 独立窗口: 忽略openNodeManagerForEdit通知 - 窗口非活跃状态")
+                    return
+                }
+                if let node = notification.object as? Node {
+                    print("📝 IndependentWindow: 收到节点编辑请求，节点: \(node.text)")
+                    nodeToEditInManager = node
+                    NotificationCenter.default.post(name: Notification.Name("openNodeManager"), object: nil)
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagSearch"))) { _ in
+                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId) else {
+                    print("🚫 独立窗口: 忽略openTagSearch通知 - 窗口非活跃状态")
+                    return
+                }
+                print("✅ 独立窗口: 处理openTagSearch通知，切换到标签搜索")
+                NotificationCenter.default.post(name: NSNotification.Name("switchToTagSearch"), object: nil)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openQuickSearch"))) { _ in
+                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
+                    print("🚫 独立窗口: 忽略openQuickSearch通知 - 应用无活跃窗口")
+                    return
+                }
+                print("✅ 独立窗口: 处理openQuickSearch通知 - 打开快速搜索")
+                showQuickSearch = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openMapWindow"))) { _ in
+                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
+                    print("🚫 独立窗口: 忽略openMapWindow通知 - 应用无活跃窗口")
+                    return
+                }
+                print("✅ 独立窗口: 处理openMapWindow通知 - 打开地图窗口")
+                NotificationCenter.default.post(name: NSNotification.Name("executeOpenMapWindow"), object: "independent")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openGraphWindow"))) { _ in
+                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
+                    print("🚫 独立窗口: 忽略openGraphWindow通知 - 应用无活跃窗口")
+                    return
+                }
+                print("✅ 独立窗口: 处理openGraphWindow通知 - 打开图谱窗口")
+                NotificationCenter.default.post(name: NSNotification.Name("executeOpenGraphWindow"), object: "independent")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagManager"))) { _ in
+                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "openTagManager") else {
+                    print("🚫 独立窗口: 忽略openTagManager通知 - 非key窗口或冷却期")
+                    return
+                }
+                print("✅ 独立窗口: 处理openTagManager通知 - 打开标签管理")
+                showTagManager = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openNodeManager"))) { _ in
+                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "openNodeManager") else {
+                    print("🚫 独立窗口: 忽略openNodeManager通知 - 非key窗口或冷却期")
+                    return
+                }
+                print("✅ 独立窗口: 处理openNodeManager通知 - 打开节点管理")
+                NotificationCenter.default.post(name: NSNotification.Name("executeOpenNodeManager"), object: "independent")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("toggleSidebar"))) { _ in
+                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "toggleSidebar") else {
+                    print("🚫 独立窗口: 忽略toggleSidebar通知 - 非key窗口或冷却期")
+                    return
+                }
+                print("✅ 独立窗口: 处理toggleSidebar通知")
+                NotificationCenter.default.post(name: NSNotification.Name("executeToggleSidebar"), object: "independent")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("switchToDetailTab"))) { _ in
+                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId) else {
+                    print("🚫 独立窗口: 忽略switchToDetailTab通知 - 窗口非活跃状态")
+                    return
+                }
+                print("✅ 独立窗口: 处理switchToDetailTab通知")
+                NotificationCenter.default.post(name: NSNotification.Name("executeSwitchToDetailTab"), object: "independent")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("switchToGraphTab"))) { _ in
+                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId) else {
+                    print("🚫 独立窗口: 忽略switchToGraphTab通知 - 窗口非活跃状态")
+                    return
+                }
+                print("✅ 独立窗口: 处理switchToGraphTab通知")
+                NotificationCenter.default.post(name: NSNotification.Name("executeSwitchToGraphTab"), object: "independent")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("clearTagFilter"))) { _ in
+                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId) else {
+                    print("🚫 独立窗口: 忽略clearTagFilter通知 - 窗口非活跃状态")
+                    return
+                }
+                print("✅ 独立窗口: 处理clearTagFilter通知，清除标签筛选")
+                NotificationCenter.default.post(name: NSNotification.Name("clearAllFilters"), object: nil)
+            }
+    }
+}
+
+// MARK: - Global Commands Handler
+
+struct GlobalCommands: Commands {
+    @FocusedValue(\.showCommandPalette) var showCommandPalette
+    @FocusedValue(\.addNewNode) var addNewNode
+    @FocusedValue(\.openQuickSearch) var openQuickSearch
+    @FocusedValue(\.openTagManager) var openTagManager
+    @FocusedValue(\.openNodeManager) var openNodeManager
+    @FocusedValue(\.openMapWindow) var openMapWindow
+    @FocusedValue(\.openGraphWindow) var openGraphWindow
+    @FocusedValue(\.toggleSidebar) var toggleSidebar
+    @FocusedValue(\.openNewWindow) var openNewWindow
+    @FocusedValue(\.switchToDetailTab) var switchToDetailTab
+    @FocusedValue(\.switchToGraphTab) var switchToGraphTab
+    @FocusedValue(\.clearTagFilter) var clearTagFilter
+    @FocusedValue(\.openTagSearch) var openTagSearch
+    
+    var body: some Commands {
+        CommandGroup(replacing: .appInfo) {}
+        CommandMenu("全局快捷键") {
+            Button("命令面板") {
+                showCommandPalette?()
+            }
+            .keyboardShortcut("k", modifiers: [.command])
+            .disabled(showCommandPalette == nil)
             
-            // 500ms后重置标志
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                isOpeningWindow = false
-                print("🔔 [DEBUG] 独立窗口重置isOpeningWindow标志")
+            Button("快速添加节点") {
+                addNewNode?()
             }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("addNewNode"))) { _ in
-            // addNewNode 是全局命令，应该在任何活跃窗口中可用
-            guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
-                print("🚫 独立窗口: 忽略addNewNode通知 - 应用无活跃窗口")
-                return
-            }
-            print("✅ 独立窗口: 处理addNewNode通知 - 打开快速添加")
-            showQuickAdd = true
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openNodeManagerForEdit"))) { notification in
-            // 检查当前窗口是否应该响应此通知
-            guard WindowFocusManager.shared.shouldHandleNotification(for: windowId) else {
-                print("🚫 独立窗口: 忽略openNodeManagerForEdit通知 - 窗口非活跃状态")
-                return
-            }
-            if let node = notification.object as? Node {
-                print("📝 IndependentWindow: 收到节点编辑请求，节点: \(node.text)")
-                nodeToEditInManager = node
-                NotificationCenter.default.post(name: Notification.Name("openNodeManager"), object: nil)
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagSearch"))) { _ in
-            // 检查当前窗口是否应该响应此通知
-            guard WindowFocusManager.shared.shouldHandleNotification(for: windowId) else {
-                print("🚫 独立窗口: 忽略openTagSearch通知 - 窗口非活跃状态")
-                return
-            }
-            print("✅ 独立窗口: 处理openTagSearch通知，切换到标签搜索")
-            NotificationCenter.default.post(name: NSNotification.Name("switchToTagSearch"), object: nil)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openQuickSearch"))) { _ in
-            // openQuickSearch 是全局命令，应该在任何活跃窗口中可用
-            guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
-                print("🚫 独立窗口: 忽略openQuickSearch通知 - 应用无活跃窗口")
-                return
-            }
-            print("✅ 独立窗口: 处理openQuickSearch通知 - 打开快速搜索")
-            showQuickSearch = true
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openMapWindow"))) { _ in
-            // openMapWindow 是全局命令，应该在任何活跃窗口中可用
-            guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
-                print("🚫 独立窗口: 忽略openMapWindow通知 - 应用无活跃窗口")
-                return
-            }
-            print("✅ 独立窗口: 处理openMapWindow通知 - 打开地图窗口")
-            NotificationCenter.default.post(name: NSNotification.Name("executeOpenMapWindow"), object: "independent")
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openGraphWindow"))) { _ in
-            // openGraphWindow 是全局命令，应该在任何活跃窗口中可用
-            guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
-                print("🚫 独立窗口: 忽略openGraphWindow通知 - 应用无活跃窗口")
-                return
-            }
-            print("✅ 独立窗口: 处理openGraphWindow通知 - 打开图谱窗口")
-            NotificationCenter.default.post(name: NSNotification.Name("executeOpenGraphWindow"), object: "independent")
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagManager"))) { _ in
-            // openTagManager 是全局命令，只在当前key窗口处理
-            guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "openTagManager") else {
-                print("🚫 独立窗口: 忽略openTagManager通知 - 非key窗口或冷却期")
-                return
-            }
+            .keyboardShortcut("i", modifiers: [.command])
+            .disabled(addNewNode == nil)
             
-            print("✅ 独立窗口: 处理openTagManager通知 - 打开标签管理")
-            showTagManager = true
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openNodeManager"))) { _ in
-            // openNodeManager 是全局命令，只在当前key窗口处理
-            guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "openNodeManager") else {
-                print("🚫 独立窗口: 忽略openNodeManager通知 - 非key窗口或冷却期")
-                return
+            Button("快速搜索") {
+                openQuickSearch?()
             }
+            .keyboardShortcut("f", modifiers: [.command, .shift])
+            .disabled(openQuickSearch == nil)
             
-            print("✅ 独立窗口: 处理openNodeManager通知 - 打开节点管理")
-            NotificationCenter.default.post(name: NSNotification.Name("executeOpenNodeManager"), object: "independent")
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("toggleSidebar"))) { _ in
-            // toggleSidebar 是全局命令，只在当前key窗口处理
-            guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "toggleSidebar") else {
-                print("🚫 独立窗口: 忽略toggleSidebar通知 - 非key窗口或冷却期")
-                return
+            Button("标签搜索") {
+                openTagSearch?()
             }
+            .keyboardShortcut("f", modifiers: [.command])
+            .disabled(openTagSearch == nil)
             
-            print("✅ 独立窗口: 处理toggleSidebar通知")
-            NotificationCenter.default.post(name: NSNotification.Name("executeToggleSidebar"), object: "independent")
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("switchToDetailTab"))) { _ in
-            // 检查当前窗口是否应该响应此通知
-            guard WindowFocusManager.shared.shouldHandleNotification(for: windowId) else {
-                print("🚫 独立窗口: 忽略switchToDetailTab通知 - 窗口非活跃状态")
-                return
+            Divider()
+            
+            Button("标签管理") {
+                openTagManager?()
             }
-            print("✅ 独立窗口: 处理switchToDetailTab通知")
-            NotificationCenter.default.post(name: NSNotification.Name("executeSwitchToDetailTab"), object: "independent")
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("switchToGraphTab"))) { _ in
-            // 检查当前窗口是否应该响应此通知
-            guard WindowFocusManager.shared.shouldHandleNotification(for: windowId) else {
-                print("🚫 独立窗口: 忽略switchToGraphTab通知 - 窗口非活跃状态")
-                return
+            .keyboardShortcut("i", modifiers: [.command, .shift])
+            .disabled(openTagManager == nil)
+            
+            Button("节点管理") {
+                openNodeManager?()
             }
-            print("✅ 独立窗口: 处理switchToGraphTab通知")
-            NotificationCenter.default.post(name: NSNotification.Name("executeSwitchToGraphTab"), object: "independent")
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("clearTagFilter"))) { _ in
-            // 检查当前窗口是否应该响应此通知
-            guard WindowFocusManager.shared.shouldHandleNotification(for: windowId) else {
-                print("🚫 独立窗口: 忽略clearTagFilter通知 - 窗口非活跃状态")
-                return
+            .keyboardShortcut("w", modifiers: [.command, .shift])
+            .disabled(openNodeManager == nil)
+            
+            Divider()
+            
+            Button("切换侧边栏") {
+                toggleSidebar?()
             }
-            print("✅ 独立窗口: 处理clearTagFilter通知，清除标签筛选")
-            NotificationCenter.default.post(name: NSNotification.Name("clearAllFilters"), object: nil)
+            .keyboardShortcut("e", modifiers: [.command])
+            .disabled(toggleSidebar == nil)
+            
+            Button("清除标签筛选") {
+                clearTagFilter?()
+            }
+            .keyboardShortcut("n", modifiers: [.command])
+            .disabled(clearTagFilter == nil)
+            
+            Divider()
+            
+            Button("打开地图") {
+                openMapWindow?()
+            }
+            .keyboardShortcut("m", modifiers: [.command])
+            .disabled(openMapWindow == nil)
+            
+            Button("打开图谱") {
+                openGraphWindow?()
+            }
+            .keyboardShortcut("g", modifiers: [.command])
+            .disabled(openGraphWindow == nil)
+            
+            Divider()
+            
+            Button("详情面板：详情") {
+                switchToDetailTab?()
+            }
+            .keyboardShortcut("o", modifiers: [.command])
+            .disabled(switchToDetailTab == nil)
+            
+            Button("详情面板：图谱") {
+                switchToGraphTab?()
+            }
+            .keyboardShortcut("d", modifiers: [.command])
+            .disabled(switchToGraphTab == nil)
+            
+            Button("切换到图谱视图") {
+                switchToGraphTab?()
+            }
+            .keyboardShortcut("l", modifiers: [.command])
+            .disabled(switchToGraphTab == nil)
+            
+            Divider()
+            
+            Button("新建独立窗口") {
+                openNewWindow?()
+            }
+            .keyboardShortcut("b", modifiers: [.command])
+            .disabled(openNewWindow == nil)
         }
     }
 }
