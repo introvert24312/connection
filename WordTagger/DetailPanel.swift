@@ -148,17 +148,11 @@ struct DetailPanel: View {
     private func setupNotificationObservers() {
         // 监听显示详情标签的通知 (Command+O触发)
         NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("switchToDetailTab"),
+            forName: NSNotification.Name("executeDetailTabSwitch"),
             object: nil,
             queue: .main
         ) { notification in
-            // 检查当前窗口是否应该响应此通知
-            guard focusManager.shouldHandleNotification(for: windowId) else {
-                print("🔔 DetailPanel: 忽略switchToDetailTab通知 - 窗口非活跃状态")
-                return
-            }
-            
-            print("🔔 DetailPanel: 收到switchToDetailTab通知，切换到详情标签")
+            print("🔔 DetailPanel: 收到executeDetailTabSwitch通知，切换到详情标签")
             DispatchQueue.main.async {
                 self.handleSwitchToDetail()
             }
@@ -166,17 +160,11 @@ struct DetailPanel: View {
         
         // 监听显示图谱标签的通知 (Command+L触发)
         NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("switchToGraphTab"),
+            forName: NSNotification.Name("executeGraphTabSwitch"),
             object: nil,
             queue: .main
         ) { notification in
-            // 检查当前窗口是否应该响应此通知
-            guard focusManager.shouldHandleNotification(for: windowId) else {
-                print("🔔 DetailPanel: 忽略switchToGraphTab通知 - 窗口非活跃状态")
-                return
-            }
-            
-            print("🔔 DetailPanel: 收到switchToGraphTab通知，切换到图谱标签")
+            print("🔔 DetailPanel: 收到executeGraphTabSwitch通知，切换到图谱标签")
             DispatchQueue.main.async {
                 self.handleSwitchToGraph()
             }

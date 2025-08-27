@@ -530,7 +530,8 @@ struct CommandPaletteSheetView: View {
     
     var body: some View {
         CommandPaletteView(isPresented: $isPresented)
-            .frame(width: 600, height: 400)
+            .frame(minWidth: 750, minHeight: 450)
+            .frame(idealWidth: 800, idealHeight: 500)
     }
 }
 

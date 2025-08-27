@@ -2544,8 +2544,9 @@ struct WordTaggerApp: App {
                     print("🚫 主窗口: 忽略switchToDetailTab通知 - 窗口非活跃状态")
                     return
                 }
-                print("✅ 主窗口: 处理switchToDetailTab通知")
-                NotificationCenter.default.post(name: NSNotification.Name("executeSwitchToDetailTab"), object: nil)
+                print("✅ 主窗口: 处理switchToDetailTab通知 - 发送执行命令")
+                // 发送执行命令，避免循环
+                NotificationCenter.default.post(name: NSNotification.Name("executeDetailTabSwitch"), object: nil)
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("switchToGraphTab"))) { _ in
                 // 检查当前窗口是否应该响应此通知
@@ -2553,8 +2554,9 @@ struct WordTaggerApp: App {
                     print("🚫 主窗口: 忽略switchToGraphTab通知 - 窗口非活跃状态")
                     return
                 }
-                print("✅ 主窗口: 处理switchToGraphTab通知")
-                NotificationCenter.default.post(name: NSNotification.Name("executeSwitchToGraphTab"), object: nil)
+                print("✅ 主窗口: 处理switchToGraphTab通知 - 发送执行命令")
+                // 发送执行命令，避免循环
+                NotificationCenter.default.post(name: NSNotification.Name("executeGraphTabSwitch"), object: nil)
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("clearTagFilter"))) { _ in
                 // 检查当前窗口是否应该响应此通知
@@ -3522,10 +3524,10 @@ struct IndependentWindowModifier: ViewModifier {
                 openWindow(id: "layerView")
             })
             .focusedSceneValue(\.switchToDetailTab, ShowCardAction {
-                NotificationCenter.default.post(name: NSNotification.Name("executeSwitchToDetailTab"), object: "independent")
+                NotificationCenter.default.post(name: NSNotification.Name("switchToDetailTab"), object: nil)
             })
             .focusedSceneValue(\.switchToGraphTab, ShowCardAction {
-                NotificationCenter.default.post(name: NSNotification.Name("executeSwitchToGraphTab"), object: "independent")
+                NotificationCenter.default.post(name: NSNotification.Name("switchToGraphTab"), object: nil)
             })
             .focusedSceneValue(\.clearTagFilter, ShowCardAction {
                 NotificationCenter.default.post(name: NSNotification.Name("clearAllFilters"), object: nil)
@@ -3640,16 +3642,18 @@ struct IndependentWindowModifier: ViewModifier {
                     print("🚫 独立窗口: 忽略switchToDetailTab通知 - 窗口非活跃状态")
                     return
                 }
-                print("✅ 独立窗口: 处理switchToDetailTab通知")
-                NotificationCenter.default.post(name: NSNotification.Name("executeSwitchToDetailTab"), object: "independent")
+                print("✅ 独立窗口: 处理switchToDetailTab通知 - 发送执行命令")
+                // 发送执行命令，避免循环
+                NotificationCenter.default.post(name: NSNotification.Name("executeDetailTabSwitch"), object: nil)
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("switchToGraphTab"))) { _ in
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId) else {
                     print("🚫 独立窗口: 忽略switchToGraphTab通知 - 窗口非活跃状态")
                     return
                 }
-                print("✅ 独立窗口: 处理switchToGraphTab通知")
-                NotificationCenter.default.post(name: NSNotification.Name("executeSwitchToGraphTab"), object: "independent")
+                print("✅ 独立窗口: 处理switchToGraphTab通知 - 发送执行命令")
+                // 发送执行命令，避免循环
+                NotificationCenter.default.post(name: NSNotification.Name("executeGraphTabSwitch"), object: nil)
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("clearTagFilter"))) { _ in
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId) else {
