@@ -128,8 +128,7 @@ struct MapContainer: View {
                             ) {
                                 LocationMarkerView(annotation: annotation) {
                                     print("🎯 Map node clicked: \(annotation.word.text)")
-                                    // 使用完整的标签导航流程，不直接设置selectedNode
-                                    store.expandLocationTagAndSelect(annotation.word)
+                                    handleMapNodeTap(annotation.word)
                                 }
                             }
                         }
@@ -778,6 +777,45 @@ struct MapContainer: View {
         // 延迟关闭地图窗口
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             NSApplication.shared.keyWindow?.close()
+        }
+    }
+    
+    // MARK: - Map Node Navigation
+    private func handleMapNodeTap(_ node: Node) {
+        print("🗺️ MapContainer: 地图节点被点击: \(node.text)")
+        
+        // 1. 找到节点所属的层
+        guard let targetLayer = store.layers.first(where: { $0.id == node.layerId }) else {
+            print("⚠️ 未找到节点 '\(node.text)' 所属的层")
+            return
+        }
+        
+        print("🎯 目标层: \(targetLayer.displayName)")
+        
+        // 2. 切换到目标层并展开标签
+        Task {
+            await store.switchToLayer(targetLayer)
+            
+            // 3. 在主线程上进行UI操作 - 使用专门的地图标签展开方法
+            await MainActor.run {
+                // 使用专门的地图标签展开方法，这会：
+                // - 展开location标签类型
+                // - 选中具体的地点标签
+                // - 显示所有带这个地点标签的节点
+                // - 在筛选结果中选中被点击的节点
+                store.expandLocationTagAndSelect(node)
+                print("✅ 已切换到层 '\(targetLayer.displayName)' 并展开地点标签 '\(node.text)'")
+                
+                // 4. 发送通知请求切换到地图标签（这样用户可以看到地图上的定位）
+                // 延迟一点确保层切换和标签展开完成
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    // 发送通知切换详情面板到地图标签
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("switchToMapTab"),
+                        object: node
+                    )
+                }
+            }
         }
     }
 }
