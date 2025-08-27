@@ -1,0 +1,675 @@
+import Foundation
+import SwiftUI
+import AppKit
+
+/// 专门管理多窗口环境下的焦点状态和快捷键分发
+@MainActor
+class WindowFocusManager: ObservableObject {
+    // MARK: - Singleton
+    static let shared = WindowFocusManager()
+    
+    // MARK: - Published Properties
+    @Published private(set) var activeWindowInfo: WindowInfo?
+    @Published private(set) var windowRegistry: [UUID: WindowInfo] = [:]
+    @Published private(set) var keyboardEventManager: KeyboardEventManager?
+    
+    // MARK: - Private Properties
+    private var windowObservers: [NSObjectProtocol] = []
+    private let windowQueue = DispatchQueue(label: "com.wordtagger.window-focus", qos: .userInteractive)
+    
+    // NSWindow到UUID的映射，用于准确跟踪窗口
+    private var windowToUUIDMap: [NSWindow: UUID] = [:]
+    private var uuidToWindowMap: [UUID: WeakWindowReference] = [:]
+    
+    // 防止重复执行全局命令的冷却机制
+    private var lastGlobalCommandTime: [String: Date] = [:]
+    private let globalCommandCooldown: TimeInterval = 0.5 // 500ms冷却时间
+    
+    // MARK: - Initialization
+    private init() {
+        setupWindowObservers()
+        setupKeyboardEventManagerIntegration()
+    }
+    
+    deinit {
+        // Clean up observers synchronously
+        for observer in windowObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
+    
+    // MARK: - Window Registration
+    
+    /// 注册窗口到焦点管理系统
+    /// - Parameters:
+    ///   - windowId: 窗口唯一标识符
+    ///   - windowType: 窗口类型
+    ///   - displayName: 窗口显示名称
+    func registerWindow(_ windowId: UUID, type: WindowType, displayName: String? = nil) {
+        let info = WindowInfo(
+            id: windowId.uuidString,
+            displayName: displayName ?? type.displayName,
+            type: type
+        )
+        
+        windowRegistry[windowId] = info
+        
+        // 同时注册到KeyboardEventManager
+        keyboardEventManager?.registerWindow(windowId, type: type)
+        
+        // 尝试立即关联当前key窗口（如果存在）
+        if let keyWindow = NSApplication.shared.keyWindow,
+           keyWindow.isKeyWindow && keyWindow.isVisible {
+            associateWindowWithUUID(keyWindow, uuid: windowId)
+            print("🏠 WindowFocusManager: 注册窗口时立即关联key窗口 - \(info.displayName) (\(windowId.uuidString.prefix(8)))")
+        }
+        
+        print("🏠 WindowFocusManager: 注册窗口 - \(info.displayName) (\(windowId.uuidString.prefix(8)))")
+    }
+    
+    /// 注销窗口
+    /// - Parameter windowId: 窗口标识符
+    func unregisterWindow(_ windowId: UUID) {
+        if let info = windowRegistry.removeValue(forKey: windowId) {
+            print("🏠 WindowFocusManager: 注销窗口 - \(info.displayName) (\(windowId.uuidString.prefix(8)))")
+        }
+        
+        // 清理窗口映射关系
+        if let windowRef = uuidToWindowMap.removeValue(forKey: windowId),
+           let window = windowRef.window {
+            windowToUUIDMap.removeValue(forKey: window)
+            print("🧹 WindowFocusManager: 清理窗口映射 - \(windowId.uuidString.prefix(8))")
+        }
+        
+        // 如果是当前活跃窗口，清除活跃状态
+        if activeWindowInfo?.id == windowId.uuidString {
+            activeWindowInfo = nil
+            print("🏠 WindowFocusManager: 清除当前活跃窗口 - \(windowId.uuidString.prefix(8))")
+        }
+        
+        // 同时从KeyboardEventManager注销
+        keyboardEventManager?.unregisterWindow(windowId)
+    }
+    
+    // MARK: - Focus Management
+    
+    /// 设置活跃窗口
+    /// - Parameter windowId: 窗口标识符
+    func setActiveWindow(_ windowId: UUID?) {
+        windowQueue.async { [weak self] in
+            guard let self = self else { return }
+            
+            DispatchQueue.main.async {
+                let previousWindow = self.activeWindowInfo
+                
+                if let windowId = windowId,
+                   let windowInfo = self.windowRegistry[windowId] {
+                    self.activeWindowInfo = windowInfo
+                    self.keyboardEventManager?.setActiveWindowContext(windowId)
+                    
+                    print("🏠 WindowFocusManager: 活跃窗口变更: \(previousWindow?.displayName ?? "nil")(\(previousWindow?.id.prefix(8) ?? "nil")) -> \(windowInfo.displayName)(\(windowInfo.id.prefix(8)))")
+                    
+                    // 检查是否有对应的NSWindow映射
+                    if let windowRef = self.uuidToWindowMap[windowId],
+                       let window = windowRef.window {
+                        print("🔗 WindowFocusManager: 活跃窗口已关联NSWindow - \(window.title) (\(ObjectIdentifier(window)))")
+                    } else {
+                        print("⚠️ WindowFocusManager: 活跃窗口未关联NSWindow - 可能影响Command+K功能")
+                    }
+                    
+                    // 发送窗口焦点变更通知
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("windowFocusChanged"),
+                        object: windowInfo,
+                        userInfo: [
+                            "previousWindow": previousWindow?.id ?? "nil",
+                            "currentWindow": windowInfo.id
+                        ]
+                    )
+                } else {
+                    self.activeWindowInfo = nil
+                    self.keyboardEventManager?.setActiveWindowContext(nil)
+                    
+                    print("🏠 WindowFocusManager: 清除活跃窗口 - 之前: \(previousWindow?.displayName ?? "nil")(\(previousWindow?.id.prefix(8) ?? "nil"))")
+                    
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("windowFocusChanged"),
+                        object: nil,
+                        userInfo: [
+                            "previousWindow": previousWindow?.id ?? "nil",
+                            "currentWindow": "nil"
+                        ]
+                    )
+                }
+            }
+        }
+    }
+    
+    /// 检查指定窗口是否为活跃窗口
+    /// - Parameter windowId: 窗口标识符
+    /// - Returns: 是否为活跃窗口
+    func isActiveWindow(_ windowId: UUID) -> Bool {
+        return activeWindowInfo?.id == windowId.uuidString
+    }
+    
+    /// 检查当前是否有活跃的key窗口
+    /// - Returns: 是否有key窗口
+    func hasActiveKeyWindow() -> Bool {
+        guard let keyWindow = NSApplication.shared.keyWindow else { return false }
+        return keyWindow.isKeyWindow && keyWindow.isVisible
+    }
+    
+    // MARK: - Keyboard Shortcut Validation
+    
+    /// 验证快捷键是否应该在当前窗口执行
+    /// - Parameters:
+    ///   - command: 命令标识符
+    ///   - windowId: 窗口标识符（可选，默认使用当前活跃窗口）
+    /// - Returns: 是否应该执行
+    func validateKeyboardShortcut(_ command: String, for windowId: UUID? = nil) -> Bool {
+        // 检查是否是全局命令
+        let isGlobal = keyboardEventManager?.isGlobalCommand(command) ?? false
+        
+        // 检查是否有key窗口
+        guard hasActiveKeyWindow() else {
+            print("🏠 WindowFocusManager: 快捷键验证失败 - 没有key窗口")
+            return false
+        }
+        
+        // 对于全局命令，不需要检查特定窗口激活状态
+        if !isGlobal {
+            // 如果指定了窗口ID，检查是否为活跃窗口
+            if let windowId = windowId {
+                guard isActiveWindow(windowId) else {
+                    print("🏠 WindowFocusManager: 快捷键验证失败 - 窗口不是活跃状态 (\(windowId.uuidString.prefix(8)))")
+                    return false
+                }
+            }
+        } else {
+            print("🏠 WindowFocusManager: 全局快捷键 \(command) 跳过窗口激活检查")
+        }
+        
+        // 使用KeyboardEventManager验证命令
+        return keyboardEventManager?.validateCommandForCurrentWindow(command, isGlobalCommand: isGlobal) ?? false
+    }
+    
+    /// 检查全局命令是否在冷却期内
+    /// - Parameter command: 命令名称
+    /// - Returns: 是否在冷却期内
+    private func isGlobalCommandInCooldown(_ command: String) -> Bool {
+        guard let lastTime = lastGlobalCommandTime[command] else {
+            return false
+        }
+        
+        let timeSinceLastExecution = Date().timeIntervalSince(lastTime)
+        return timeSinceLastExecution < globalCommandCooldown
+    }
+    
+    /// 标记全局命令已执行
+    /// - Parameter command: 命令名称
+    private func markGlobalCommandExecuted(_ command: String) {
+        lastGlobalCommandTime[command] = Date()
+        print("🏠 WindowFocusManager: 全局命令 '\(command)' 开始冷却期")
+    }
+
+    /// 验证通知是否应该在指定窗口中处理
+    /// - Parameters:
+    ///   - windowId: 窗口标识符
+    ///   - isGlobalCommand: 是否为全局命令（默认false）
+    ///   - commandName: 命令名称（用于冷却检查）
+    /// - Returns: 是否应该处理该通知
+    func shouldHandleNotification(for windowId: UUID, isGlobalCommand: Bool = false, commandName: String? = nil) -> Bool {
+        let windowShortId = windowId.uuidString.prefix(8)
+        let debugCommandName = commandName ?? "未知命令"
+        
+        // 首先检查窗口是否已注册
+        guard let windowInfo = windowRegistry[windowId] else {
+            print("🏠 WindowFocusManager: 通知被忽略 - 窗口未注册 (\(windowShortId)) 命令: \(debugCommandName)")
+            return false
+        }
+        
+        // 检查是否有key窗口
+        guard hasActiveKeyWindow() else {
+            print("🏠 WindowFocusManager: 通知被忽略 - 没有key窗口 命令: \(debugCommandName)")
+            return false
+        }
+        
+        // 对于全局命令，检查冷却期并只允许一个窗口处理
+        if isGlobalCommand {
+            print("🌍 WindowFocusManager: 处理全局命令 \(debugCommandName) 在窗口 \(windowInfo.displayName)(\(windowShortId))")
+            
+            // 检查命令冷却期
+            if let commandName = commandName, isGlobalCommandInCooldown(commandName) {
+                let cooldownRemaining = globalCommandCooldown - (lastGlobalCommandTime[commandName].map { Date().timeIntervalSince($0) } ?? 0)
+                print("🏠 WindowFocusManager: 全局命令被忽略 - 在冷却期内 (\(commandName)) 剩余: \(String(format: "%.3f", cooldownRemaining))s")
+                return false
+            }
+            
+            // 检查是否有当前活跃窗口，如果有则只让活跃窗口处理
+            if let activeWindow = activeWindowInfo,
+               let activeUUID = UUID(uuidString: activeWindow.id) {
+                let shouldHandle = activeUUID == windowId
+                if shouldHandle {
+                    print("✅ WindowFocusManager: 全局通知允许执行 - 窗口是活跃窗口 \(windowInfo.displayName)(\(windowShortId)) 命令: \(debugCommandName)")
+                    // 标记命令已执行
+                    if let commandName = commandName {
+                        markGlobalCommandExecuted(commandName)
+                    }
+                } else {
+                    print("🚫 WindowFocusManager: 全局通知被忽略 - 窗口不是活跃窗口 \(windowInfo.displayName)(\(windowShortId)) 活跃窗口: \(activeWindow.displayName) 命令: \(debugCommandName)")
+                }
+                return shouldHandle
+            }
+            
+            // 如果没有活跃窗口，尝试通过映射关系确定哪个窗口应该处理
+            if let windowRef = uuidToWindowMap[windowId],
+               let window = windowRef.window,
+               window.isKeyWindow && window.isVisible {
+                print("✅ WindowFocusManager: 全局通知允许执行 - 窗口是key窗口 \(windowInfo.displayName)(\(windowShortId)) 命令: \(debugCommandName)")
+                // 同时将此窗口设置为活跃窗口
+                setActiveWindow(windowId)
+                // 标记命令已执行
+                if let commandName = commandName {
+                    markGlobalCommandExecuted(commandName)
+                }
+                return true
+            } else {
+                print("🚫 WindowFocusManager: 全局通知被忽略 - 窗口不是key窗口 \(windowInfo.displayName)(\(windowShortId)) 命令: \(debugCommandName)")
+                return false
+            }
+        }
+        
+        // 对于窗口特定命令，检查是否为活跃窗口
+        guard isActiveWindow(windowId) else {
+            print("🏠 WindowFocusManager: 通知被忽略 - 窗口不是活跃状态 \(windowInfo.displayName)(\(windowShortId)) 命令: \(debugCommandName)")
+            return false
+        }
+        
+        print("✅ WindowFocusManager: 窗口特定通知允许执行 \(windowInfo.displayName)(\(windowShortId)) 命令: \(debugCommandName)")
+        return true
+    }
+    
+    /// 验证通知是否应该在当前活跃窗口中处理（不指定具体窗口ID）
+    /// - Parameters:
+    ///   - isGlobalCommand: 是否为全局命令（默认false）
+    /// - Returns: 是否应该处理该通知
+    func shouldHandleNotificationForActiveWindow(isGlobalCommand: Bool = false) -> Bool {
+        // 检查是否有key窗口
+        guard hasActiveKeyWindow() else {
+            print("🏠 WindowFocusManager: 通知被忽略 - 没有key窗口")
+            return false
+        }
+        
+        // 对于全局命令，只要有key窗口就可以执行
+        if isGlobalCommand {
+            // 尝试刷新窗口状态（如果没有活跃窗口）
+            if activeWindowInfo == nil {
+                print("🔄 WindowFocusManager: 检测到全局命令但没有活跃窗口，尝试刷新")
+                if let keyWindow = NSApplication.shared.keyWindow {
+                    updateActiveWindowFromNSWindow(keyWindow)
+                }
+            }
+            print("🏠 WindowFocusManager: 全局通知允许执行（活跃窗口）")
+            return true
+        }
+        
+        // 对于窗口特定命令，检查是否有活跃窗口
+        guard activeWindowInfo != nil else {
+            print("🏠 WindowFocusManager: 通知被忽略 - 没有活跃窗口")
+            return false
+        }
+        
+        return true
+    }
+    
+    /// 检查通知名称是否为全局命令
+    /// - Parameter notificationName: 通知名称
+    /// - Returns: 是否为全局命令
+    func isGlobalCommand(_ notificationName: String) -> Bool {
+        let globalCommands: Set<String> = [
+            "showCommandPalette",  // Command+K - 命令面板应该在任何活跃窗口中可用
+            "addNewNode",          // Command+I - 添加新节点应该在任何活跃窗口中可用
+            "toggleSidebar",       // Command+E - 切换侧边栏应该在任何活跃窗口中可用
+            "openNewWindow",       // Command+B - 新建窗口是全局功能
+            "openNodeManager",     // Command+Shift+W - 节点管理器
+            "openTagManager",      // Command+Shift+I - 标签管理器
+            "openMapWindow",       // Command+M - 地图窗口
+            "openGraphWindow",     // Command+G - 图谱窗口
+            "openQuickSearch",     // Command+Shift+F - 快速搜索
+            "showSettings",        // 设置窗口
+            // 执行通知也应该被视为全局命令
+            "executeOpenNodeManager", // 执行打开节点管理器
+            "executeOpenMapWindow",   // 执行打开地图窗口
+            "executeOpenGraphWindow", // 执行打开图谱窗口
+            "executeToggleSidebar"    // 执行切换侧边栏
+        ]
+        
+        return globalCommands.contains(notificationName)
+    }
+    
+    /// 执行窗口特定的快捷键命令
+    /// - Parameters:
+    ///   - command: 命令标识符
+    ///   - windowId: 窗口标识符
+    ///   - action: 要执行的动作
+    /// - Returns: 是否成功执行
+    @discardableResult
+    func executeKeyboardShortcut(_ command: String, for windowId: UUID, action: () -> Void) -> Bool {
+        guard validateKeyboardShortcut(command, for: windowId) else {
+            return false
+        }
+        
+        // 标记命令开始执行
+        keyboardEventManager?.markCommandExecuted(command, in: windowId)
+        
+        // 执行动作
+        action()
+        
+        print("🏠 WindowFocusManager: 执行快捷键命令 - \(command) in \(windowId.uuidString.prefix(8))")
+        return true
+    }
+    
+    // MARK: - Private Methods
+    
+    /// 设置窗口观察器
+    private func setupWindowObservers() {
+        // 监听窗口成为key窗口
+        let becameKeyObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didBecomeKeyNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            Task { @MainActor in
+                self?.handleWindowBecameKey(notification)
+            }
+        }
+        windowObservers.append(becameKeyObserver)
+        
+        // 监听窗口失去key状态
+        let resignKeyObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResignKeyNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            Task { @MainActor in
+                self?.handleWindowResignKey(notification)
+            }
+        }
+        windowObservers.append(resignKeyObserver)
+        
+        // 监听窗口关闭
+        let willCloseObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            Task { @MainActor in
+                self?.handleWindowWillClose(notification)
+            }
+        }
+        windowObservers.append(willCloseObserver)
+        
+        // 监听应用程序激活状态变化
+        let appActiveObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.handleApplicationBecameActive()
+            }
+        }
+        windowObservers.append(appActiveObserver)
+        
+        let appInactiveObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didResignActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.handleApplicationResignActive()
+            }
+        }
+        windowObservers.append(appInactiveObserver)
+    }
+    
+    /// 设置与KeyboardEventManager的集成
+    private func setupKeyboardEventManagerIntegration() {
+        keyboardEventManager = KeyboardEventManager()
+    }
+    
+    /// 处理窗口成为key窗口
+    private func handleWindowBecameKey(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        
+        print("🏠 WindowFocusManager: 窗口成为key - \(window.title) (\(ObjectIdentifier(window)))")
+        
+        // 更新活跃窗口映射
+        updateActiveWindowFromNSWindow(window)
+    }
+    
+    /// 处理窗口失去key状态
+    private func handleWindowResignKey(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        print("🏠 WindowFocusManager: 窗口失去key - \(window.title) (\(ObjectIdentifier(window)))")
+        
+        // 检查是否是当前活跃窗口失去焦点
+        if let uuid = windowToUUIDMap[window],
+           activeWindowInfo?.id == uuid.uuidString {
+            print("🏠 WindowFocusManager: 当前活跃窗口失去key状态 - \(uuid.uuidString.prefix(8))")
+            // 不立即清除活跃状态，等待新的key窗口出现
+        }
+    }
+    
+    /// 处理窗口即将关闭
+    private func handleWindowWillClose(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        print("🏠 WindowFocusManager: 窗口即将关闭 - \(window.title) (\(ObjectIdentifier(window)))")
+        
+        // 查找并清理对应的窗口映射
+        if let uuid = windowToUUIDMap[window] {
+            print("🗑️ WindowFocusManager: 清理关闭窗口的映射 - \(uuid.uuidString.prefix(8))")
+            windowToUUIDMap.removeValue(forKey: window)
+            uuidToWindowMap.removeValue(forKey: uuid)
+            
+            // 如果是当前活跃窗口，清除活跃状态
+            if activeWindowInfo?.id == uuid.uuidString {
+                setActiveWindow(nil)
+            }
+        }
+    }
+    
+    /// 处理应用程序变为活跃状态
+    private func handleApplicationBecameActive() {
+        print("🏠 WindowFocusManager: 应用程序变为活跃状态")
+        print("📊 WindowFocusManager: 当前状态 - 注册窗口: \(windowRegistry.count), 映射关系: \(windowToUUIDMap.count), 活跃窗口: \(activeWindowInfo?.displayName ?? "nil")")
+        
+        // 重新评估当前的key窗口
+        if let keyWindow = NSApplication.shared.keyWindow {
+            print("🔄 WindowFocusManager: 重新评估key窗口 - \(keyWindow.title) (\(ObjectIdentifier(keyWindow)))")
+            updateActiveWindowFromNSWindow(keyWindow)
+        } else {
+            print("⚠️ WindowFocusManager: 没有找到key窗口")
+        }
+    }
+    
+    /// 处理应用程序失去活跃状态
+    private func handleApplicationResignActive() {
+        print("🏠 WindowFocusManager: 应用程序失去活跃状态")
+        
+        // 可以选择保留当前活跃窗口信息，或者清除
+        // 根据具体需求决定
+    }
+    
+    /// 关联NSWindow与UUID
+    /// - Parameters:
+    ///   - window: NSWindow实例
+    ///   - uuid: 对应的UUID
+    private func associateWindowWithUUID(_ window: NSWindow, uuid: UUID) {
+        // 建立双向映射
+        windowToUUIDMap[window] = uuid
+        uuidToWindowMap[uuid] = WeakWindowReference(window: window)
+        
+        print("🔗 WindowFocusManager: 建立窗口映射 - \(window.title) <-> \(uuid.uuidString.prefix(8))")
+    }
+    
+    /// 从NSWindow更新活跃窗口信息
+    private func updateActiveWindowFromNSWindow(_ window: NSWindow) {
+        print("🔍 WindowFocusManager: 更新活跃窗口 - 窗口标题: '\(window.title)', 是否key: \(window.isKeyWindow), 是否可见: \(window.isVisible)")
+        
+        // 方式1：直接通过已建立的映射查找
+        if let uuid = windowToUUIDMap[window] {
+            if windowRegistry[uuid] != nil {
+                print("🎯 WindowFocusManager: 通过直接映射找到窗口 - \(uuid.uuidString.prefix(8))")
+                setActiveWindow(uuid)
+                return
+            } else {
+                // 清理无效映射
+                windowToUUIDMap.removeValue(forKey: window)
+                uuidToWindowMap.removeValue(forKey: uuid)
+            }
+        }
+        
+        // 方式2：尝试建立新的映射关系
+        // 根据当前注册窗口的数量和类型进行智能匹配
+        let registeredWindows = Array(windowRegistry.keys)
+        
+        if registeredWindows.count == 1 {
+            // 如果只有一个注册窗口，直接关联
+            let uuid = registeredWindows[0]
+            associateWindowWithUUID(window, uuid: uuid)
+            print("🔄 WindowFocusManager: 单窗口自动关联 - \(uuid.uuidString.prefix(8))")
+            setActiveWindow(uuid)
+            return
+        }
+        
+        // 方式3：通过窗口特征进行匹配
+        // let windowTitle = window.title.lowercased() // 暂时未使用，预留给未来的匹配逻辑
+        
+        // 首先尝试匹配主窗口
+        for (uuid, windowInfo) in windowRegistry {
+            if windowInfo.type == .main {
+                // 如果这个主窗口UUID还没有关联窗口，就关联它
+                if uuidToWindowMap[uuid]?.window == nil {
+                    associateWindowWithUUID(window, uuid: uuid)
+                    print("🏠 WindowFocusManager: 自动关联主窗口 - \(uuid.uuidString.prefix(8))")
+                    setActiveWindow(uuid)
+                    return
+                }
+            }
+        }
+        
+        // 然后尝试匹配独立窗口
+        for (uuid, windowInfo) in windowRegistry {
+            if windowInfo.type == .independent {
+                // 如果这个独立窗口UUID还没有关联窗口，就关联它
+                if uuidToWindowMap[uuid]?.window == nil {
+                    associateWindowWithUUID(window, uuid: uuid)
+                    print("🏠 WindowFocusManager: 自动关联独立窗口 - \(uuid.uuidString.prefix(8))")
+                    setActiveWindow(uuid)
+                    return
+                }
+            }
+        }
+        
+        // 如果都没有找到合适的关联，记录调试信息
+        print("❌ WindowFocusManager: 无法关联窗口 '\(window.title)' - 已注册窗口: \(windowRegistry.count), 已映射窗口: \(windowToUUIDMap.count)")
+        print("📋 WindowFocusManager: 已注册窗口列表: \(windowRegistry.map { "\($0.value.displayName)(\($0.key.uuidString.prefix(8)))" }.joined(separator: ", "))")
+    }
+    
+    /// 清理资源
+    private func cleanup() {
+        for observer in windowObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        windowObservers.removeAll()
+    }
+    
+    // MARK: - Debug Methods
+    
+    /// 获取当前窗口状态信息（用于调试）
+    func getDebugInfo() -> [String: Any] {
+        let keyWindow = NSApplication.shared.keyWindow
+        return [
+            "activeWindow": activeWindowInfo?.displayName ?? "nil",
+            "activeWindowId": activeWindowInfo?.id.prefix(8) ?? "nil",
+            "registeredWindows": windowRegistry.count,
+            "hasKeyWindow": hasActiveKeyWindow(),
+            "keyWindowTitle": keyWindow?.title ?? "nil",
+            "keyWindowId": keyWindow.map { "\(ObjectIdentifier($0))" } ?? "nil",
+            "windowMappings": windowToUUIDMap.count,
+            "windowList": windowRegistry.map { (uuid, info) in
+                let hasMapping = uuidToWindowMap[uuid]?.window != nil
+                return "\(info.displayName) (\(uuid.uuidString.prefix(8)))[映射:\(hasMapping ? "✓" : "✗")]"
+            }
+        ]
+    }
+    
+    /// 强制刷新窗口状态（调试用）
+    func forceRefreshWindowState() {
+        print("🔄 WindowFocusManager: 强制刷新窗口状态")
+        print("📊 当前调试信息: \(getDebugInfo())")
+        
+        // 如果有key窗口但没有活跃窗口，尝试重新建立映射
+        if let keyWindow = NSApplication.shared.keyWindow,
+           keyWindow.isKeyWindow && keyWindow.isVisible,
+           activeWindowInfo == nil {
+            print("🔧 WindowFocusManager: 检测到key窗口但没有活跃窗口，尝试重新建立映射")
+            updateActiveWindowFromNSWindow(keyWindow)
+        }
+    }
+}
+
+// MARK: - Supporting Types
+
+/// 弱引用包装器用于存储NSWindow引用
+class WeakWindowReference {
+    weak var window: NSWindow?
+    
+    init(window: NSWindow) {
+        self.window = window
+    }
+}
+
+// MARK: - SwiftUI Integration
+
+/// 用于在SwiftUI视图中注册窗口的ViewModifier
+struct WindowRegistrationModifier: ViewModifier {
+    let windowId: UUID
+    let windowType: WindowType
+    let displayName: String?
+    
+    func body(content: Content) -> some View {
+        content
+            .onAppear {
+                WindowFocusManager.shared.registerWindow(
+                    windowId,
+                    type: windowType,
+                    displayName: displayName
+                )
+            }
+            .onDisappear {
+                WindowFocusManager.shared.unregisterWindow(windowId)
+            }
+    }
+}
+
+extension View {
+    /// 为视图注册窗口焦点管理
+    /// - Parameters:
+    ///   - windowId: 窗口标识符
+    ///   - windowType: 窗口类型
+    ///   - displayName: 显示名称（可选）
+    /// - Returns: 修改后的视图
+    func registerWindow(
+        _ windowId: UUID,
+        type windowType: WindowType,
+        displayName: String? = nil
+    ) -> some View {
+        modifier(WindowRegistrationModifier(
+            windowId: windowId,
+            windowType: windowType,
+            displayName: displayName
+        ))
+    }
+}

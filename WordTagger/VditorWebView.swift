@@ -185,11 +185,85 @@ struct VditorWebView: NSViewRepresentable {
                 }
                 break
                 
+            case "commandK":
+                // 转发 Command+K 给原生 App - 命令面板
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: Notification.Name("showCommandPalette"), object: nil)
+                }
+                break
+                
+            case "commandI":
+                // 转发 Command+I 给原生 App - 快速添加节点
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: Notification.Name("addNewNode"), object: nil)
+                }
+                break
+                
             case "commandD":
                 // 转发 Command+D 给原生 App - 全屏详情面板
                 DispatchQueue.main.async {
                     // Command+D应该触发全屏详情面板，不是切换到图谱
                     // 这里暂时不做任何操作，让DetailPanel自己的按键处理来处理Command+D
+                }
+                break
+                
+            case "openURL":
+                // 处理超链接点击：在默认浏览器中打开URL
+                print("🔗 收到openURL请求，body: \(body)")
+                if let urlString = body["url"] as? String {
+                    print("🔗 原始URL字符串: '\(urlString)'")
+                    
+                    // 清理URL字符串
+                    let cleanedString = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+                    
+                    if let url = URL(string: cleanedString) {
+                        print("🔗 成功创建URL对象: \(url)")
+                        print("🔗 URL方案: \(url.scheme ?? "无"), 主机: \(url.host ?? "无")")
+                        
+                        DispatchQueue.main.async {
+                            print("🔗 准备在主线程中打开URL...")
+                            let success = NSWorkspace.shared.open(url)
+                            if success {
+                                print("✅ 已在默认浏览器中打开链接: \(cleanedString)")
+                                // 通过JavaScript确认成功
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                    self.evaluateJS("console.log('✅ 链接已成功在浏览器中打开: \(cleanedString)');")
+                                }
+                            } else {
+                                print("❌ NSWorkspace.shared.open 失败: \(cleanedString)")
+                                // 尝试其他方式
+                                if let safariURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Safari") {
+                                    print("🔗 尝试使用Safari直接打开...")
+                                    let configuration = NSWorkspace.OpenConfiguration()
+                                    NSWorkspace.shared.open([url], withApplicationAt: safariURL, configuration: configuration, completionHandler: { app, error in
+                                        if let error = error {
+                                            print("🔗 Safari打开失败: \(error)")
+                                        } else {
+                                            print("🔗 Safari打开成功: \(String(describing: app))")
+                                        }
+                                    })
+                                } else {
+                                    print("❌ 无法找到Safari浏览器")
+                                }
+                            }
+                        }
+                    } else {
+                        print("❌ 无法从字符串创建URL对象: '\(cleanedString)'")
+                        // 尝试编码URL
+                        if let encodedString = cleanedString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+                           let encodedURL = URL(string: encodedString) {
+                            print("🔗 尝试使用编码后的URL: \(encodedString)")
+                            DispatchQueue.main.async {
+                                let success = NSWorkspace.shared.open(encodedURL)
+                                print("🔗 编码URL打开结果: \(success)")
+                            }
+                        } else {
+                            print("❌ 编码URL也失败")
+                        }
+                    }
+                } else {
+                    print("❌ 无效的URL格式，body: \(body)")
+                    print("❌ URL字段不是字符串类型或不存在")
                 }
                 break
 
@@ -688,6 +762,38 @@ struct VditorWebView: NSViewRepresentable {
                     return false;
                   }
                   
+                  // Command+K: 转发给原生App处理 - 命令面板
+                  if (e.metaKey && (e.key === 'k' || e.key === 'K')) {
+                    console.log('🔥 拦截 Command+K 快捷键，转发给App处理');
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    
+                    try {
+                      window.webkit?.messageHandlers?.bridge?.postMessage({ 
+                        type: 'commandK'
+                      });
+                    } catch(err) {
+                      console.error('无法发送 Command+K 事件:', err);
+                    }
+                    return false;
+                  }
+                  
+                  // Command+I: 转发给原生App处理 - 快速添加节点
+                  if (e.metaKey && (e.key === 'i' || e.key === 'I')) {
+                    console.log('🔥 拦截 Command+I 快捷键，转发给App处理');
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    
+                    try {
+                      window.webkit?.messageHandlers?.bridge?.postMessage({ 
+                        type: 'commandI'
+                      });
+                    } catch(err) {
+                      console.error('无法发送 Command+I 事件:', err);
+                    }
+                    return false;
+                  }
+                  
                   // Command+D: 转发给原生App处理 (全屏详情面板)
                   if (e.metaKey && (e.key === 'd' || e.key === 'D')) {
                     console.log('🔥 拦截 Command+D 快捷键，转发给App处理');
@@ -1149,7 +1255,165 @@ struct VditorWebView: NSViewRepresentable {
               }
             }, true);
             
+            // 增强的超链接Command+点击处理 - 多层次拦截确保成功
+            function handleLinkClick(e) {
+              console.log('🔗 Click detected, metaKey:', e.metaKey, 'shiftKey:', e.shiftKey, 'target:', e.target, 'tagName:', e.target.tagName);
+              
+              // 支持Shift+点击或Command+点击
+              if (!e.metaKey && !e.shiftKey) return;
+              
+              let target = e.target;
+              let attempts = 0;
+              const maxAttempts = 10;
+              
+              // 向上查找链接元素
+              while (target && target.tagName !== 'A' && target.parentElement && attempts < maxAttempts) {
+                target = target.parentElement;
+                attempts++;
+                console.log('🔗 Checking parent:', target.tagName, target);
+              }
+              
+              // 使用closest方法再次查找
+              if (!target || target.tagName !== 'A') {
+                target = e.target.closest('a');
+                console.log('🔗 Using closest() method, found:', target);
+              }
+              
+              if (target && target.tagName === 'A') {
+                let url = target.href || target.getAttribute('href');
+                console.log('🔗 Found link element:', target);
+                console.log('🔗 Link href:', url);
+                
+                if (url && url.trim() !== '') {
+                  console.log('🔗 修饰键+点击链接:', url, '(metaKey:', e.metaKey, ', shiftKey:', e.shiftKey, ')');
+                  
+                  // 强制阻止所有默认行为和事件传播
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.stopImmediatePropagation();
+                  
+                  // 清理和标准化URL
+                  url = url.trim();
+                  
+                  // 处理相对URL和协议
+                  if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('mailto:') && !url.startsWith('file://')) {
+                    if (url.includes('@') && !url.includes('/')) {
+                      url = 'mailto:' + url;
+                    } else if (url.startsWith('www.') || url.includes('.com') || url.includes('.org') || url.includes('.net')) {
+                      url = 'https://' + url;
+                    } else if (!url.startsWith('//')) {
+                      url = 'https://' + url;
+                    }
+                    console.log('🔗 标准化后的URL:', url);
+                  }
+                  
+                  // 异步发送消息，确保事件处理完成
+                  setTimeout(() => {
+                    try {
+                      console.log('🔗 准备发送消息到原生代码...', { type: 'openURL', url: url });
+                      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bridge) {
+                        console.log('🔗 WebKit消息处理器可用，发送消息...');
+                        window.webkit.messageHandlers.bridge.postMessage({ 
+                          type: 'openURL',
+                          url: url
+                        });
+                        console.log('✅ 已发送openURL消息到原生代码');
+                      } else {
+                        console.error('❌ WebKit消息处理器不可用');
+                        console.log('🔗 尝试备选方案：window.open');
+                        window.open(url, '_blank');
+                        console.log('✅ 使用window.open打开链接');
+                      }
+                    } catch(err) {
+                      console.error('❌ 发送openURL消息失败:', err);
+                      try {
+                        console.log('🔗 备选方案：window.open');
+                        window.open(url, '_blank');
+                        console.log('✅ 备选方案：使用window.open打开链接');
+                      } catch(backupErr) {
+                        console.error('❌ 备选方案也失败:', backupErr);
+                      }
+                    }
+                  }, 0);
+                  
+                  return false;
+                } else {
+                  console.warn('🔗 链接元素存在但没有有效的URL:', target);
+                }
+              } else {
+                console.log('🔗 未找到链接元素');
+              }
+            }
+            
+            // 多重事件监听策略 - 确保在各种情况下都能拦截链接点击
+            
+            // 1. 在捕获阶段拦截，优先级最高
+            document.addEventListener('click', handleLinkClick, true);
+            
+            // 2. 在冒泡阶段再次拦截，以防捕获阶段被阻止
+            document.addEventListener('click', handleLinkClick, false);
+            
+            // 3. 使用Vditor编辑器的事件系统（如果可用）
+            if (window.vditor && window.vditor.element) {
+              window.vditor.element.addEventListener('click', handleLinkClick, true);
+            }
+            
+            // 4. 直接在document.body上监听，覆盖更广
+            if (document.body) {
+              document.body.addEventListener('click', handleLinkClick, true);
+            }
+            
+            // 5. 全局mousedown预处理，确保准备工作完成
+            document.addEventListener('mousedown', function(e) {
+              if ((e.metaKey || e.shiftKey) && e.target.closest('a')) {
+                console.log('🔗 Mousedown on link detected, preparing for click', '(metaKey:', e.metaKey, ', shiftKey:', e.shiftKey, ')');
+                // 预处理：标记这个元素即将被点击
+                e.target.closest('a').dataset.aboutToClick = 'true';
+              }
+            }, true);
+            
+            // 6. 额外的全局点击监听器用于调试和备用处理
             document.addEventListener('click', function(e) {
+              console.log('🔗 [DEBUG] 全局点击检测:', e.target.tagName, e.target, 'metaKey:', e.metaKey, 'shiftKey:', e.shiftKey);
+              
+              if (e.target.closest('a')) {
+                const link = e.target.closest('a');
+                console.log('🔗 [DEBUG] 这是链接点击！href:', link.href);
+                
+                // 如果有修饰键但没有被处理，强制处理
+                if ((e.metaKey || e.shiftKey) && !e.defaultPrevented) {
+                  console.log('🔗 [BACKUP] 备用处理器激活');
+                  handleLinkClick(e);
+                }
+              }
+            }, true);
+            
+            // 7. 定时器方式的深度拦截 - 在Vditor加载完成后重新绑定事件
+            setTimeout(() => {
+              console.log('🔗 延迟绑定链接处理器...');
+              // 查找所有可能的容器并绑定事件
+              const containers = [
+                document,
+                document.body,
+                document.querySelector('.vditor'),
+                document.querySelector('.vditor-reset'),
+                document.querySelector('#vditor')
+              ].filter(Boolean);
+              
+              containers.forEach(container => {
+                console.log('🔗 在容器上绑定事件:', container);
+                container.addEventListener('click', function(e) {
+                  if ((e.metaKey || e.shiftKey) && e.target.closest('a')) {
+                    console.log('🔗 [DEEP] 深度拦截器触发');
+                    handleLinkClick(e);
+                  }
+                }, true);
+              });
+            }, 1000);
+            
+            // 图片和其他元素的点击处理
+            document.addEventListener('click', function(e) {
+              
               if (e.target.tagName === 'IMG' && e.target.src.includes('Images/')) {
                 if (e.metaKey) {
                   // Command+点击：在 Finder 中显示图片

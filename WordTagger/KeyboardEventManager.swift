@@ -7,8 +7,64 @@
 
 import Foundation
 import SwiftUI
+import Combine
+
+// MARK: - Window Types (temporary - should be in separate file)
+
+/// 窗口类型枚举
+enum WindowType: Hashable {
+    case main
+    case independent
+    case map
+    case graph
+    case fullscreenGraph
+    case nodeManager
+    case settings
+    case custom(String)
+    
+    var displayName: String {
+        switch self {
+        case .main: return "主窗口"
+        case .independent: return "独立窗口"
+        case .map: return "地图窗口"
+        case .graph: return "图谱窗口"
+        case .fullscreenGraph: return "全屏图谱"
+        case .nodeManager: return "节点管理"
+        case .settings: return "设置"
+        case .custom(let name): return name
+        }
+    }
+    
+    var description: String {
+        return displayName
+    }
+}
+
+/// 窗口信息结构
+struct WindowInfo: Hashable, Identifiable {
+    let id: String
+    let displayName: String
+    let type: WindowType
+    let registrationTime: Date
+    
+    init(id: String, displayName: String, type: WindowType) {
+        self.id = id
+        self.displayName = displayName
+        self.type = type
+        self.registrationTime = Date()
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+    
+    static func == (lhs: WindowInfo, rhs: WindowInfo) -> Bool {
+        return lhs.id == rhs.id
+    }
+}
 
 /// Manages keyboard event state and prevents rapid-fire command execution
+/// Enhanced with window-level event management support
 class KeyboardEventManager: ObservableObject {
     // MARK: - Published Properties
     
@@ -23,6 +79,12 @@ class KeyboardEventManager: ObservableObject {
     
     /// Current error state information
     @Published var errorState: KeyboardErrorState?
+    
+    /// Window-specific command states
+    @Published private var windowCommandStates: [UUID: WindowCommandState] = [:]
+    
+    /// Current active window context
+    @Published private(set) var activeWindowContext: UUID?
     
     // MARK: - Private Properties
     
@@ -54,12 +116,16 @@ class KeyboardEventManager: ObservableObject {
     private var executionHistory: [CommandExecution] = []
     private let maxHistorySize = 50
     
+    /// Integration with focus manager
+    private var focusManagerObserver: AnyCancellable?
+    
     // MARK: - Initialization
     
     init() {
         setupAutomaticCleanup()
         setupErrorRecovery()
         setupStateResetTimer()
+        setupFocusManagerIntegration()
     }
     
     deinit {
@@ -70,10 +136,21 @@ class KeyboardEventManager: ObservableObject {
     
     // MARK: - Public Methods
     
-    /// Checks if a command can be executed based on cooldown and active state
+    /// Checks if a command can be executed based on cooldown and active state (legacy method for backwards compatibility)
     /// - Parameter command: The command identifier to check
     /// - Returns: True if the command can be executed, false otherwise
     func canExecuteCommand(_ command: String) -> Bool {
+        // Automatically detect if it's a global command
+        let isGlobal = isGlobalCommand(command)
+        return canExecuteCommand(command, isGlobalCommand: isGlobal)
+    }
+    
+    /// Checks if a command can be executed based on cooldown and active state
+    /// - Parameters:
+    ///   - command: The command identifier to check
+    ///   - isGlobalCommand: Whether this is a global command
+    /// - Returns: True if the command can be executed, false otherwise
+    func canExecuteCommand(_ command: String, isGlobalCommand: Bool) -> Bool {
         return commandQueue.sync {
             // If in error recovery mode, only allow recovery commands
             if isInErrorRecovery && !isRecoveryCommand(command) {
@@ -85,6 +162,18 @@ class KeyboardEventManager: ObservableObject {
             if focusState == .corrupted {
                 recordCommandAttempt(command, result: .blockedByFocusIssue)
                 return false
+            }
+            
+            // For global commands, skip the active window context check
+            if !isGlobalCommand {
+                // Check if we have an active window context (only for window-specific commands)
+                guard activeWindowContext != nil else {
+                    recordCommandAttempt(command, result: .blockedByFocusIssue)
+                    print("⌨️ KeyboardEventManager: Command \(command) blocked - no active window context")
+                    return false
+                }
+            } else {
+                print("⌨️ KeyboardEventManager: Global command \(command) bypassing window context check")
             }
             
             // Check if command is currently active
@@ -474,6 +563,48 @@ class KeyboardEventManager: ObservableObject {
     func getExecutionHistory(limit: Int = 20) -> [CommandExecution] {
         return Array(executionHistory.suffix(limit))
     }
+    
+    // MARK: - Window Focus Management
+    
+    /// Checks if the current window is the key window and should receive keyboard events
+    /// - Returns: True if the current context window is key and visible
+    func isCurrentWindowKeyWindow() -> Bool {
+        guard let keyWindow = NSApplication.shared.keyWindow else {
+            print("⌨️ KeyboardEventManager: No key window found")
+            return false
+        }
+        
+        let isKey = keyWindow.isKeyWindow
+        let isVisible = keyWindow.isVisible
+        
+        print("⌨️ KeyboardEventManager: Window state - isKey: \(isKey), isVisible: \(isVisible)")
+        return isKey && isVisible
+    }
+    
+    /// Validates that a command should be executed in the current window context
+    /// - Parameters:
+    ///   - command: Command to validate
+    ///   - isGlobalCommand: Whether this is a global command (default: false)
+    /// - Returns: True if command should be executed
+    func validateCommandForCurrentWindow(_ command: String, isGlobalCommand: Bool = false) -> Bool {
+        // For global commands, we don't need to check if the current window is key
+        if !isGlobalCommand {
+            // First check if we have a valid window context
+            guard isCurrentWindowKeyWindow() else {
+                print("⌨️ KeyboardEventManager: Command \(command) blocked - not key window")
+                return false
+            }
+        } else {
+            // For global commands, just check if there's any key window in the app
+            guard NSApplication.shared.keyWindow != nil else {
+                print("⌨️ KeyboardEventManager: Global command \(command) blocked - no key window in app")
+                return false
+            }
+        }
+        
+        // Then check normal command validation
+        return canExecuteCommand(command, isGlobalCommand: isGlobalCommand)
+    }
 }
 
 // MARK: - Supporting Structures
@@ -540,13 +671,15 @@ struct CommandExecution {
     let success: Bool
     let result: CommandAttemptResult?
     let error: KeyboardError?
+    let windowId: UUID?
     
-    init(command: String, timestamp: Date, success: Bool, result: CommandAttemptResult? = nil, error: KeyboardError? = nil) {
+    init(command: String, timestamp: Date, success: Bool, result: CommandAttemptResult? = nil, error: KeyboardError? = nil, windowId: UUID? = nil) {
         self.command = command
         self.timestamp = timestamp
         self.success = success
         self.result = result
         self.error = error
+        self.windowId = windowId
     }
 }
 
@@ -562,6 +695,8 @@ extension KeyboardEventManager {
         static let commandS = "command-s"
         static let commandZ = "command-z"
         static let commandY = "command-y"
+        static let commandK = "command-k"  // Command+K - 命令面板
+        static let commandB = "command-b"  // Command+B - 新建窗口
         static let escape = "escape"
         static let enter = "enter"
         static let tab = "tab"
@@ -569,5 +704,251 @@ extension KeyboardEventManager {
         // Recovery commands
         static let clearState = "clear-state"
         static let focusReset = "focus-reset"
+        
+        // UI Navigation commands
+        static let switchToTagFiltering = "switch-to-tag-filtering"
+        static let switchToTagSearch = "switch-to-tag-search"
+        
+        // Global commands that don't require specific window activation
+        static let globalCommands: Set<String> = [
+            commandK,  // Command+K - 命令面板应该在任何活跃窗口中可用
+            commandB,  // Command+B - 新建窗口是全局功能
+        ]
+    }
+    
+    /// Checks if a command is a global command
+    /// - Parameter command: Command identifier to check
+    /// - Returns: True if it's a global command
+    func isGlobalCommand(_ command: String) -> Bool {
+        return Commands.globalCommands.contains(command)
     }
 }
+
+// MARK: - Window-Level Event Management Extension
+
+extension KeyboardEventManager {
+    
+    /// Registers a window for event management
+    /// - Parameters:
+    ///   - windowId: Unique identifier for the window
+    ///   - windowType: Type of the window
+    func registerWindow(_ windowId: UUID, type: WindowType) {
+        windowCommandStates[windowId] = WindowCommandState(
+            windowId: windowId,
+            windowType: type,
+            activeCommands: Set<String>(),
+            commandExecutionState: [:],
+            isEnabled: true,
+            lastFocusTime: Date()
+        )
+        
+        print("⌨️ KeyboardEventManager: 注册窗口事件管理 - \(type.displayName)")
+    }
+    
+    /// Unregisters a window from event management
+    /// - Parameter windowId: Window identifier to unregister
+    func unregisterWindow(_ windowId: UUID) {
+        if let windowState = windowCommandStates.removeValue(forKey: windowId) {
+            print("⌨️ KeyboardEventManager: 取消注册窗口事件管理 - \(windowState.windowType.displayName)")
+        }
+        
+        // If this was the active window, clear the context
+        if activeWindowContext == windowId {
+            activeWindowContext = nil
+        }
+    }
+    
+    /// Sets the active window context
+    /// - Parameter windowId: Window identifier to set as active
+    func setActiveWindowContext(_ windowId: UUID?) {
+        let previousContext = activeWindowContext
+        activeWindowContext = windowId
+        
+        // Update last focus time for the window
+        if let windowId = windowId {
+            windowCommandStates[windowId]?.lastFocusTime = Date()
+        }
+        
+        // Post notification about window context change
+        let userInfo: [String: Any] = [
+            "previousWindowId": previousContext?.uuidString ?? "nil",
+            "currentWindowId": windowId?.uuidString ?? "nil"
+        ]
+        NotificationCenter.default.post(
+            name: NSNotification.Name("KeyboardEventManager.WindowContextChanged"),
+            object: self,
+            userInfo: userInfo
+        )
+        
+        print("⌨️ KeyboardEventManager: 活跃窗口上下文变更: \(previousContext?.uuidString.prefix(8) ?? "nil") -> \(windowId?.uuidString.prefix(8) ?? "nil")")
+    }
+    
+    /// Checks if a command can be executed in a specific window context
+    /// - Parameters:
+    ///   - command: Command identifier
+    ///   - windowId: Window identifier (if nil, uses active window)
+    /// - Returns: True if command can be executed
+    func canExecuteCommand(_ command: String, in windowId: UUID? = nil) -> Bool {
+        let targetWindowId = windowId ?? activeWindowContext
+        
+        guard let targetId = targetWindowId,
+              let windowState = windowCommandStates[targetId],
+              windowState.isEnabled else {
+            return canExecuteCommand(command) // Fall back to global check
+        }
+        
+        // Check window-specific state
+        return commandQueue.sync {
+            // Global checks first
+            guard canExecuteCommand(command) else { return false }
+            
+            // Window-specific checks
+            guard !windowState.activeCommands.contains(command) else {
+                recordCommandAttempt(command, result: .blockedByActiveState, windowId: targetId)
+                return false
+            }
+            
+            // Window-specific cooldown check
+            if let lastExecution = windowState.commandExecutionState[command] {
+                let timeSinceLastExecution = Date().timeIntervalSince(lastExecution)
+                if timeSinceLastExecution <= commandCooldown {
+                    recordCommandAttempt(command, result: .blockedByCooldown, windowId: targetId)
+                    return false
+                }
+            }
+            
+            return true
+        }
+    }
+    
+    /// Marks a command as executed in a specific window context
+    /// - Parameters:
+    ///   - command: Command identifier
+    ///   - windowId: Window identifier (if nil, uses active window)
+    func markCommandExecuted(_ command: String, in windowId: UUID? = nil) {
+        let targetWindowId = windowId ?? activeWindowContext
+        
+        // Always mark global execution
+        markCommandExecuted(command)
+        
+        // Mark window-specific execution
+        guard let targetId = targetWindowId else { return }
+        
+        commandQueue.async { [weak self] in
+            guard let self = self else { return }
+            
+            DispatchQueue.main.async {
+                self.windowCommandStates[targetId]?.activeCommands.insert(command)
+                self.windowCommandStates[targetId]?.commandExecutionState[command] = Date()
+                
+                // Schedule removal from window-specific active commands
+                DispatchQueue.main.asyncAfter(deadline: .now() + self.commandCooldown) {
+                    self.windowCommandStates[targetId]?.activeCommands.remove(command)
+                }
+            }
+        }
+    }
+    
+    /// Marks a command as failed in a specific window context
+    /// - Parameters:
+    ///   - command: Command identifier
+    ///   - error: Error that occurred
+    ///   - windowId: Window identifier (if nil, uses active window)
+    func markCommandFailed(_ command: String, error: KeyboardError, in windowId: UUID? = nil) {
+        let targetWindowId = windowId ?? activeWindowContext
+        
+        // Always mark global failure
+        markCommandFailed(command, error: error)
+        
+        // Mark window-specific failure
+        guard let targetId = targetWindowId else { return }
+        
+        commandQueue.async { [weak self] in
+            DispatchQueue.main.async {
+                self?.windowCommandStates[targetId]?.activeCommands.remove(command)
+            }
+        }
+    }
+    
+    /// Enables or disables event management for a specific window
+    /// - Parameters:
+    ///   - enabled: Whether to enable event management
+    ///   - windowId: Window identifier
+    func setWindowEventManagementEnabled(_ enabled: Bool, for windowId: UUID) {
+        windowCommandStates[windowId]?.isEnabled = enabled
+        
+        print("⌨️ KeyboardEventManager: 窗口事件管理状态变更 (\(windowId.uuidString.prefix(8))): \(enabled ? "启用" : "禁用")")
+    }
+    
+    /// Gets window-specific debug information
+    /// - Parameter windowId: Window identifier
+    /// - Returns: Window command state if available
+    func getWindowCommandState(_ windowId: UUID) -> WindowCommandState? {
+        return windowCommandStates[windowId]
+    }
+    
+    /// Gets all window command states for debugging
+    /// - Returns: Dictionary of window states
+    func getAllWindowCommandStates() -> [UUID: WindowCommandState] {
+        return windowCommandStates
+    }
+    
+    /// Sets up integration with WindowFocusManager
+    private func setupFocusManagerIntegration() {
+        // Listen for window focus changes
+        focusManagerObserver = NotificationCenter.default
+            .publisher(for: NSNotification.Name("windowFocusChanged"))
+            .sink { [weak self] notification in
+                if let windowInfo = notification.object as? WindowInfo {
+                    // Convert String ID to UUID if possible, otherwise skip
+                    if let uuid = UUID(uuidString: windowInfo.id) {
+                        self?.setActiveWindowContext(uuid)
+                    }
+                }
+            }
+    }
+    
+    /// Enhanced command attempt recording with window context
+    /// - Parameters:
+    ///   - command: Command identifier
+    ///   - result: Attempt result
+    ///   - windowId: Window identifier (optional)
+    private func recordCommandAttempt(_ command: String, result: CommandAttemptResult, windowId: UUID? = nil) {
+        let attempt = CommandExecution(
+            command: command,
+            timestamp: Date(),
+            success: result == .allowed,
+            result: result,
+            windowId: windowId
+        )
+        
+        executionHistory.append(attempt)
+        
+        // Keep history size manageable
+        if executionHistory.count > maxHistorySize {
+            executionHistory.removeFirst(executionHistory.count - maxHistorySize)
+        }
+    }
+}
+
+// MARK: - Window Command State
+
+/// Represents command state for a specific window
+struct WindowCommandState {
+    let windowId: UUID
+    let windowType: WindowType
+    var activeCommands: Set<String>
+    var commandExecutionState: [String: Date]
+    var isEnabled: Bool
+    var lastFocusTime: Date
+    
+    init(windowId: UUID, windowType: WindowType, activeCommands: Set<String>, commandExecutionState: [String: Date], isEnabled: Bool, lastFocusTime: Date) {
+        self.windowId = windowId
+        self.windowType = windowType
+        self.activeCommands = activeCommands
+        self.commandExecutionState = commandExecutionState
+        self.isEnabled = isEnabled
+        self.lastFocusTime = lastFocusTime
+    }
+}
+

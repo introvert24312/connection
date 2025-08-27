@@ -34,6 +34,7 @@
 		A024 /* NodeEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B125 /* NodeEditorSheet.swift */; };
 		A025 /* NodeExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B126 /* NodeExtensions.swift */; };
 		A026 /* NodeContextGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B127 /* NodeContextGraphView.swift */; };
+		W001 /* WindowFocusManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = W100 /* WindowFocusManager.swift */; };
 
 		R001 /* Resources in Resources */ = {isa = PBXBuildFile; fileRef = R100 /* Resources */; };
 		R002 /* ResourceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = R101 /* ResourceManager.swift */; };
@@ -74,6 +75,7 @@
 		R100 /* Resources */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Resources; sourceTree = "<group>"; };
 		R101 /* ResourceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceManager.swift; sourceTree = "<group>"; };
 		V100 /* VditorWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VditorWebView.swift; sourceTree = "<group>"; };
+		W100 /* WindowFocusManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowFocusManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -132,6 +134,7 @@
 				B125 /* NodeEditorSheet.swift */,
 				B126 /* NodeExtensions.swift */,
 				B127 /* NodeContextGraphView.swift */,
+				W100 /* WindowFocusManager.swift */,
 				B103 /* Assets.xcassets */,
 				B120 /* WordTagger.entitlements */,
 				R100 /* Resources */,
@@ -237,6 +240,7 @@
 				A024 /* NodeEditorSheet.swift in Sources */,
 				A025 /* NodeExtensions.swift in Sources */,
 				A026 /* NodeContextGraphView.swift in Sources */,
+				W001 /* WindowFocusManager.swift in Sources */,
 				R002 /* ResourceManager.swift in Sources */,
 				V001 /* VditorWebView.swift in Sources */,
 			);

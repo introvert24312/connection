@@ -83,41 +83,8 @@ struct ContentView: View {
             }
             return .ignored
         }
-        // 为独立窗口添加快捷键支持
-        .onKeyPress(.init("e"), phases: .down) { keyPress in
-            if keyPress.modifiers == .command {
-                print("🔑 ContentView: Command+E键按下 - 切换侧边栏")
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    showSidebar.toggle()
-                }
-                return .handled
-            }
-            return .ignored
-        }
-        .onKeyPress(.init("m"), phases: .down) { keyPress in
-            if keyPress.modifiers == .command {
-                print("🔑 ContentView: Command+M键按下 - 打开地图")
-                openWindow(id: "map")
-                return .handled
-            }
-            return .ignored
-        }
-        .onKeyPress(.init("g"), phases: .down) { keyPress in
-            if keyPress.modifiers == .command {
-                print("🔑 ContentView: Command+G键按下 - 打开图谱")
-                openWindow(id: "graph")
-                return .handled
-            }
-            return .ignored
-        }
-        .onKeyPress(.init("i"), phases: .down) { keyPress in
-            if keyPress.modifiers == .command {
-                print("🔑 ContentView: Command+I键按下 - 快速添加节点")
-                NotificationCenter.default.post(name: NSNotification.Name("addNewNode"), object: nil)
-                return .handled
-            }
-            return .ignored
-        }
+        // 移除重复的快捷键定义 - 统一使用 WordTaggerApp.commands 中的 Menu 快捷键
+        // 保留下列特殊的本地功能快捷键
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 // GitHub同步状态指示器
@@ -152,42 +119,236 @@ struct ContentView: View {
             }
         }
         .onAppear {
+            print("🚀 [DEBUG] ContentView.onAppear - 开始注册通知监听器，isSharedInstance: \(store.isSharedInstance)")
             
             // 注册通知监听器
+            
+            // 新的执行通知监听器
             NotificationCenter.default.addObserver(
-                forName: NSNotification.Name("openMapWindow"),
+                forName: NSNotification.Name("executeOpenMapWindow"),
                 object: nil,
                 queue: .main
-            ) { _ in
+            ) { notification in
+                // executeOpenMapWindow 应该根据发送方区分处理
+                let isIndependentNotification = (notification.object as? String) == "independent"
+                let isMainWindow = store.isSharedInstance
+                
+                if isMainWindow && isIndependentNotification {
+                    print("🏠 ContentView(主): 忽略独立窗口的executeOpenMapWindow通知")
+                    return
+                }
+                if !store.isSharedInstance && !isIndependentNotification {
+                    print("🏠 ContentView(独立): 忽略主窗口的executeOpenMapWindow通知")
+                    return
+                }
+                
+                // 防重复执行机制：使用静态变量记录最近一次执行时间
+                struct ExecutionTracker {
+                    static var lastExecutionTime: [String: Date] = [:]
+                    static let cooldownPeriod: TimeInterval = 0.5 // 500ms冷却期
+                }
+                
+                let commandKey = isIndependentNotification ? "executeOpenMapWindow_independent" : "executeOpenMapWindow_main"
+                let now = Date()
+                
+                if let lastTime = ExecutionTracker.lastExecutionTime[commandKey] {
+                    let timeSinceLastExecution = now.timeIntervalSince(lastTime)
+                    if timeSinceLastExecution < ExecutionTracker.cooldownPeriod {
+                        print("🏠 ContentView: 忽略executeOpenMapWindow通知 - 冷却期内 (\(String(format: "%.3f", timeSinceLastExecution))s)")
+                        return
+                    }
+                }
+                
+                ExecutionTracker.lastExecutionTime[commandKey] = now
+                
+                print("🏠 ContentView: 处理executeOpenMapWindow通知 - 打开地图窗口")
                 openWindow(id: "map")
             }
             
             NotificationCenter.default.addObserver(
-                forName: NSNotification.Name("openGraphWindow"),
+                forName: NSNotification.Name("executeOpenGraphWindow"),
                 object: nil,
                 queue: .main
-            ) { _ in
-                openWindow(id: "graph")
-            }
-            
-            // 只有主窗口（共享实例）监听 openNewWindow 通知
-            if store.isSharedInstance {
-                NotificationCenter.default.addObserver(
-                    forName: NSNotification.Name("openNewWindow"),
-                    object: nil,
-                    queue: .main
-                ) { notification in
-                    if let source = notification.object as? String {
-                        if source == "mainWindow" {
-                            print("🔔 [DEBUG] 主窗口收到 openNewWindow 通知，打开新独立窗口")
-                            openWindow(id: "layerView")
-                        }
+            ) { notification in
+                // executeOpenGraphWindow 应该根据发送方区分处理
+                let isIndependentNotification = (notification.object as? String) == "independent"
+                let isMainWindow = store.isSharedInstance
+                
+                if isMainWindow && isIndependentNotification {
+                    print("🏠 ContentView(主): 忽略独立窗口的executeOpenGraphWindow通知")
+                    return
+                }
+                if !store.isSharedInstance && !isIndependentNotification {
+                    print("🏠 ContentView(独立): 忽略主窗口的executeOpenGraphWindow通知")
+                    return
+                }
+                
+                // 防重复执行机制：使用静态变量记录最近一次执行时间
+                struct ExecutionTracker {
+                    static var lastExecutionTime: [String: Date] = [:]
+                    static let cooldownPeriod: TimeInterval = 0.5 // 500ms冷却期
+                }
+                
+                let commandKey = isIndependentNotification ? "executeOpenGraphWindow_independent" : "executeOpenGraphWindow_main"
+                let now = Date()
+                
+                if let lastTime = ExecutionTracker.lastExecutionTime[commandKey] {
+                    let timeSinceLastExecution = now.timeIntervalSince(lastTime)
+                    if timeSinceLastExecution < ExecutionTracker.cooldownPeriod {
+                        print("🏠 ContentView: 忽略executeOpenGraphWindow通知 - 冷却期内 (\(String(format: "%.3f", timeSinceLastExecution))s)")
+                        return
                     }
                 }
                 
-                print("🔔 [DEBUG] 主窗口已注册 openNewWindow 通知监听")
+                ExecutionTracker.lastExecutionTime[commandKey] = now
+                
+                print("🏠 ContentView: 处理executeOpenGraphWindow通知 - 打开图谱窗口")
+                openWindow(id: "graph")
+            }
+            
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("executeOpenNodeManager"),
+                object: nil,
+                queue: .main
+            ) { notification in
+                // executeOpenNodeManager 应该根据发送方区分处理
+                // 主窗口发送 object: nil，独立窗口发送 object: "independent"
+                // 只处理与当前窗口类型匹配的通知
+                
+                let isIndependentNotification = (notification.object as? String) == "independent"
+                let isMainWindow = store.isSharedInstance
+                
+                // 如果是主窗口但收到独立窗口通知，或反之，则忽略
+                if isMainWindow && isIndependentNotification {
+                    print("🏠 ContentView(主): 忽略独立窗口的executeOpenNodeManager通知")
+                    return
+                }
+                if !store.isSharedInstance && !isIndependentNotification {
+                    print("🏠 ContentView(独立): 忽略主窗口的executeOpenNodeManager通知")
+                    return
+                }
+                
+                // 防重复执行机制：使用静态变量记录最近一次执行时间
+                struct ExecutionTracker {
+                    static var lastExecutionTime: [String: Date] = [:]
+                    static let cooldownPeriod: TimeInterval = 0.5 // 500ms冷却期
+                }
+                
+                let commandKey = isIndependentNotification ? "executeOpenNodeManager_independent" : "executeOpenNodeManager_main"
+                let now = Date()
+                
+                if let lastTime = ExecutionTracker.lastExecutionTime[commandKey] {
+                    let timeSinceLastExecution = now.timeIntervalSince(lastTime)
+                    if timeSinceLastExecution < ExecutionTracker.cooldownPeriod {
+                        print("🏠 ContentView: 忽略executeOpenNodeManager通知 - 冷却期内 (\(String(format: "%.3f", timeSinceLastExecution))s)")
+                        return
+                    }
+                }
+                
+                ExecutionTracker.lastExecutionTime[commandKey] = now
+                
+                print("🏠 ContentView: 处理executeOpenNodeManager通知 - 打开节点管理器")
+                openWindow(id: "nodeManager")
+            }
+            
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("executeToggleSidebar"),
+                object: nil,
+                queue: .main
+            ) { notification in
+                // executeToggleSidebar 应该根据发送方区分处理
+                // 主窗口发送 object: nil，独立窗口发送 object: "independent"
+                // 只处理与当前窗口类型匹配的通知
+                
+                let isIndependentNotification = (notification.object as? String) == "independent"
+                let isMainWindow = store.isSharedInstance
+                
+                // 如果是主窗口但收到独立窗口通知，或反之，则忽略
+                if isMainWindow && isIndependentNotification {
+                    print("🏠 ContentView(主): 忽略独立窗口的executeToggleSidebar通知")
+                    return
+                }
+                if !store.isSharedInstance && !isIndependentNotification {
+                    print("🏠 ContentView(独立): 忽略主窗口的executeToggleSidebar通知") 
+                    return
+                }
+                
+                // 防重复执行机制：使用静态变量记录最近一次执行时间
+                struct ExecutionTracker {
+                    static var lastExecutionTime: [String: Date] = [:]
+                    static let cooldownPeriod: TimeInterval = 0.5 // 500ms冷却期
+                }
+                
+                let commandKey = isIndependentNotification ? "executeToggleSidebar_independent" : "executeToggleSidebar_main"
+                let now = Date()
+                
+                if let lastTime = ExecutionTracker.lastExecutionTime[commandKey] {
+                    let timeSinceLastExecution = now.timeIntervalSince(lastTime)
+                    if timeSinceLastExecution < ExecutionTracker.cooldownPeriod {
+                        print("🏠 ContentView: 忽略executeToggleSidebar通知 - 冷却期内 (\(String(format: "%.3f", timeSinceLastExecution))s)")
+                        return
+                    }
+                }
+                
+                ExecutionTracker.lastExecutionTime[commandKey] = now
+                
+                print("🏠 ContentView: 处理executeToggleSidebar通知 - 当前showSidebar=\(showSidebar)")
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showSidebar.toggle()
+                }
+                print("🏠 ContentView: executeToggleSidebar执行完成 - 新showSidebar=\(showSidebar)")
+            }
+            
+            // 只有主窗口（共享实例）监听 executeOpenWindow 通知
+            if store.isSharedInstance {
+                NotificationCenter.default.addObserver(
+                    forName: NSNotification.Name("executeOpenWindow"),
+                    object: nil,
+                    queue: .main
+                ) { notification in
+                    if let windowId = notification.object as? String {
+                        print("✅ [DEBUG] 主窗口收到executeOpenWindow通知，打开窗口: \(windowId)")
+                        openWindow(id: windowId)
+                    } else {
+                        print("⚠️ [WARNING] executeOpenWindow通知缺少windowId")
+                    }
+                }
+                
+                print("🔔 [DEBUG] 主窗口已注册executeOpenWindow通知监听")
             } else {
-                print("🔔 [DEBUG] 独立窗口不监听 openNewWindow 通知")
+                print("🔔 [DEBUG] 独立窗口不监听executeOpenWindow通知")
+            }
+            
+            // 所有窗口都监听 openNewWindow 通知以便创建新的独立窗口
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("openNewWindow"),
+                object: nil,
+                queue: .main
+            ) { notification in
+                // 使用WindowFocusManager来防重复执行
+                // 注意：这里无法直接获取当前ContentView所属窗口的UUID，但可以通过isSharedInstance判断窗口类型
+                print("🔔 [DEBUG] ContentView收到openNewWindow通知，窗口类型: \(store.isSharedInstance ? "主窗口" : "独立窗口")")
+                
+                // 防重复执行机制：使用静态变量记录最近一次执行时间
+                struct ExecutionTracker {
+                    static var lastExecutionTime: Date?
+                    static let cooldownPeriod: TimeInterval = 0.5 // 500ms冷却期
+                }
+                
+                let now = Date()
+                
+                if let lastTime = ExecutionTracker.lastExecutionTime {
+                    let timeSinceLastExecution = now.timeIntervalSince(lastTime)
+                    if timeSinceLastExecution < ExecutionTracker.cooldownPeriod {
+                        print("🏠 ContentView: 忽略openNewWindow通知 - 冷却期内 (\(String(format: "%.3f", timeSinceLastExecution))s)")
+                        return
+                    }
+                }
+                
+                ExecutionTracker.lastExecutionTime = now
+                
+                print("✅ ContentView: 处理openNewWindow通知 - 打开新的独立窗口")
+                openWindow(id: "layerView")
             }
             
             NotificationCenter.default.addObserver(
@@ -198,25 +359,41 @@ struct ContentView: View {
                 openWindow(id: "markdownEditor")
             }
             
+            // 旧的通用通知监听器保留用于向后兼容
             NotificationCenter.default.addObserver(
                 forName: Notification.Name("openNodeManager"),
                 object: nil,
                 queue: .main
-            ) { _ in
-                openWindow(id: "nodeManager")
+            ) { notification in
+                // 检查窗口焦点状态，只有活跃窗口响应
+                guard WindowFocusManager.shared.shouldHandleNotificationForActiveWindow(isGlobalCommand: true) else {
+                    print("🏠 ContentView: 忽略openNodeManager通知 - 窗口非活跃状态")
+                    return
+                }
+                
+                // 只处理内部的执行通知
+                if let source = notification.object as? String, source == "internal" {
+                    openWindow(id: "nodeManager")
+                } else {
+                    // 默认情况下也打开窗口（向后兼容）
+                    openWindow(id: "nodeManager")
+                }
             }
             
-            // 监听切换侧边栏的通知
+            // 旧的通用通知监听器保留用于向后兼容
             NotificationCenter.default.addObserver(
                 forName: Notification.Name("toggleSidebar"),
                 object: nil,
                 queue: .main
-            ) { _ in
-                print("🔔 ContentView: 收到toggleSidebar通知，当前showSidebar=\(showSidebar)")
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    showSidebar.toggle()
+            ) { notification in
+                // 只处理内部的执行通知
+                if let source = notification.object as? String, source == "internal" {
+                    print("🔔 ContentView: 收到toggleSidebar通知，当前showSidebar=\(showSidebar)")
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showSidebar.toggle()
+                    }
+                    print("🔔 ContentView: 切换后showSidebar=\(showSidebar)")
                 }
-                print("🔔 ContentView: 切换后showSidebar=\(showSidebar)")
             }
             
             // 移除多余的Command+O通知监听器 - WordTaggerApp现在直接发送给DetailPanel

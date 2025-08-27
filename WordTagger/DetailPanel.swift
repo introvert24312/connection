@@ -9,6 +9,10 @@ struct DetailPanel: View {
     @EnvironmentObject private var store: NodeStore
     @State private var tab: Tab = .related
     @State private var showingEditSheet = false
+    
+    // 窗口焦点管理
+    @StateObject private var focusManager = WindowFocusManager.shared
+    @State private var windowId = UUID()
 
     
     // 从store中获取最新的节点数据
@@ -64,6 +68,12 @@ struct DetailPanel: View {
             EditNodeSheet(node: currentNode)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("toggleDetailEditMode"))) { notification in
+            // 检查当前窗口是否应该响应此通知
+            guard focusManager.shouldHandleNotification(for: windowId) else {
+                print("🔔 DetailPanel: 忽略toggleDetailEditMode通知 - 窗口非活跃状态")
+                return
+            }
+            
             // 收到全局Command+T通知，切换到详情页并切换编辑模式
             if let notificationNode = notification.object as? Node,
                notificationNode.id == node.id {
@@ -103,8 +113,13 @@ struct DetailPanel: View {
         }
         .focusable(false)
         .onAppear {
+            // DetailPanel 是主窗口的组件，不需要单独注册窗口
+            // 窗口注册由 WordTaggerApp 统一管理
+            
             setupNotificationObservers()
-
+        }
+        .onDisappear {
+            // 不需要单独注销窗口
         }
     }
     
@@ -137,6 +152,12 @@ struct DetailPanel: View {
             object: nil,
             queue: .main
         ) { notification in
+            // 检查当前窗口是否应该响应此通知
+            guard focusManager.shouldHandleNotification(for: windowId) else {
+                print("🔔 DetailPanel: 忽略switchToDetailTab通知 - 窗口非活跃状态")
+                return
+            }
+            
             print("🔔 DetailPanel: 收到switchToDetailTab通知，切换到详情标签")
             DispatchQueue.main.async {
                 self.handleSwitchToDetail()
@@ -149,6 +170,12 @@ struct DetailPanel: View {
             object: nil,
             queue: .main
         ) { notification in
+            // 检查当前窗口是否应该响应此通知
+            guard focusManager.shouldHandleNotification(for: windowId) else {
+                print("🔔 DetailPanel: 忽略switchToGraphTab通知 - 窗口非活跃状态")
+                return
+            }
+            
             print("🔔 DetailPanel: 收到switchToGraphTab通知，切换到图谱标签")
             DispatchQueue.main.async {
                 self.handleSwitchToGraph()

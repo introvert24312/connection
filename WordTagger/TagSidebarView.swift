@@ -1,6 +1,7 @@
 import SwiftUI
 import CoreLocation
 import MapKit
+import AppKit
 
 struct TagSidebarView: View {
     @EnvironmentObject private var store: NodeStore
@@ -21,6 +22,15 @@ struct TagSidebarView: View {
     }
     @State private var currentMode: SidebarMode = .tagFiltering  // 默认显示标签筛选模块
     // 注意：expandedTagTypes 现在使用 Store 中的状态，不再是本地 @State
+    
+    // 窗口焦点管理
+    @StateObject private var focusManager = WindowFocusManager.shared
+    @State private var windowId = UUID()
+    
+    // 窗口激活状态检查
+    private var isWindowActive: Bool {
+        return focusManager.isActiveWindow(windowId)
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -69,7 +79,6 @@ struct TagSidebarView: View {
                     )
                 }
                 .buttonStyle(.plain)
-                .keyboardShortcut("1", modifiers: .command)
                 
                 // 标签搜索模块按钮
                 Button(action: { currentMode = .tagSearch }) {
@@ -90,7 +99,6 @@ struct TagSidebarView: View {
                     )
                 }
                 .buttonStyle(.plain)
-                .keyboardShortcut("2", modifiers: .command)
                 
                 Spacer()
             }
@@ -111,6 +119,29 @@ struct TagSidebarView: View {
         }
         .navigationTitle("标签")
         .focusable(false)
+        // 添加窗口级快捷键处理
+        .onKeyPress(.init("1"), phases: .down, action: { keyPress in
+            guard keyPress.modifiers.contains(.command) else { return .ignored }
+            
+            return focusManager.executeKeyboardShortcut(
+                KeyboardEventManager.Commands.switchToTagFiltering,
+                for: windowId
+            ) {
+                print("🔑 TagSidebarView: Command+1 - 切换到标签筛选模式")
+                currentMode = .tagFiltering
+            } ? .handled : .ignored
+        })
+        .onKeyPress(.init("2"), phases: .down, action: { keyPress in
+            guard keyPress.modifiers.contains(.command) else { return .ignored }
+            
+            return focusManager.executeKeyboardShortcut(
+                KeyboardEventManager.Commands.switchToTagSearch,
+                for: windowId
+            ) {
+                print("🔑 TagSidebarView: Command+2 - 切换到标签搜索模式")
+                currentMode = .tagSearch
+            } ? .handled : .ignored
+        })
         .onKeyPress(.escape) {
             // 按ESC键隐藏标签管理侧边栏
             print("🔑 TagSidebarView: ESC键按下，隐藏标签管理")
@@ -118,15 +149,32 @@ struct TagSidebarView: View {
             return .handled
         }
         .onAppear {
-            // 移除强制键盘焦点设置，避免干扰全局快捷键
-            print("🔑 TagSidebarView 出现，不强制设置键盘焦点")
+            print("🔑 TagSidebarView 出现")
+            // TagSidebarView 是主窗口的组件，不需要单独注册窗口
+            // 窗口注册由 WordTaggerApp 统一管理
+        }
+        .onDisappear {
+            print("🔑 TagSidebarView 消失")
+            // 不需要单独注销窗口
         }
         // 添加额外的ESC键处理层
-        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notification in
             print("🔑 窗口获得键盘焦点")
+            // 如果是当前窗口获得焦点，更新活跃状态
+            if let window = notification.object as? NSWindow,
+               window.isKeyWindow {
+                focusManager.setActiveWindow(windowId)
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagSearch"))) { _ in
             print("🏷️ TagSidebarView: 收到打开标签搜索通知")
+            
+            // 检查当前窗口是否应该响应此通知
+            guard focusManager.shouldHandleNotification(for: windowId) else {
+                print("🏷️ TagSidebarView: 忽略打开标签搜索通知 - 窗口非活跃状态")
+                return
+            }
+            
             currentMode = .tagSearch
             // 延迟一下确保UI切换完成后再设置焦点
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -136,6 +184,13 @@ struct TagSidebarView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("clearTagFilter"))) { _ in
             print("🧹 TagSidebarView: 收到清除标签筛选通知")
+            
+            // 检查当前窗口是否应该响应此通知
+            guard focusManager.shouldHandleNotification(for: windowId) else {
+                print("🧹 TagSidebarView: 忽略清除标签筛选通知 - 窗口非活跃状态")
+                return
+            }
+            
             // 清除UI状态
             store.setExpandedTagTypes([])
             selectedTagTypes.removeAll()
@@ -413,17 +468,17 @@ struct TagSidebarView: View {
         }
     
     // MARK: - 标签筛选相关计算属性
-    // 获取所有实际存在的唯一标签类型
+    // 获取当前层实际存在的唯一标签类型
     private var uniqueTagTypes: [Tag.TagType] {
-        let allTagTypes = store.allTags.map { $0.type }
-        let uniqueTypes = Array(Set(allTagTypes))
+        let currentLayerTagTypes = store.currentLayerTags.map { $0.type }
+        let uniqueTypes = Array(Set(currentLayerTagTypes))
         // 按类型名称排序，确保consistent显示顺序
         return uniqueTypes.sorted { $0.displayName < $1.displayName }
     }
     
-    // 获取指定类型的所有标签
+    // 获取当前层指定类型的所有标签
     private func tagsOfType(_ tagType: Tag.TagType) -> [Tag] {
-        return store.allTags.filter { $0.type == tagType }
+        return store.currentLayerTags.filter { $0.type == tagType }
             .sorted { $0.value < $1.value } // 按值排序
     }
     
@@ -439,8 +494,8 @@ struct TagSidebarView: View {
     private var searchableTagTypes: [Tag.TagType] {
         guard !tagTypeSearchQuery.isEmpty else { return [] }
         
-        // 获取所有实际存在的标签类型（不仅仅是预定义的）
-        let allExistingTypes = Set(store.allTags.map { $0.type })
+        // 获取当前层实际存在的标签类型（不仅仅是预定义的）
+        let allExistingTypes = Set(store.currentLayerTags.map { $0.type })
         let tagManager = TagMappingManager.shared
         
         print("🔍 TagSidebarView: 搜索标签类型 '\(tagTypeSearchQuery)'")
@@ -497,7 +552,7 @@ struct TagSidebarView: View {
                 }
                 
                 // 4. 额外搜索：检查该类型下是否有标签值匹配搜索查询
-                let tagsOfThisType = store.allTags.filter { $0.type == tagType }
+                let tagsOfThisType = store.currentLayerTags.filter { $0.type == tagType }
                 for tag in tagsOfThisType {
                     if tag.value.localizedCaseInsensitiveContains(tagTypeSearchQuery) {
                         print("  ✅ 匹配标签值: \(tag.value)")
@@ -552,10 +607,9 @@ struct TagSidebarView: View {
         // 根据搜索状态和当前层获取标签
         if !store.searchQuery.isEmpty {
             tags = store.getRelevantTags(for: store.searchQuery)
-        } else if store.currentLayer != nil {
-            tags = store.currentLayerTags
         } else {
-            tags = store.allTags
+            // Always use current layer tags for layer-based filtering
+            tags = store.currentLayerTags
         }
         
         // 按类型过滤
@@ -616,15 +670,13 @@ struct TagSidebarView: View {
         // 如果搜索查询为空，不做处理
         guard !query.isEmpty else { return }
         
-        // FIXME: Temporary disabled due to compilation issues
-        /*
         // 智能搜索：如果搜索的是标签值（如"里脊"），自动添加包含该标签值的标签类型
-        let allTags = store.allTags
-        let matchingTagsByValue = allTags.filter { tag in
+        let currentLayerTags = store.currentLayerTags
+        let matchingTagsByValue = currentLayerTags.filter { tag in
             tag.value.localizedCaseInsensitiveContains(query)
         }
         
-        print("🔍 找到 \(matchingTagsByValue.count) 个匹配标签值的标签")
+        print("🔍 在当前层找到 \(matchingTagsByValue.count) 个匹配标签值的标签")
         
         // 自动添加包含匹配标签值的标签类型
         for tag in matchingTagsByValue {
@@ -634,7 +686,6 @@ struct TagSidebarView: View {
                 expandedGroups.insert(tag.type)
             }
         }
-        */
     }
 
 // MARK: - 标签类型搜索结果按钮
@@ -954,7 +1005,7 @@ struct TagRowView: View {
             RoundedRectangle(cornerRadius: 8)
                 .fill(
                     // 只有在有标签且实际选中时才高亮
-                    (isHighlighted && !store.allTags.isEmpty) ? Color.blue.opacity(0.2) : 
+                    (isHighlighted && !store.currentLayerTags.isEmpty) ? Color.blue.opacity(0.2) : 
                     (isCurrentlySelected ? Color.blue.opacity(0.1) : Color.clear)
                 )
         )
