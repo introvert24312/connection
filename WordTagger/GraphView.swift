@@ -12,6 +12,10 @@ struct GraphView: View {
     @State private var showingNodeSelector = false
     @State private var selectedNodeIds: Set<UUID> = []
     
+    // 层级筛选状态
+    @State private var selectedLayerIds: Set<UUID> = [] // 空集表示显示所有层
+    @State private var showingLayerSelector = false
+    
     // 生成所有节点的图谱数据 - 统一计算节点和边
     private func calculateGraphData() -> (nodes: [NodeGraphNode], edges: [NodeGraphEdge]) {
         @AppStorage("enableGraphDebug") var enableGraphDebug: Bool = false
@@ -20,14 +24,25 @@ struct GraphView: View {
         var edges: [NodeGraphEdge] = []
         var addedTagKeys: Set<String> = []
         
+        // 首先根据层级筛选进行过滤
+        let layerFilteredNodes: [Node]
+        if selectedLayerIds.isEmpty {
+            // 显示所有层的节点
+            layerFilteredNodes = store.nodes
+        } else {
+            // 只显示选中层的节点
+            layerFilteredNodes = store.nodes.filter { selectedLayerIds.contains($0.layerId) }
+        }
+        
         // 根据选择的节点ID来确定要显示的节点
         let nodesToShow: [Node]
         if !selectedNodeIds.isEmpty {
-            nodesToShow = store.nodes.filter { selectedNodeIds.contains($0.id) }
+            nodesToShow = layerFilteredNodes.filter { selectedNodeIds.contains($0.id) }
         } else if !displayedNodes.isEmpty {
-            nodesToShow = displayedNodes
+            // 搜索结果也需要应用层级筛选
+            nodesToShow = displayedNodes.filter { selectedLayerIds.isEmpty || selectedLayerIds.contains($0.layerId) }
         } else {
-            nodesToShow = store.nodes
+            nodesToShow = layerFilteredNodes
         }
         
         var addedNodeIds: Set<UUID> = []
@@ -258,6 +273,22 @@ struct GraphView: View {
                 
                 Spacer()
                 
+                // 层级选择器按钮
+                Button(action: {
+                    showingLayerSelector = true
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "layer.fill")
+                        if selectedLayerIds.isEmpty {
+                            Text("所有层")
+                        } else {
+                            Text("筛选层(\(selectedLayerIds.count))")
+                        }
+                    }
+                }
+                .buttonStyle(.bordered)
+                .help("选择要显示的层")
+                
                 // 节点选择器按钮
                 Button(action: {
                     showingNodeSelector = true
@@ -289,10 +320,11 @@ struct GraphView: View {
                 .disabled(searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 
                 // 重置按钮
-                if !displayedNodes.isEmpty || !selectedNodeIds.isEmpty {
+                if !displayedNodes.isEmpty || !selectedNodeIds.isEmpty || !selectedLayerIds.isEmpty {
                     Button("显示全部") {
                         displayedNodes = []
                         selectedNodeIds = []
+                        selectedLayerIds = []
                         searchQuery = ""
                     }
                 }
@@ -329,6 +361,12 @@ struct GraphView: View {
                 .frame(width: 700, height: 600)
                 .background(WindowAccessor())
         }
+        .sheet(isPresented: $showingLayerSelector) {
+            LayerSelectorView(selectedLayerIds: $selectedLayerIds)
+                .environmentObject(store)
+                .frame(width: 600, height: 500)
+                .background(WindowAccessor())
+        }
         .onKeyPress(.init("k"), phases: .down) { _ in
             NotificationCenter.default.post(name: Notification.Name("fitGraph"), object: nil)
             return .handled
@@ -352,6 +390,9 @@ struct GraphView: View {
         .onChange(of: selectedNodeIds) {
             updateGraphData()
             saveSelectedNodeIds()
+        }
+        .onChange(of: selectedLayerIds) {
+            updateGraphData()
         }
     }
     
@@ -803,6 +844,228 @@ struct WindowAccessor: NSViewRepresentable {
         // 确保内容视图也不能调整大小
         if let contentView = window.contentView {
             contentView.autoresizingMask = []
+        }
+    }
+}
+
+// MARK: - 层级选择器视图
+
+struct LayerSelectorView: View {
+    @EnvironmentObject private var store: NodeStore
+    @Environment(\.dismiss) private var dismiss
+    @Binding var selectedLayerIds: Set<UUID>
+    @State private var tempSelectedIds: Set<UUID> = []
+    @State private var searchQuery: String = ""
+    
+    private var filteredLayers: [Layer] {
+        if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return store.layers.sorted { $0.displayName < $1.displayName }
+        }
+        
+        return store.layers.filter { layer in
+            layer.displayName.localizedCaseInsensitiveContains(searchQuery) ||
+            layer.name.localizedCaseInsensitiveContains(searchQuery)
+        }.sorted { $0.displayName < $1.displayName }
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // 标题栏
+            HStack {
+                Button("取消") {
+                    dismiss()
+                }
+                .buttonStyle(.plain)
+                
+                Spacer()
+                
+                Text("选择要显示的层")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+                
+                Button("完成") {
+                    selectedLayerIds = tempSelectedIds
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .padding()
+            .background(Color(NSColor.controlBackgroundColor))
+            
+            Divider()
+            
+            // 搜索栏
+            HStack {
+                TextField("搜索层...", text: $searchQuery)
+                    .textFieldStyle(.roundedBorder)
+                
+                if !searchQuery.isEmpty {
+                    Button("清除") {
+                        searchQuery = ""
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding()
+            .background(Color(NSColor.controlBackgroundColor))
+            
+            Divider()
+            
+            // 快速选择按钮
+            HStack {
+                Button("全选") {
+                    tempSelectedIds = Set(store.layers.map { $0.id })
+                }
+                .buttonStyle(.bordered)
+                
+                Button("全不选") {
+                    tempSelectedIds.removeAll()
+                }
+                .buttonStyle(.bordered)
+                
+                Button("显示所有层") {
+                    tempSelectedIds.removeAll() // 空集表示显示所有层
+                }
+                .buttonStyle(.bordered)
+                
+                if let currentLayer = store.currentLayer {
+                    Button("仅当前层") {
+                        tempSelectedIds = Set([currentLayer.id])
+                    }
+                    .buttonStyle(.bordered)
+                }
+                
+                Spacer()
+            }
+            .padding()
+            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+            
+            Divider()
+            
+            // 层列表
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(filteredLayers, id: \.id) { layer in
+                        LayerSelectorRow(
+                            layer: layer,
+                            isSelected: tempSelectedIds.contains(layer.id),
+                            isCurrentLayer: store.currentLayer?.id == layer.id
+                        ) {
+                            toggleLayer(layer)
+                        }
+                    }
+                    
+                    // 空状态
+                    if filteredLayers.isEmpty {
+                        VStack(spacing: 16) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.largeTitle)
+                                .foregroundColor(.gray)
+                            
+                            Text("没有找到匹配的层")
+                                .font(.title3)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 200)
+                    }
+                }
+                .padding()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear {
+            tempSelectedIds = selectedLayerIds
+        }
+    }
+    
+    private func toggleLayer(_ layer: Layer) {
+        if tempSelectedIds.contains(layer.id) {
+            tempSelectedIds.remove(layer.id)
+        } else {
+            tempSelectedIds.insert(layer.id)
+        }
+    }
+}
+
+// MARK: - 层级选择器行视图
+
+struct LayerSelectorRow: View {
+    @EnvironmentObject private var store: NodeStore
+    let layer: Layer
+    let isSelected: Bool
+    let isCurrentLayer: Bool
+    let onToggle: () -> Void
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // 复选框
+            Button(action: onToggle) {
+                Image(systemName: isSelected ? "checkmark.square.fill" : "square")
+                    .font(.title3)
+                    .foregroundColor(isSelected ? .blue : .secondary)
+            }
+            .buttonStyle(.plain)
+            
+            // 层级颜色指示器
+            Circle()
+                .fill(Color.from(layer.color))
+                .frame(width: 12, height: 12)
+            
+            // 层级信息
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(layer.displayName)
+                        .font(.body)
+                        .fontWeight(.medium)
+                    
+                    if isCurrentLayer {
+                        Text("当前层")
+                            .font(.caption)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.blue.opacity(0.2))
+                            .foregroundColor(.blue)
+                            .cornerRadius(4)
+                    }
+                    
+                    if layer.isCompound {
+                        Text("复合")
+                            .font(.caption)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.purple.opacity(0.2))
+                            .foregroundColor(.purple)
+                            .cornerRadius(4)
+                    }
+                    
+                    Spacer()
+                    
+                    // 节点数量
+                    let nodeCount = store.nodes.filter { $0.layerId == layer.id }.count
+                    Text("\(nodeCount)个节点")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Text("(\(layer.name))")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+            
+            Spacer()
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isSelected ? Color.blue.opacity(0.1) : Color.clear)
+        )
+        .onTapGesture {
+            onToggle()
         }
     }
 }
