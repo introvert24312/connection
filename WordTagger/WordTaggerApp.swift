@@ -2460,27 +2460,22 @@ struct WordTaggerApp: App {
                 showQuickAdd = true
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openNodeManagerForEdit"))) { notification in
-                // 对于编辑节点请求，使用更宽松的验证 - 如果WindowFocusManager有问题，也要能响应
-                let shouldHandle = WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId) || 
-                                 WindowFocusManager.shared.shouldHandleNotificationForActiveWindow()
-                
-                if !shouldHandle {
-                    // 最后的fallback：如果有key窗口但WindowFocusManager出问题，也要处理
-                    guard let keyWindow = NSApplication.shared.keyWindow,
-                          keyWindow.isKeyWindow && keyWindow.isVisible else {
-                        print("🚫 主窗口: 忽略openNodeManagerForEdit通知 - 没有key窗口")
-                        return
-                    }
-                    print("⚠️ 主窗口: WindowFocusManager验证失败，但有key窗口，强制处理编辑请求")
+                // openNodeManagerForEdit 是全局命令，应该在任何活跃窗口中可用
+                guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true, commandName: "openNodeManagerForEdit") else {
+                    print("🚫 主窗口: 忽略openNodeManagerForEdit通知 - 窗口非活跃状态")
+                    return
                 }
                 
                 if let node = notification.object as? Node {
                     print("📝 WordTaggerApp: 收到节点编辑请求，节点: \(node.text)")
                     nodeToEditInManager = node
-                    // 直接通知NodeManagerView进行编辑，而不依赖绑定
-                    NotificationCenter.default.post(name: Notification.Name("nodeManagerEditNode"), object: node)
-                    // 打开节点管理窗口
+                    // 先打开节点管理窗口
                     NotificationCenter.default.post(name: Notification.Name("openNodeManager"), object: nil)
+                    // 延迟发送编辑节点通知，确保窗口已打开
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        print("📝 WordTaggerApp: 延迟发送编辑节点通知: \(node.text)")
+                        NotificationCenter.default.post(name: Notification.Name("nodeManagerEditNode"), object: node)
+                    }
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagSearch"))) { _ in
@@ -3593,16 +3588,20 @@ struct IndependentWindowModifier: ViewModifier {
                 showQuickAdd = true
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openNodeManagerForEdit"))) { notification in
-                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId) else {
+                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "openNodeManagerForEdit") else {
                     print("🚫 独立窗口: 忽略openNodeManagerForEdit通知 - 窗口非活跃状态")
                     return
                 }
                 if let node = notification.object as? Node {
                     print("📝 IndependentWindow: 收到节点编辑请求，节点: \(node.text)")
                     nodeToEditInManager = node
-                    // 直接通知NodeManagerView进行编辑，而不依赖绑定
-                    NotificationCenter.default.post(name: Notification.Name("nodeManagerEditNode"), object: node)
+                    // 先打开节点管理窗口
                     NotificationCenter.default.post(name: Notification.Name("openNodeManager"), object: nil)
+                    // 延迟发送编辑节点通知，确保窗口已打开
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        print("📝 IndependentWindow: 延迟发送编辑节点通知: \(node.text)")
+                        NotificationCenter.default.post(name: Notification.Name("nodeManagerEditNode"), object: node)
+                    }
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagSearch"))) { _ in

@@ -377,8 +377,12 @@ struct NodeManagerView: View {
             // 直接处理从其他窗口发送的编辑节点请求
             if let node = notification.object as? Node {
                 print("📝 NodeManagerView: 收到直接编辑节点通知: \(node.text)")
-                commandPaletteNode = node
-                showingCommandPalette = true
+                // 延迟一点时间确保视图已完全加载
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    print("📝 NodeManagerView: 延迟处理编辑节点请求: \(node.text)")
+                    commandPaletteNode = node
+                    showingCommandPalette = true
+                }
             }
         }
     }
