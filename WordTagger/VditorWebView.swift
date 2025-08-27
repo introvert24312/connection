@@ -200,10 +200,9 @@ struct VditorWebView: NSViewRepresentable {
                 break
                 
             case "commandD":
-                // 转发 Command+D 给原生 App - 全屏详情面板
+                // 转发 Command+D 给原生 App - 在图谱和详情标签间切换
                 DispatchQueue.main.async {
-                    // Command+D应该触发全屏详情面板，不是切换到图谱
-                    // 这里暂时不做任何操作，让DetailPanel自己的按键处理来处理Command+D
+                    NotificationCenter.default.post(name: NSNotification.Name("toggleDetailPanelTab"), object: nil)
                 }
                 break
                 

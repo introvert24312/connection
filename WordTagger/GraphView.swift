@@ -365,7 +365,7 @@ struct GraphView: View {
             LayerSelectorView(selectedLayerIds: $selectedLayerIds)
                 .environmentObject(store)
                 .frame(width: 600, height: 500)
-                .background(WindowAccessor())
+                .background(LayerWindowAccessor())
         }
         .onKeyPress(.init("k"), phases: .down) { _ in
             NotificationCenter.default.post(name: Notification.Name("fitGraph"), object: nil)
@@ -1066,6 +1066,76 @@ struct LayerSelectorRow: View {
         )
         .onTapGesture {
             onToggle()
+        }
+    }
+}
+
+// MARK: - Layer Window Accessor for fixing layer selector sheet window size
+
+struct LayerWindowAccessor: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.findAndConfigureWindow()
+        }
+        
+        // 多次延迟尝试，确保能找到并配置窗口
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            self.findAndConfigureWindow()
+        }
+        
+        return view
+    }
+    
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            self.findAndConfigureWindow()
+        }
+    }
+    
+    private func findAndConfigureWindow() {
+        // 查找所有Sheet类型的窗口
+        for window in NSApp.windows {
+            // 检查是否是Sheet窗口并且包含层级选择相关内容
+            if window.isSheet || window.title.contains("选择要显示的层") || window.level == NSWindow.Level.modalPanel {
+                self.configureWindow(window)
+            }
+        }
+        
+        // 如果找不到特定窗口，尝试最新的非主窗口
+        if let latestWindow = NSApp.windows.filter({ !$0.isMainWindow && $0.isVisible }).first {
+            self.configureWindow(latestWindow)
+        }
+    }
+    
+    private func configureWindow(_ window: NSWindow) {
+        // 完全禁用窗口大小调整
+        window.styleMask.remove(.resizable)
+        
+        // 设置层级选择器的固定尺寸约束
+        let targetSize = NSSize(width: 600, height: 500)
+        window.minSize = targetSize
+        window.maxSize = targetSize
+        
+        // 强制设置窗口尺寸
+        if window.frame.size != targetSize {
+            let currentFrame = window.frame
+            let newFrame = NSRect(
+                x: currentFrame.origin.x,
+                y: currentFrame.origin.y,
+                width: targetSize.width,
+                height: targetSize.height
+            )
+            window.setFrame(newFrame, display: true, animate: false)
+        }
+        
+        // 设置窗口不可移动（如果需要的话）
+        window.isMovable = true // 保持可移动，但不可调整大小
+        
+        // 确保内容视图也不能调整大小
+        if let contentView = window.contentView {
+            contentView.autoresizingMask = []
         }
     }
 }

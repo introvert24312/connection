@@ -67,6 +67,19 @@ struct DetailPanel: View {
         .sheet(isPresented: $showingEditSheet) {
             EditNodeSheet(node: currentNode)
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("toggleDetailPanelTab"))) { _ in
+            // Command+D: 在图谱和详情标签间切换
+            DispatchQueue.main.async {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    if tab == .related {
+                        tab = .detail
+                    } else if tab == .detail {
+                        tab = .related
+                    }
+                    // 地图标签不参与此切换
+                }
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("toggleDetailEditMode"))) { notification in
             // 检查当前窗口是否应该响应此通知
             guard focusManager.shouldHandleNotification(for: windowId) else {
@@ -260,6 +273,29 @@ struct NodeDetailView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.clear)
             .zIndex(2)
+            .dropDestination(for: Image.self) { items, location in
+                print("🖼️ Image drop detected on VditorWebView")
+                // 这里我们不能直接处理Image类型，需要处理文件拖拽
+                return false
+            }
+            .dropDestination(for: URL.self) { urls, location in
+                print("🖼️ URL drop detected on VditorWebView: \(urls)")
+                for url in urls {
+                    if url.pathExtension.lowercased() == "jpg" || 
+                       url.pathExtension.lowercased() == "jpeg" ||
+                       url.pathExtension.lowercased() == "png" ||
+                       url.pathExtension.lowercased() == "gif" ||
+                       url.pathExtension.lowercased() == "webp" {
+                        print("🖼️ Processing image file: \(url)")
+                        if let fileName = imageManager.copyImageFromURL(url) {
+                            let imageMarkdown = imageManager.generateImageMarkdown(fileName: fileName)
+                            insertTextAtCursor(imageMarkdown + "\n\n")
+                        }
+                        return true
+                    }
+                }
+                return false
+            }
             .onAppear {
                 print("🚨🚨🚨 VditorWebView onAppear CALLED for node: \(currentNode.text)")
             }
@@ -541,10 +577,24 @@ struct NodeDetailView: View {
     }
     
     private func insertTextAtCursor(_ text: String) {
-        if markdownText.isEmpty {
-            markdownText = text
+        print("🖼️ Inserting text at cursor: \(text)")
+        
+        // 优先使用VditorWebView的coordinator来插入文本
+        if let coordinator = vditorCoordinator {
+            let newContent = markdownText.isEmpty ? text : markdownText + "\n" + text
+            print("🖼️ Updating VditorWebView content via coordinator")
+            coordinator.setMarkdown(newContent, forceUpdate: true)
+            
+            // 同时更新本地状态
+            markdownText = newContent
         } else {
-            markdownText += "\n" + text
+            // 备选方案：直接修改状态（这会触发VditorWebView的onChange）
+            print("🖼️ Coordinator not available, using fallback method")
+            if markdownText.isEmpty {
+                markdownText = text
+            } else {
+                markdownText += "\n" + text
+            }
         }
     }
     
