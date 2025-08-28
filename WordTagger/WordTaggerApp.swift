@@ -2100,8 +2100,9 @@ struct NodeSearchResultRow: View {
     let isSelected: Bool
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
+        VStack(alignment: .leading, spacing: 8) {
+            // 标题行
+            HStack(alignment: .top) {
                 // 单词文本
                 Text(highlightedText(word.text, searchText: searchText))
                     .font(.system(size: 16, weight: .semibold))
@@ -2113,7 +2114,7 @@ struct NodeSearchResultRow: View {
                 HStack(spacing: 4) {
                     ForEach(word.tags.prefix(3), id: \.id) { tag in
                         Text(tag.displayName)
-                            .font(.caption)
+                            .font(.caption2)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(
@@ -2124,24 +2125,40 @@ struct NodeSearchResultRow: View {
                     }
                     if word.tags.count > 3 {
                         Text("+\(word.tags.count - 3)")
-                            .font(.caption)
+                            .font(.caption2)
                             .foregroundColor(.secondary)
                     }
                 }
             }
             
-            // 含义
+            // 内容预览
             if let meaning = word.meaning, !meaning.isEmpty {
-                Text(highlightedText(meaning, searchText: searchText))
-                    .font(.caption)
+                Text(getContextPreview(text: meaning, searchText: searchText))
+                    .font(.system(size: 14))
                     .foregroundColor(.secondary)
-                    .lineLimit(2)
+                    .lineLimit(3)
+                    .multilineTextAlignment(.leading)
+            }
+            
+            // 显示匹配的上下文
+            if let matchContext = getMatchContext(word: word, searchText: searchText) {
+                HStack(spacing: 4) {
+                    Image(systemName: "quote.bubble")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                    Text(highlightedText(matchContext, searchText: searchText))
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                        .lineLimit(2)
+                }
+                .padding(.top, 2)
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)  // 确保填满可用宽度
-        .contentShape(Rectangle())  // 明确定义点击区域为整个矩形
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(isSelected ? Color.blue.opacity(0.1) : Color.clear)
+        .contentShape(Rectangle())
     }
     
     private func highlightedText(_ text: String, searchText: String) -> AttributedString {
@@ -2158,6 +2175,104 @@ struct NodeSearchResultRow: View {
         }
         
         return attributedString
+    }
+    
+    // 获取内容预览，优先显示包含搜索词的部分
+    private func getContextPreview(text: String, searchText: String) -> String {
+        guard !searchText.isEmpty else { return String(text.prefix(150)) }
+        
+        // 查找搜索词在文本中的位置
+        if let range = text.range(of: searchText, options: .caseInsensitive) {
+            let startIndex = text.startIndex
+            let matchStart = text.distance(from: startIndex, to: range.lowerBound)
+            
+            // 获取匹配前后的上下文
+            let contextRadius = 50
+            let contextStart = max(0, matchStart - contextRadius)
+            let contextEnd = min(text.count, matchStart + searchText.count + contextRadius)
+            
+            let start = text.index(startIndex, offsetBy: contextStart)
+            let end = text.index(startIndex, offsetBy: contextEnd)
+            
+            var preview = String(text[start..<end])
+            
+            // 如果不是从开头开始，添加省略号
+            if contextStart > 0 {
+                preview = "..." + preview
+            }
+            
+            // 如果不是到结尾，添加省略号
+            if contextEnd < text.count {
+                preview = preview + "..."
+            }
+            
+            return preview
+        }
+        
+        // 如果没有匹配，返回前150个字符
+        return String(text.prefix(150)) + (text.count > 150 ? "..." : "")
+    }
+    
+    // 获取匹配的上下文（包括标签内容和markdown）
+    private func getMatchContext(word: Node, searchText: String) -> String? {
+        guard !searchText.isEmpty else { return nil }
+        
+        // 优先检查markdown内容是否匹配
+        if !word.markdown.isEmpty && word.markdown.localizedCaseInsensitiveContains(searchText) {
+            // 获取markdown中包含搜索词的部分
+            return getMarkdownContext(markdown: word.markdown, searchText: searchText)
+        }
+        
+        // 检查标签是否匹配
+        for tag in word.tags {
+            if tag.value.localizedCaseInsensitiveContains(searchText) {
+                return "\(tag.type.displayName): \(tag.value)"
+            }
+        }
+        
+        // 检查音标是否匹配
+        if let phonetic = word.phonetic,
+           phonetic.localizedCaseInsensitiveContains(searchText) {
+            return "音标: \(phonetic)"
+        }
+        
+        return nil
+    }
+    
+    // 获取markdown中的匹配上下文
+    private func getMarkdownContext(markdown: String, searchText: String) -> String? {
+        guard let range = markdown.range(of: searchText, options: .caseInsensitive) else { return nil }
+        
+        let startIndex = markdown.startIndex
+        let matchStart = markdown.distance(from: startIndex, to: range.lowerBound)
+        
+        // 获取匹配文本所在的自然段落
+        let paragraphStart = markdown.lastIndex(of: "\n", before: range.lowerBound) ?? startIndex
+        let paragraphEnd = markdown.firstIndex(of: "\n", after: range.upperBound) ?? markdown.endIndex
+        
+        // 提取段落内容
+        let paragraph = String(markdown[paragraphStart..<paragraphEnd]).trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // 如果段落太长，只显示包含关键词的部分
+        if paragraph.count > 150 {
+            let contextRadius = 60
+            let contextStart = max(0, matchStart - markdown.distance(from: startIndex, to: paragraphStart) - contextRadius)
+            let contextEnd = min(paragraph.count, matchStart - markdown.distance(from: startIndex, to: paragraphStart) + searchText.count + contextRadius)
+            
+            let start = paragraph.index(paragraph.startIndex, offsetBy: contextStart)
+            let end = paragraph.index(paragraph.startIndex, offsetBy: contextEnd)
+            
+            var preview = String(paragraph[start..<end])
+            if contextStart > 0 {
+                preview = "..." + preview
+            }
+            if contextEnd < paragraph.count {
+                preview = preview + "..."
+            }
+            return "📝 " + preview
+        }
+        
+        return "📝 " + paragraph
     }
 }
 
@@ -2389,7 +2504,7 @@ struct WordTaggerApp: App {
     var body: some Scene {
         WindowGroup("节点标签管理器") {
             ZStack {
-                ContentView()
+                ContentView(windowId: mainWindowId)
                     .environmentObject(store)
                     .frame(minWidth: 900, minHeight: 520)
                     .onAppear {
@@ -2546,15 +2661,7 @@ struct WordTaggerApp: App {
                     }
                 }
             }
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagSearch"))) { _ in
-                // 检查当前窗口是否应该响应此通知
-                guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId) else {
-                    print("🚫 主窗口: 忽略openTagSearch通知 - 窗口非活跃状态")
-                    return
-                }
-                print("✅ 主窗口: 处理openTagSearch通知，切换到标签搜索")
-                NotificationCenter.default.post(name: NSNotification.Name("switchToTagSearch"), object: nil)
-            }
+            // openTagSearch通知已经由TagSidebarView直接处理，不需要在这里转发
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openQuickSearch"))) { _ in
                 // openQuickSearch 是全局命令，应该在任何活跃窗口中可用
                 guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true) else {
@@ -2775,6 +2882,7 @@ struct WordTaggerApp: App {
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("handleMapPinTap"))) { notification in
                 print("🔔 主窗口: 收到handleMapPinTap通知")
+                print("🔔 主窗口ID = \(mainWindowId.uuidString)")
                 guard let userInfo = notification.userInfo,
                       let targetNodeId = userInfo["targetNodeId"] as? String,
                       let targetLayerId = userInfo["targetLayerId"] as? String else {
@@ -2782,6 +2890,8 @@ struct WordTaggerApp: App {
                     return
                 }
                 print("🔔 主窗口: 通知包含 targetWindowId: \(userInfo["targetWindowId"] ?? "nil")")
+                print("🔔 主窗口: routingMethod = \(userInfo["routingMethod"] ?? "nil")")
+                print("🔔 主窗口: fromMapContainer = \(userInfo["fromMapContainer"] ?? "nil")")
                 
                 // 🔧 从当前store实例中查找对应的节点和层
                 guard let targetNodeUUID = UUID(uuidString: targetNodeId),
@@ -2799,12 +2909,18 @@ struct WordTaggerApp: App {
                 // 🔧 重新设计通知路由逻辑：优先检查目标窗口ID，然后检查活跃状态
                 // 如果指定了目标窗口ID，必须完全匹配才处理
                 if let targetWindowId = userInfo["targetWindowId"] as? String {
-                    // 🔧 支持主窗口的多种标识方式
-                    let isMatchingMainWindow = (targetWindowId == mainWindowId.uuidString) || (targetWindowId == "MAIN_WINDOW")
+                    // 🔧 支持主窗口的多种标识方式和短ID匹配
+                    let mainWindowShortId = String(mainWindowId.uuidString.prefix(8))
+                    let isMatchingMainWindow = (targetWindowId == mainWindowId.uuidString) || 
+                                             (targetWindowId == mainWindowShortId) ||
+                                             (targetWindowId == "MAIN_WINDOW")
+                    print("🎯 检查窗口ID匹配:")
+                    print("   - targetWindowId = \(targetWindowId)")
+                    print("   - mainWindowId = \(mainWindowId.uuidString)")
+                    print("   - mainWindowShortId = \(mainWindowShortId)")
+                    print("   - isMatchingMainWindow = \(isMatchingMainWindow)")
                     if !isMatchingMainWindow {
                         print("🚫 主窗口: 忽略handleMapPinTap通知 - 目标窗口不匹配")
-                        print("   - 目标ID: \(targetWindowId.prefix(8))")
-                        print("   - 主窗口ID: \(mainWindowId.uuidString.prefix(8))")
                         return
                     }
                     print("🎯 主窗口: 处理指定目标的地图节点点击")
@@ -3661,7 +3777,7 @@ struct IndependentWindowWrapper: View {
     @ViewBuilder
     private var mainContentView: some View {
         ZStack {
-            ContentView()
+            ContentView(windowId: windowId)
                 .environmentObject(store)
                 .onAppear {
                     // 为独立窗口注册窗口焦点管理
@@ -3789,6 +3905,12 @@ struct IndependentWindowModifier: ViewModifier {
                 openWindow(id: "nodeManager")
             })
             .focusedSceneValue(\.openMapWindow, ShowCardAction {
+                // 🔧 检查是否应该处理这个命令
+                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
+                    print("🗺️ 独立窗口: 忽略地图窗口打开请求 - 窗口非活跃状态")
+                    return
+                }
+                
                 // 🔧 添加防重复机制
                 guard !isOpeningMapWindow else {
                     print("🚫 独立窗口: 地图窗口正在打开中，忽略focusedSceneValue重复请求")
@@ -3797,6 +3919,8 @@ struct IndependentWindowModifier: ViewModifier {
                 
                 isOpeningMapWindow = true
                 print("🗺️ 独立窗口 (focusedSceneValue): 打开通用地图窗口")
+                
+                // 直接打开地图窗口
                 openWindow(id: "map")
                 
                 // 发送窗口映射信息，确保地图知道来源窗口
@@ -3833,7 +3957,9 @@ struct IndependentWindowModifier: ViewModifier {
                 NotificationCenter.default.post(name: NSNotification.Name("clearTagFilter"), object: nil)
             })
             .focusedSceneValue(\.openTagSearch, ShowCardAction {
-                NotificationCenter.default.post(name: NSNotification.Name("switchToTagSearch"), object: nil)
+                print("🔑 IndependentWindow: Command+F 被触发")
+                // 直接发送openTagSearch通知，让TagSidebarView处理
+                NotificationCenter.default.post(name: NSNotification.Name("openTagSearch"), object: nil)
             })
             .overlay {
                 if showQuickSearch {
@@ -3887,14 +4013,7 @@ struct IndependentWindowModifier: ViewModifier {
                     }
                 }
             }
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagSearch"))) { _ in
-                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId) else {
-                    print("🚫 独立窗口: 忽略openTagSearch通知 - 窗口非活跃状态")
-                    return
-                }
-                print("✅ 独立窗口: 处理openTagSearch通知，切换到标签搜索")
-                NotificationCenter.default.post(name: NSNotification.Name("switchToTagSearch"), object: nil)
-            }
+            // openTagSearch通知已经由TagSidebarView直接处理，不需要在这里转发
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openQuickSearch"))) { _ in
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
                     print("🚫 独立窗口: 忽略openQuickSearch通知 - 应用无活跃窗口")
@@ -4255,7 +4374,13 @@ struct GlobalCommands: Commands {
             .disabled(openQuickSearch == nil)
             
             Button("标签搜索") {
-                openTagSearch?()
+                print("🔑 GlobalCommands: 标签搜索菜单项被点击")
+                if let action = openTagSearch {
+                    print("🔑 GlobalCommands: openTagSearch action 存在，执行中...")
+                    action()
+                } else {
+                    print("❌ GlobalCommands: openTagSearch action 为 nil")
+                }
             }
             .keyboardShortcut("f", modifiers: [.command])
             .disabled(openTagSearch == nil)

@@ -12,6 +12,13 @@ struct ContentView: View {
     @State private var isDraggingDivider = false // 是否正在拖动分割线
     @Environment(\.openWindow) private var openWindow
     
+    // 窗口ID，可以从外部传入
+    let windowId: UUID
+    
+    init(windowId: UUID? = nil) {
+        self.windowId = windowId ?? UUID()
+    }
+    
     // 状态管理 - 用于快捷键响应
     @State private var showCommandPalette = false
     @State private var showQuickSearch = false
@@ -36,7 +43,6 @@ struct ContentView: View {
         return true
     }
     
-    
 
     var body: some View {
         mainContentView
@@ -50,7 +56,8 @@ struct ContentView: View {
                 showQuickSearch: $showQuickSearch,
                 store: store,
                 dataManager: dataManager,
-                openWindow: openWindow
+                openWindow: openWindow,
+                windowId: windowId
             ))
     }
     
@@ -89,6 +96,7 @@ struct ContentView: View {
         }
         .animation(.easeInOut(duration: 0.3), value: showSidebar)
         .onChange(of: showSidebar) { _, newValue in
+            print("📦 ContentView: showSidebar 变为 \(newValue)")
             // 当侧边栏状态改变时，调整WordList宽度以适应新的约束
             let minWidth: CGFloat = newValue ? 160 : 200
             let maxWidth: CGFloat = newValue ? 350 : 400
@@ -110,6 +118,7 @@ struct ContentViewModifier: ViewModifier {
     let store: NodeStore
     let dataManager: ExternalDataManager
     let openWindow: OpenWindowAction
+    let windowId: UUID
     
     func body(content: Content) -> some View {
         content
@@ -130,7 +139,8 @@ struct ContentViewModifier: ViewModifier {
                 showQuickAdd: $showQuickAdd,
                 showTagManager: $showTagManager,
                 showQuickSearch: $showQuickSearch,
-                openWindow: openWindow
+                openWindow: openWindow,
+                windowId: windowId
             ))
             .modifier(ContentViewLifecycleModifier(
                 selectedNode: $selectedNode,
@@ -161,9 +171,20 @@ struct ContentViewModifier: ViewModifier {
             Divider()
             
             Button(action: {
-                // 🔧 修复：发送openMapWindow通知，确保地图窗口能获得正确的源窗口映射信息
-                print("🗺️ ContentView: 地图按钮被点击，发送openMapWindow通知")
-                NotificationCenter.default.post(name: NSNotification.Name("openMapWindow"), object: nil)
+                // 🔧 修复：先打开窗口，再发送通知确保映射建立
+                print("🗺️ ContentView: 地图按钮被点击")
+                
+                // 先打开地图窗口
+                openWindow(id: "map")
+                
+                // 延迟发送通知，确保窗口已创建
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    // 🔧 修复：直接使用传入的windowId，这就是主窗口的实际ID
+                    let sourceWindowId = self.windowId.uuidString
+                    print("🗺️ ContentView: 发送映射通知 - 窗口ID: \(sourceWindowId.prefix(8))")
+                    let sourceInfo = ["sourceWindowId": sourceWindowId]
+                    NotificationCenter.default.post(name: NSNotification.Name("setupMapWindowMapping"), object: sourceInfo)
+                }
             }) {
                 Image(systemName: "map")
                     .foregroundColor(.blue)
@@ -288,6 +309,7 @@ struct ContentViewFocusedValueModifier: ViewModifier {
     @Binding var showTagManager: Bool
     @Binding var showQuickSearch: Bool
     let openWindow: OpenWindowAction
+    let windowId: UUID  // 从ContentView传入的实际窗口ID
     
     func body(content: Content) -> some View {
         content
@@ -307,9 +329,20 @@ struct ContentViewFocusedValueModifier: ViewModifier {
                 openWindow(id: "nodeManager")
             })
             .focusedSceneValue(\.openMapWindow, ShowCardAction {
-                // 🔧 发送openMapWindow全局通知，让正确的窗口处理
-                print("🗺️ ContentView: focusedSceneValue触发地图窗口打开")
-                NotificationCenter.default.post(name: NSNotification.Name("openMapWindow"), object: nil)
+                // 🔧 修复：使用实际的窗口ID而不是固定UUID
+                print("🗺️ ContentView: Command+M触发地图窗口打开")
+                
+                // 先打开地图窗口
+                openWindow(id: "map")
+                
+                // 延迟发送通知，确保窗口已创建
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    // 🔧 修复：直接使用传入的windowId，这就是主窗口的实际ID
+                    let sourceWindowId = self.windowId.uuidString
+                    print("🗺️ ContentView: Command+M发送映射通知 - 窗口ID: \(sourceWindowId.prefix(8))")
+                    let sourceInfo = ["sourceWindowId": sourceWindowId]
+                    NotificationCenter.default.post(name: NSNotification.Name("setupMapWindowMapping"), object: sourceInfo)
+                }
             })
             .focusedSceneValue(\.openGraphWindow, ShowCardAction {
                 openWindow(id: "graph")
@@ -332,7 +365,23 @@ struct ContentViewFocusedValueModifier: ViewModifier {
                 NotificationCenter.default.post(name: NSNotification.Name("clearTagFilter"), object: nil)
             })
             .focusedSceneValue(\.openTagSearch, ShowCardAction {
-                NotificationCenter.default.post(name: NSNotification.Name("switchToTagSearch"), object: nil)
+                print("🔑 ContentView: Command+F 被触发")
+                // 如果侧边栏隐藏，先显示侧边栏
+                if !showSidebar {
+                    print("🔑 ContentView: 侧边栏隐藏，先显示侧边栏")
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showSidebar = true
+                    }
+                    // 延迟发送通知，等待侧边栏显示完成
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        print("🔑 ContentView: 发送openTagSearch通知（延迟后）")
+                        NotificationCenter.default.post(name: NSNotification.Name("openTagSearch"), object: nil)
+                    }
+                } else {
+                    print("🔑 ContentView: 侧边栏已显示，直接发送openTagSearch通知")
+                    // 直接发送openTagSearch通知，让TagSidebarView处理
+                    NotificationCenter.default.post(name: NSNotification.Name("openTagSearch"), object: nil)
+                }
             })
     }
 }

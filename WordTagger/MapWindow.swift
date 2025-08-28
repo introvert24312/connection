@@ -17,13 +17,13 @@ struct MapWindow: View {
             .onAppear {
                 print("MapWindow appeared, current isLocationSelectionMode: \(isLocationSelectionMode)")
                 
-                // 监听打开地图窗口的通知
+                // 监听设置地图窗口映射的通知
                 NotificationCenter.default.addObserver(
-                    forName: NSNotification.Name("openMapWindow"),
+                    forName: NSNotification.Name("setupMapWindowMapping"),
                     object: nil,
                     queue: .main
                 ) { notification in
-                    print("MapWindow: Received openMapWindow notification")
+                    print("MapWindow: Received setupMapWindowMapping notification")
                     
                     // 🔧 关键修复：标记此窗口为浏览模式，永远不响应位置选择通知
                     openedForBrowsingOnly = true
@@ -33,7 +33,8 @@ struct MapWindow: View {
                     // 🔧 修复：如果通知包含源窗口信息，立即设置映射
                     if let sourceInfo = notification.object as? [String: String],
                        let sourceId = sourceInfo["sourceWindowId"] {
-                        print("🎯 MapWindow: 直接从openMapWindow通知获取源窗口ID - \(sourceId.prefix(8))")
+                        print("🎯 MapWindow: 从setupMapWindowMapping通知获取源窗口ID - \(sourceId.prefix(8))")
+                        print("🎯 MapWindow: 完整源窗口ID = \(sourceId)")
                         sourceWindowId = sourceId
                         // 创建窗口映射关系
                         WindowFocusManager.shared.createWindowMapping(
@@ -41,9 +42,10 @@ struct MapWindow: View {
                             sourceWindowId: sourceId
                         )
                         print("✅ MapWindow: 立即设置窗口映射 - 源窗口: \(sourceId.prefix(8))")
+                        print("✅ MapWindow: 地图窗口ID = \(windowId.uuidString.prefix(8))")
+                    } else {
+                        print("⚠️ MapWindow: setupMapWindowMapping通知中没有sourceWindowId！")
                     }
-                    
-                    // 不改变 isLocationSelectionMode，让 openMapForLocationSelection 通知来控制
                 }
                 
                 // 监听打开地图进行位置选择的通知

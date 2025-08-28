@@ -820,7 +820,7 @@ public struct SearchResult: Equatable {
     public let matchedFields: Set<MatchField>
     
     public enum MatchField: Equatable {
-        case text, phonetic, meaning, tagValue
+        case text, phonetic, meaning, tagValue, markdown
     }
     
     public init(node: Node, score: Double, matchedFields: Set<MatchField>) {

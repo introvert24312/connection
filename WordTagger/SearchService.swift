@@ -88,6 +88,14 @@ public final class SearchService: ObservableObject {
             totalScore += score
         }
         
+        // Search in markdown content (high weight)
+        if !node.markdown.isEmpty,
+           let score = calculateFieldScore(node.markdown, against: searchTerms, weight: 2.0) {
+            fieldMatches[.markdown] = score
+            matchedFields.insert(.markdown)
+            totalScore += score
+        }
+        
         // Search in phonetic (medium weight)
         if let phonetic = node.phonetic,
            let score = calculateFieldScore(phonetic, against: searchTerms, weight: 1.5) {

@@ -814,6 +814,9 @@ struct MapContainer: View {
         
         // 🔧 关键修复：MapContainer作为中间层，根据sourceWindowId智能路由
         print("🔍 MapContainer (中间层): 开始智能路由 - sourceWindowId = \(sourceWindowId ?? "nil")")
+        if let sid = sourceWindowId {
+            print("🔍 MapContainer: 完整sourceWindowId = \(sid)")
+        }
         
         if let sourceWindowId = sourceWindowId, !sourceWindowId.isEmpty {
             // 🔍 验证sourceWindowId是否为有效的UUID格式
@@ -860,8 +863,11 @@ struct MapContainer: View {
             let activeWindowIdString = currentActiveWindowId?.uuidString ?? "unknown"
             print("🔍 MapContainer: 当前活跃窗口ID = \(String(activeWindowIdString.prefix(8)))")
             
+            // 🔧 修复：只使用短ID，确保窗口ID格式一致
+            let shortActiveWindowId = String(activeWindowIdString.prefix(8))
+            
             var finalUserInfo = userInfo
-            finalUserInfo["targetWindowId"] = activeWindowIdString
+            finalUserInfo["targetWindowId"] = shortActiveWindowId
             finalUserInfo["fromMapContainer"] = true
             finalUserInfo["routingMethod"] = "fallback"
             

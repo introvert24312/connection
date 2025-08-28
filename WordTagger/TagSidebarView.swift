@@ -122,25 +122,15 @@ struct TagSidebarView: View {
         // 添加窗口级快捷键处理
         .onKeyPress(.init("1"), phases: .down, action: { keyPress in
             guard keyPress.modifiers.contains(.command) else { return .ignored }
-            
-            return focusManager.executeKeyboardShortcut(
-                KeyboardEventManager.Commands.switchToTagFiltering,
-                for: windowId
-            ) {
-                print("🔑 TagSidebarView: Command+1 - 切换到标签筛选模式")
-                currentMode = .tagFiltering
-            } ? .handled : .ignored
+            print("🔑 TagSidebarView: Command+1 - 切换到标签筛选模式")
+            currentMode = .tagFiltering
+            return .handled
         })
         .onKeyPress(.init("2"), phases: .down, action: { keyPress in
             guard keyPress.modifiers.contains(.command) else { return .ignored }
-            
-            return focusManager.executeKeyboardShortcut(
-                KeyboardEventManager.Commands.switchToTagSearch,
-                for: windowId
-            ) {
-                print("🔑 TagSidebarView: Command+2 - 切换到标签搜索模式")
-                currentMode = .tagSearch
-            } ? .handled : .ignored
+            print("🔑 TagSidebarView: Command+2 - 切换到标签搜索模式")
+            currentMode = .tagSearch
+            return .handled
         })
         .onKeyPress(.escape) {
             // 按ESC键隐藏标签管理侧边栏
@@ -169,27 +159,28 @@ struct TagSidebarView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagSearch"))) { _ in
             print("🏷️ TagSidebarView: 收到打开标签搜索通知")
             
-            // 检查当前窗口是否应该响应此通知
-            guard focusManager.shouldHandleNotification(for: windowId) else {
-                print("🏷️ TagSidebarView: 忽略打开标签搜索通知 - 窗口非活跃状态")
-                return
-            }
+            // TagSidebarView作为ContentView的子视图，不需要单独检查窗口状态
+            // 如果能收到通知，说明父窗口已经是活跃的
             
-            currentMode = .tagSearch
-            // 延迟一下确保UI切换完成后再设置焦点
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                isTagTypeSearchFocused = true
-                print("🏷️ TagSidebarView: 已切换到标签搜索模式并聚焦搜索框")
+            // Command+F 在两个模块之间切换
+            if currentMode == .tagFiltering {
+                print("🏷️ TagSidebarView: 从标签筛选切换到标签搜索")
+                currentMode = .tagSearch
+                // 延迟一下确保UI切换完成后再设置焦点
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    isTagTypeSearchFocused = true
+                    print("🏷️ TagSidebarView: 切换到标签搜索模式并聚焦搜索框")
+                }
+            } else {
+                print("🏷️ TagSidebarView: 从标签搜索切换到标签筛选")
+                currentMode = .tagFiltering
+                print("🏷️ TagSidebarView: 切换到标签筛选模式")
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("clearTagFilter"))) { _ in
             print("🧹 TagSidebarView: 收到清除标签筛选通知")
             
-            // 检查当前窗口是否应该响应此通知
-            guard focusManager.shouldHandleNotification(for: windowId) else {
-                print("🧹 TagSidebarView: 忽略清除标签筛选通知 - 窗口非活跃状态")
-                return
-            }
+            // TagSidebarView作为ContentView的子视图，不需要单独检查窗口状态
             
             // 清除UI状态
             store.setExpandedTagTypes([])

@@ -137,6 +137,37 @@ extension String {
         let distance = levenshteinDistance(to: other)
         return 1.0 - Double(distance) / Double(maxLength)
     }
+    
+    // 在指定位置之前查找最后一个匹配的字符
+    func lastIndex(of character: Character, before position: Index) -> Index? {
+        var currentIndex = self.index(before: position)
+        while currentIndex > self.startIndex {
+            if self[currentIndex] == character {
+                return currentIndex
+            }
+            currentIndex = self.index(before: currentIndex)
+        }
+        if self[currentIndex] == character {
+            return currentIndex
+        }
+        return nil
+    }
+    
+    // 在指定位置之后查找第一个匹配的字符
+    func firstIndex(of character: Character, after position: Index) -> Index? {
+        var currentIndex = self.index(after: position)
+        while currentIndex < self.endIndex {
+            if self[currentIndex] == character {
+                return currentIndex
+            }
+            if currentIndex < self.index(before: self.endIndex) {
+                currentIndex = self.index(after: currentIndex)
+            } else {
+                break
+            }
+        }
+        return nil
+    }
 }
 
 // MARK: - Debugging Helpers
