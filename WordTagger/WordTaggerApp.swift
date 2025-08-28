@@ -747,6 +747,12 @@ struct QuickAddSheetView: View {
             }
             .onKeyPress(.init("p"), phases: .down) { keyPress in
                 if keyPress.modifiers.contains(.command) && isInputFocused {
+                    // 🔧 修复：只在当前窗口有焦点时响应Command+P
+                    guard let windowId = windowId, WindowFocusManager.shared.isActiveWindow(windowId) else {
+                        print("🚫 忽略Command+P - 当前窗口不是活动窗口")
+                        return .ignored
+                    }
+                    
                     openMapForLocationSelection()
                     return .handled
                 }
@@ -1537,10 +1543,14 @@ struct QuickAddSheetView: View {
         // 🔧 修复：使用具体的窗口ID而不是通用标识符
         print("📍 QuickAddSheetView: 发送请求让特定窗口打开地图")
         
+        // 生成唯一的地图窗口ID
+        let mapWindowId = UUID()
+        
         // 发送包含具体窗口ID的通知
         let notificationData: [String: String] = [
             "requestSource": store.isSharedInstance ? "MAIN_WINDOW" : "INDEPENDENT_WINDOW",
-            "windowId": windowId?.uuidString ?? "UNKNOWN"
+            "windowId": windowId?.uuidString ?? "UNKNOWN",
+            "targetMapWindowId": mapWindowId.uuidString
         ]
         
         NotificationCenter.default.post(
@@ -1550,10 +1560,10 @@ struct QuickAddSheetView: View {
         
         // 🔧 延迟发送位置选择模式通知，确保地图窗口已经打开
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            print("📍 QuickAddSheetView: 发送位置选择模式通知（带时间戳）")
+            print("📍 QuickAddSheetView: 发送位置选择模式通知（带时间戳和目标窗口ID）")
             NotificationCenter.default.post(
                 name: NSNotification.Name("openMapForLocationSelection"), 
-                object: ["requestTime": Date()]
+                object: ["requestTime": Date(), "targetWindowId": mapWindowId.uuidString]
             )
         }
     }
@@ -1722,14 +1732,21 @@ struct QuickAddView: View {
     private func openMapForLocationSelection() {
         print("📍 QuickAddView: Opening map for location selection...")
         
-        // 打开地图窗口
-        NotificationCenter.default.post(name: NSNotification.Name("openMapWindow"), object: nil)
+        // 生成唯一的地图窗口ID
+        let mapWindowId = UUID()
+        
+        // 打开地图窗口，带上目标窗口ID
+        let notificationData: [String: String] = [
+            "sourceWindowId": "MAIN_WINDOW",
+            "targetMapWindowId": mapWindowId.uuidString
+        ]
+        NotificationCenter.default.post(name: NSNotification.Name("openMapWindow"), object: notificationData)
         
         // 设置为位置选择模式
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             NotificationCenter.default.post(
                 name: NSNotification.Name("openMapForLocationSelection"), 
-                object: ["requestTime": Date()]
+                object: ["requestTime": Date(), "targetWindowId": mapWindowId.uuidString]
             )
         }
     }
