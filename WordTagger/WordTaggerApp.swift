@@ -1924,7 +1924,10 @@ struct QuickSearchView: View {
                         .font(.system(size: 16, weight: .medium))
                         .focused($isSearchFieldFocused)
                         .onSubmit {
-                            selectCurrentNode()
+                            // 🔧 修复中文输入法问题：检查是否在输入过程中
+                            if !isInIMEComposition() {
+                                selectCurrentNode()
+                            }
                         }
                         .onChange(of: isSearchFieldFocused) { _, newValue in
                             print("🔍 TextField焦点状态变化: \(newValue)")
@@ -2002,6 +2005,9 @@ struct QuickSearchView: View {
             }
             .padding(20)
             .frame(maxWidth: 600)
+            // 🔧 修复搜索框位置：确保在屏幕中心位置不跳跃
+            .position(x: NSScreen.main?.visibleFrame.width ?? 600 / 2, 
+                     y: (NSScreen.main?.visibleFrame.height ?? 800) * 0.3)
         }
         .task {
             print("🔍 QuickSearchView task: 异步任务开始，初始selectedIndex: \(selectedIndex)")
@@ -2042,6 +2048,21 @@ struct QuickSearchView: View {
                 // Tab到下一个结果
                 selectedIndex += 1
                 print("🔍 Tab键: 移动到下一个结果 (index: \(selectedIndex))")
+            }
+            return .handled
+        }
+        .onKeyPress(.tab, modifiers: .shift) {
+            // 🔧 新增：Shift+Tab向上选择结果
+            if filteredNodes.isEmpty { return .ignored }
+            
+            if selectedIndex <= 0 {
+                // 从第一个结果或搜索框回到搜索框
+                selectedIndex = -1
+                print("🔍 Shift+Tab键: 回到搜索框")
+            } else {
+                // Shift+Tab到上一个结果
+                selectedIndex -= 1
+                print("🔍 Shift+Tab键: 移动到上一个结果 (index: \(selectedIndex))")
             }
             return .handled
         }
@@ -2091,6 +2112,15 @@ struct QuickSearchView: View {
         let selectedNode = filteredNodes[selectedIndex]
         onNodeSelected(selectedNode)
         onDismiss()
+    }
+    
+    // 🔧 检查是否处于中文输入法编辑状态
+    private func isInIMEComposition() -> Bool {
+        // 使用 NSTextInputContext 检查输入法状态
+        if let inputContext = NSApp.keyWindow?.firstResponder as? NSView {
+            return inputContext.inputContext?.hasMarkedText() ?? false
+        }
+        return false
     }
 }
 

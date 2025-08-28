@@ -11,6 +11,10 @@ struct CommandPaletteView: View {
     @StateObject private var keyboardManager = KeyboardEventManager()
     @FocusState private var isTextFieldFocused: Bool
     @State private var shouldDismiss: Bool = false
+    
+    // 添加选中状态管理
+    @State private var selectedIndex: Int = -1
+    @State private var isInputMethodActive: Bool = false
 
     
     // 添加安全关闭标志，防止意外关闭
@@ -87,6 +91,24 @@ struct CommandPaletteView: View {
                                 .textFieldStyle(.plain) // 移除默认样式
                                 .onChange(of: query) { _, newValue in
                                     showSearchDropdown = !newValue.isEmpty
+                                    selectedIndex = -1 // 重置选中状态
+                                }
+                                .onKeyPress(.return) {
+                                    // 检查是否在使用输入法
+                                    let currentEvent = NSApp.currentEvent
+                                    let hasMarkedText = currentEvent?.charactersIgnoringModifiers?.isEmpty == false
+                                    
+                                    if hasMarkedText || isInputMethodActive {
+                                        // 输入法激活状态，不处理回车键
+                                        print("🇯🇵 输入法激活，忽略回车键")
+                                        return .ignored
+                                    }
+                                    
+                                    return handleSearchReturn()
+                                }
+                                .onKeyPress(.tab) {
+                                    navigateSearchResults(direction: .down)
+                                    return .handled
                                 }
                                 .onKeyPress(.escape) {
                                     print("🎹 ESC键被按下，当前query: '\(query)'")
@@ -103,6 +125,15 @@ struct CommandPaletteView: View {
                                         print("🚪 第二次ESC：退出窗口")
                                         isTextFieldFocused = false
                                         shouldDismiss = true
+                                        return .handled
+                                    }
+                                }
+                                .onKeyPress(.init("\t"), phases: .down) { keyPress in
+                                    if keyPress.modifiers.contains(.shift) {
+                                        navigateSearchResults(direction: .up)
+                                        return .handled
+                                    } else {
+                                        navigateSearchResults(direction: .down)
                                         return .handled
                                     }
                                 }
@@ -231,38 +262,52 @@ struct CommandPaletteView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 
-                // 搜索下拉框 - 放在最顶层确保不被遮挡
+                // 搜索下拉框 - 放在最顶层确保不被遮挡，固定定位避免瞬移
                 if showSearchDropdown && !query.isEmpty {
                     let matchingLayers = store.layers.filter { layer in
                         layer.displayName.lowercased().contains(query.lowercased()) ||
                         layer.name.lowercased().contains(query.lowercased())
                     }
                     
-                    if !matchingLayers.isEmpty {
-                        VStack {
-                            HStack {
-                                // 占位符，对齐到搜索框位置
-                                HStack(spacing: 4) {
-                                    Image(systemName: "command")
-                                        .font(.system(size: 14, weight: .medium))
-                                    Text("层管理")
-                                        .font(.system(size: 14, weight: .semibold))
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .opacity(0) // 隐藏但保持布局
-                                
-                                // 下拉框内容
-                                VStack(alignment: .leading, spacing: 0) {
-                                    ForEach(matchingLayers.prefix(8), id: \.id) { layer in
+                    // 始终显示下拉框容器，避免布局跳跃
+                    VStack {
+                        HStack {
+                            // 占位符，对齐到搜索框位置
+                            HStack(spacing: 4) {
+                                Image(systemName: "command")
+                                    .font(.system(size: 14, weight: .medium))
+                                Text("层管理")
+                                    .font(.system(size: 14, weight: .semibold))
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .opacity(0) // 隐藏但保持布局
+                            
+                            // 下拉框内容 - 固定位置
+                            VStack(alignment: .leading, spacing: 0) {
+                                if matchingLayers.isEmpty {
+                                    // 没有结果时显示提示
+                                    HStack {
+                                        Image(systemName: "magnifyingglass")
+                                            .foregroundColor(.secondary)
+                                            .font(.system(size: 12))
+                                        Text("没有匹配的层")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                } else {
+                                    ForEach(Array(matchingLayers.prefix(8).enumerated()), id: \.element.id) { index, layer in
                                         SearchDropdownItem(
                                             layer: layer,
                                             query: query,
-                                            isFiltered: filteredLayerIds.contains(layer.id)
+                                            isFiltered: filteredLayerIds.contains(layer.id),
+                                            isSelected: index == selectedIndex
                                         ) {
                                             // 点击选择层
-                                            query = layer.displayName
-                                            showSearchDropdown = false
+                                            selectSearchItem(layer)
                                         }
                                     }
                                     
@@ -278,23 +323,23 @@ struct CommandPaletteView: View {
                                         .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
                                     }
                                 }
-                                .background(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .fill(Color(NSColor.windowBackgroundColor))
-                                        .shadow(color: .black.opacity(0.2), radius: 12, x: 0, y: 6)
-                                )
-                                .frame(maxWidth: 300)
-                                
-                                Spacer()
                             }
-                            .padding(.horizontal, 16)
-                            .padding(.top, 45) // 调整到搜索框下方
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(Color(NSColor.windowBackgroundColor))
+                                    .shadow(color: .black.opacity(0.2), radius: 12, x: 0, y: 6)
+                            )
+                            .frame(maxWidth: 300)
                             
                             Spacer()
                         }
-                        .zIndex(3000) // 最高层级
-                        .allowsHitTesting(true)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 45) // 调整到搜索框下方
+                        
+                        Spacer()
                     }
+                    .zIndex(3000) // 最高层级
+                    .allowsHitTesting(true)
                 }
             }
         } // 结束最外层ZStack
@@ -378,6 +423,9 @@ struct CommandPaletteView: View {
                     filteredLayerIds = Set(store.layers.map { $0.id })
                 }
             }
+            
+            // 设置输入法监听
+            setupInputMethodMonitoring()
             
             // 监听禁用背景关闭的通知
             NotificationCenter.default.addObserver(
@@ -470,6 +518,18 @@ struct CommandPaletteView: View {
                 keyEventMonitor = nil
                 print("🧹 清理NSEvent监听器")
             }
+            
+            // 清理输入法监听
+            NotificationCenter.default.removeObserver(
+                self,
+                name: NSTextInputContext.candidateSelectionDidChangeNotification,
+                object: nil
+            )
+            NotificationCenter.default.removeObserver(
+                self,
+                name: NSTextInputContext.candidatesDidHideNotification,
+                object: nil
+            )
         }
     }
     
@@ -719,6 +779,90 @@ struct CommandPaletteView: View {
             group.cancelAll()
         }
         print("✅ Command+G executed successfully")
+    }
+    
+    // 处理搜索结果导航
+    private enum NavigationDirection {
+        case up, down
+    }
+    
+    private func navigateSearchResults(direction: NavigationDirection) {
+        let matchingLayers = store.layers.filter { layer in
+            layer.displayName.lowercased().contains(query.lowercased()) ||
+            layer.name.lowercased().contains(query.lowercased())
+        }
+        
+        guard !matchingLayers.isEmpty else { return }
+        
+        let maxIndex = min(8, matchingLayers.count) - 1
+        
+        switch direction {
+        case .down:
+            if selectedIndex < maxIndex {
+                selectedIndex += 1
+            } else {
+                selectedIndex = 0 // 循环到第一个
+            }
+        case .up:
+            if selectedIndex > 0 {
+                selectedIndex -= 1
+            } else {
+                selectedIndex = maxIndex // 循环到最后一个
+            }
+        }
+        
+        print("🔍 导航搜索结果: 选中索引 \(selectedIndex)/\(maxIndex)")
+    }
+    
+    private func handleSearchReturn() -> SwiftUI.KeyPress.Result {
+        let matchingLayers = store.layers.filter { layer in
+            layer.displayName.lowercased().contains(query.lowercased()) ||
+            layer.name.lowercased().contains(query.lowercased())
+        }
+        
+        guard !matchingLayers.isEmpty else {
+            print("🔍 没有搜索结果，忽略回车键")
+            return .handled
+        }
+        
+        // 如果没有选中任何项，选中第一个
+        if selectedIndex < 0 {
+            selectedIndex = 0
+        }
+        
+        let selectedLayer = Array(matchingLayers.prefix(8))[min(selectedIndex, matchingLayers.count - 1)]
+        selectSearchItem(selectedLayer)
+        
+        return .handled
+    }
+    
+    private func selectSearchItem(_ layer: Layer) {
+        query = layer.displayName
+        showSearchDropdown = false
+        selectedIndex = -1
+        print("✅ 选中搜索结果: \(layer.displayName)")
+    }
+    
+    // 设置输入法监听
+    private func setupInputMethodMonitoring() {
+        // 监听输入法状态变化
+        NotificationCenter.default.addObserver(
+            forName: NSTextInputContext.candidateSelectionDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            self.isInputMethodActive = true
+            print("🇯🇵 输入法状态激活")
+        }
+        
+        NotificationCenter.default.addObserver(
+            forName: NSTextInputContext.candidatesDidHideNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            self.isInputMethodActive = false
+            print("🇯🇵 输入法状态取消")
+        }
     }
     
     // 处理⌘W: 关闭窗口
@@ -1222,6 +1366,7 @@ struct SearchDropdownItem: View {
     let layer: Layer
     let query: String
     let isFiltered: Bool
+    let isSelected: Bool
     let onSelect: () -> Void
     
     var body: some View {
@@ -1265,7 +1410,7 @@ struct SearchDropdownItem: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .background(Color.clear)
+            .background(isSelected ? Color.blue.opacity(0.15) : Color.clear)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
