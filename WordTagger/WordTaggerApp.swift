@@ -1541,11 +1541,10 @@ struct QuickAddSheetView: View {
             object: store.isSharedInstance ? "MAIN_WINDOW" : "INDEPENDENT_WINDOW"
         )
         
-        // 设置为位置选择模式
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            print("📍 QuickAddSheetView: About to post openMapForLocationSelection notification")
+        // 🔧 延迟发送位置选择模式通知，确保地图窗口已经打开
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            print("📍 QuickAddSheetView: 发送位置选择模式通知")
             NotificationCenter.default.post(name: NSNotification.Name("openMapForLocationSelection"), object: nil)
-            print("📍 QuickAddSheetView: Posted openMapForLocationSelection notification")
         }
     }
     
@@ -2549,7 +2548,7 @@ struct WordTaggerApp: App {
                 if let requestSource = notification.object as? String {
                     if requestSource == "MAIN_WINDOW" {
                         print("📍 主窗口: 处理位置选择请求，打开地图")
-                        NotificationCenter.default.post(name: NSNotification.Name("executeOpenMapWindow"), object: ["sourceWindowId": "MAIN_WINDOW"])
+                        NotificationCenter.default.post(name: NSNotification.Name("executeOpenMapWindow"), object: ["sourceWindowId": mainWindowId.uuidString])
                     } else {
                         print("📍 主窗口: 忽略独立窗口的位置选择请求")
                     }
@@ -2561,10 +2560,10 @@ struct WordTaggerApp: App {
                    let targetSourceWindowId = sourceInfo["sourceWindowId"] {
                     print("🎯 主窗口: 收到带源窗口ID的openMapWindow通知 - \(targetSourceWindowId.prefix(8))")
                     
-                    // 检查是否是发给主窗口的（通过MAIN_WINDOW标识符）
-                    if targetSourceWindowId == "MAIN_WINDOW" {
+                    // 检查是否是发给主窗口的
+                    if targetSourceWindowId == mainWindowId.uuidString || targetSourceWindowId == "MAIN_WINDOW" {
                         print("✅ 主窗口: 处理指定给主窗口的openMapWindow通知")
-                        NotificationCenter.default.post(name: NSNotification.Name("executeOpenMapWindow"), object: ["sourceWindowId": "MAIN_WINDOW"])
+                        NotificationCenter.default.post(name: NSNotification.Name("executeOpenMapWindow"), object: ["sourceWindowId": mainWindowId.uuidString])
                     } else {
                         print("🚫 主窗口: 忽略发给其他窗口的openMapWindow通知 - 目标: \(targetSourceWindowId.prefix(8))")
                     }
@@ -2576,8 +2575,8 @@ struct WordTaggerApp: App {
                     print("🚫 主窗口: 忽略openMapWindow通知 - 应用无活跃窗口")
                     return
                 }
-                print("✅ 主窗口: 处理openMapWindow通知 - 打开地图窗口")
-                NotificationCenter.default.post(name: NSNotification.Name("executeOpenMapWindow"), object: ["sourceWindowId": "MAIN_WINDOW"])
+                print("✅ 主窗口: 处理全局openMapWindow通知 - 打开地图窗口")
+                NotificationCenter.default.post(name: NSNotification.Name("executeOpenMapWindow"), object: ["sourceWindowId": mainWindowId.uuidString])
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagManager"))) { _ in
                 // openTagManager 是全局命令，只在当前key窗口处理
@@ -2611,30 +2610,39 @@ struct WordTaggerApp: App {
                 NotificationCenter.default.post(name: NSNotification.Name("executeOpenWindow"), object: "nodeManager")
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("executeOpenMapWindow"))) { notification in
-                // 中间层：处理地图窗口打开的执行通知，设置窗口映射
-                print("🗺️ 主窗口中间层: 收到executeOpenMapWindow通知")
-                print("🗺️ 主窗口中间层: notification.object = \(notification.object ?? "nil")")
+                // 🔧 关键修复：实际打开通用地图窗口并设置窗口映射
+                print("🗺️ 主窗口: 收到executeOpenMapWindow通知，打开通用地图窗口")
+                print("🗺️ 主窗口: notification.object = \(notification.object ?? "nil")")
                 
-                // 这里是中间层，负责：
-                // 1. 接收来自ContentView的executeOpenMapWindow通知
-                // 2. 转发给地图窗口进行窗口映射设置
-                // 3. 不处理来自地图窗口的通知（避免循环）
+                // 🔧 打开通用地图窗口
+                NotificationCenter.default.post(name: NSNotification.Name("executeOpenWindow"), object: "map")
                 
+                // 设置窗口映射信息
                 if let sourceInfo = notification.object as? [String: String] {
-                    print("🗺️ 主窗口中间层: 转发窗口映射信息给地图窗口，sourceInfo: \(sourceInfo)")
-                    // 转发给地图窗口，使用不同的通知名称避免循环
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("mapWindowSetupMapping"),
-                        object: sourceInfo
-                    )
+                    print("🗺️ 主窗口: 转发窗口映射信息给通用地图窗口，sourceInfo: \(sourceInfo)")
+                    // 延迟一点发送映射信息，确保地图窗口已经打开
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("mapWindowSetupMapping"),
+                            object: sourceInfo
+                        )
+                    }
                 } else {
-                    print("⚠️ 主窗口中间层: executeOpenMapWindow通知缺少sourceInfo，使用默认值")
-                    // 使用默认的主窗口ID
-                    let defaultSourceInfo = ["sourceWindowId": "MAIN_WINDOW"]
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("mapWindowSetupMapping"),
-                        object: defaultSourceInfo
-                    )
+                    print("⚠️ 主窗口: executeOpenMapWindow通知缺少sourceInfo，使用主窗口默认值")
+                    // 使用主窗口的ID
+                    let defaultSourceInfo = ["sourceWindowId": mainWindowId.uuidString]
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("mapWindowSetupMapping"),
+                            object: defaultSourceInfo
+                        )
+                    }
+                }
+                
+                // 🔧 发送位置选择模式通知
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    print("📍 主窗口: 发送位置选择模式通知")
+                    NotificationCenter.default.post(name: NSNotification.Name("openMapForLocationSelection"), object: nil)
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("requestWindowMapping"))) { notification in
@@ -2657,6 +2665,34 @@ struct WordTaggerApp: App {
                         object: mappingInfo
                     )
                     print("🔧 主窗口: 已发送窗口映射信息到 \(windowType) 窗口")
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("requestWindowMappingForMap"))) { notification in
+                // 🔧 处理地图窗口的主动映射请求
+                print("🔧 主窗口: 收到地图窗口映射请求")
+                
+                if let requestInfo = notification.object as? [String: String],
+                   let mapWindowId = requestInfo["mapWindowId"] {
+                    print("🔧 主窗口: 处理地图窗口映射请求 - 地图窗口ID: \(mapWindowId.prefix(8))")
+                    
+                    // 检查主窗口是否应该响应（即主窗口是否是活跃窗口或最近活跃的非地图窗口）
+                    if WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: false) {
+                        let sourceWindowId = mainWindowId.uuidString
+                        print("🔧 主窗口: 确定为源窗口，发送映射信息 - 源窗口ID: \(sourceWindowId.prefix(8))")
+                        
+                        // 🎯 发送带目标地图窗口ID的映射信息
+                        let mappingInfo = [
+                            "sourceWindowId": sourceWindowId,
+                            "targetMapWindowId": mapWindowId
+                        ]
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("mapWindowSetupMapping"),
+                            object: mappingInfo
+                        )
+                        print("🔧 主窗口: 已发送目标映射信息到地图窗口 \(mapWindowId.prefix(8))")
+                    } else {
+                        print("🚫 主窗口: 不是活跃窗口，忽略地图窗口映射请求")
+                    }
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("toggleSidebar"))) { _ in
@@ -2699,12 +2735,14 @@ struct WordTaggerApp: App {
                 store.clearTagFilter()
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("handleMapPinTap"))) { notification in
+                print("🔔 主窗口: 收到handleMapPinTap通知")
                 guard let userInfo = notification.userInfo,
                       let targetNodeId = userInfo["targetNodeId"] as? String,
                       let targetLayerId = userInfo["targetLayerId"] as? String else {
                     print("⚠️ 主窗口: handleMapPinTap通知格式错误 - 缺少节点ID或层ID")
                     return
                 }
+                print("🔔 主窗口: 通知包含 targetWindowId: \(userInfo["targetWindowId"] ?? "nil")")
                 
                 // 🔧 从当前store实例中查找对应的节点和层
                 guard let targetNodeUUID = UUID(uuidString: targetNodeId),
@@ -2722,13 +2760,17 @@ struct WordTaggerApp: App {
                 // 🔧 重新设计通知路由逻辑：优先检查目标窗口ID，然后检查活跃状态
                 // 如果指定了目标窗口ID，必须完全匹配才处理
                 if let targetWindowId = userInfo["targetWindowId"] as? String {
-                    // 🔧 支持固定的主窗口ID
+                    // 🔧 支持主窗口的多种标识方式
                     let isMatchingMainWindow = (targetWindowId == mainWindowId.uuidString) || (targetWindowId == "MAIN_WINDOW")
                     if !isMatchingMainWindow {
-                        print("🚫 主窗口: 忽略handleMapPinTap通知 - 目标窗口不匹配 (\(targetWindowId))")
+                        print("🚫 主窗口: 忽略handleMapPinTap通知 - 目标窗口不匹配")
+                        print("   - 目标ID: \(targetWindowId.prefix(8))")
+                        print("   - 主窗口ID: \(mainWindowId.uuidString.prefix(8))")
                         return
                     }
-                    print("🎯 主窗口: 处理指定目标的地图节点点击 (targetWindowId: \(targetWindowId))")
+                    print("🎯 主窗口: 处理指定目标的地图节点点击")
+                    print("   - 目标ID: \(targetWindowId.prefix(8))")
+                    print("   - 路由方式: \(userInfo["routingMethod"] as? String ?? "unknown")")
                 } else {
                     // 如果没有指定目标窗口ID，则使用WindowFocusManager进行活跃窗口检查
                     guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: false, commandName: "handleMapPinTap") else {
@@ -2768,13 +2810,12 @@ struct WordTaggerApp: App {
             GlobalCommands()
         }
         
-        // 地图窗口
-        WindowGroup("地图视图", id: "map") {
+        // 地图窗口 - 使用通用WindowGroup，通过sourceWindowId进行智能路由
+        WindowGroup("地图窗口", id: "map") {
             MapWindow()
-                .environmentObject(store)
+                .environmentObject(store) // 默认使用主store，具体路由由MapContainer中间层处理
         }
         .defaultSize(width: 1000, height: 700)
-        .handlesExternalEvents(matching: Set(arrayLiteral: "map"))
         
         // 图谱窗口
         WindowGroup("全局图谱", id: "graph") {
@@ -3555,6 +3596,9 @@ struct IndependentWindowWrapper: View {
     // 状态管理 - 用于快捷键响应
     @State private var showCommandPalette = false
     
+    // 🔧 防重复打开地图窗口的标志
+    @State private var isOpeningMapWindow = false
+    
     // 生成唯一的窗口ID
     private let windowId = UUID()
     
@@ -3568,6 +3612,7 @@ struct IndependentWindowWrapper: View {
                 showCompoundNodeAdd: $showCompoundNodeAdd,
                 showCommandPalette: $showCommandPalette,
                 nodeToEditInManager: $nodeToEditInManager,
+                isOpeningMapWindow: $isOpeningMapWindow,
                 windowId: windowId,
                 store: store,
                 openWindow: openWindow
@@ -3667,6 +3712,7 @@ struct IndependentWindowModifier: ViewModifier {
     @Binding var showCompoundNodeAdd: Bool
     @Binding var showCommandPalette: Bool
     @Binding var nodeToEditInManager: Node?
+    @Binding var isOpeningMapWindow: Bool
     let windowId: UUID
     let store: NodeStore
     let openWindow: OpenWindowAction
@@ -3704,7 +3750,30 @@ struct IndependentWindowModifier: ViewModifier {
                 openWindow(id: "nodeManager")
             })
             .focusedSceneValue(\.openMapWindow, ShowCardAction {
+                // 🔧 添加防重复机制
+                guard !isOpeningMapWindow else {
+                    print("🚫 独立窗口: 地图窗口正在打开中，忽略focusedSceneValue重复请求")
+                    return
+                }
+                
+                isOpeningMapWindow = true
+                print("🗺️ 独立窗口 (focusedSceneValue): 打开通用地图窗口")
                 openWindow(id: "map")
+                
+                // 发送窗口映射信息，确保地图知道来源窗口
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    let mappingInfo = ["sourceWindowId": windowId.uuidString]
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("mapWindowSetupMapping"),
+                        object: mappingInfo
+                    )
+                    print("🔗 独立窗口: 已发送窗口映射信息 (focusedSceneValue)")
+                }
+                
+                // 1秒后重置防重复标志
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    isOpeningMapWindow = false
+                }
             })
             .focusedSceneValue(\.openGraphWindow, ShowCardAction {
                 openWindow(id: "graph")
@@ -3807,8 +3876,39 @@ struct IndependentWindowModifier: ViewModifier {
                 // 🔧 处理来自QuickAddSheetView的位置选择请求
                 if let requestSource = notification.object as? String {
                     if requestSource == "INDEPENDENT_WINDOW" {
-                        print("📍 独立窗口: 处理位置选择请求，打开地图")
-                        NotificationCenter.default.post(name: NSNotification.Name("executeOpenMapWindow"), object: ["sourceWindowId": windowId.uuidString])
+                        print("📍 独立窗口: 处理位置选择请求，检查防重复标志")
+                        
+                        // 🔧 防重复机制：检查是否正在打开地图窗口
+                        guard !isOpeningMapWindow else {
+                            print("🚫 独立窗口: 地图窗口正在打开中，忽略重复请求")
+                            return
+                        }
+                        
+                        isOpeningMapWindow = true
+                        print("🗺️ 独立窗口: 打开地图窗口")
+                        openWindow(id: "map")
+                        
+                        // 设置窗口映射信息和位置选择模式
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            let mappingInfo = ["sourceWindowId": windowId.uuidString]
+                            NotificationCenter.default.post(
+                                name: NSNotification.Name("mapWindowSetupMapping"),
+                                object: mappingInfo
+                            )
+                            print("🗺️ 独立窗口: 已发送窗口映射信息")
+                        }
+                        
+                        // 🔧 发送位置选择模式通知
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            print("📍 独立窗口: 发送位置选择模式通知")
+                            NotificationCenter.default.post(name: NSNotification.Name("openMapForLocationSelection"), object: nil)
+                        }
+                        
+                        // 1秒后重置防重复标志
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            isOpeningMapWindow = false
+                            print("🔄 独立窗口: 重置地图窗口打开标志")
+                        }
                     } else {
                         print("📍 独立窗口: 忽略主窗口的位置选择请求")
                     }
@@ -3822,8 +3922,30 @@ struct IndependentWindowModifier: ViewModifier {
                     
                     // 检查是否是发给这个独立窗口的
                     if targetSourceWindowId == windowId.uuidString {
+                        // 🔧 添加防重复机制
+                        guard !isOpeningMapWindow else {
+                            print("🚫 独立窗口: 地图窗口正在打开中，忽略openMapWindow重复请求")
+                            return
+                        }
+                        
                         print("✅ 独立窗口: 处理指定给当前独立窗口的openMapWindow通知")
-                        NotificationCenter.default.post(name: NSNotification.Name("executeOpenMapWindow"), object: ["sourceWindowId": windowId.uuidString])
+                        isOpeningMapWindow = true
+                        openWindow(id: "map")
+                        
+                        // 🔧 发送窗口映射信息
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            let mappingInfo = ["sourceWindowId": windowId.uuidString]
+                            NotificationCenter.default.post(
+                                name: NSNotification.Name("mapWindowSetupMapping"),
+                                object: mappingInfo
+                            )
+                            print("🔗 独立窗口: 已发送窗口映射信息 (指定openMapWindow)")
+                        }
+                        
+                        // 1秒后重置防重复标志
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            isOpeningMapWindow = false
+                        }
                     } else {
                         print("🚫 独立窗口: 忽略发给其他窗口的openMapWindow通知 - 目标: \(targetSourceWindowId.prefix(8)), 当前: \(windowId.uuidString.prefix(8))")
                     }
@@ -3835,8 +3957,31 @@ struct IndependentWindowModifier: ViewModifier {
                     print("🚫 独立窗口: 忽略openMapWindow通知 - 应用无活跃窗口")
                     return
                 }
-                print("✅ 独立窗口: 处理openMapWindow通知 - 打开地图窗口")
-                NotificationCenter.default.post(name: NSNotification.Name("executeOpenMapWindow"), object: ["sourceWindowId": windowId.uuidString])
+                
+                // 🔧 添加防重复机制
+                guard !isOpeningMapWindow else {
+                    print("🚫 独立窗口: 地图窗口正在打开中，忽略全局openMapWindow重复请求")
+                    return
+                }
+                
+                print("✅ 独立窗口: 处理全局openMapWindow通知 - 打开地图窗口")
+                isOpeningMapWindow = true
+                openWindow(id: "map")
+                
+                // 🔧 发送窗口映射信息
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    let mappingInfo = ["sourceWindowId": windowId.uuidString]
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("mapWindowSetupMapping"),
+                        object: mappingInfo
+                    )
+                    print("🔗 独立窗口: 已发送窗口映射信息 (全局openMapWindow)")
+                }
+                
+                // 1秒后重置防重复标志
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    isOpeningMapWindow = false
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagManager"))) { _ in
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "openTagManager") else {
@@ -3890,12 +4035,14 @@ struct IndependentWindowModifier: ViewModifier {
                 store.clearTagFilter()
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("handleMapPinTap"))) { notification in
+                print("🔔 独立窗口: 收到handleMapPinTap通知")
                 guard let userInfo = notification.userInfo,
                       let targetNodeId = userInfo["targetNodeId"] as? String,
                       let targetLayerId = userInfo["targetLayerId"] as? String else {
                     print("⚠️ 独立窗口: handleMapPinTap通知格式错误 - 缺少节点ID或层ID")
                     return
                 }
+                print("🔔 独立窗口: 通知包含 targetWindowId: \(userInfo["targetWindowId"] ?? "nil")")
                 
                 // 🔧 从当前store实例中查找对应的节点和层
                 guard let targetNodeUUID = UUID(uuidString: targetNodeId),
@@ -3962,36 +4109,8 @@ struct IndependentWindowModifier: ViewModifier {
                     print("🚫 独立窗口: 忽略来自主窗口的节点管理请求")
                 }
             }
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("executeOpenMapWindow"))) { notification in
-                // 🔧 关键修复：独立窗口处理executeOpenMapWindow通知
-                print("🗺️ 独立窗口中间层: 收到executeOpenMapWindow通知")
-                print("🗺️ 独立窗口中间层: notification.object = \(notification.object ?? "nil")")
-                
-                if let sourceInfo = notification.object as? [String: String] {
-                    print("🗺️ 独立窗口中间层: 转发窗口映射信息给地图窗口，sourceInfo: \(sourceInfo)")
-                    // 转发给地图窗口，使用不同的通知名称避免循环
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("mapWindowSetupMapping"),
-                        object: sourceInfo
-                    )
-                    
-                    // 实际打开地图窗口
-                    print("🗺️ 独立窗口: 打开地图窗口")
-                    openWindow(id: "map")
-                } else {
-                    print("⚠️ 独立窗口中间层: executeOpenMapWindow通知缺少sourceInfo，使用默认值")
-                    // 使用默认的独立窗口ID
-                    let defaultSourceInfo = ["sourceWindowId": windowId.uuidString]
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("mapWindowSetupMapping"),
-                        object: defaultSourceInfo
-                    )
-                    
-                    // 实际打开地图窗口
-                    print("🗺️ 独立窗口: 打开地图窗口（使用默认参数）")
-                    openWindow(id: "map")
-                }
-            }
+            // 🚫 移除executeOpenMapWindow处理器，避免重复打开地图窗口
+            // 现在直接在requestMapForLocationSelection处理器中打开地图窗口
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("requestWindowMapping"))) { notification in
                 // 独立窗口处理窗口映射请求 - 这是关键修复！
                 print("🔧 独立窗口: 收到窗口映射请求")
@@ -4014,8 +4133,37 @@ struct IndependentWindowModifier: ViewModifier {
                     print("🔧 独立窗口: 已发送窗口映射信息到 \(windowType) 窗口")
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("requestWindowMappingForMap"))) { notification in
+                // 🔧 处理地图窗口的主动映射请求
+                print("🔧 独立窗口: 收到地图窗口映射请求")
+                
+                if let requestInfo = notification.object as? [String: String],
+                   let mapWindowId = requestInfo["mapWindowId"] {
+                    print("🔧 独立窗口: 处理地图窗口映射请求 - 地图窗口ID: \(mapWindowId.prefix(8))")
+                    
+                    // 检查这个独立窗口是否应该响应（即它是否是活跃窗口或最近活跃的非地图窗口）
+                    if WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: false) {
+                        let sourceWindowId = windowId.uuidString
+                        print("🔧 独立窗口: 确定为源窗口，发送映射信息 - 源窗口ID: \(sourceWindowId.prefix(8))")
+                        
+                        // 🎯 发送带目标地图窗口ID的映射信息
+                        let mappingInfo = [
+                            "sourceWindowId": sourceWindowId,
+                            "targetMapWindowId": mapWindowId
+                        ]
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("mapWindowSetupMapping"),
+                            object: mappingInfo
+                        )
+                        print("🔧 独立窗口: 已发送目标映射信息到地图窗口 \(mapWindowId.prefix(8))")
+                    } else {
+                        print("🚫 独立窗口: 不是活跃窗口，忽略地图窗口映射请求")
+                    }
+                }
+            }
     }
 }
+
 
 // MARK: - Global Commands Handler
 

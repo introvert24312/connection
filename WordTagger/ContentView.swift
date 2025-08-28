@@ -138,6 +138,12 @@ struct ContentViewModifier: ViewModifier {
                 store: store,
                 dataManager: dataManager
             ))
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("executeOpenWindow"))) { notification in
+                if let windowId = notification.object as? String {
+                    print("✅ ContentView: 收到executeOpenWindow通知 - windowId: \(windowId)")
+                    openWindow(id: windowId)
+                }
+            }
             .toolbar {
                 toolbarContent
             }
@@ -155,7 +161,9 @@ struct ContentViewModifier: ViewModifier {
             Divider()
             
             Button(action: {
-                openWindow(id: "map")
+                // 🔧 修复：发送openMapWindow通知，确保地图窗口能获得正确的源窗口映射信息
+                print("🗺️ ContentView: 地图按钮被点击，发送openMapWindow通知")
+                NotificationCenter.default.post(name: NSNotification.Name("openMapWindow"), object: nil)
             }) {
                 Image(systemName: "map")
                     .foregroundColor(.blue)
@@ -299,7 +307,9 @@ struct ContentViewFocusedValueModifier: ViewModifier {
                 openWindow(id: "nodeManager")
             })
             .focusedSceneValue(\.openMapWindow, ShowCardAction {
-                openWindow(id: "map")
+                // 🔧 发送openMapWindow全局通知，让正确的窗口处理
+                print("🗺️ ContentView: focusedSceneValue触发地图窗口打开")
+                NotificationCenter.default.post(name: NSNotification.Name("openMapWindow"), object: nil)
             })
             .focusedSceneValue(\.openGraphWindow, ShowCardAction {
                 openWindow(id: "graph")
@@ -319,7 +329,7 @@ struct ContentViewFocusedValueModifier: ViewModifier {
                 NotificationCenter.default.post(name: NSNotification.Name("switchToGraphTab"), object: nil)
             })
             .focusedSceneValue(\.clearTagFilter, ShowCardAction {
-                NotificationCenter.default.post(name: NSNotification.Name("clearAllFilters"), object: nil)
+                NotificationCenter.default.post(name: NSNotification.Name("clearTagFilter"), object: nil)
             })
             .focusedSceneValue(\.openTagSearch, ShowCardAction {
                 NotificationCenter.default.post(name: NSNotification.Name("switchToTagSearch"), object: nil)

@@ -713,6 +713,7 @@ extension KeyboardEventManager {
         static let globalCommands: Set<String> = [
             commandK,  // Command+K - 命令面板应该在任何活跃窗口中可用
             commandB,  // Command+B - 新建窗口是全局功能
+            "clearAllTagFilters", // Command+N - 清除所有标签筛选状态
         ]
     }
     

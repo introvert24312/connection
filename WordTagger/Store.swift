@@ -875,17 +875,38 @@ public final class NodeStore: ObservableObject {
     
     @MainActor
     public func setSelectedNode(_ node: Node?) {
-        print("🔧 Store.setSelectedNode 被调用: \(node?.text ?? "nil")")
+        print("🔧 Store.setSelectedNode: 开始设置选中节点")
+        print("🔧 设置前状态:")
+        print("   - 当前selectedNode: '\(selectedNode?.text ?? "nil")' (id: \(selectedNode?.id.uuidString.prefix(8) ?? "nil"))")
+        print("   - 当前selectedTag: '\(selectedTag?.value ?? "nil")' (类型: \(selectedTag?.type.displayName ?? "nil"))")
+        print("   - 当前层: '\(currentLayer?.displayName ?? "nil")'")
+        
         let oldText = selectedNode?.text ?? "nil"
         selectedNode = node
-        print("🔧 selectedNode 已更新: \(oldText) → \(selectedNode?.text ?? "nil")")
+        
+        print("🔧 Store.setSelectedNode: 节点设置完成")
+        print("   - selectedNode 变更: \(oldText) → \(selectedNode?.text ?? "nil")")
+        if let node = node {
+            print("   - 新节点详情: id=\(node.id.uuidString.prefix(8)), 层=\(node.layerId.uuidString.prefix(8)), 标签数=\(node.tags.count)")
+        }
     }
     
     @MainActor
     public func setSelectedTag(_ tag: Tag?) {
+        print("🏷️ Store.setSelectedTag: 开始设置选中标签")
+        print("🏷️ 设置前状态:")
+        print("   - 当前selectedTag: '\(selectedTag?.value ?? "nil")' (类型: \(selectedTag?.type.displayName ?? "nil"))")
+        print("   - showAllTagTypeNodes: \(showAllTagTypeNodes)")
+        print("   - expandedTagTypes: \(expandedTagTypes.map { $0.displayName })")
+        
         selectedTag = tag
         showAllTagTypeNodes = false // 重置为只显示具体标签的节点
         expandedTagTypes.removeAll() // 清除展开的标签类型
+        
+        print("🏷️ Store.setSelectedTag: 标签设置完成")
+        print("   - selectedTag 变更为: '\(selectedTag?.value ?? "nil")' (类型: \(selectedTag?.type.displayName ?? "nil"))")
+        print("   - showAllTagTypeNodes 重置为: \(showAllTagTypeNodes)")
+        print("   - expandedTagTypes 已清空")
     }
     
     @MainActor
@@ -901,12 +922,15 @@ public final class NodeStore: ObservableObject {
         print("🔧 Store.selectNode 被调用: \(node?.text ?? "nil")")
         print("🔧 调用前 store.selectedNode: \(selectedNode?.text ?? "nil")")
         
-        // 🔧 地图选择节点时，清除标签筛选状态以确保节点能正确显示
-        if node != nil {
-            print("🧹 清除标签筛选状态以确保节点正确显示")
+        // 🔧 只在节点为空时清除标签筛选状态（如清除选择操作）
+        // 普通节点选择不再自动清除标签筛选状态，保持用户的导航上下文
+        if node == nil {
+            print("🧹 清除节点选择，同时清除标签筛选状态")
             selectedTag = nil
             showAllTagTypeNodes = false
             expandedTagTypes.removeAll()
+        } else {
+            print("✅ 选择节点但保持标签筛选状态")
         }
         
         setSelectedNode(node)
@@ -1655,28 +1679,40 @@ public final class NodeStore: ObservableObject {
     @MainActor
     public func expandLocationTagAndSelect(_ node: Node) {
         print("🗺️ Store.expandLocationTagAndSelect: 开始完整标签导航流程 '\(node.text)'")
+        print("🗺️ Store类型: \(type(of: self)) - isSharedInstance: \(isSharedInstance)")
+        print("🗺️ 当前节点总数: \(nodes.count), 层数: \(layers.count)")
+        
+        // 🔧 首先彻底清除所有状态，包括窗口焦点状态和之前的选择状态
+        print("🧹 Store.expandLocationTagAndSelect: 彻底清除所有选择状态和窗口焦点状态")
+        clearTagFilter() // 这会清除所有标签筛选状态
+        
+        // 🔧 通过WindowFocusManager强制刷新窗口状态，确保没有残留的窗口上下文
+        WindowFocusManager.shared.forceRefreshWindowState()
+        print("🔄 Store.expandLocationTagAndSelect: 已强制刷新窗口焦点状态")
+        
+        // 0. 验证节点是否存在于当前store实例中
+        let nodeExistsInStore = nodes.contains { $0.id == node.id }
+        print("🔍 节点是否存在于当前store实例: \(nodeExistsInStore)")
+        if !nodeExistsInStore {
+            print("⚠️ 警告: 节点 '\(node.text)' 不存在于当前store实例中!")
+            print("   当前store中的节点: \(nodes.map { $0.text })")
+        }
         
         // 1. 找到该节点的第一个location标签
         guard let locationTag = node.locationTags.first else {
             print("⚠️ 节点 '\(node.text)' 没有location标签，回退到直接选择")
-            // 如果没有location标签，直接选中节点但清除标签状态
-            clearTagFilter()
+            // 如果没有location标签，直接选中节点但确保状态已清除
             setSelectedNode(node)
             return
         }
         
         print("📍 找到location标签: '\(locationTag.value)' (类型: \(locationTag.type.displayName))")
         
-        // 2. 清除之前的选择状态，模拟从头开始的导航
-        print("🧹 清除之前的标签筛选状态")
-        selectedTag = nil
-        showAllTagTypeNodes = false
-        
-        // 3. 展开location标签类型（相当于在TagSidebarView中点击展开箭头）
+        // 2. 展开location标签类型（相当于在TagSidebarView中点击展开箭头）
         print("📂 展开location标签类型")
         expandedTagTypes.insert(locationTag.type)
         
-        // 4. 选中该具体地点标签，显示所有带这个标签的节点（相当于点击具体标签值）
+        // 3. 选中该具体地点标签，显示所有带这个标签的节点（相当于点击具体标签值）
         print("🎯 选中具体地点标签: '\(locationTag.value)'")
         selectedTag = locationTag
         showAllTagTypeNodes = false // 显示该具体标签的节点，而不是整个标签类型
@@ -1731,12 +1767,19 @@ public final class NodeStore: ObservableObject {
     
     @MainActor
     public func clearTagFilter() {
-        print("🧹 Store.clearTagFilter: 清除所有标签筛选状态")
+        print("🧹 Store.clearTagFilter: 开始清除所有标签筛选状态")
+        print("🧹 清除前状态:")
+        print("   - selectedTag: '\(selectedTag?.value ?? "nil")' (类型: \(selectedTag?.type.displayName ?? "nil"))")
+        print("   - selectedNode: '\(selectedNode?.text ?? "nil")'")
+        print("   - expandedTagTypes: \(expandedTagTypes.map { $0.displayName })")
+        print("   - showAllTagTypeNodes: \(showAllTagTypeNodes)")
+        
         selectedTag = nil
         expandedTagTypes.removeAll()
         showAllTagTypeNodes = false
         selectedNode = nil
-        print("✅ 标签筛选状态已清除，回到初始状态")
+        
+        print("✅ Store.clearTagFilter: 标签筛选状态已彻底清除，回到初始状态")
     }
     
     public func findLocationTagByName(_ name: String) -> Tag? {

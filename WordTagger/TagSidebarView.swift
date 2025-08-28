@@ -206,10 +206,32 @@ struct TagSidebarView: View {
             if newNode != nil {
                 print("🗺️ TagSidebarView: 检测到节点选择，保持标签筛选状态")
                 currentMode = .tagFiltering
+                
+                // 🔄 同步expandedGroups状态与store的expandedTagTypes
+                // 确保UI反映store中的标签展开状态
+                if let selectedTag = store.selectedTag {
+                    expandedGroups.insert(selectedTag.type)
+                    print("🔄 同步UI展开状态: 展开标签类型 '\(selectedTag.type.displayName)'")
+                }
             }
         }
         .onChange(of: store.expandedTagTypes) { _, newExpandedTypes in
-            // 当展开的标签类型改变时，更新显示的节点
+            // 当展开的标签类型改变时，同步UI的展开状态
+            print("🔄 TagSidebarView: store.expandedTagTypes 改变，同步UI展开状态")
+            print("   - store展开的类型: \(newExpandedTypes.map { $0.displayName })")
+            
+            // 同步expandedGroups与store的expandedTagTypes（用于标签搜索模块）
+            expandedGroups = newExpandedTypes
+            
+            // 🔄 如果有展开的标签类型，也同步到selectedTagTypes（确保搜索模块显示正确）
+            if !newExpandedTypes.isEmpty {
+                // 只添加新的，不清除现有的选择
+                for tagType in newExpandedTypes {
+                    selectedTagTypes.insert(tagType)
+                }
+                print("🔄 同步搜索模块选中状态: \(selectedTagTypes.map { $0.displayName })")
+            }
+            
             updateDisplayedNodesForExpandedTypes(newExpandedTypes)
         }
     }

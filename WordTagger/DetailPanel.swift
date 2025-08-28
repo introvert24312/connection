@@ -69,14 +69,33 @@ struct DetailPanel: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("toggleDetailPanelTab"))) { _ in
             // Command+D: 在图谱和详情标签间切换
+            print("🎯 DetailPanel: 收到 toggleDetailPanelTab 通知，当前标签: \(tab.rawValue)")
             DispatchQueue.main.async {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     if tab == .related {
                         tab = .detail
+                        print("✅ DetailPanel: 从图谱切换到详情")
                     } else if tab == .detail {
                         tab = .related
+                        print("✅ DetailPanel: 从详情切换到图谱")
+                    } else {
+                        // 如果当前在地图标签，切换到详情
+                        tab = .detail
+                        print("✅ DetailPanel: 从地图切换到详情")
                     }
-                    // 地图标签不参与此切换
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("switchToMapTab"))) { notification in
+            // 地图标注点击：切换到地图标签
+            if let targetNode = notification.object as? Node,
+               targetNode.id == currentNode.id {
+                print("🗺️ DetailPanel: 收到 switchToMapTab 通知，切换到地图标签")
+                DispatchQueue.main.async {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        tab = .map
+                        print("✅ DetailPanel: 已切换到地图标签")
+                    }
                 }
             }
         }
@@ -273,29 +292,7 @@ struct NodeDetailView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.clear)
             .zIndex(2)
-            .dropDestination(for: Image.self) { items, location in
-                print("🖼️ Image drop detected on VditorWebView")
-                // 这里我们不能直接处理Image类型，需要处理文件拖拽
-                return false
-            }
-            .dropDestination(for: URL.self) { urls, location in
-                print("🖼️ URL drop detected on VditorWebView: \(urls)")
-                for url in urls {
-                    if url.pathExtension.lowercased() == "jpg" || 
-                       url.pathExtension.lowercased() == "jpeg" ||
-                       url.pathExtension.lowercased() == "png" ||
-                       url.pathExtension.lowercased() == "gif" ||
-                       url.pathExtension.lowercased() == "webp" {
-                        print("🖼️ Processing image file: \(url)")
-                        if let fileName = imageManager.copyImageFromURL(url) {
-                            let imageMarkdown = imageManager.generateImageMarkdown(fileName: fileName)
-                            insertTextAtCursor(imageMarkdown + "\n\n")
-                        }
-                        return true
-                    }
-                }
-                return false
-            }
+            // 图片拖拽由 VditorWebView 内部的 JavaScript 处理，无需在这里重复处理
             .onAppear {
                 print("🚨🚨🚨 VditorWebView onAppear CALLED for node: \(currentNode.text)")
             }
@@ -381,6 +378,58 @@ struct NodeDetailView: View {
                 return .handled
             }
             return .ignored
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("imageInsertSuccess"))) { notification in
+            // 图片插入成功后，同步编辑器内容到本地状态
+            print("📸 收到图片插入成功通知，同步内容状态")
+            if let fileName = notification.userInfo?["fileName"] as? String {
+                print("📸 插入的图片: \(fileName)")
+                
+                // 延迟获取最新内容，确保图片链接已经插入
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    if let coordinator = vditorCoordinator {
+                        // 从编辑器获取最新内容并同步到本地状态
+                        let getContentJS = """
+                        try {
+                            if (window.vditor && typeof window.vditor.getValue === 'function') {
+                                window.vditor.getValue();
+                            } else {
+                                '';
+                            }
+                        } catch(e) {
+                            '';
+                        }
+                        """
+                        
+                        coordinator.webView?.evaluateJavaScript(getContentJS) { result, error in
+                            if let content = result as? String, !content.isEmpty {
+                                print("📸 从编辑器获取最新内容: \(content.count)字符")
+                                // 注意：由于NodeDetailView是struct，不需要weak引用
+                                // 直接在main队列中更新状态和保存文件
+                                DispatchQueue.main.async {
+                                    // 通过通知来更新markdown内容，避免结构体捕获问题
+                                    NotificationCenter.default.post(
+                                        name: NSNotification.Name("updateMarkdownContent"),
+                                        object: nil,
+                                        userInfo: ["content": content, "nodeId": node.id]
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("updateMarkdownContent"))) { notification in
+            // 处理markdown内容更新通知
+            if let content = notification.userInfo?["content"] as? String,
+               let nodeId = notification.userInfo?["nodeId"] as? UUID,
+               nodeId == node.id {
+                print("📝 收到markdown内容更新通知，更新本地状态")
+                markdownText = content
+                // 立即保存到文件
+                instantSaveForNode(node, content: content)
+            }
         }
         .onDisappear {
             // 清理异步任务
@@ -579,22 +628,26 @@ struct NodeDetailView: View {
     private func insertTextAtCursor(_ text: String) {
         print("🖼️ Inserting text at cursor: \(text)")
         
+        // 计算新内容
+        let newContent = markdownText.isEmpty ? text : markdownText + "\n" + text
+        print("🖼️ New content length: \(newContent.count)")
+        
         // 优先使用VditorWebView的coordinator来插入文本
         if let coordinator = vditorCoordinator {
-            let newContent = markdownText.isEmpty ? text : markdownText + "\n" + text
             print("🖼️ Updating VditorWebView content via coordinator")
             coordinator.setMarkdown(newContent, forceUpdate: true)
             
             // 同时更新本地状态
             markdownText = newContent
+            
+            // 手动触发保存，因为coordinator.setMarkdown不会触发onChange
+            print("🖼️ Manual save after coordinator update")
+            instantSaveForNode(currentNode, content: newContent)
         } else {
             // 备选方案：直接修改状态（这会触发VditorWebView的onChange）
             print("🖼️ Coordinator not available, using fallback method")
-            if markdownText.isEmpty {
-                markdownText = text
-            } else {
-                markdownText += "\n" + text
-            }
+            markdownText = newContent
+            // 这种方式会自动触发onChange回调来保存
         }
     }
     
@@ -786,6 +839,9 @@ struct NodeMapView: View {
                             anchor: .center
                         ) {
                             MapPinView(tag: tag)
+                                .onTapGesture {
+                                    handleMapPinTap(tag: tag)
+                                }
                         }
                     }
                 }
@@ -832,6 +888,57 @@ struct NodeMapView: View {
                         }
                     }
                 }
+            }
+        }
+    }
+    
+    // MARK: - Map Pin Interaction
+    private func handleMapPinTap(tag: Tag) {
+        print("🗺️ 地图标注被点击: \(tag.value)")
+        
+        // 1. 首先找到拥有这个地图标签的节点
+        let nodeWithThisTag = findNodeWithLocationTag(tag)
+        
+        guard let targetNode = nodeWithThisTag else {
+            print("⚠️ 未找到包含地图标签 '\(tag.value)' 的节点")
+            return
+        }
+        
+        print("🎯 找到目标节点: \(targetNode.text) (层ID: \(targetNode.layerId))")
+        
+        // 2. 找到节点所属的层
+        guard let targetLayer = store.layers.first(where: { $0.id == targetNode.layerId }) else {
+            print("⚠️ 未找到节点 '\(targetNode.text)' 所属的层")
+            return
+        }
+        
+        print("🎯 目标层: \(targetLayer.displayName)")
+        
+        // 3. 通过通知系统请求处理地图点击，让当前活跃的窗口来响应
+        // 这样可以确保操作发生在正确的窗口上下文中
+        let mapPinTapInfo: [String: Any] = [
+            "targetNode": targetNode,
+            "targetLayer": targetLayer,
+            "locationTag": tag
+        ]
+        
+        NotificationCenter.default.post(
+            name: NSNotification.Name("handleMapPinTap"),
+            object: nil,
+            userInfo: mapPinTapInfo
+        )
+        
+        print("📤 已发送地图标注点击通知，等待当前窗口处理")
+    }
+    
+    private func findNodeWithLocationTag(_ tag: Tag) -> Node? {
+        // 搜索所有节点，找到包含这个位置标签的节点
+        return store.nodes.first { node in
+            node.locationTags.contains { locationTag in
+                locationTag.type == tag.type && 
+                locationTag.value == tag.value &&
+                locationTag.latitude == tag.latitude &&
+                locationTag.longitude == tag.longitude
             }
         }
     }
@@ -996,7 +1103,7 @@ class NodeGraphDataCache: ObservableObject {
     }
     
     @MainActor
-    func getCachedGraphData(for node: Node) -> (nodes: [NodeGraphNode], edges: [NodeGraphEdge]) {
+    func getCachedGraphData(for node: Node, store: NodeStore) -> (nodes: [NodeGraphNode], edges: [NodeGraphEdge]) {
         // 检查缓存
         if let cached = cache[node.id] {
             #if DEBUG
@@ -1009,7 +1116,7 @@ class NodeGraphDataCache: ObservableObject {
         }
         
         // 计算新的图谱数据
-        let graphData = calculateGraphData(for: node)
+        let graphData = calculateGraphData(for: node, store: store)
         cache[node.id] = graphData
         
         #if DEBUG
@@ -1023,8 +1130,8 @@ class NodeGraphDataCache: ObservableObject {
     }
     
     @MainActor
-    private func calculateGraphData(for node: Node) -> (nodes: [NodeGraphNode], edges: [NodeGraphEdge]) {
-        let nodes = calculateGraphNodes(for: node)
+    private func calculateGraphData(for node: Node, store: NodeStore) -> (nodes: [NodeGraphNode], edges: [NodeGraphEdge]) {
+        let nodes = calculateGraphNodes(for: node, store: store)
         var edges: [NodeGraphEdge] = []
         let centerNode = nodes.first { $0.isCenter }!
         
@@ -1176,7 +1283,7 @@ class NodeGraphDataCache: ObservableObject {
     }
     
     @MainActor
-    private func calculateGraphNodes(for node: Node) -> [NodeGraphNode] {
+    private func calculateGraphNodes(for node: Node, store: NodeStore) -> [NodeGraphNode] {
         var nodes: [NodeGraphNode] = []
         var addedTagKeys: Set<String> = []
         var addedChildNodes: Set<String> = []
@@ -1199,7 +1306,7 @@ class NodeGraphDataCache: ObservableObject {
                 let childNodeName = childRefTag.value
                 if !addedChildNodes.contains(childNodeName) {
                     // 从store中查找实际的子节点
-                    if let actualChildNode = NodeStore.shared.nodes.first(where: { $0.text.lowercased() == childNodeName.lowercased() }) {
+                    if let actualChildNode = store.nodes.first(where: { $0.text.lowercased() == childNodeName.lowercased() }) {
                         // 添加子节点本身
                         nodes.append(NodeGraphNode(node: actualChildNode, isCenter: false))
                         addedChildNodes.insert(childNodeName)
@@ -1207,7 +1314,7 @@ class NodeGraphDataCache: ObservableObject {
                         
                         // 递归添加子节点的结构，但保持层次关系
                         var visitedNodes: Set<String> = []
-                        addChildNodeStructure(for: actualChildNode, addedTagKeys: &addedTagKeys, addedChildNodes: &addedChildNodes, nodes: &nodes, depth: 1, visitedNodes: &visitedNodes)
+                        addChildNodeStructure(for: actualChildNode, addedTagKeys: &addedTagKeys, addedChildNodes: &addedChildNodes, nodes: &nodes, depth: 1, visitedNodes: &visitedNodes, store: store)
                     }
                 }
             }
@@ -1244,7 +1351,7 @@ class NodeGraphDataCache: ObservableObject {
     
     // 新方法：递归添加子节点结构，保持层次关系
     @MainActor
-    private func addChildNodeStructure(for node: Node, addedTagKeys: inout Set<String>, addedChildNodes: inout Set<String>, nodes: inout [NodeGraphNode], depth: Int, visitedNodes: inout Set<String>) {
+    private func addChildNodeStructure(for node: Node, addedTagKeys: inout Set<String>, addedChildNodes: inout Set<String>, nodes: inout [NodeGraphNode], depth: Int, visitedNodes: inout Set<String>, store: NodeStore) {
         // 防止无限递归和循环引用
         guard depth <= 10 else { return }
         if visitedNodes.contains(node.text.lowercased()) { return }
@@ -1265,14 +1372,14 @@ class NodeGraphDataCache: ObservableObject {
             for childRefTag in childReferenceTags {
                 let childNodeName = childRefTag.value
                 if !addedChildNodes.contains(childNodeName) {
-                    if let childNode = NodeStore.shared.nodes.first(where: { $0.text.lowercased() == childNodeName.lowercased() }) {
+                    if let childNode = store.nodes.first(where: { $0.text.lowercased() == childNodeName.lowercased() }) {
                         // 添加子节点
                         nodes.append(NodeGraphNode(node: childNode, isCenter: false))
                         addedChildNodes.insert(childNodeName)
                         print("\(indentPrefix)  ↳ 添加子节点: \(childNode.text)")
                         
                         // 递归添加更深层的子节点结构
-                        addChildNodeStructure(for: childNode, addedTagKeys: &addedTagKeys, addedChildNodes: &addedChildNodes, nodes: &nodes, depth: depth + 1, visitedNodes: &visitedNodes)
+                        addChildNodeStructure(for: childNode, addedTagKeys: &addedTagKeys, addedChildNodes: &addedChildNodes, nodes: &nodes, depth: depth + 1, visitedNodes: &visitedNodes, store: store)
                     }
                 }
             }
@@ -1307,7 +1414,7 @@ class NodeGraphDataCache: ObservableObject {
     
     // 递归添加节点的所有标签，包括多级复合节点的标签
     @MainActor
-    private func addTagsRecursively(for node: Node, addedTagKeys: inout Set<String>, nodes: inout [NodeGraphNode], depth: Int, visitedNodes: inout Set<String>) {
+    private func addTagsRecursively(for node: Node, addedTagKeys: inout Set<String>, nodes: inout [NodeGraphNode], depth: Int, visitedNodes: inout Set<String>, store: NodeStore) {
         // 防止无限递归，设置最大深度限制和循环检测
         guard depth <= 10 else {
             print("⚠️ 递归深度超过限制，停止处理节点: \(node.text)")
@@ -1360,10 +1467,10 @@ class NodeGraphDataCache: ObservableObject {
             
             for childRefTag in childReferenceTags {
                 let childNodeName = childRefTag.value
-                if let childNode = NodeStore.shared.nodes.first(where: { $0.text.lowercased() == childNodeName.lowercased() }) {
+                if let childNode = store.nodes.first(where: { $0.text.lowercased() == childNodeName.lowercased() }) {
                     print("\(indentPrefix)🔗 发现子节点: \(childNode.text)")
                     // 递归处理子节点
-                    addTagsRecursively(for: childNode, addedTagKeys: &addedTagKeys, nodes: &nodes, depth: depth + 1, visitedNodes: &visitedNodes)
+                    addTagsRecursively(for: childNode, addedTagKeys: &addedTagKeys, nodes: &nodes, depth: depth + 1, visitedNodes: &visitedNodes, store: store)
                 }
             }
         }
@@ -1393,7 +1500,7 @@ struct NodeGraphView: View {
     
     var body: some View {
         // 使用全局缓存获取图谱数据，避免重复计算
-        let graphData = graphCache.getCachedGraphData(for: currentNode)
+        let graphData = graphCache.getCachedGraphData(for: currentNode, store: store)
         
         VStack {
             // 直接显示图谱内容，无标题栏
@@ -1426,30 +1533,20 @@ struct NodeGraphView: View {
         .focusable(false)
         .onKeyPress(.init("d"), phases: .down) { keyPress in
             if keyPress.modifiers == .command {
-                Swift.print("🎯 Command+D 检测到，开始处理...")
+                // Command+D in NodeGraphView should only handle fullscreen toggle, not tab switching
+                // The tab switching is handled by the notification system from VditorWebView
+                Swift.print("🎯 NodeGraphView: Command+D 检测到 - 仅处理全屏图谱功能")
                 let windowManager = FullscreenGraphWindowManager.shared
                 
                 // 检查是否已经有全屏图谱窗口打开
                 if windowManager.isWindowActive() {
                     Swift.print("📝 NodeGraphView: Command+D - 关闭现有全屏图谱窗口")
                     windowManager.hideFullscreenGraph()
-                } else {
-                    Swift.print("📝 NodeGraphView: Command+D - 打开全屏图谱窗口")
-                    Swift.print("🎯 当前节点: \(currentNode.text)")
-                    Swift.print("🎯 图谱数据: \(graphData.nodes.count)个节点, \(graphData.edges.count)条边")
-                    
-                    windowManager.showFullscreenGraph(node: currentNode, graphData: graphData)
-                    
-                    // 通过通知打开窗口
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("requestOpenFullscreenGraph"),
-                        object: nil
-                    )
-                    
-                    Swift.print("🎯 通知已发送，等待窗口打开...")
+                    return .handled
                 }
-                
-                return .handled
+                // 如果没有全屏窗口，不处理，让通知系统处理标签切换
+                Swift.print("📝 NodeGraphView: 没有全屏窗口，忽略Command+D让其处理标签切换")
+                return .ignored
             }
             return .ignored
         }
@@ -1469,7 +1566,7 @@ struct NodeGraphView: View {
                 let windowManager = FullscreenGraphWindowManager.shared
                 if !windowManager.isWindowActive() {
                     print("📝 NodeGraphView: 打开全屏图谱")
-                    let graphData = graphCache.getCachedGraphData(for: currentNode)
+                    let graphData = graphCache.getCachedGraphData(for: currentNode, store: store)
                     
                     windowManager.showFullscreenGraph(node: currentNode, graphData: graphData)
                     

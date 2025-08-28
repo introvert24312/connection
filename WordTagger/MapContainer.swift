@@ -41,7 +41,14 @@ struct MapContainer: View {
         .onAppear {
             locationManager.requestLocation()
             print("MapContainer appeared, isLocationSelectionMode: \(isLocationSelectionMode)")
-            print("🔗 MapContainer: sourceWindowId = \(sourceWindowId ?? "nil")")
+            print("🔗 MapContainer (中间层): 初始 sourceWindowId = \(sourceWindowId ?? "nil")")
+            
+            // 🔧 增强窗口映射的稳定性检查
+            if sourceWindowId == nil {
+                print("⚠️ MapContainer: sourceWindowId为空，将依赖WindowFocusManager进行路由")
+            } else {
+                print("✅ MapContainer: 已配置 sourceWindowId - \(String(sourceWindowId!.prefix(8)))")
+            }
             
             // 监听位置选择模式通知
             NotificationCenter.default.addObserver(
@@ -111,7 +118,10 @@ struct MapContainer: View {
             }
         }
         .onChange(of: isLocationSelectionMode) { _, newValue in
-            print("MapContainer: ⚠️ isLocationSelectionMode changed to \(newValue)")
+            print("MapContainer (中间层): ⚠️ isLocationSelectionMode changed to \(newValue)")
+            if newValue {
+                print("🗺️ MapContainer: 进入位置选择模式 - sourceWindowId = \(sourceWindowId ?? "nil")")
+            }
         }
     }
     
@@ -802,31 +812,60 @@ struct MapContainer: View {
             "targetLayerName": targetLayer.displayName // 用于调试
         ]
         
-        // 如果有sourceWindowId（来自MapWindow），使用映射系统发送
-        print("🔍 MapContainer: 检查sourceWindowId状态")
-        print("🔍 MapContainer: sourceWindowId = \(sourceWindowId ?? "nil")")
+        // 🔧 关键修复：MapContainer作为中间层，根据sourceWindowId智能路由
+        print("🔍 MapContainer (中间层): 开始智能路由 - sourceWindowId = \(sourceWindowId ?? "nil")")
         
-        if let sourceWindowId = sourceWindowId {
-            // 直接发送到指定的源窗口
-            var finalUserInfo = userInfo
-            finalUserInfo["targetWindowId"] = sourceWindowId
-            finalUserInfo["fromMapWindow"] = true
+        if let sourceWindowId = sourceWindowId, !sourceWindowId.isEmpty {
+            // 🔍 验证sourceWindowId是否为有效的UUID格式
+            let isValidUUID = UUID(uuidString: sourceWindowId) != nil
             
-            print("🎯 MapContainer: 直接发送到源窗口 - \(sourceWindowId)")
-            
-            NotificationCenter.default.post(
-                name: NSNotification.Name("handleMapPinTap"),
-                object: nil,
-                userInfo: finalUserInfo
-            )
+            if isValidUUID {
+                // 🎯 精确路由：直接发送到指定的源窗口
+                var finalUserInfo = userInfo
+                finalUserInfo["targetWindowId"] = sourceWindowId
+                finalUserInfo["fromMapContainer"] = true
+                finalUserInfo["routingMethod"] = "precise"
+                
+                print("🎯 MapContainer (中间层): 精确路由到源窗口 - \(String(sourceWindowId.prefix(8)))")
+                print("✅ MapContainer: 已验证sourceWindowId为有效UUID格式")
+                
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("handleMapPinTap"),
+                    object: nil,
+                    userInfo: finalUserInfo
+                )
+            } else {
+                // 🔄 特殊处理：sourceWindowId不是UUID格式（如"MAIN_WINDOW"）
+                print("⚠️ MapContainer: sourceWindowId非UUID格式 - \(sourceWindowId)")
+                
+                var finalUserInfo = userInfo
+                finalUserInfo["targetWindowId"] = sourceWindowId
+                finalUserInfo["fromMapContainer"] = true
+                finalUserInfo["routingMethod"] = "special_id"
+                
+                print("🎯 MapContainer (中间层): 特殊ID路由 - \(sourceWindowId)")
+                
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("handleMapPinTap"),
+                    object: nil,
+                    userInfo: finalUserInfo
+                )
+            }
         } else {
-            // 没有源窗口信息，使用默认的主窗口
-            print("🔧 MapContainer: sourceWindowId为空，使用默认主窗口")
-            var finalUserInfo = userInfo
-            finalUserInfo["targetWindowId"] = "MAIN_WINDOW" // 🔧 使用固定的主窗口ID
-            finalUserInfo["fromMapWindow"] = true
+            // 🔄 回退路由：没有源窗口信息时的智能处理
+            print("🔄 MapContainer (中间层): sourceWindowId为空，启用回退路由")
             
-            print("🎯 MapContainer: 发送到默认主窗口")
+            // 尝试从WindowFocusManager获取当前活跃窗口 - 处理可能的nil值
+            let currentActiveWindowId = WindowFocusManager.shared.getActiveWindowId()
+            let activeWindowIdString = currentActiveWindowId?.uuidString ?? "unknown"
+            print("🔍 MapContainer: 当前活跃窗口ID = \(String(activeWindowIdString.prefix(8)))")
+            
+            var finalUserInfo = userInfo
+            finalUserInfo["targetWindowId"] = activeWindowIdString
+            finalUserInfo["fromMapContainer"] = true
+            finalUserInfo["routingMethod"] = "fallback"
+            
+            print("🎯 MapContainer (中间层): 回退路由到活跃窗口 - \(String(activeWindowIdString.prefix(8)))")
             
             NotificationCenter.default.post(
                 name: NSNotification.Name("handleMapPinTap"),
@@ -835,7 +874,7 @@ struct MapContainer: View {
             )
         }
         
-        print("✅ MapContainer: handleMapPinTap 通知已发送")
+        print("✅ MapContainer (中间层): 路由完成")
         print("📋 通知内容: 节点=\(node.text), 层=\(targetLayer.displayName)")
     }
 }

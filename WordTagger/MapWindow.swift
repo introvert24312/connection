@@ -75,9 +75,27 @@ struct MapWindow: View {
                 ) { notification in
                     print("🔗 MapWindow: 收到mapWindowSetupMapping通知")
                     print("🔗 MapWindow: notification.object = \(notification.object ?? "nil")")
+                    print("🔗 MapWindow: 当前windowId = \(windowId.uuidString.prefix(8))")
+                    print("🔗 MapWindow: 更新前sourceWindowId = \(sourceWindowId?.prefix(8) ?? "nil")")
                     
                     if let sourceInfo = notification.object as? [String: String],
                        let sourceId = sourceInfo["sourceWindowId"] {
+                        
+                        // 🔧 检查是否是针对这个特定地图窗口的通知
+                        if let targetMapWindowId = sourceInfo["targetMapWindowId"] {
+                            if targetMapWindowId != windowId.uuidString {
+                                print("🚫 MapWindow: 忽略mapWindowSetupMapping通知 - 目标窗口不匹配")
+                                print("   - 目标ID: \(targetMapWindowId.prefix(8))")
+                                print("   - 当前ID: \(windowId.uuidString.prefix(8))")
+                                return
+                            }
+                            print("🎯 MapWindow: 通知匹配当前地图窗口 - \(targetMapWindowId.prefix(8))")
+                        } else {
+                            // 向后兼容：如果没有指定目标，则使用全局处理方式
+                            print("⚠️ MapWindow: mapWindowSetupMapping通知未指定目标，使用全局处理模式")
+                        }
+                        
+                        let oldSourceId = sourceWindowId
                         sourceWindowId = sourceId
                         // 创建窗口映射关系
                         WindowFocusManager.shared.createWindowMapping(
@@ -85,23 +103,31 @@ struct MapWindow: View {
                             sourceWindowId: sourceId
                         )
                         print("✅ MapWindow: 设置sourceWindowId = \(sourceId.prefix(8))")
+                        print("🔄 MapWindow: sourceWindowId 变更: \(oldSourceId?.prefix(8) ?? "nil") → \(sourceId.prefix(8))")
                         print("🗺️ 地图窗口: 记录源窗口ID并创建映射 - \(sourceId)")
                     } else {
                         print("⚠️ MapWindow: 未能从mapWindowSetupMapping通知中获取sourceWindowId")
                     }
                 }
                 
-                // 立即检查是否有待处理的映射通知 - 解决时序问题
+                // 🔧 主动请求窗口映射信息，解决多窗口冲突问题
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    print("🔍 MapWindow: 延迟检查sourceWindowId状态...")
-                    print("🔍 MapWindow: 当前sourceWindowId = \(sourceWindowId ?? "仍然是nil")")
+                    print("🔍 MapWindow: 主动请求窗口映射信息...")
+                    print("🔍 MapWindow: 当前sourceWindowId = \(sourceWindowId?.prefix(8) ?? "仍然是nil")")
+                    
                     if sourceWindowId == nil {
-                        print("⚠️ MapWindow: 窗口映射可能存在时序问题，尝试手动请求映射...")
-                        // 手动请求窗口映射
+                        print("🔄 MapWindow: sourceWindowId为nil，主动请求映射...")
+                        // 🎯 发送带有地图窗口ID的请求，让源窗口直接回复给这个地图窗口
                         NotificationCenter.default.post(
-                            name: NSNotification.Name("requestWindowMapping"),
-                            object: ["childWindowId": windowId.uuidString, "windowType": "map"]
+                            name: NSNotification.Name("requestWindowMappingForMap"),
+                            object: [
+                                "mapWindowId": windowId.uuidString,
+                                "requestedBy": "MapWindow-\(windowId.uuidString.prefix(8))"
+                            ]
                         )
+                        print("📤 MapWindow: 已发送requestWindowMappingForMap请求 - mapWindowId: \(windowId.uuidString.prefix(8))")
+                    } else {
+                        print("✅ MapWindow: sourceWindowId已设置，无需请求")
                     }
                 }
                 

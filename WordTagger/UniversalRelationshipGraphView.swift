@@ -1054,7 +1054,14 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                     return "#FFD700" // 金色表示中心节点
                 } else if let actualNode = wordNode.node, actualNode.isCompound {
                     // 根据复合节点的嵌套深度返回不同颜色
-                    let depth = actualNode.getCompoundDepth(allNodes: NodeStore.shared.nodes)
+                    // Extract actual Node objects from the nodes parameter
+                    let allNodes = nodes.compactMap { graphNode in
+                        if let nodeGraphNode = graphNode as? NodeGraphNode {
+                            return nodeGraphNode.node
+                        }
+                        return nil
+                    }
+                    let depth = actualNode.getCompoundDepth(allNodes: allNodes)
                     switch depth {
                     case 1: return "#8B4A9C" // 1级复合节点 - 深紫色
                     case 2: return "#FF8C00" // 2级复合节点 - 橙色

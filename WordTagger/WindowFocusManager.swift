@@ -21,6 +21,13 @@ class WindowFocusManager: ObservableObject {
     private var windowToUUIDMap: [NSWindow: UUID] = [:]
     private var uuidToWindowMap: [UUID: WeakWindowReference] = [:]
     
+    // 窗口映射系统 - 记录子窗口与源窗口的关系
+    private var windowMappings: [String: String] = [:] // childWindowId -> sourceWindowId
+    
+    // 窗口激活历史 - 用于确定源窗口
+    private var windowActivationHistory: [String] = [] // 按时间顺序记录窗口激活
+    private let maxHistorySize = 10
+    
     // 防止重复执行全局命令的冷却机制
     private var lastGlobalCommandTime: [String: Date] = [:]
     private let globalCommandCooldown: TimeInterval = 0.5 // 500ms冷却时间
@@ -57,14 +64,17 @@ class WindowFocusManager: ObservableObject {
         // 同时注册到KeyboardEventManager
         keyboardEventManager?.registerWindow(windowId, type: type)
         
-        // 尝试立即关联当前key窗口（如果存在）
-        if let keyWindow = NSApplication.shared.keyWindow,
-           keyWindow.isKeyWindow && keyWindow.isVisible {
-            associateWindowWithUUID(keyWindow, uuid: windowId)
-            print("🏠 WindowFocusManager: 注册窗口时立即关联key窗口 - \(info.displayName) (\(windowId.uuidString.prefix(8)))")
+        print("🏠 WindowFocusManager: 注册窗口 - \(info.displayName) (\(windowId.uuidString.prefix(8)))")
+        
+        // 延迟关联窗口，确保NSWindow完全初始化
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.attemptWindowAssociation(windowId: windowId)
         }
         
-        print("🏠 WindowFocusManager: 注册窗口 - \(info.displayName) (\(windowId.uuidString.prefix(8)))")
+        // 添加额外的延迟重试机制
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.retryWindowAssociationIfNeeded(windowId: windowId)
+        }
     }
     
     /// 注销窗口
@@ -106,6 +116,20 @@ class WindowFocusManager: ObservableObject {
                    let windowInfo = self.windowRegistry[windowId] {
                     self.activeWindowInfo = windowInfo
                     self.keyboardEventManager?.setActiveWindowContext(windowId)
+                    
+                    // 🔧 记录窗口激活历史
+                    let windowIdString = windowInfo.id
+                    if let existingIndex = self.windowActivationHistory.firstIndex(of: windowIdString) {
+                        // 如果已存在，移除旧记录
+                        self.windowActivationHistory.remove(at: existingIndex)
+                    }
+                    // 添加到历史记录的最前面（最新的）
+                    self.windowActivationHistory.insert(windowIdString, at: 0)
+                    // 保持历史记录大小
+                    if self.windowActivationHistory.count > self.maxHistorySize {
+                        self.windowActivationHistory = Array(self.windowActivationHistory.prefix(self.maxHistorySize))
+                    }
+                    print("📜 WindowFocusManager: 更新窗口激活历史: [\(self.windowActivationHistory.map { $0.prefix(8) }.joined(separator: ", "))]")
                     
                     print("🏠 WindowFocusManager: 活跃窗口变更: \(previousWindow?.displayName ?? "nil")(\(previousWindow?.id.prefix(8) ?? "nil")) -> \(windowInfo.displayName)(\(windowInfo.id.prefix(8)))")
                     
@@ -150,6 +174,60 @@ class WindowFocusManager: ObservableObject {
     /// - Returns: 是否为活跃窗口
     func isActiveWindow(_ windowId: UUID) -> Bool {
         return activeWindowInfo?.id == windowId.uuidString
+    }
+    
+    /// 获取当前活跃窗口的ID
+    /// - Returns: 当前活跃窗口的UUID，如果没有活跃窗口则返回nil
+    func getActiveWindowId() -> UUID? {
+        guard let activeWindowInfo = activeWindowInfo,
+              let uuid = UUID(uuidString: activeWindowInfo.id) else {
+            return nil
+        }
+        return uuid
+    }
+    
+    /// 获取源窗口ID（用于地图窗口映射）
+    /// - Returns: 最合适的源窗口ID字符串
+    func getSourceWindowId() -> String {
+        // 策略1: 如果当前窗口是地图窗口，返回历史中的前一个非地图窗口
+        if let activeWindow = activeWindowInfo,
+           let activeUUID = UUID(uuidString: activeWindow.id),
+           let activeWindowInfo = windowRegistry[activeUUID],
+           activeWindowInfo.type == .map {
+            
+            // 在历史中查找非地图窗口
+            for windowIdString in windowActivationHistory.dropFirst() { // 跳过当前窗口（地图窗口）
+                if let uuid = UUID(uuidString: windowIdString),
+                   let windowInfo = windowRegistry[uuid],
+                   windowInfo.type != .map {
+                    print("📜 WindowFocusManager: 从历史中找到源窗口 - \(windowInfo.displayName) (\(windowIdString.prefix(8)))")
+                    return windowIdString
+                }
+            }
+        }
+        
+        // 策略2: 返回当前活跃的非地图窗口
+        if let activeWindow = activeWindowInfo,
+           let activeUUID = UUID(uuidString: activeWindow.id),
+           let activeWindowInfo = windowRegistry[activeUUID],
+           activeWindowInfo.type != .map {
+            print("📜 WindowFocusManager: 使用当前活跃窗口作为源窗口 - \(activeWindowInfo.displayName)")
+            return activeWindow.id
+        }
+        
+        // 策略3: 从历史中找最近的非地图窗口
+        for windowIdString in windowActivationHistory {
+            if let uuid = UUID(uuidString: windowIdString),
+               let windowInfo = windowRegistry[uuid],
+               windowInfo.type != .map {
+                print("📜 WindowFocusManager: 从历史中找到非地图窗口作为源窗口 - \(windowInfo.displayName) (\(windowIdString.prefix(8)))")
+                return windowIdString
+            }
+        }
+        
+        // 策略4: 回退到主窗口
+        print("📜 WindowFocusManager: 回退到主窗口作为源窗口")
+        return "MAIN_WINDOW"
     }
     
     /// 检查当前是否有活跃的key窗口
@@ -221,6 +299,13 @@ class WindowFocusManager: ObservableObject {
     func shouldHandleNotification(for windowId: UUID, isGlobalCommand: Bool = false, commandName: String? = nil) -> Bool {
         let windowShortId = windowId.uuidString.prefix(8)
         let debugCommandName = commandName ?? "未知命令"
+        
+        print("🔍 WindowFocusManager: 检查通知处理权限")
+        print("   - 窗口ID: \(windowShortId)")
+        print("   - 命令: \(debugCommandName)")
+        print("   - 全局命令: \(isGlobalCommand)")
+        print("   - 当前活跃窗口: \(activeWindowInfo?.displayName ?? "nil")")
+        print("   - 有key窗口: \(hasActiveKeyWindow())")
         
         // 首先检查窗口是否已注册
         guard let windowInfo = windowRegistry[windowId] else {
@@ -337,6 +422,9 @@ class WindowFocusManager: ObservableObject {
             "openGraphWindow",     // Command+G - 图谱窗口
             "openQuickSearch",     // Command+Shift+F - 快速搜索
             "showSettings",        // 设置窗口
+            "clearTagFilter",      // Command+N - 清除标签筛选状态
+            // 🔧 移除 handleMapPinTap，改为窗口特定命令以避免所有窗口都接收通知
+            // "handleMapPinTap",     // 地图节点点击 - 现在使用精确的窗口路由
             // 执行通知也应该被视为全局命令
             "executeOpenNodeManager", // 执行打开节点管理器
             "executeOpenMapWindow",   // 执行打开地图窗口
@@ -543,38 +631,25 @@ class WindowFocusManager: ObservableObject {
             return
         }
         
-        // 方式3：通过窗口特征进行匹配
-        // let windowTitle = window.title.lowercased() // 暂时未使用，预留给未来的匹配逻辑
-        
-        // 首先尝试匹配主窗口
-        for (uuid, windowInfo) in windowRegistry {
-            if windowInfo.type == .main {
-                // 如果这个主窗口UUID还没有关联窗口，就关联它
-                if uuidToWindowMap[uuid]?.window == nil {
-                    associateWindowWithUUID(window, uuid: uuid)
-                    print("🏠 WindowFocusManager: 自动关联主窗口 - \(uuid.uuidString.prefix(8))")
-                    setActiveWindow(uuid)
-                    return
-                }
-            }
+        // 方式3：通过窗口特征进行匹配，支持重试机制
+        let matchResult = findBestWindowMatch(for: window)
+        if let uuid = matchResult {
+            associateWindowWithUUID(window, uuid: uuid)
+            let windowInfo = windowRegistry[uuid]!
+            print("🎯 WindowFocusManager: 智能匹配成功 - \(windowInfo.displayName) (\(uuid.uuidString.prefix(8)))")
+            setActiveWindow(uuid)
+            return
         }
         
-        // 然后尝试匹配独立窗口
-        for (uuid, windowInfo) in windowRegistry {
-            if windowInfo.type == .independent {
-                // 如果这个独立窗口UUID还没有关联窗口，就关联它
-                if uuidToWindowMap[uuid]?.window == nil {
-                    associateWindowWithUUID(window, uuid: uuid)
-                    print("🏠 WindowFocusManager: 自动关联独立窗口 - \(uuid.uuidString.prefix(8))")
-                    setActiveWindow(uuid)
-                    return
-                }
-            }
-        }
-        
-        // 如果都没有找到合适的关联，记录调试信息
-        print("❌ WindowFocusManager: 无法关联窗口 '\(window.title)' - 已注册窗口: \(windowRegistry.count), 已映射窗口: \(windowToUUIDMap.count)")
+        // 如果都没有找到合适的关联，记录调试信息但不放弃
+        print("⚠️ WindowFocusManager: 暂时无法关联窗口 '\(window.title)' - 将继续重试")
+        print("📋 WindowFocusManager: 已注册窗口: \(windowRegistry.count), 已映射窗口: \(windowToUUIDMap.count)")
         print("📋 WindowFocusManager: 已注册窗口列表: \(windowRegistry.map { "\($0.value.displayName)(\($0.key.uuidString.prefix(8)))" }.joined(separator: ", "))")
+        
+        // 安排延迟重试
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            self?.retryWindowAssociation(for: window)
+        }
     }
     
     /// 清理资源
@@ -617,6 +692,160 @@ class WindowFocusManager: ObservableObject {
             print("🔧 WindowFocusManager: 检测到key窗口但没有活跃窗口，尝试重新建立映射")
             updateActiveWindowFromNSWindow(keyWindow)
         }
+    }
+    
+    // MARK: - Window Association Helper Methods
+    
+    /// 尝试建立窗口与UUID的关联关系
+    /// - Parameter windowId: 要关联的窗口UUID
+    private func attemptWindowAssociation(windowId: UUID) {
+        print("🔗 WindowFocusManager: 尝试建立窗口关联 - \(windowId.uuidString.prefix(8))")
+        
+        // 检查是否已有映射
+        if uuidToWindowMap[windowId]?.window != nil {
+            print("✅ WindowFocusManager: 窗口已存在映射关系 - \(windowId.uuidString.prefix(8))")
+            return
+        }
+        
+        // 查找当前的key窗口
+        guard let keyWindow = NSApplication.shared.keyWindow,
+              keyWindow.isKeyWindow && keyWindow.isVisible else {
+            print("⚠️ WindowFocusManager: 没有找到可用的key窗口进行关联")
+            return
+        }
+        
+        // 检查窗口是否已被其他UUID占用
+        if let existingUUID = windowToUUIDMap[keyWindow] {
+            print("⚠️ WindowFocusManager: 窗口已被其他UUID占用 - 现有UUID: \(existingUUID.uuidString.prefix(8))")
+            return
+        }
+        
+        // 建立映射关系
+        associateWindowWithUUID(keyWindow, uuid: windowId)
+        
+        // 如果这是唯一的窗口，设置为活跃窗口
+        if activeWindowInfo == nil {
+            setActiveWindow(windowId)
+        }
+        
+        print("✅ WindowFocusManager: 窗口关联建立成功 - \(windowId.uuidString.prefix(8))")
+    }
+    
+    /// 如果需要，重试窗口关联
+    /// - Parameter windowId: 要重试关联的窗口UUID
+    private func retryWindowAssociationIfNeeded(windowId: UUID) {
+        // 检查是否已有有效映射
+        if let windowRef = uuidToWindowMap[windowId],
+           windowRef.window != nil {
+            print("✅ WindowFocusManager: 窗口关联已存在，无需重试 - \(windowId.uuidString.prefix(8))")
+            return
+        }
+        
+        print("🔄 WindowFocusManager: 开始重试窗口关联 - \(windowId.uuidString.prefix(8))")
+        attemptWindowAssociation(windowId: windowId)
+    }
+    
+    /// 重试窗口关联（用于延迟重试）
+    /// - Parameter window: 要重试关联的NSWindow
+    private func retryWindowAssociation(for window: NSWindow) {
+        print("🔄 WindowFocusManager: 重试窗口关联 - \(window.title) (\(ObjectIdentifier(window)))")
+        
+        // 再次尝试通过智能匹配建立关联
+        let registeredWindows = Array(windowRegistry.keys)
+        
+        if registeredWindows.count == 1 {
+            // 如果只有一个注册窗口，直接关联
+            let uuid = registeredWindows[0]
+            associateWindowWithUUID(window, uuid: uuid)
+            print("🔄 WindowFocusManager: 重试成功 - 单窗口关联 \(uuid.uuidString.prefix(8))")
+            setActiveWindow(uuid)
+        } else {
+            // 尝试智能匹配
+            if let uuid = findBestWindowMatch(for: window) {
+                associateWindowWithUUID(window, uuid: uuid)
+                let windowInfo = windowRegistry[uuid]!
+                print("🎯 WindowFocusManager: 重试成功 - 智能匹配 \(windowInfo.displayName) (\(uuid.uuidString.prefix(8)))")
+                setActiveWindow(uuid)
+            } else {
+                print("❌ WindowFocusManager: 重试失败 - 仍无法找到合适的匹配")
+            }
+        }
+    }
+    
+    /// 为NSWindow寻找最佳的UUID匹配
+    /// - Parameter window: 要匹配的NSWindow
+    /// - Returns: 匹配的UUID，如果没有找到则返回nil
+    private func findBestWindowMatch(for window: NSWindow) -> UUID? {
+        print("🎯 WindowFocusManager: 为窗口寻找最佳匹配 - '\(window.title)'")
+        
+        let registeredWindows = Array(windowRegistry.keys)
+        guard !registeredWindows.isEmpty else {
+            print("⚠️ WindowFocusManager: 没有已注册的窗口")
+            return nil
+        }
+        
+        // 策略1: 根据窗口标题匹配
+        let windowTitle = window.title.lowercased()
+        for uuid in registeredWindows {
+            if let windowInfo = windowRegistry[uuid] {
+                let displayName = windowInfo.displayName.lowercased()
+                
+                // 完全匹配
+                if windowTitle == displayName {
+                    print("✅ WindowFocusManager: 找到完全匹配 - '\(windowInfo.displayName)'")
+                    return uuid
+                }
+                
+                // 包含匹配
+                if windowTitle.contains(displayName) || displayName.contains(windowTitle) {
+                    print("✅ WindowFocusManager: 找到包含匹配 - '\(windowInfo.displayName)'")
+                    return uuid
+                }
+            }
+        }
+        
+        // 策略2: 根据窗口类型匹配
+        for uuid in registeredWindows {
+            if let windowInfo = windowRegistry[uuid] {
+                switch windowInfo.type {
+                case .map:
+                    if windowTitle.contains("地图") || windowTitle.contains("map") {
+                        print("✅ WindowFocusManager: 根据类型匹配到地图窗口 - '\(windowInfo.displayName)'")
+                        return uuid
+                    }
+                case .graph:
+                    if windowTitle.contains("图谱") || windowTitle.contains("graph") {
+                        print("✅ WindowFocusManager: 根据类型匹配到图谱窗口 - '\(windowInfo.displayName)'")
+                        return uuid
+                    }
+                case .main:
+                    if windowTitle.contains("wordtagger") || windowTitle.isEmpty {
+                        print("✅ WindowFocusManager: 根据类型匹配到主窗口 - '\(windowInfo.displayName)'")
+                        return uuid
+                    }
+                case .independent:
+                    if windowTitle.contains("独立") || windowTitle.contains("independent") {
+                        print("✅ WindowFocusManager: 根据类型匹配到独立窗口 - '\(windowInfo.displayName)'")
+                        return uuid
+                    }
+                default:
+                    break
+                }
+            }
+        }
+        
+        // 策略3: 如果没有其他匹配，返回第一个未关联的窗口
+        for uuid in registeredWindows {
+            if uuidToWindowMap[uuid]?.window == nil {
+                if let windowInfo = windowRegistry[uuid] {
+                    print("✅ WindowFocusManager: 使用第一个未关联的窗口 - '\(windowInfo.displayName)'")
+                    return uuid
+                }
+            }
+        }
+        
+        print("❌ WindowFocusManager: 无法找到合适的窗口匹配")
+        return nil
     }
 }
 
@@ -671,5 +900,34 @@ extension View {
             windowType: windowType,
             displayName: displayName
         ))
+    }
+}
+
+// MARK: - WindowFocusManager 窗口映射扩展
+
+extension WindowFocusManager {
+    /// 创建窗口映射关系
+    /// - Parameters:
+    ///   - childWindowId: 子窗口ID
+    ///   - sourceWindowId: 源窗口ID
+    func createWindowMapping(childWindowId: String, sourceWindowId: String) {
+        windowMappings[childWindowId] = sourceWindowId
+        print("🔗 WindowFocusManager: 创建窗口映射 - \\(childWindowId.prefix(8)) <- \\(sourceWindowId.prefix(8))")
+    }
+    
+    /// 获取窗口的源窗口ID
+    /// - Parameter windowId: 窗口ID
+    /// - Returns: 源窗口ID（如果存在）
+    func getSourceWindowId(for windowId: String) -> String? {
+        return windowMappings[windowId]
+    }
+    
+    /// 删除窗口映射
+    /// - Parameter windowId: 要删除的窗口ID
+    func removeWindowMapping(for windowId: String) {
+        windowMappings.removeValue(forKey: windowId)
+        // 如果这个窗口是其他窗口的源窗口，也要清理
+        windowMappings = windowMappings.filter { $0.value != windowId }
+        print("🧹 WindowFocusManager: 清理窗口映射 - \\(windowId.prefix(8))")
     }
 }
