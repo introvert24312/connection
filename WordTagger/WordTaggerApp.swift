@@ -1543,8 +1543,11 @@ struct QuickAddSheetView: View {
         
         // 🔧 延迟发送位置选择模式通知，确保地图窗口已经打开
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            print("📍 QuickAddSheetView: 发送位置选择模式通知")
-            NotificationCenter.default.post(name: NSNotification.Name("openMapForLocationSelection"), object: nil)
+            print("📍 QuickAddSheetView: 发送位置选择模式通知（带时间戳）")
+            NotificationCenter.default.post(
+                name: NSNotification.Name("openMapForLocationSelection"), 
+                object: ["requestTime": Date()]
+            )
         }
     }
     
@@ -1717,7 +1720,10 @@ struct QuickAddView: View {
         
         // 设置为位置选择模式
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            NotificationCenter.default.post(name: NSNotification.Name("openMapForLocationSelection"), object: nil)
+            NotificationCenter.default.post(
+                name: NSNotification.Name("openMapForLocationSelection"), 
+                object: ["requestTime": Date()]
+            )
         }
     }
     
@@ -2639,11 +2645,8 @@ struct WordTaggerApp: App {
                     }
                 }
                 
-                // 🔧 发送位置选择模式通知
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    print("📍 主窗口: 发送位置选择模式通知")
-                    NotificationCenter.default.post(name: NSNotification.Name("openMapForLocationSelection"), object: nil)
-                }
+                // 🔧 注意：这里不应该自动发送位置选择模式通知
+                // Command+M 应该只打开普通地图浏览模式
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("requestWindowMapping"))) { notification in
                 // 处理窗口映射请求 - 解决时序问题
@@ -3900,8 +3903,11 @@ struct IndependentWindowModifier: ViewModifier {
                         
                         // 🔧 发送位置选择模式通知
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                            print("📍 独立窗口: 发送位置选择模式通知")
-                            NotificationCenter.default.post(name: NSNotification.Name("openMapForLocationSelection"), object: nil)
+                            print("📍 独立窗口: 发送位置选择模式通知（带时间戳）")
+                            NotificationCenter.default.post(
+                                name: NSNotification.Name("openMapForLocationSelection"), 
+                                object: ["requestTime": Date()]
+                            )
                         }
                         
                         // 1秒后重置防重复标志

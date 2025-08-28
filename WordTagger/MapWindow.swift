@@ -7,6 +7,8 @@ struct MapWindow: View {
     @State private var isLocationSelectionMode = false
     @State private var windowId = UUID()
     @State private var sourceWindowId: String? = nil
+    @State private var windowCreationTime = Date()
+    @State private var openedForBrowsingOnly = false
     
     var body: some View {
         MapContainer(isLocationSelectionMode: $isLocationSelectionMode, sourceWindowId: sourceWindowId)
@@ -22,6 +24,11 @@ struct MapWindow: View {
                     queue: .main
                 ) { notification in
                     print("MapWindow: Received openMapWindow notification")
+                    
+                    // 🔧 关键修复：标记此窗口为浏览模式，永远不响应位置选择通知
+                    openedForBrowsingOnly = true
+                    isLocationSelectionMode = false  // 确保重置位置选择模式
+                    print("🔧 MapWindow: 已标记为浏览模式窗口，重置位置选择模式，将忽略所有位置选择请求")
                     
                     // 🔧 修复：如果通知包含源窗口信息，立即设置映射
                     if let sourceInfo = notification.object as? [String: String],
@@ -44,10 +51,50 @@ struct MapWindow: View {
                     forName: NSNotification.Name("openMapForLocationSelection"),
                     object: nil,
                     queue: .main
-                ) { _ in
+                ) { notification in
                     print("MapWindow: ✅ Received openMapForLocationSelection notification!")
-                    print("MapWindow: Setting isLocationSelectionMode = true")
-                    isLocationSelectionMode = true
+                    
+                    // 🔧 关键修复：如果此窗口是专门为浏览模式打开的，直接忽略
+                    if openedForBrowsingOnly {
+                        print("🚫 MapWindow: 忽略位置选择通知 - 此窗口是浏览模式窗口")
+                        return
+                    }
+                    
+                    // 🔧 修复：只有在这个地图窗口是新创建的时才响应位置选择通知
+                    let shouldRespond: Bool
+                    let windowAge = Date().timeIntervalSince(windowCreationTime)
+                    
+                    if let targetData = notification.object as? [String: Any] {
+                        if let targetWindowId = targetData["targetWindowId"] as? String,
+                           targetWindowId == windowId.uuidString {
+                            // 明确指定了目标窗口ID
+                            shouldRespond = true
+                            print("MapWindow: 通知指定了目标窗口，匹配当前窗口")
+                        } else if let requestTime = targetData["requestTime"] as? Date {
+                            // 🔧 修复：更严格的时间验证 - 只有在窗口创建后0.8秒内发出的请求才被接受
+                            let timeDiff = abs(requestTime.timeIntervalSince(windowCreationTime))
+                            shouldRespond = timeDiff <= 0.8 && windowAge <= 2.0
+                            print("MapWindow: 带时间戳的请求(时间差: \(String(format: "%.1f", timeDiff))s, 窗口年龄: \(String(format: "%.1f", windowAge))s) -> 响应: \(shouldRespond)")
+                        } else {
+                            shouldRespond = false
+                            print("MapWindow: 通知有数据但不包含时间戳或目标窗口")
+                        }
+                    } else if notification.object == nil {
+                        // 向后兼容：没有任何数据的通知，只有非常新的窗口才响应
+                        shouldRespond = windowAge <= 1.0
+                        print("MapWindow: 空通知，窗口年龄: \(String(format: "%.1f", windowAge))s -> 响应: \(shouldRespond)")
+                    } else {
+                        shouldRespond = false
+                        print("MapWindow: 忽略位置选择通知 - 不是针对此窗口的")
+                    }
+                    
+                    if shouldRespond {
+                        print("MapWindow: 设置位置选择模式")
+                        isLocationSelectionMode = true
+                    } else {
+                        print("MapWindow: 忽略位置选择通知 - 这是已存在的地图窗口")
+                    }
+                    
                     print("MapWindow: isLocationSelectionMode is now: \(isLocationSelectionMode)")
                 }
                 
