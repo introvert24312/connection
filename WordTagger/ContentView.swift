@@ -272,7 +272,7 @@ struct ContentViewSheetModifier: ViewModifier {
                     .environmentObject(store)
             }
             .sheet(isPresented: $showQuickAdd) {
-                QuickAddSheetView()
+                QuickAddSheetView(windowId: store.isSharedInstance ? UUID(uuidString: "00000000-0000-0000-0000-000000000001") : nil)
                     .environmentObject(store)
             }
             .sheet(isPresented: $showTagManager) {

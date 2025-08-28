@@ -705,10 +705,13 @@ struct QuickAddSheetView: View {
     
     // 新增：支持预填充节点（用于编辑模式）
     let prefilledNode: Node?
+    // 新增：窗口ID，用于正确路由通知
+    let windowId: UUID?
     
-    // 初始化器，支持可选的预填充节点
-    init(prefilledNode: Node? = nil) {
+    // 初始化器，支持可选的预填充节点和窗口ID
+    init(prefilledNode: Node? = nil, windowId: UUID? = nil) {
         self.prefilledNode = prefilledNode
+        self.windowId = windowId
     }
     
     var body: some View {
@@ -1528,17 +1531,21 @@ struct QuickAddSheetView: View {
     private func openMapForLocationSelection() {
         print("📍 QuickAddSheetView: Opening map for location selection...")
         print("📍 QuickAddSheetView: Current store type: \(type(of: store)) - isSharedInstance: \(store.isSharedInstance)")
+        print("📍 QuickAddSheetView: Window ID: \(windowId?.uuidString.prefix(8) ?? "nil")")
         isWaitingForLocationSelection = true
         
-        // 🔧 修复：需要从父视图上下文获取正确的窗口ID，而不是依赖全局活跃窗口
-        // 通过环境或其他方式获取当前所属窗口的ID
-        // 暂时使用通知方式让父窗口处理
-        print("📍 QuickAddSheetView: 发送请求让父窗口打开地图")
+        // 🔧 修复：使用具体的窗口ID而不是通用标识符
+        print("📍 QuickAddSheetView: 发送请求让特定窗口打开地图")
         
-        // 发送一个特殊的通知，让包含此QuickAddSheetView的窗口来处理
+        // 发送包含具体窗口ID的通知
+        let notificationData: [String: String] = [
+            "requestSource": store.isSharedInstance ? "MAIN_WINDOW" : "INDEPENDENT_WINDOW",
+            "windowId": windowId?.uuidString ?? "UNKNOWN"
+        ]
+        
         NotificationCenter.default.post(
             name: NSNotification.Name("requestMapForLocationSelection"), 
-            object: store.isSharedInstance ? "MAIN_WINDOW" : "INDEPENDENT_WINDOW"
+            object: notificationData
         )
         
         // 🔧 延迟发送位置选择模式通知，确保地图窗口已经打开
@@ -2446,7 +2453,7 @@ struct WordTaggerApp: App {
                 return .ignored
             }
             .sheet(isPresented: $showQuickAdd) {
-                QuickAddSheetView()
+                QuickAddSheetView(windowId: mainWindowId)
                     .environmentObject(store)
             }
             .sheet(isPresented: $showCompoundNodeAdd) {
@@ -2551,12 +2558,24 @@ struct WordTaggerApp: App {
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("requestMapForLocationSelection"))) { notification in
                 // 🔧 处理来自QuickAddSheetView的位置选择请求
-                if let requestSource = notification.object as? String {
-                    if requestSource == "MAIN_WINDOW" {
-                        print("📍 主窗口: 处理位置选择请求，打开地图")
+                if let notificationData = notification.object as? [String: String],
+                   let requestSource = notificationData["requestSource"],
+                   let windowId = notificationData["windowId"] {
+                    // 检查是否是发给这个窗口的请求
+                    // 支持mainWindowId或ContentView使用的固定UUID
+                    let contentViewMainId = "00000000-0000-0000-0000-000000000001"
+                    if requestSource == "MAIN_WINDOW" && (windowId == mainWindowId.uuidString || windowId == contentViewMainId) {
+                        print("📍 主窗口: 处理位置选择请求，打开地图 (窗口ID匹配)")
                         NotificationCenter.default.post(name: NSNotification.Name("executeOpenMapWindow"), object: ["sourceWindowId": mainWindowId.uuidString])
                     } else {
-                        print("📍 主窗口: 忽略独立窗口的位置选择请求")
+                        print("📍 主窗口: 忽略位置选择请求 - 窗口ID不匹配或非主窗口请求")
+                        print("   - 请求源: \(requestSource), 目标窗口: \(windowId.prefix(8))")
+                    }
+                } else if let requestSource = notification.object as? String {
+                    // 向后兼容旧格式
+                    if requestSource == "MAIN_WINDOW" {
+                        print("📍 主窗口: 处理位置选择请求（旧格式）")
+                        NotificationCenter.default.post(name: NSNotification.Name("executeOpenMapWindow"), object: ["sourceWindowId": mainWindowId.uuidString])
                     }
                 }
             }
@@ -3723,7 +3742,7 @@ struct IndependentWindowModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .sheet(isPresented: $showQuickAdd) {
-                QuickAddSheetView()
+                QuickAddSheetView(windowId: windowId)
                     .environmentObject(store)
             }
             .sheet(isPresented: $showCompoundNodeAdd) {
@@ -3877,9 +3896,12 @@ struct IndependentWindowModifier: ViewModifier {
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("requestMapForLocationSelection"))) { notification in
                 // 🔧 处理来自QuickAddSheetView的位置选择请求
-                if let requestSource = notification.object as? String {
-                    if requestSource == "INDEPENDENT_WINDOW" {
-                        print("📍 独立窗口: 处理位置选择请求，检查防重复标志")
+                if let notificationData = notification.object as? [String: String],
+                   let requestSource = notificationData["requestSource"],
+                   let requestWindowId = notificationData["windowId"] {
+                    // 只处理发给这个特定独立窗口的请求
+                    if requestSource == "INDEPENDENT_WINDOW" && requestWindowId == windowId.uuidString {
+                        print("📍 独立窗口: 处理位置选择请求 (窗口ID匹配: \(windowId.uuidString.prefix(8)))")
                         
                         // 🔧 防重复机制：检查是否正在打开地图窗口
                         guard !isOpeningMapWindow else {
@@ -3916,7 +3938,13 @@ struct IndependentWindowModifier: ViewModifier {
                             print("🔄 独立窗口: 重置地图窗口打开标志")
                         }
                     } else {
-                        print("📍 独立窗口: 忽略主窗口的位置选择请求")
+                        print("📍 独立窗口: 忽略位置选择请求 - 窗口ID不匹配")
+                        print("   - 请求源: \(requestSource), 目标窗口: \(requestWindowId.prefix(8)), 当前窗口: \(windowId.uuidString.prefix(8))")
+                    }
+                } else if let requestSource = notification.object as? String {
+                    // 向后兼容旧格式
+                    if requestSource == "INDEPENDENT_WINDOW" {
+                        print("⚠️ 独立窗口: 收到旧格式通知，无法确定目标窗口")
                     }
                 }
             }
