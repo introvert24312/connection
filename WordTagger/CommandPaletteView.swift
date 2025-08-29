@@ -1,6 +1,7 @@
 import SwiftUI
 import CoreLocation
 import MapKit
+import Carbon
 
 struct CommandPaletteView: View {
     @EnvironmentObject private var store: NodeStore
@@ -32,337 +33,351 @@ struct CommandPaletteView: View {
     // NSEvent监听器引用
     @State private var keyEventMonitor: Any?
     
-    var body: some View {
-        // 最外层容器，只处理真正的背景点击
-        ZStack {
-            // 背景点击检测层 - 只有点击到真正的空白区域且允许关闭时才关闭
-            Color.clear
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    // 只有在允许背景关闭且点击到真正的背景空白区域才关闭面板
-                    if allowBackgroundDismiss {
-                        print("🔴 命令面板背景空白区域被点击，关闭面板")
-                        shouldDismiss = true
-                    } else {
-                        print("🛡️ 背景关闭被禁用，忽略点击")
-                    }
+    // MARK: - Computed Properties for View Components
+    
+    private var backgroundLayer: some View {
+        Color.clear
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if allowBackgroundDismiss {
+                    print("🔴 命令面板背景空白区域被点击，关闭面板")
+                    shouldDismiss = true
+                } else {
+                    print("🛡️ 背景关闭被禁用，忽略点击")
                 }
+            }
+    }
+    
+    private var titleSection: some View {
+        HStack(spacing: 4) {
+            if keyboardManager.isInErrorRecovery {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.orange)
+            } else {
+                Image(systemName: "command")
+                    .font(.system(size: 14, weight: .medium))
+            }
+            Text(keyboardManager.isInErrorRecovery ? "恢复中" : "层管理")
+                .font(.system(size: 14, weight: .semibold))
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(keyboardManager.isInErrorRecovery ? Color.orange : Color.blue)
+        )
+        .foregroundColor(.white)
+        .onTapGesture {
+            if keyboardManager.isInErrorRecovery {
+                keyboardManager.resetErrorState()
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func searchTextFieldBuilder() -> some View {
+        TextField("搜索层名...", text: $query)
+            .font(.system(size: 14))
+            .focused($isTextFieldFocused)
+            .textFieldStyle(.plain)
+            .onChange(of: query) { _, newValue in
+                showSearchDropdown = !newValue.isEmpty
+                selectedIndex = -1
+            }
+            .onKeyPress(.return) {
+                let currentEvent = NSApp.currentEvent
+                let hasMarkedText = currentEvent?.charactersIgnoringModifiers?.isEmpty == false
+                
+                if hasMarkedText || isInputMethodActive {
+                    print("🇯🇵 输入法激活，忽略回车键")
+                    return .ignored
+                }
+                
+                return handleSearchReturn()
+            }
+            .onKeyPress(.tab) {
+                navigateSearchResults(direction: .down)
+                return .handled
+            }
+            .onKeyPress(.escape) {
+                print("🎹 ESC键被按下，当前query: '\(query)'")
+                if !query.isEmpty {
+                    print("✅ 第一次ESC：清空输入，保持焦点")
+                    query = ""
+                    showSearchDropdown = false
+                    return .handled
+                } else {
+                    print("🚪 第二次ESC：退出窗口")
+                    isTextFieldFocused = false
+                    shouldDismiss = true
+                    return .handled
+                }
+            }
+            .onKeyPress(.init("\t"), phases: .down) { keyPress in
+                if keyPress.modifiers.contains(.shift) {
+                    navigateSearchResults(direction: .up)
+                    return .handled
+                } else {
+                    navigateSearchResults(direction: .down)
+                    return .handled
+                }
+            }
+            .onKeyPress(.init("j"), phases: .down) { keyPress in
+                if keyPress.modifiers.contains(.command) {
+                    if keyPress.modifiers.contains(.shift) {
+                        handleRemoveLayerFromFilter()
+                    } else {
+                        handleAddLayerToFilter()
+                    }
+                    return .handled
+                }
+                return .ignored
+            }
+            .onKeyPress(.init("J"), phases: .down) { keyPress in
+                if keyPress.modifiers.contains(.command) {
+                    handleRemoveLayerFromFilter()
+                    return .handled
+                }
+                return .ignored
+            }
+            .onKeyPress(.init("r"), phases: .down) { keyPress in
+                if keyPress.modifiers.contains(.command) {
+                    handleCreateNewLayer()
+                    return .handled
+                }
+                return .ignored
+            }
+            .onKeyPress(.init("R"), phases: .down) { keyPress in
+                if keyPress.modifiers.contains(.command) {
+                    handleCreateNewLayer()
+                    return .handled
+                }
+                return .ignored
+            }
+    }
+    
+    private var searchSection: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(.secondary)
+                .font(.system(size: 14))
             
-            ZStack {
-                VStack(spacing: 0) {
-                    // 统一的顶部工具栏 - 合并为一行
-                    HStack(spacing: 12) {
-                        // 左侧标题 - 带错误恢复指示器
+            searchTextFieldBuilder()
+            
+            if !query.isEmpty {
+                Button(action: {
+                    query = ""
+                    showSearchDropdown = false
+                }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.secondary)
+                        .font(.system(size: 12))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color(NSColor.textBackgroundColor))
+                .stroke(isTextFieldFocused ? Color.blue.opacity(0.5) : Color.secondary.opacity(0.3), lineWidth: 1)
+        )
+        .frame(maxWidth: 300)
+    }
+    
+    private var filterStatusView: some View {
+        Group {
+            if filteredLayerIds.count != store.layers.count {
+                Text("已过滤 \(filteredLayerIds.count)/\(store.layers.count)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(
+                        Capsule()
+                            .fill(Color.orange.opacity(0.2))
+                    )
+            }
+        }
+    }
+    
+    private var filterButton: some View {
+        Button(action: {
+            showFilterSheet = true
+        }) {
+            HStack(spacing: 4) {
+                Image(systemName: "line.3.horizontal.decrease.circle")
+                    .font(.system(size: 12))
+                Text("过滤器")
+                    .font(.system(size: 12))
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .help("打开层过滤器")
+    }
+    
+    private var currentLayerDisplay: some View {
+        Group {
+            if let currentLayer = store.currentLayer {
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 8, height: 8)
+                    Text(currentLayer.displayName)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.primary)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.green.opacity(0.1))
+                )
+            }
+        }
+    }
+    
+    private var topToolbar: some View {
+        HStack(spacing: 12) {
+            titleSection
+            searchSection
+            
+            Text("层结构图谱")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.primary)
+            
+            Spacer()
+            
+            filterStatusView
+            filterButton
+            currentLayerDisplay
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color(NSColor.controlBackgroundColor))
+    }
+    
+    private var mainContentLayer: some View {
+        VStack(spacing: 0) {
+            topToolbar
+            
+            Divider()
+            
+            LayerStructureGraphViewSimple(
+                filteredLayerIds: $filteredLayerIds,
+                isPresented: $isPresented,
+                showFilterSheet: $showFilterSheet
+            )
+            .environmentObject(store)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+    
+    private var searchDropdownOverlay: some View {
+        Group {
+            if showSearchDropdown && !query.isEmpty {
+                let matchingLayers = store.layers.filter { layer in
+                    layer.displayName.lowercased().contains(query.lowercased()) ||
+                    layer.name.lowercased().contains(query.lowercased())
+                }
+                
+                VStack {
+                    HStack {
                         HStack(spacing: 4) {
-                            if keyboardManager.isInErrorRecovery {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(.orange)
-                            } else {
-                                Image(systemName: "command")
-                                    .font(.system(size: 14, weight: .medium))
-                            }
-                            Text(keyboardManager.isInErrorRecovery ? "恢复中" : "层管理")
+                            Image(systemName: "command")
+                                .font(.system(size: 14, weight: .medium))
+                            Text("层管理")
                                 .font(.system(size: 14, weight: .semibold))
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(keyboardManager.isInErrorRecovery ? Color.orange : Color.blue)
-                        )
-                        .foregroundColor(.white)
-                        .onTapGesture {
-                            if keyboardManager.isInErrorRecovery {
-                                // Allow manual error recovery reset
-                                keyboardManager.resetErrorState()
-                            }
-                        }
+                        .opacity(0)
                         
-                        // 中间搜索框 - 适中尺寸，移除焦点框
-                        HStack(spacing: 8) {
-                            Image(systemName: "magnifyingglass")
-                                .foregroundColor(.secondary)
-                                .font(.system(size: 14))
-                            
-                            TextField("搜索层名...", text: $query)
-                                .font(.system(size: 14))
-                                .focused($isTextFieldFocused)
-                                .textFieldStyle(.plain) // 移除默认样式
-                                .onChange(of: query) { _, newValue in
-                                    showSearchDropdown = !newValue.isEmpty
-                                    selectedIndex = -1 // 重置选中状态
-                                }
-                                .onKeyPress(.return) {
-                                    // 检查是否在使用输入法
-                                    let currentEvent = NSApp.currentEvent
-                                    let hasMarkedText = currentEvent?.charactersIgnoringModifiers?.isEmpty == false
-                                    
-                                    if hasMarkedText || isInputMethodActive {
-                                        // 输入法激活状态，不处理回车键
-                                        print("🇯🇵 输入法激活，忽略回车键")
-                                        return .ignored
-                                    }
-                                    
-                                    return handleSearchReturn()
-                                }
-                                .onKeyPress(.tab) {
-                                    navigateSearchResults(direction: .down)
-                                    return .handled
-                                }
-                                .onKeyPress(.escape) {
-                                    print("🎹 ESC键被按下，当前query: '\(query)'")
-                                    // 智能ESC逻辑：第一次清空输入，第二次退出窗口
-                                    if !query.isEmpty {
-                                        // 如果有输入内容，第一次ESC清空输入但保持焦点
-                                        print("✅ 第一次ESC：清空输入，保持焦点")
-                                        query = ""
-                                        showSearchDropdown = false
-                                        // 保持焦点在输入框
-                                        return .handled
-                                    } else {
-                                        // 如果输入为空，第二次ESC退出窗口
-                                        print("🚪 第二次ESC：退出窗口")
-                                        isTextFieldFocused = false
-                                        shouldDismiss = true
-                                        return .handled
-                                    }
-                                }
-                                .onKeyPress(.init("\t"), phases: .down) { keyPress in
-                                    if keyPress.modifiers.contains(.shift) {
-                                        navigateSearchResults(direction: .up)
-                                        return .handled
-                                    } else {
-                                        navigateSearchResults(direction: .down)
-                                        return .handled
-                                    }
-                                }
-                                .onKeyPress(.init("j"), phases: .down) { keyPress in
-                                    if keyPress.modifiers.contains(.command) {
-                                        if keyPress.modifiers.contains(.shift) {
-                                            handleRemoveLayerFromFilter()
-                                        } else {
-                                            handleAddLayerToFilter()
-                                        }
-                                        return .handled
-                                    }
-                                    return .ignored
-                                }
-                                .onKeyPress(.init("J"), phases: .down) { keyPress in
-                                    if keyPress.modifiers.contains(.command) {
-                                        handleRemoveLayerFromFilter()
-                                        return .handled
-                                    }
-                                    return .ignored
-                                }
-                                .onKeyPress(.init("r"), phases: .down) { keyPress in
-                                    if keyPress.modifiers.contains(.command) {
-                                        handleCreateNewLayer()
-                                        return .handled
-                                    }
-                                    return .ignored
-                                }
-                                .onKeyPress(.init("R"), phases: .down) { keyPress in
-                                    if keyPress.modifiers.contains(.command) {
-                                        handleCreateNewLayer()
-                                        return .handled
-                                    }
-                                    return .ignored
-                                }
-                            
-                            if !query.isEmpty {
-                                Button(action: {
-                                    query = ""
-                                    showSearchDropdown = false
-                                }) {
-                                    Image(systemName: "xmark.circle.fill")
+                        VStack(alignment: .leading, spacing: 0) {
+                            if matchingLayers.isEmpty {
+                                HStack {
+                                    Image(systemName: "magnifyingglass")
                                         .foregroundColor(.secondary)
                                         .font(.system(size: 12))
+                                    Text("没有匹配的层")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Spacer()
                                 }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(Color(NSColor.textBackgroundColor))
-                                .stroke(isTextFieldFocused ? Color.blue.opacity(0.5) : Color.secondary.opacity(0.3), lineWidth: 1)
-                        )
-                        .frame(maxWidth: 300)
-                        
-                        // 层结构图谱标题
-                        Text("层结构图谱")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.primary)
-                        
-                        Spacer()
-                        
-                        // 显示当前过滤状态
-                        if filteredLayerIds.count != store.layers.count {
-                            Text("已过滤 \(filteredLayerIds.count)/\(store.layers.count)")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 3)
-                                .background(
-                                    Capsule()
-                                        .fill(Color.orange.opacity(0.2))
-                                )
-                        }
-                        
-                        // 过滤器按钮
-                        Button(action: {
-                            showFilterSheet = true
-                        }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "line.3.horizontal.decrease.circle")
-                                    .font(.system(size: 12))
-                                Text("过滤器")
-                                    .font(.system(size: 12))
-                            }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .help("打开层过滤器")
-                        
-                        // 右侧当前层显示
-                        if let currentLayer = store.currentLayer {
-                            HStack(spacing: 4) {
-                                Circle()
-                                    .fill(Color.green)
-                                    .frame(width: 8, height: 8)
-                                Text(currentLayer.displayName)
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(.primary)
-                            }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(
-                                RoundedRectangle(cornerRadius: 4)
-                                    .fill(Color.green.opacity(0.1))
-                            )
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(Color(NSColor.controlBackgroundColor))
-                    
-                    Divider()
-                    
-                    // 图谱区域（占用全部剩余空间）
-                    LayerStructureGraphViewSimple(
-                        filteredLayerIds: $filteredLayerIds,
-                        isPresented: $isPresented,
-                        showFilterSheet: $showFilterSheet
-                    )
-                    .environmentObject(store)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-                
-                // 搜索下拉框 - 放在最顶层确保不被遮挡，固定定位避免瞬移
-                if showSearchDropdown && !query.isEmpty {
-                    let matchingLayers = store.layers.filter { layer in
-                        layer.displayName.lowercased().contains(query.lowercased()) ||
-                        layer.name.lowercased().contains(query.lowercased())
-                    }
-                    
-                    // 始终显示下拉框容器，避免布局跳跃
-                    VStack {
-                        HStack {
-                            // 占位符，对齐到搜索框位置
-                            HStack(spacing: 4) {
-                                Image(systemName: "command")
-                                    .font(.system(size: 14, weight: .medium))
-                                Text("层管理")
-                                    .font(.system(size: 14, weight: .semibold))
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .opacity(0) // 隐藏但保持布局
-                            
-                            // 下拉框内容 - 固定位置
-                            VStack(alignment: .leading, spacing: 0) {
-                                if matchingLayers.isEmpty {
-                                    // 没有结果时显示提示
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                            } else {
+                                ForEach(Array(matchingLayers.prefix(8).enumerated()), id: \.element.id) { index, layer in
+                                    SearchDropdownItem(
+                                        layer: layer,
+                                        query: query,
+                                        isFiltered: filteredLayerIds.contains(layer.id),
+                                        isSelected: index == selectedIndex
+                                    ) {
+                                        selectSearchItem(layer)
+                                    }
+                                }
+                                
+                                if matchingLayers.count > 8 {
                                     HStack {
-                                        Image(systemName: "magnifyingglass")
-                                            .foregroundColor(.secondary)
-                                            .font(.system(size: 12))
-                                        Text("没有匹配的层")
+                                        Text("还有 \(matchingLayers.count - 8) 个结果...")
                                             .font(.caption)
                                             .foregroundColor(.secondary)
                                         Spacer()
                                     }
                                     .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                } else {
-                                    ForEach(Array(matchingLayers.prefix(8).enumerated()), id: \.element.id) { index, layer in
-                                        SearchDropdownItem(
-                                            layer: layer,
-                                            query: query,
-                                            isFiltered: filteredLayerIds.contains(layer.id),
-                                            isSelected: index == selectedIndex
-                                        ) {
-                                            // 点击选择层
-                                            selectSearchItem(layer)
-                                        }
-                                    }
-                                    
-                                    if matchingLayers.count > 8 {
-                                        HStack {
-                                            Text("还有 \(matchingLayers.count - 8) 个结果...")
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                            Spacer()
-                                        }
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 6)
-                                        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                                    }
+                                    .padding(.vertical, 6)
+                                    .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
                                 }
                             }
-                            .background(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(Color(NSColor.windowBackgroundColor))
-                                    .shadow(color: .black.opacity(0.2), radius: 12, x: 0, y: 6)
-                            )
-                            .frame(maxWidth: 300)
-                            
-                            Spacer()
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 45) // 调整到搜索框下方
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(Color(NSColor.windowBackgroundColor))
+                                .shadow(color: .black.opacity(0.2), radius: 12, x: 0, y: 6)
+                        )
+                        .frame(maxWidth: 300)
                         
                         Spacer()
                     }
-                    .zIndex(3000) // 最高层级
-                    .allowsHitTesting(true)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 45)
+                    
+                    Spacer()
                 }
+                .zIndex(3000)
+                .allowsHitTesting(true)
             }
-        } // 结束最外层ZStack
+        }
+    }
+    
+    var body: some View {
+        ZStack {
+            backgroundLayer
+            mainContentLayer
+            searchDropdownOverlay
+        }
         .frame(minWidth: 750, minHeight: 450)
         .background(Color(NSColor.windowBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(radius: 20)
         .padding(.horizontal, 15)
         .padding(.vertical, 8)
-        // 在最高层级添加ESC键处理，确保不被其他地方拦截
         .onKeyPress(.escape) {
             print("🎹 顶层ESC键被按下，当前query: '\(query)', 焦点状态: \(isTextFieldFocused)")
             
-            // 只有当搜索框有焦点时才处理ESC键
             if isTextFieldFocused {
                 if !query.isEmpty {
-                    // 第一次ESC：清空输入，保持焦点
                     print("✅ 顶层第一次ESC：清空输入，保持焦点")
                     query = ""
                     showSearchDropdown = false
                     return .handled
                 } else {
-                    // 第二次ESC：退出窗口
                     print("🚪 顶层第二次ESC：退出窗口")
                     isTextFieldFocused = false
                     shouldDismiss = true
@@ -370,7 +385,6 @@ struct CommandPaletteView: View {
                 }
             }
             
-            // 如果搜索框没有焦点，直接退出
             print("🚪 顶层ESC：搜索框无焦点，直接退出")
             shouldDismiss = true
             return .handled
@@ -404,8 +418,6 @@ struct CommandPaletteView: View {
                 print("🎹 Command+W detected, marking execution and clearing command states")
                 keyboardManager.markCommandExecuted(KeyboardEventManager.Commands.commandW)
                 
-                // Clear any pending command states before closing to prevent interference
-                // This ensures Command+W doesn't trigger Command+G functionality
                 keyboardManager.clearCommandState()
                 print("✅ Command states cleared before executing Command+W")
                 
@@ -417,17 +429,14 @@ struct CommandPaletteView: View {
         .onAppear {
             setupView()
             
-            // 初始化层过滤器为显示所有层 - 使用Task避免在视图更新期间发布更改
             Task { @MainActor in
                 if filteredLayerIds.isEmpty {
                     filteredLayerIds = Set(store.layers.map { $0.id })
                 }
             }
             
-            // 设置输入法监听
             setupInputMethodMonitoring()
             
-            // 监听禁用背景关闭的通知
             NotificationCenter.default.addObserver(
                 forName: NSNotification.Name("disableBackgroundDismiss"),
                 object: nil,
@@ -436,60 +445,43 @@ struct CommandPaletteView: View {
                 print("🛡️ 收到禁用背景关闭通知")
                 allowBackgroundDismiss = false
                 
-                // 短暂延迟后重新启用
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                     allowBackgroundDismiss = true
                     print("🔓 重新启用背景关闭")
                 }
             }
             
-            // 添加NSEvent监听来处理ESC键和Command+R，绕过SwiftUI的默认处理
             keyEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                 print("🎹 NSEvent监听到键盘事件: keyCode=\(event.keyCode), characters=\(event.characters ?? "nil"), 焦点状态: \(isTextFieldFocused)")
                 
-                // ESC键的keyCode是53
                 if event.keyCode == 53 {
                     print("🎹 NSEvent检测到ESC键，当前query: '\(query)', 焦点状态: \(isTextFieldFocused)")
                     
-                    // 只有当搜索框有焦点时才处理ESC键
                     if isTextFieldFocused {
                         if !query.isEmpty {
-                            // 第一次ESC：清空输入，保持焦点
                             print("✅ NSEvent第一次ESC：清空输入，保持焦点")
                             DispatchQueue.main.async {
                                 query = ""
                                 showSearchDropdown = false
                             }
-                            return nil // 消费事件，不传递给其他处理器
+                            return nil
                         } else {
-                            // 第二次ESC：退出窗口
                             print("🚪 NSEvent第二次ESC：退出窗口")
                             DispatchQueue.main.async {
                                 isTextFieldFocused = false
                                 shouldDismiss = true
                             }
-                            return nil // 消费事件
+                            return nil
                         }
                     } else {
-                        // 如果搜索框没有焦点，直接退出
                         print("🚪 NSEvent ESC：搜索框无焦点，直接退出")
                         DispatchQueue.main.async {
                             shouldDismiss = true
                         }
-                        return nil // 消费事件
+                        return nil
                     }
                 }
-                
-                // R键的keyCode是15，检查Command+R
-                if event.keyCode == 15 && event.modifierFlags.contains(.command) && isTextFieldFocused {
-                    print("🎹 NSEvent检测到Command+R，当前query: '\(query)'")
-                    DispatchQueue.main.async {
-                        handleCreateNewLayer()
-                    }
-                    return nil // 消费事件
-                }
-                
-                return event // 不是目标键，传递事件
+                return event
             }
         }
         .sheet(isPresented: $showFilterSheet) {
@@ -498,36 +490,20 @@ struct CommandPaletteView: View {
                 store: store
             )
         }
-
         .onChange(of: shouldDismiss) { _, newValue in
             if newValue {
                 dismissView()
             }
         }
         .onDisappear {
-            // 清理通知监听
-            NotificationCenter.default.removeObserver(
-                self,
-                name: NSNotification.Name("disableBackgroundDismiss"),
-                object: nil
-            )
-            
-            // 清理NSEvent监听器
             if let monitor = keyEventMonitor {
                 NSEvent.removeMonitor(monitor)
                 keyEventMonitor = nil
-                print("🧹 清理NSEvent监听器")
             }
             
-            // 清理输入法监听
             NotificationCenter.default.removeObserver(
                 self,
-                name: NSTextInputContext.candidateSelectionDidChangeNotification,
-                object: nil
-            )
-            NotificationCenter.default.removeObserver(
-                self,
-                name: NSTextInputContext.candidatesDidHideNotification,
+                name: NSNotification.Name("AppleSelectedInputSourcesChangedNotification"),
                 object: nil
             )
         }
@@ -845,24 +821,99 @@ struct CommandPaletteView: View {
     
     // 设置输入法监听
     private func setupInputMethodMonitoring() {
-        // 监听输入法状态变化
+        // 使用正确的NSTextInputContext通知
         NotificationCenter.default.addObserver(
-            forName: NSTextInputContext.candidateSelectionDidChangeNotification,
+            forName: NSTextInputContext.keyboardSelectionDidChangeNotification,
             object: nil,
             queue: .main
         ) { _ in
-            self.isInputMethodActive = true
-            print("🇯🇵 输入法状态激活")
+            // 检测键盘选择变化，可能表示输入法状态变化
+            print("🇯🇵 键盘选择状态变化")
+            self.checkInputMethodState()
         }
         
+        // 使用NSTextInputContext的selectedKeyboardInputSource来检测输入法
+        // 这是一个更可靠的方法来监控输入法状态
         NotificationCenter.default.addObserver(
-            forName: NSTextInputContext.candidatesDidHideNotification,
+            forName: NSNotification.Name("AppleSelectedInputSourcesChangedNotification"),
             object: nil,
             queue: .main
         ) { _ in
-            self.isInputMethodActive = false
-            print("🇯🇵 输入法状态取消")
+            print("🇯🇵 输入源发生变化")
+            self.checkInputMethodState()
         }
+    }
+    
+    // 检查当前输入法状态的辅助方法
+    private func checkInputMethodState() {
+        // 方法1: 检查当前事件是否有未提交的文本
+        if let currentEvent = NSApp.currentEvent {
+            let hasMarkedText = !(currentEvent.charactersIgnoringModifiers?.isEmpty ?? true)
+            self.isInputMethodActive = hasMarkedText
+            print("🇯🇵 输入法状态更新: \(hasMarkedText ? "激活" : "取消") (基于当前事件)")
+            return
+        }
+        
+        // 方法2: 检查输入源
+        if let inputSource = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() {
+            let sourceID = TISGetInputSourceProperty(inputSource, kTISPropertyInputSourceID)
+            if let sourceIDString = Unmanaged<CFString>.fromOpaque(sourceID!).takeUnretainedValue() as String? {
+                let isNonEnglish = !sourceIDString.hasPrefix("com.apple.keylayout.") || 
+                                 sourceIDString.contains("Hiragana") || 
+                                 sourceIDString.contains("Katakana") ||
+                                 sourceIDString.contains("Chinese") ||
+                                 sourceIDString.contains("Korean")
+                
+                // 只有当输入源变化为非英文输入法时才设置为激活
+                let wasActive = self.isInputMethodActive
+                if isNonEnglish != wasActive {
+                    self.isInputMethodActive = isNonEnglish
+                    print("🇯🇵 输入法状态更新: \(isNonEnglish ? "激活" : "取消") (输入源: \(sourceIDString))")
+                }
+            }
+        }
+    }
+    
+    // 实时检测输入法是否激活 - 更精确的方法
+    private func isInputMethodCurrentlyActive() -> Bool {
+        // 方法1: 检查当前是否有marked text（未提交的输入法文本）
+        if let currentEvent = NSApp.currentEvent,
+           let characters = currentEvent.characters,
+           !characters.isEmpty,
+           currentEvent.characters != currentEvent.charactersIgnoringModifiers {
+            print("🇯🇵 检测到marked text，输入法激活")
+            return true
+        }
+        
+        // 方法2: 检查当前输入源是否为非ASCII输入法
+        if let inputSource = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() {
+            let sourceID = TISGetInputSourceProperty(inputSource, kTISPropertyInputSourceID)
+            if let sourceIDString = Unmanaged<CFString>.fromOpaque(sourceID!).takeUnretainedValue() as String? {
+                let isIME = sourceIDString.contains("Hiragana") || 
+                           sourceIDString.contains("Katakana") ||
+                           sourceIDString.contains("Chinese") ||
+                           sourceIDString.contains("Korean") ||
+                           sourceIDString.contains("Pinyin") ||
+                           sourceIDString.contains("Romaji")
+                
+                if isIME {
+                    print("🇯🇵 检测到IME输入源: \(sourceIDString)")
+                    return true
+                }
+            }
+        }
+        
+        // 方法3: 检查NSTextInputContext的marked range
+        if let mainWindow = NSApp.mainWindow,
+           let firstResponder = mainWindow.firstResponder as? NSTextView {
+            let hasMarkedRange = firstResponder.markedRange().location != NSNotFound
+            if hasMarkedRange {
+                print("🇯🇵 检测到NSTextView有marked range")
+                return true
+            }
+        }
+        
+        return false
     }
     
     // 处理⌘W: 关闭窗口

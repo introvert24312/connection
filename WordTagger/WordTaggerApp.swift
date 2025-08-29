@@ -1903,6 +1903,101 @@ struct QuickSearchView: View {
         }
     }
     
+    private var searchSection: some View {
+        HStack {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(.blue)
+                .font(.title2)
+            
+            TextField("搜索单词、含义或标签...", text: $searchText)
+                .textFieldStyle(.plain)
+                .font(.system(size: 16, weight: .medium))
+                .focused($isSearchFieldFocused)
+                .onSubmit {
+                    // 🔧 修复回车逻辑：只有在非输入法状态且搜索框有焦点时才选择第一个结果
+                    if !isInIMEComposition() && selectedIndex == -1 && !filteredNodes.isEmpty {
+                        selectedIndex = 0
+                        selectCurrentNode()
+                        print("🔍 TextField回车: 选择第一个搜索结果")
+                    }
+                }
+                .onChange(of: isSearchFieldFocused) { _, newValue in
+                    print("🔍 TextField焦点状态变化: \(newValue)")
+                }
+                .onAppear {
+                    print("🔍 TextField出现")
+                }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.ultraThinMaterial)
+                .shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 8)
+        )
+    }
+    
+    private var searchResultsList: some View {
+        ScrollView {
+            LazyVStack(spacing: 1) {
+                ForEach(Array(filteredNodes.enumerated()), id: \.element.id) { index, word in
+                    NodeSearchResultRow(
+                        word: word,
+                        searchText: searchText,
+                        isSelected: selectedIndex >= 0 && index == selectedIndex
+                    )
+                    .frame(maxWidth: .infinity)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(selectedIndex >= 0 && index == selectedIndex ? 
+                                  Color.blue.opacity(0.1) : Color.clear)
+                    )
+                    .padding(.horizontal, 4)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        print("🖱️ 点击了节点: \(word.text)")
+                        onNodeSelected(word)
+                        onDismiss()
+                    }
+                    .onAppear {
+                        print("🖱️ NodeSearchResultRow 出现: \(word.text)")
+                    }
+                }
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(.ultraThinMaterial)
+        )
+        .frame(maxHeight: 400)
+        .padding(.top, 8)
+    }
+    
+    private var noResultsView: some View {
+        VStack {
+            Image(systemName: "magnifyingglass")
+                .font(.title)
+                .foregroundColor(.secondary)
+            Text("没有找到匹配的结果")
+                .font(.body)
+                .foregroundColor(.secondary)
+        }
+        .padding(40)
+    }
+    
+    private var helpSection: some View {
+        HStack {
+            Text("💡 输入关键词搜索单词")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Spacer()
+            Text("⌘+F")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding(.top, 12)
+    }
+    
     var body: some View {
         ZStack {
             // 背景遮罩
@@ -1913,101 +2008,19 @@ struct QuickSearchView: View {
                 }
             
             VStack(spacing: 0) {
-                // 搜索框
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.blue)
-                        .font(.title2)
-                    
-                    TextField("搜索单词、含义或标签...", text: $searchText)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 16, weight: .medium))
-                        .focused($isSearchFieldFocused)
-                        .onSubmit {
-                            // 🔧 修复中文输入法问题：检查是否在输入过程中
-                            if !isInIMEComposition() {
-                                selectCurrentNode()
-                            }
-                        }
-                        .onChange(of: isSearchFieldFocused) { _, newValue in
-                            print("🔍 TextField焦点状态变化: \(newValue)")
-                        }
-                        .onAppear {
-                            print("🔍 TextField出现")
-                        }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(.ultraThinMaterial)
-                        .shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 8)
-                )
+                searchSection
                 
-                // 搜索结果
                 if !filteredNodes.isEmpty {
-                    ScrollView {
-                        LazyVStack(spacing: 1) {
-                            ForEach(Array(filteredNodes.enumerated()), id: \.element.id) { index, word in
-                                NodeSearchResultRow(
-                                    word: word,
-                                    searchText: searchText,
-                                    isSelected: selectedIndex >= 0 && index == selectedIndex
-                                )
-                                .frame(maxWidth: .infinity)  // 填满可用宽度
-                                .background(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(selectedIndex >= 0 && index == selectedIndex ? 
-                                              Color.blue.opacity(0.1) : Color.clear)
-                                )
-                                .padding(.horizontal, 4) // 给选项卡一些边距
-                                .contentShape(Rectangle())  // 明确整个矩形区域可点击
-                                .onTapGesture {
-                                    print("🖱️ 点击了节点: \(word.text)")
-                                    onNodeSelected(word)
-                                    onDismiss()
-                                }
-                                .onAppear {
-                                    print("🖱️ NodeSearchResultRow 出现: \(word.text)")
-                                }
-                            }
-                        }
-                    }
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(.ultraThinMaterial)
-                    )
-                    .frame(maxHeight: 400)
-                    .padding(.top, 8)
+                    searchResultsList
                 } else if !searchText.isEmpty {
-                    VStack {
-                        Image(systemName: "magnifyingglass")
-                            .font(.title)
-                            .foregroundColor(.secondary)
-                        Text("没有找到匹配的结果")
-                            .font(.body)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(40)
+                    noResultsView
                 }
                 
-                // 帮助文本
-                HStack {
-                    Text("💡 输入关键词搜索单词")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    Text("⌘+F")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding(.top, 12)
+                helpSection
             }
             .padding(20)
             .frame(maxWidth: 600)
-            // 🔧 修复搜索框位置：确保在屏幕中心位置不跳跃
-            .position(x: NSScreen.main?.visibleFrame.width ?? 600 / 2, 
-                     y: (NSScreen.main?.visibleFrame.height ?? 800) * 0.3)
+            // 搜索界面居中显示
         }
         .task {
             print("🔍 QuickSearchView task: 异步任务开始，初始selectedIndex: \(selectedIndex)")
@@ -2051,7 +2064,8 @@ struct QuickSearchView: View {
             }
             return .handled
         }
-        .onKeyPress(.tab, modifiers: .shift) {
+        .onKeyPress(.tab, phases: .down) { keyPress in
+            guard keyPress.modifiers.contains(.shift) else { return .ignored }
             // 🔧 新增：Shift+Tab向上选择结果
             if filteredNodes.isEmpty { return .ignored }
             
@@ -2089,17 +2103,15 @@ struct QuickSearchView: View {
             return .handled
         }
         .onKeyPress(.return) {
-            if selectedIndex >= 0 {
+            // 🔧 修复输入法问题：只有在非输入法状态且有选中结果时才处理回车
+            if !isInIMEComposition() && selectedIndex >= 0 {
                 // 选择当前高亮的结果
                 selectCurrentNode()
                 print("🔍 回车键: 选择结果 (index: \(selectedIndex))")
-            } else if !filteredNodes.isEmpty {
-                // 如果在搜索框中，选择第一个结果
-                selectedIndex = 0
-                selectCurrentNode()
-                print("🔍 回车键: 从搜索框选择第一个结果")
+                return .handled
             }
-            return .handled
+            // 让TextField的onSubmit处理其他情况
+            return .ignored
         }
         .onChange(of: filteredNodes) { _, newNodes in
             selectedIndex = -1  // 当搜索结果改变时，重新回到搜索框焦点
@@ -2116,9 +2128,10 @@ struct QuickSearchView: View {
     
     // 🔧 检查是否处于中文输入法编辑状态
     private func isInIMEComposition() -> Bool {
-        // 使用 NSTextInputContext 检查输入法状态
-        if let inputContext = NSApp.keyWindow?.firstResponder as? NSView {
-            return inputContext.inputContext?.hasMarkedText() ?? false
+        // 检查当前事件是否来自输入法
+        if let currentEvent = NSApp.currentEvent {
+            let hasMarkedText = !(currentEvent.charactersIgnoringModifiers?.isEmpty ?? true)
+            return hasMarkedText
         }
         return false
     }
