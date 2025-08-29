@@ -189,7 +189,31 @@ struct TagSidebarView: View {
             tagTypeSearchQuery = ""
             // 切换到标签筛选模式
             currentMode = .tagFiltering
-            print("✅ TagSidebarView: 标签筛选UI状态已清除")
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("restorePreviousTagFilterState"))) { _ in
+            print("🔄 TagSidebarView: 收到恢复标签筛选状态通知")
+            
+            // 确保处于标签筛选模式
+            currentMode = .tagFiltering
+            
+            // 延迟同步所有UI状态，确保Store的状态已经恢复
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                // 1. 同步展开的标签类型
+                expandedGroups = store.expandedTagTypes
+                
+                // 2. 如果有选中的标签类型，也要同步到搜索模块的选中状态
+                if !store.expandedTagTypes.isEmpty {
+                    selectedTagTypes = store.expandedTagTypes
+                }
+                
+                print("🔄 TagSidebarView: 完整同步UI状态完成")
+                print("   - currentMode: \(currentMode)")
+                print("   - expandedGroups: \(expandedGroups.map { $0.displayName })")
+                print("   - selectedTagTypes: \(selectedTagTypes.map { $0.displayName })")
+                print("   - store.selectedTag: '\(store.selectedTag?.value ?? "nil")'")
+                print("   - store.expandedTagTypes: \(store.expandedTagTypes.map { $0.displayName })")
+                print("   - store.showAllTagTypeNodes: \(store.showAllTagTypeNodes)")
+            }
         }
         .onChange(of: store.selectedNode) { _, newNode in
             // 🔧 当store中的节点被选中时（如从地图选择），不清除标签筛选状态

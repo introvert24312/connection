@@ -864,7 +864,7 @@ struct TagEditCommandView: View {
                 if token.contains("[") && token.contains("]") {
                     if let bracketStart = token.firstIndex(of: "["),
                        let bracketEnd = token.firstIndex(of: "]"),
-                       bracketStart < bracketEnd {
+                       bracketStart < bracketEnd && token.index(after: bracketStart) <= bracketEnd {
                         
                         let displayName = String(token[token.index(after: bracketStart)..<bracketEnd])
                         customDisplayName = displayName
@@ -922,7 +922,7 @@ struct TagEditCommandView: View {
                         if nextToken.contains("[") && nextToken.contains("]"),
                            let bracketStart = nextToken.firstIndex(of: "["),
                            let bracketEnd = nextToken.firstIndex(of: "]"),
-                           bracketStart < bracketEnd {
+                           bracketStart < bracketEnd && nextToken.index(after: bracketStart) <= bracketEnd {
                             
                             let tagValue = String(nextToken[..<bracketStart])
                             let displayName = String(nextToken[nextToken.index(after: bracketStart)..<bracketEnd])
@@ -1019,7 +1019,8 @@ struct TagEditCommandView: View {
                             print("🔍 解析格式2坐标: \(value)")
                             // 提取坐标部分 @纬度,经度
                             if let atIndex = value.firstIndex(of: "@"),
-                               let bracketIndex = value.firstIndex(of: "[") {
+                               let bracketIndex = value.firstIndex(of: "["),
+                               atIndex < bracketIndex && value.index(after: atIndex) <= bracketIndex {
                                 let coordString = String(value[value.index(after: atIndex)..<bracketIndex])
                                 print("🔍 提取的坐标字符串: '\(coordString)'")
                                 let coords = coordString.split(separator: ",")
@@ -1039,7 +1040,7 @@ struct TagEditCommandView: View {
                                         // 提取名称部分 [名称]
                                         if let startBracket = value.firstIndex(of: "["),
                                            let endBracket = value.firstIndex(of: "]"),
-                                           startBracket < endBracket {
+                                           startBracket < endBracket && value.index(after: startBracket) <= endBracket {
                                             locationName = String(value[value.index(after: startBracket)..<endBracket])
                                             print("🔍 地名解析成功: '\(locationName)'")
                                             parsed = true
@@ -1111,7 +1112,7 @@ struct TagEditCommandView: View {
                 if token.contains("[") && token.contains("]"),
                    let bracketStart = token.firstIndex(of: "["),
                    let bracketEnd = token.firstIndex(of: "]"),
-                   bracketStart < bracketEnd {
+                   bracketStart < bracketEnd && token.index(after: bracketStart) <= bracketEnd {
                     
                     let tagValue = String(token[..<bracketStart])
                     let displayName = String(token[token.index(after: bracketStart)..<bracketEnd])
@@ -1214,7 +1215,7 @@ struct TagEditCommandView: View {
                 
                 if let bracketStart = token.firstIndex(of: "["),
                    let bracketEnd = token.firstIndex(of: "]"),
-                   bracketStart < bracketEnd {
+                   bracketStart < bracketEnd && token.index(after: bracketStart) <= bracketEnd {
                     
                     let beforeBracket = String(token[..<bracketStart])
                     let insideBracket = String(token[token.index(after: bracketStart)..<bracketEnd])

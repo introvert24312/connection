@@ -31,6 +31,9 @@ public final class NodeStore: ObservableObject {
     @Published public private(set) var isExporting: Bool = false
     @Published public private(set) var isImporting: Bool = false
     
+    // MARK: - 标签筛选状态记忆机制
+    private var savedTagFilterState: SavedTagFilterState?
+    
     private var cancellables = Set<AnyCancellable>()
     private let externalDataService = ExternalDataService.shared
     private let externalDataManager = ExternalDataManager.shared
@@ -881,6 +884,12 @@ public final class NodeStore: ObservableObject {
         print("   - 当前selectedTag: '\(selectedTag?.value ?? "nil")' (类型: \(selectedTag?.type.displayName ?? "nil"))")
         print("   - 当前层: '\(currentLayer?.displayName ?? "nil")'")
         
+        // 🔧 在任何节点选择操作时都保存当前标签筛选状态
+        print("💾 Store.setSelectedNode: 准备设置新节点，先保存当前标签筛选状态")
+        print("   - 即将设置的节点: '\(node?.text ?? "nil")'")
+        print("   - 当前选中的节点: '\(selectedNode?.text ?? "nil")'")
+        saveCurrentTagFilterState()
+        
         let oldText = selectedNode?.text ?? "nil"
         selectedNode = node
         
@@ -1682,6 +1691,10 @@ public final class NodeStore: ObservableObject {
         print("🗺️ Store类型: \(type(of: self)) - isSharedInstance: \(isSharedInstance)")
         print("🗺️ 当前节点总数: \(nodes.count), 层数: \(layers.count)")
         
+        // 🔧 在清除状态之前，先保存当前的标签筛选状态
+        print("💾 Store.expandLocationTagAndSelect: 保存当前标签筛选状态以便后续恢复")
+        saveCurrentTagFilterState()
+        
         // 🔧 首先彻底清除所有状态，包括窗口焦点状态和之前的选择状态
         print("🧹 Store.expandLocationTagAndSelect: 彻底清除所有选择状态和窗口焦点状态")
         clearTagFilter() // 这会清除所有标签筛选状态
@@ -1780,6 +1793,83 @@ public final class NodeStore: ObservableObject {
         selectedNode = nil
         
         print("✅ Store.clearTagFilter: 标签筛选状态已彻底清除，回到初始状态")
+    }
+    
+    // MARK: - 标签筛选状态记忆方法
+    
+    /// 保存当前的标签筛选状态（公共方法，用于测试）
+    @MainActor
+    public func saveCurrentTagFilterStatePublic() {
+        print("🔧 手动保存标签筛选状态（测试用）")
+        saveCurrentTagFilterState()
+    }
+    
+    /// 保存当前的标签筛选状态
+    @MainActor
+    private func saveCurrentTagFilterState() {
+        print("🔄 Store.saveCurrentTagFilterState: 开始保存状态")
+        print("   - 保存前检查: selectedTag='\(selectedTag?.value ?? "nil")', expandedTagTypes=\(expandedTagTypes.map { $0.displayName }), showAllTagTypeNodes=\(showAllTagTypeNodes)")
+        
+        let newState = SavedTagFilterState(
+            selectedTag: selectedTag,
+            expandedTagTypes: expandedTagTypes,
+            showAllTagTypeNodes: showAllTagTypeNodes
+        )
+        
+        savedTagFilterState = newState
+        
+        print("✅ Store.saveCurrentTagFilterState: 已成功保存标签筛选状态!")
+        print("   - 状态描述: \(newState.description)")
+        print("   - selectedTag: '\(newState.selectedTag?.value ?? "nil")'")
+        print("   - expandedTagTypes: \(newState.expandedTagTypes.map { $0.displayName })")
+        print("   - showAllTagTypeNodes: \(newState.showAllTagTypeNodes)")
+        print("   - 保存时间: \(newState.timestamp)")
+    }
+    
+    /// 恢复上一次保存的标签筛选状态
+    @MainActor
+    public func restorePreviousTagFilterState() {
+        guard let savedState = savedTagFilterState else {
+            print("⚠️ Store.restorePreviousTagFilterState: 没有保存的标签筛选状态")
+            print("🔍 当前状态调试:")
+            print("   - 当前selectedTag: '\(selectedTag?.value ?? "nil")'")
+            print("   - 当前expandedTagTypes: \(expandedTagTypes.map { $0.displayName })")
+            print("   - 当前showAllTagTypeNodes: \(showAllTagTypeNodes)")
+            print("💡 提示: 请先进行一些标签筛选操作，然后点击搜索结果，再尝试恢复")
+            return
+        }
+        
+        print("🔄 Store.restorePreviousTagFilterState: 开始恢复标签筛选状态")
+        print("   - 恢复状态描述: \(savedState.description)")
+        print("   - 保存时间: \(savedState.timestamp)")
+        
+        // 恢复状态
+        selectedTag = savedState.selectedTag
+        expandedTagTypes = savedState.expandedTagTypes
+        showAllTagTypeNodes = savedState.showAllTagTypeNodes
+        
+        // 清除节点选择，让用户重新聚焦到标签筛选视图
+        selectedNode = nil
+        
+        print("✅ Store.restorePreviousTagFilterState: 标签筛选状态恢复完成")
+        print("   - selectedTag: '\(selectedTag?.value ?? "nil")' (类型: \(selectedTag?.type.displayName ?? "nil"))")
+        print("   - expandedTagTypes: \(expandedTagTypes.map { $0.displayName })")
+        print("   - showAllTagTypeNodes: \(showAllTagTypeNodes)")
+        
+        // 手动触发UI更新
+        objectWillChange.send()
+    }
+    
+    /// 检查是否有可恢复的标签筛选状态
+    @MainActor
+    public func hasSavedTagFilterState() -> Bool {
+        return savedTagFilterState != nil
+    }
+    
+    /// 获取保存的标签筛选状态描述（用于调试）
+    @MainActor
+    public func getSavedTagFilterStateDescription() -> String? {
+        return savedTagFilterState?.description
     }
     
     public func findLocationTagByName(_ name: String) -> Tag? {
@@ -2029,5 +2119,36 @@ extension Array where Element: Equatable {
             }
         }
         return uniqueValues
+    }
+}
+
+// MARK: - 标签筛选状态记忆结构
+
+/// 保存的标签筛选状态
+struct SavedTagFilterState {
+    let selectedTag: Tag?
+    let expandedTagTypes: Set<Tag.TagType>
+    let showAllTagTypeNodes: Bool
+    let timestamp: Date
+    let description: String // 用于调试的状态描述
+    
+    init(selectedTag: Tag?, expandedTagTypes: Set<Tag.TagType>, showAllTagTypeNodes: Bool) {
+        self.selectedTag = selectedTag
+        self.expandedTagTypes = expandedTagTypes
+        self.showAllTagTypeNodes = showAllTagTypeNodes
+        self.timestamp = Date()
+        
+        // 生成状态描述
+        if let tag = selectedTag {
+            if showAllTagTypeNodes {
+                self.description = "标签类型: \(tag.type.displayName)"
+            } else {
+                self.description = "具体标签: \(tag.type.displayName) - \(tag.value)"
+            }
+        } else if !expandedTagTypes.isEmpty {
+            self.description = "展开的标签类型: \(expandedTagTypes.map { $0.displayName }.joined(separator: ", "))"
+        } else {
+            self.description = "无筛选状态"
+        }
     }
 }

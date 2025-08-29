@@ -115,6 +115,21 @@ struct MapWindow: View {
                     store.clearTagFilter()
                 }
                 
+                // 监听 restorePreviousTagFilterState 通知
+                NotificationCenter.default.addObserver(
+                    forName: NSNotification.Name("restorePreviousTagFilterState"),
+                    object: nil,
+                    queue: .main
+                ) { _ in
+                    // restorePreviousTagFilterState是全局命令，应该在任何活跃窗口中可用
+                    if !WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "restorePreviousTagFilterState") {
+                        print("🚫 地图窗口: 忽略restorePreviousTagFilterState通知 - 应用无活跃窗口")
+                        return
+                    }
+                    print("✅ 地图窗口: 处理restorePreviousTagFilterState通知，恢复标签筛选")
+                    store.restorePreviousTagFilterState()
+                }
+                
                 // 监听 mapWindowSetupMapping 通知，获取源窗口信息并创建映射
                 print("🔗 MapWindow: 开始监听mapWindowSetupMapping通知...")
                 NotificationCenter.default.addObserver(

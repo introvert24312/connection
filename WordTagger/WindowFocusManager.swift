@@ -30,7 +30,7 @@ class WindowFocusManager: ObservableObject {
     
     // 防止重复执行全局命令的冷却机制
     private var lastGlobalCommandTime: [String: Date] = [:]
-    private let globalCommandCooldown: TimeInterval = 0.5 // 500ms冷却时间
+    private let globalCommandCooldown: TimeInterval = 0.1 // 100ms冷却时间（缩短以减少误阻止）
     
     // MARK: - Initialization
     private init() {
@@ -422,7 +422,8 @@ class WindowFocusManager: ObservableObject {
             "openGraphWindow",     // Command+G - 图谱窗口
             "openQuickSearch",     // Command+Shift+F - 快速搜索
             "showSettings",        // 设置窗口
-            "clearTagFilter",      // Command+N - 清除标签筛选状态
+            "clearTagFilter",      // 清除标签筛选状态
+            "restorePreviousTagFilterState", // Command+T - 恢复标签筛选状态
             // 🔧 移除 handleMapPinTap，改为窗口特定命令以避免所有窗口都接收通知
             // "handleMapPinTap",     // 地图节点点击 - 现在使用精确的窗口路由
             // 执行通知也应该被视为全局命令

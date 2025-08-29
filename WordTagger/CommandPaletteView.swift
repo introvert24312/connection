@@ -87,7 +87,8 @@ struct CommandPaletteView: View {
             }
             .onKeyPress(.return) {
                 let currentEvent = NSApp.currentEvent
-                let hasMarkedText = currentEvent?.charactersIgnoringModifiers?.isEmpty == false
+                let hasMarkedText = currentEvent?.type == .keyDown && 
+                                  !(currentEvent?.charactersIgnoringModifiers?.isEmpty ?? true)
                 
                 if hasMarkedText || isInputMethodActive {
                     print("🇯🇵 输入法激活，忽略回车键")
@@ -848,7 +849,8 @@ struct CommandPaletteView: View {
     private func checkInputMethodState() {
         // 方法1: 检查当前事件是否有未提交的文本
         if let currentEvent = NSApp.currentEvent {
-            let hasMarkedText = !(currentEvent.charactersIgnoringModifiers?.isEmpty ?? true)
+            let hasMarkedText = (currentEvent.type == .keyDown || currentEvent.type == .keyUp) && 
+                              !(currentEvent.charactersIgnoringModifiers?.isEmpty ?? true)
             self.isInputMethodActive = hasMarkedText
             print("🇯🇵 输入法状态更新: \(hasMarkedText ? "激活" : "取消") (基于当前事件)")
             return
@@ -878,9 +880,11 @@ struct CommandPaletteView: View {
     private func isInputMethodCurrentlyActive() -> Bool {
         // 方法1: 检查当前是否有marked text（未提交的输入法文本）
         if let currentEvent = NSApp.currentEvent,
+           (currentEvent.type == .keyDown || currentEvent.type == .keyUp),
            let characters = currentEvent.characters,
            !characters.isEmpty,
-           currentEvent.characters != currentEvent.charactersIgnoringModifiers {
+           let charactersIgnoringModifiers = currentEvent.charactersIgnoringModifiers,
+           characters != charactersIgnoringModifiers {
             print("🇯🇵 检测到marked text，输入法激活")
             return true
         }

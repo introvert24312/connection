@@ -154,6 +154,10 @@ struct ContentViewModifier: ViewModifier {
                     openWindow(id: windowId)
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("restorePreviousTagFilterState"))) { _ in
+                print("✅ ContentView: 收到restorePreviousTagFilterState通知，调用store方法")
+                store.restorePreviousTagFilterState()
+            }
             .toolbar {
                 toolbarContent
             }
@@ -363,6 +367,10 @@ struct ContentViewFocusedValueModifier: ViewModifier {
             })
             .focusedSceneValue(\.clearTagFilter, ShowCardAction {
                 NotificationCenter.default.post(name: NSNotification.Name("clearTagFilter"), object: nil)
+            })
+            .focusedSceneValue(\.restorePreviousTagFilterState, ShowCardAction {
+                print("🔑 ContentView: Command+T 恢复标签筛选状态")
+                NotificationCenter.default.post(name: NSNotification.Name("restorePreviousTagFilterState"), object: nil)
             })
             .focusedSceneValue(\.openTagSearch, ShowCardAction {
                 print("🔑 ContentView: Command+F 被触发")

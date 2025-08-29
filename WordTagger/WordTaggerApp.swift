@@ -1055,7 +1055,8 @@ struct QuickAddSheetView: View {
                                 }
                                 else if content.hasPrefix("@") && content.contains("[") && content.contains("]") {
                                     if let atIndex = content.firstIndex(of: "@"),
-                                       let bracketIndex = content.firstIndex(of: "[") {
+                                       let bracketIndex = content.firstIndex(of: "["),
+                                       atIndex < bracketIndex && content.index(after: atIndex) <= bracketIndex {
                                         let coordString = String(content[content.index(after: atIndex)..<bracketIndex])
                                         let coords = coordString.split(separator: ",")
                                         
@@ -1067,7 +1068,7 @@ struct QuickAddSheetView: View {
                                             
                                             if let startBracket = content.firstIndex(of: "["),
                                                let endBracket = content.firstIndex(of: "]"),
-                                               startBracket < endBracket {
+                                               startBracket < endBracket && content.index(after: startBracket) <= endBracket {
                                                 locationName = String(content[content.index(after: startBracket)..<endBracket])
                                                 parsed = true
                                             }
@@ -1150,7 +1151,8 @@ struct QuickAddSheetView: View {
                         else if content.hasPrefix("@") && content.contains("[") && content.contains("]") {
                             // 提取坐标部分 @纬度,经度
                             if let atIndex = content.firstIndex(of: "@"),
-                               let bracketIndex = content.firstIndex(of: "[") {
+                               let bracketIndex = content.firstIndex(of: "["),
+                               atIndex < bracketIndex && content.index(after: atIndex) <= bracketIndex {
                                 let coordString = String(content[content.index(after: atIndex)..<bracketIndex])
                                 let coords = coordString.split(separator: ",")
                                 
@@ -1163,7 +1165,7 @@ struct QuickAddSheetView: View {
                                     // 提取名称部分 [名称]
                                     if let startBracket = content.firstIndex(of: "["),
                                        let endBracket = content.firstIndex(of: "]"),
-                                       startBracket < endBracket {
+                                       startBracket < endBracket && content.index(after: startBracket) <= endBracket {
                                         locationName = String(content[content.index(after: startBracket)..<endBracket])
                                         parsed = true
                                     }
@@ -1811,7 +1813,8 @@ struct QuickAddView: View {
                         else if content.hasPrefix("@") && content.contains("[") && content.contains("]") {
                             // 提取坐标部分 @纬度,经度
                             if let atIndex = content.firstIndex(of: "@"),
-                               let bracketIndex = content.firstIndex(of: "[") {
+                               let bracketIndex = content.firstIndex(of: "["),
+                               atIndex < bracketIndex && content.index(after: atIndex) <= bracketIndex {
                                 let coordString = String(content[content.index(after: atIndex)..<bracketIndex])
                                 let coords = coordString.split(separator: ",")
                                 
@@ -1824,7 +1827,7 @@ struct QuickAddView: View {
                                     // 提取名称部分 [名称]
                                     if let startBracket = content.firstIndex(of: "["),
                                        let endBracket = content.firstIndex(of: "]"),
-                                       startBracket < endBracket {
+                                       startBracket < endBracket && content.index(after: startBracket) <= endBracket {
                                         locationName = String(content[content.index(after: startBracket)..<endBracket])
                                         parsed = true
                                     }
@@ -2130,6 +2133,11 @@ struct QuickSearchView: View {
     private func isInIMEComposition() -> Bool {
         // 检查当前事件是否来自输入法
         if let currentEvent = NSApp.currentEvent {
+            // 只对键盘事件检查 charactersIgnoringModifiers
+            guard currentEvent.type == .keyDown || currentEvent.type == .keyUp else {
+                return false
+            }
+            
             let hasMarkedText = !(currentEvent.charactersIgnoringModifiers?.isEmpty ?? true)
             return hasMarkedText
         }
@@ -2234,6 +2242,11 @@ struct NodeSearchResultRow: View {
             let contextStart = max(0, matchStart - contextRadius)
             let contextEnd = min(text.count, matchStart + searchText.count + contextRadius)
             
+            // 安全的字符串索引操作，避免越界
+            guard contextStart >= 0 && contextEnd <= text.count && contextStart <= contextEnd else {
+                return String(text.prefix(150))
+            }
+            
             let start = text.index(startIndex, offsetBy: contextStart)
             let end = text.index(startIndex, offsetBy: contextEnd)
             
@@ -2299,8 +2312,14 @@ struct NodeSearchResultRow: View {
         // 如果段落太长，只显示包含关键词的部分
         if paragraph.count > 150 {
             let contextRadius = 60
-            let contextStart = max(0, matchStart - markdown.distance(from: startIndex, to: paragraphStart) - contextRadius)
-            let contextEnd = min(paragraph.count, matchStart - markdown.distance(from: startIndex, to: paragraphStart) + searchText.count + contextRadius)
+            let relativeMatchStart = matchStart - markdown.distance(from: startIndex, to: paragraphStart)
+            let contextStart = max(0, relativeMatchStart - contextRadius)
+            let contextEnd = min(paragraph.count, relativeMatchStart + searchText.count + contextRadius)
+            
+            // 安全的字符串索引操作，避免越界
+            guard contextStart >= 0 && contextEnd <= paragraph.count && contextStart <= contextEnd else {
+                return String(paragraph.prefix(150)) + "..."
+            }
             
             let start = paragraph.index(paragraph.startIndex, offsetBy: contextStart)
             let end = paragraph.index(paragraph.startIndex, offsetBy: contextEnd)
@@ -2429,6 +2448,10 @@ struct OpenTagSearchKey: FocusedValueKey {
     typealias Value = ShowCardAction
 }
 
+struct RestorePreviousTagFilterStateKey: FocusedValueKey {
+    typealias Value = ShowCardAction
+}
+
 extension FocusedValues {
     var showCommandPalette: ShowCardAction? {
         get { self[ShowCommandPaletteKey.self] }
@@ -2493,6 +2516,11 @@ extension FocusedValues {
     var openTagSearch: ShowCardAction? {
         get { self[OpenTagSearchKey.self] }
         set { self[OpenTagSearchKey.self] = newValue }
+    }
+    
+    var restorePreviousTagFilterState: ShowCardAction? {
+        get { self[RestorePreviousTagFilterStateKey.self] }
+        set { self[RestorePreviousTagFilterStateKey.self] = newValue }
     }
 }
 
@@ -2922,6 +2950,15 @@ struct WordTaggerApp: App {
                 }
                 print("✅ 主窗口: 处理clearTagFilter通知，清除标签筛选")
                 store.clearTagFilter()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("restorePreviousTagFilterState"))) { _ in
+                // restorePreviousTagFilterState是全局命令，应该在任何活跃窗口中可用
+                guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true, commandName: "restorePreviousTagFilterState") else {
+                    print("🚫 主窗口: 忽略restorePreviousTagFilterState通知 - 应用无活跃窗口")
+                    return
+                }
+                print("✅ 主窗口: 处理restorePreviousTagFilterState通知，恢复标签筛选")
+                store.restorePreviousTagFilterState()
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("handleMapPinTap"))) { notification in
                 print("🔔 主窗口: 收到handleMapPinTap通知")
@@ -3999,6 +4036,9 @@ struct IndependentWindowModifier: ViewModifier {
             .focusedSceneValue(\.clearTagFilter, ShowCardAction {
                 NotificationCenter.default.post(name: NSNotification.Name("clearTagFilter"), object: nil)
             })
+            .focusedSceneValue(\.restorePreviousTagFilterState, ShowCardAction {
+                NotificationCenter.default.post(name: NSNotification.Name("restorePreviousTagFilterState"), object: nil)
+            })
             .focusedSceneValue(\.openTagSearch, ShowCardAction {
                 print("🔑 IndependentWindow: Command+F 被触发")
                 // 直接发送openTagSearch通知，让TagSidebarView处理
@@ -4247,6 +4287,15 @@ struct IndependentWindowModifier: ViewModifier {
                 print("✅ 独立窗口: 处理clearTagFilter通知，清除标签筛选")
                 store.clearTagFilter()
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("restorePreviousTagFilterState"))) { _ in
+                // restorePreviousTagFilterState是全局命令，应该在任何活跃窗口中可用
+                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "restorePreviousTagFilterState") else {
+                    print("🚫 独立窗口: 忽略restorePreviousTagFilterState通知 - 应用无活跃窗口")
+                    return
+                }
+                print("✅ 独立窗口: 处理restorePreviousTagFilterState通知，恢复标签筛选")
+                store.restorePreviousTagFilterState()
+            }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("handleMapPinTap"))) { notification in
                 print("🔔 独立窗口: 收到handleMapPinTap通知")
                 guard let userInfo = notification.userInfo,
@@ -4394,6 +4443,7 @@ struct GlobalCommands: Commands {
     @FocusedValue(\.switchToGraphTab) var switchToGraphTab
     @FocusedValue(\.clearTagFilter) var clearTagFilter
     @FocusedValue(\.openTagSearch) var openTagSearch
+    @FocusedValue(\.restorePreviousTagFilterState) var restorePreviousTagFilterState
     
     var body: some Commands {
         CommandGroup(replacing: .appInfo) {}
@@ -4450,11 +4500,18 @@ struct GlobalCommands: Commands {
             .keyboardShortcut("e", modifiers: [.command])
             .disabled(toggleSidebar == nil)
             
-            Button("清除标签筛选") {
-                clearTagFilter?()
+            Button("恢复标签筛选") {
+                restorePreviousTagFilterState?()
             }
-            .keyboardShortcut("n", modifiers: [.command])
-            .disabled(clearTagFilter == nil)
+            .keyboardShortcut("t", modifiers: [.command])
+            .disabled(restorePreviousTagFilterState == nil)
+            
+            // 测试用：手动保存状态
+            Button("保存标签筛选状态 (测试)") {
+                // 直接调用store的公共方法
+                NodeStore.shared.saveCurrentTagFilterStatePublic()
+            }
+            .keyboardShortcut("s", modifiers: [.command, .shift])
             
             Divider()
             
