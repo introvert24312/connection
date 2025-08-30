@@ -99,8 +99,8 @@ class TagMappingManager: ObservableObject {
         )
     }
     
-    // 动态添加缺失的标签映射
-    func addMappingIfNeeded(key: String, typeName: String) {
+    // 动态添加缺失的标签映射（带冲突检测）
+    func addMappingIfNeeded(key: String, typeName: String) -> Bool {
         let normalizedKey = key.lowercased()
         
         // 检查是否已存在**完全相同的key**的映射
@@ -111,10 +111,10 @@ class TagMappingManager: ObservableObject {
             // 这里我们不更新，因为可能破坏现有的映射关系
             if existingMapping.typeName != typeName {
                 print("⚠️ 映射冲突：key '\(normalizedKey)' 已存在，typeName '\(existingMapping.typeName)' != '\(typeName)'，保持现有映射")
-                return
+                return false // 返回false表示冲突
             } else {
                 print("✅ 映射已存在且相同: \(normalizedKey) -> \(typeName)")
-                return
+                return true // 返回true表示成功（已存在相同映射）
             }
         } else {
             // 不存在相同key的映射，可以安全添加
@@ -122,6 +122,22 @@ class TagMappingManager: ObservableObject {
             tagMappings.append(newMapping)
             saveToUserDefaults()
             print("🔄 自动添加标签映射: \(key) -> \(typeName)")
+            return true // 返回true表示添加成功
+        }
+    }
+    
+    // 检查映射冲突的专用方法
+    func checkMappingConflict(key: String, typeName: String) -> MappingConflictResult {
+        let normalizedKey = key.lowercased()
+        
+        if let existingMapping = tagMappings.first(where: { $0.key == normalizedKey }) {
+            if existingMapping.typeName != typeName {
+                return .conflict(existing: existingMapping, requested: typeName)
+            } else {
+                return .noConflict(existingMapping)
+            }
+        } else {
+            return .canCreate
         }
     }
     
@@ -179,7 +195,7 @@ class TagMappingManager: ObservableObject {
         let customTagType = Tag.TagType.custom(token)
         
         // 自动添加到标签映射管理器
-        addMappingIfNeeded(key: lowerToken, typeName: token)
+        _ = addMappingIfNeeded(key: lowerToken, typeName: token)
         
         return customTagType
     }
@@ -221,7 +237,7 @@ class TagMappingManager: ObservableObject {
         let customTagType = Tag.TagType.custom(token)
         
         // 自动添加到标签映射管理器
-        addMappingIfNeeded(key: lowerToken, typeName: token)
+        _ = addMappingIfNeeded(key: lowerToken, typeName: token)
         
         return customTagType
     }
@@ -688,6 +704,14 @@ public struct TagMapping: Identifiable, Codable {
         // 所有标签都使用自定义类型，让用户完全控制
         return .custom(key)
     }
+}
+
+// MARK: - Mapping Conflict Result
+
+enum MappingConflictResult {
+    case canCreate
+    case noConflict(TagMapping) // 已存在相同的映射
+    case conflict(existing: TagMapping, requested: String) // 冲突：key相同但typeName不同
 }
 
 // MARK: - Quick Add Sheet View
@@ -3103,8 +3127,8 @@ struct TagManagerView: View {
     
     var body: some View {
         ZStack {
-            // 背景遮罩
-            Color.black.opacity(0.3)
+            // 透明背景（保留点击关闭功能）
+            Color.clear
                 .ignoresSafeArea()
                 .onTapGesture {
                     onDismiss()
@@ -3242,7 +3266,7 @@ struct TagManagerView: View {
                 .background(.ultraThinMaterial)
                 
             }
-            .background(.ultraThinMaterial)
+            .background(.regularMaterial)
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .shadow(color: Color.black.opacity(0.2), radius: 30, x: 0, y: 10)
             .frame(maxWidth: 700, maxHeight: 600)
@@ -3966,9 +3990,10 @@ struct IndependentWindowModifier: ViewModifier {
                 CommandPaletteSheetView(isPresented: $showCommandPalette)
                     .environmentObject(store)
             }
-            .sheet(isPresented: $showTagManager) {
-                TagManagerSheetView(isPresented: $showTagManager)
-            }
+            // 禁用Sheet显示TagManager，改用overlay方式  
+            // .sheet(isPresented: $showTagManager) {
+            //     TagManagerSheetView(isPresented: $showTagManager)
+            // }
             .focusedSceneValue(\.showCommandPalette, ShowCardAction {
                 showCommandPalette = true
             })

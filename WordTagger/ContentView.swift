@@ -124,7 +124,8 @@ struct ContentViewModifier: ViewModifier {
         content
             .modifier(ContentViewKeyboardModifier(
                 showSidebar: $showSidebar,
-                selectedNode: $selectedNode
+                selectedNode: $selectedNode,
+                showTagManager: $showTagManager
             ))
             .modifier(ContentViewSheetModifier(
                 showingDataSetup: $showingDataSetup,
@@ -240,6 +241,7 @@ struct ContentViewModifier: ViewModifier {
 struct ContentViewKeyboardModifier: ViewModifier {
     @Binding var showSidebar: Bool
     @Binding var selectedNode: Node?
+    @Binding var showTagManager: Bool
     
     func body(content: Content) -> some View {
         content
@@ -270,6 +272,13 @@ struct ContentViewKeyboardModifier: ViewModifier {
     }
     
     private func handleEscapeKey() -> KeyPress.Result {
+        // 首先检查是否有TagManager打开
+        if showTagManager {
+            showTagManager = false
+            return .handled
+        }
+        
+        // 然后检查sidebar
         if showSidebar {
             withAnimation(.easeInOut(duration: 0.3)) {
                 showSidebar = false
@@ -288,21 +297,27 @@ struct ContentViewSheetModifier: ViewModifier {
     let store: NodeStore
     
     func body(content: Content) -> some View {
-        content
-            .sheet(isPresented: $showingDataSetup) {
-                DataFolderSetupView(isPresented: $showingDataSetup)
+        ZStack {
+            content
+                .sheet(isPresented: $showingDataSetup) {
+                    DataFolderSetupView(isPresented: $showingDataSetup)
+                }
+                .sheet(isPresented: $showCommandPalette) {
+                    CommandPaletteSheetView(isPresented: $showCommandPalette)
+                        .environmentObject(store)
+                }
+                .sheet(isPresented: $showQuickAdd) {
+                    QuickAddSheetView(windowId: store.isSharedInstance ? UUID(uuidString: "00000000-0000-0000-0000-000000000001") : nil)
+                        .environmentObject(store)
+                }
+            
+            // TagManager overlay显示
+            if showTagManager {
+                TagManagerView {
+                    showTagManager = false
+                }
             }
-            .sheet(isPresented: $showCommandPalette) {
-                CommandPaletteSheetView(isPresented: $showCommandPalette)
-                    .environmentObject(store)
-            }
-            .sheet(isPresented: $showQuickAdd) {
-                QuickAddSheetView(windowId: store.isSharedInstance ? UUID(uuidString: "00000000-0000-0000-0000-000000000001") : nil)
-                    .environmentObject(store)
-            }
-            .sheet(isPresented: $showTagManager) {
-                TagManagerSheetView(isPresented: $showTagManager)
-            }
+        }
     }
 }
 
@@ -612,6 +627,8 @@ struct TagManagerSheetView: View {
             isPresented = false
         }
         .frame(width: 700, height: 600)
+        .presentationBackground(.clear)
+        .presentationCornerRadius(0)
     }
 }
 

@@ -584,6 +584,8 @@ struct TagEditCommandView: View {
     @State private var showingLocationPicker = false
     @StateObject private var commandParser = CommandParser.shared
     @State private var showingDuplicateAlert = false
+    @State private var showingMappingConflictAlert = false
+    @State private var mappingConflictMessage = ""
     
     // 从store获取最新的节点数据
     private var currentNode: Node {
@@ -772,6 +774,14 @@ struct TagEditCommandView: View {
                 Text(alert.message)
             }
         }
+        .alert("标签映射冲突", isPresented: $showingMappingConflictAlert) {
+            Button("确定", role: .cancel) {
+                // 用户确认错误后，保持窗口打开让用户修改命令
+                // 不关闭窗口，只关闭alert
+            }
+        } message: {
+            Text(mappingConflictMessage)
+        }
         .onReceive(store.$duplicateNodeAlert) { alert in
             if alert != nil {
                 showingDuplicateAlert = true
@@ -808,11 +818,19 @@ struct TagEditCommandView: View {
                         store.objectWillChange.send()
                     }
                     print("✅ 标签批量更新成功")
+                    print("🚪 关闭节点编辑窗口")
+                    dismiss()
                 } else {
                     print("❌ 标签批量更新失败")
+                    // 如果失败了，检查是否有映射冲突alert正在显示
+                    if showingMappingConflictAlert {
+                        print("⚠️ 有映射冲突alert正在显示，保持窗口打开")
+                        // 不关闭窗口，让用户看到错误提示
+                    } else {
+                        print("🚪 关闭节点编辑窗口")
+                        dismiss()
+                    }
                 }
-                print("🚪 关闭节点编辑窗口")
-                dismiss()
             }
         }
     }
@@ -830,8 +848,8 @@ struct TagEditCommandView: View {
             print("   [\(index)]: '\(token)'")
         }
         
-        guard tokens.count >= 2 else { 
-            print("❌ Token数量不足: \(tokens.count) < 2")
+        guard tokens.count >= 1 else { 
+            print("❌ Token数量不足: \(tokens.count) < 1")
             return false 
         }
         
@@ -843,6 +861,24 @@ struct TagEditCommandView: View {
         }
         
         print("✅ 节点名匹配: \(nodeText)")
+        
+        // 如果只有节点名（1个token），表示清空所有标签
+        if tokens.count == 1 {
+            print("🧹 只有节点名，清空所有标签")
+            await MainActor.run {
+                let currentNode = store.nodes.first { $0.id == node.id }
+                if let existingNode = currentNode {
+                    print("🗑️ 清空现有的 \(existingNode.tags.count) 个标签")
+                    for tag in existingNode.tags {
+                        store.removeTag(from: node.id, tagId: tag.id)
+                    }
+                    print("✅ 所有标签已清空")
+                } else {
+                    print("❌ 未找到对应节点")
+                }
+            }
+            return true
+        }
         
         // 解析剩余的标签token
         var newTags: [Tag] = []
@@ -873,8 +909,26 @@ struct TagEditCommandView: View {
                         // 为该标签类型设置自定义显示名
                         let baseTagKey = String(token[..<bracketStart])
                         print("🔧 准备添加映射: key='\(baseTagKey)', typeName='\(displayName)'")
-                        TagMappingManager.shared.addMappingIfNeeded(key: baseTagKey, typeName: displayName)
-                        print("🔧 映射添加完成，当前映射数量: \(TagMappingManager.shared.tagMappings.count)")
+                        
+                        // 检查映射冲突
+                        let conflictResult = TagMappingManager.shared.checkMappingConflict(key: baseTagKey, typeName: displayName)
+                        switch conflictResult {
+                        case .conflict(let existing, let requested):
+                            print("❌ 映射冲突：快捷键 '\(baseTagKey)' 已映射到 '\(existing.typeName)'，无法映射到 '\(requested)'")
+                            // 设置错误消息并返回错误，阻止创建标签
+                            await MainActor.run {
+                                mappingConflictMessage = "快捷键 '\(baseTagKey)' 已经映射到 '\(existing.typeName)'，无法同时映射到 '\(requested)'。\n\n请先删除现有映射或使用不同的快捷键。"
+                                showingMappingConflictAlert = true
+                            }
+                            return false
+                        case .noConflict(_), .canCreate:
+                            let success = TagMappingManager.shared.addMappingIfNeeded(key: baseTagKey, typeName: displayName)
+                            if !success {
+                                print("❌ 添加映射失败: key='\(baseTagKey)', typeName='\(displayName)'")
+                                return false
+                            }
+                            print("🔧 映射添加完成，当前映射数量: \(TagMappingManager.shared.tagMappings.count)")
+                        }
                     }
                 }
                 
@@ -947,7 +1001,29 @@ struct TagEditCommandView: View {
                                 // 普通value[displayName]格式 -> 使用displayName作为type的key
                                 customTagType = Tag.TagType.custom(displayName)
                                 isShortcut = false
-                                TagMappingManager.shared.addMappingIfNeeded(key: displayName, typeName: displayName)
+                                
+                                // 检查映射冲突
+                                let conflictResult = TagMappingManager.shared.checkMappingConflict(key: displayName, typeName: displayName)
+                                switch conflictResult {
+                                case .conflict(let existing, let requested):
+                                    print("❌ 映射冲突：快捷键 '\(displayName)' 已映射到 '\(existing.typeName)'，无法映射到 '\(requested)'")
+                                    // 设置错误消息
+                                    await MainActor.run {
+                                        mappingConflictMessage = "快捷键 '\(displayName)' 已经映射到 '\(existing.typeName)'，无法同时映射到 '\(requested)'。\n\n请先删除现有映射或使用不同的快捷键。"
+                                        showingMappingConflictAlert = true
+                                    }
+                                    // 跳过这个标签，继续处理下一个
+                                    i += 1
+                                    continue
+                                case .noConflict(_), .canCreate:
+                                    let success = TagMappingManager.shared.addMappingIfNeeded(key: displayName, typeName: displayName)
+                                    if !success {
+                                        print("❌ 添加映射失败: key='\(displayName)', typeName='\(displayName)'")
+                                        i += 1
+                                        continue
+                                    }
+                                }
+                                
                                 print("🔧 识别为普通格式: key='\(displayName)', value='\(tagValue)'")
                             }
                             
@@ -1132,7 +1208,29 @@ struct TagEditCommandView: View {
                     } else {
                         // 普通value[displayName]格式 -> 使用displayName作为type的key
                         customTagType = Tag.TagType.custom(displayName)
-                        TagMappingManager.shared.addMappingIfNeeded(key: displayName, typeName: displayName)
+                        
+                        // 检查映射冲突
+                        let conflictResult = TagMappingManager.shared.checkMappingConflict(key: displayName, typeName: displayName)
+                        switch conflictResult {
+                        case .conflict(let existing, let requested):
+                            print("❌ 映射冲突：快捷键 '\(displayName)' 已映射到 '\(existing.typeName)'，无法映射到 '\(requested)'")
+                            // 设置错误消息
+                            await MainActor.run {
+                                mappingConflictMessage = "快捷键 '\(displayName)' 已经映射到 '\(existing.typeName)'，无法同时映射到 '\(requested)'。\n\n请先删除现有映射或使用不同的快捷键。"
+                                showingMappingConflictAlert = true
+                            }
+                            // 跳过这个标签，继续处理下一个
+                            i += 1
+                            continue
+                        case .noConflict(_), .canCreate:
+                            let success = TagMappingManager.shared.addMappingIfNeeded(key: displayName, typeName: displayName)
+                            if !success {
+                                print("❌ 添加映射失败: key='\(displayName)', typeName='\(displayName)'")
+                                i += 1
+                                continue
+                            }
+                        }
+                        
                         print("🔧 独立普通格式: key='\(displayName)', value='\(tagValue)'")
                     }
                     
@@ -1230,10 +1328,21 @@ struct TagEditCommandView: View {
                     }
                     
                     // 如果没有现有映射，这是新的快捷键定义：beef[牛肉种类]
-                    // 创建映射并返回标签类型
-                    print("🔍 mapTokenToTagType: '\(token)' -> 创建新的快捷键映射: \(beforeBracket) -> \(insideBracket)")
-                    tagManager.addMappingIfNeeded(key: beforeBracket, typeName: insideBracket)
-                    return Tag.TagType.custom(beforeBracket)
+                    // 检查映射冲突
+                    let conflictResult = tagManager.checkMappingConflict(key: beforeBracket, typeName: insideBracket)
+                    switch conflictResult {
+                    case .conflict(let existing, let requested):
+                        print("❌ mapTokenToTagType: 映射冲突：快捷键 '\(beforeBracket)' 已映射到 '\(existing.typeName)'，无法映射到 '\(requested)'")
+                        return nil // 返回nil表示无法创建
+                    case .noConflict(_), .canCreate:
+                        print("🔍 mapTokenToTagType: '\(token)' -> 创建新的快捷键映射: \(beforeBracket) -> \(insideBracket)")
+                        let success = tagManager.addMappingIfNeeded(key: beforeBracket, typeName: insideBracket)
+                        if success {
+                            return Tag.TagType.custom(beforeBracket)
+                        } else {
+                            return nil
+                        }
+                    }
                 } else {
                     print("🔍 mapTokenToTagType: '\(token)' -> 跳过（无效的方括号格式）")
                     return nil
