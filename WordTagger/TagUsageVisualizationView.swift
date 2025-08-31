@@ -364,21 +364,6 @@ struct EnhancedTagUsageView: View {
                 
                 Spacer()
                 
-                // 排序方式（仅在已使用标签模式下显示）
-                if analysisMode == .usedTags {
-                    Text("排序:")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                    
-                    Picker("排序方式", selection: $sortMode) {
-                        ForEach(SortMode.allCases, id: \.self) { mode in
-                            Text(mode.rawValue).tag(mode)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .controlSize(.small)
-                    
-                }
             }
         }
     }
