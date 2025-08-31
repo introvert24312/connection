@@ -2168,6 +2168,7 @@ public final class NodeStore: ObservableObject {
     }
     
     /// 从特定层批量删除未使用的标签映射对应的标签
+    @MainActor
     public func batchDeleteUnusedMappingsFromLayer(_ mappings: [TagMapping], layerId: UUID) -> BatchDeleteResult {
         var affectedNodeCount = 0
         var deletedTagCount = 0
@@ -2176,7 +2177,7 @@ public final class NodeStore: ObservableObject {
         print("🗑️ 开始从层删除未使用映射对应的标签: \(mappings.count) 个映射")
         
         // 获取该层的所有节点
-        let layerNodes = nodes.filter { $0.layerId == layerId }
+        _ = nodes.filter { $0.layerId == layerId }
         
         // 创建要删除的标签类型集合
         let tagTypesToDelete = Set(mappings.map { $0.tagType })
@@ -2247,6 +2248,7 @@ public final class NodeStore: ObservableObject {
     }
     
     /// 从特定层删除特定标签
+    @MainActor
     public func batchDeleteSpecificTagFromLayer(_ tagsToDelete: [Tag], layerId: UUID) -> BatchDeleteResult {
         var affectedNodeCount = 0
         var deletedTagCount = 0
