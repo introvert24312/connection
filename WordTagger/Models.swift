@@ -828,5 +828,76 @@ public struct SearchResult: Equatable {
         self.score = score
         self.matchedFields = matchedFields
     }
+}
+
+// MARK: - 批量操作相关模型
+
+/// 批量删除操作结果
+public struct BatchDeleteResult {
+    public let affectedNodeCount: Int
+    public let deletedTagCount: Int
+    public let affectedNodes: [Node]
     
+    public init(affectedNodeCount: Int, deletedTagCount: Int, affectedNodes: [Node]) {
+        self.affectedNodeCount = affectedNodeCount
+        self.deletedTagCount = deletedTagCount
+        self.affectedNodes = affectedNodes
+    }
+}
+
+/// 标签使用信息
+public struct TagUsageInfo {
+    public let tagType: Tag.TagType
+    public let tagValue: String
+    public var nodeCount: Int
+    public var nodes: [Node]
+    
+    public init(tagType: Tag.TagType, tagValue: String, nodeCount: Int, nodes: [Node]) {
+        self.tagType = tagType
+        self.tagValue = tagValue
+        self.nodeCount = nodeCount
+        self.nodes = nodes
+    }
+    
+    /// 创建一个用于显示的标签
+    public var displayTag: Tag {
+        return Tag(type: tagType, value: tagValue, latitude: nil, longitude: nil, isShortcutType: false)
+    }
+}
+
+/// 标签批量操作模式
+public enum TagBatchMode {
+    case deleteByType           // 按标签类型删除
+    case deleteSpecificTags     // 删除具体标签
+    case deleteUnusedMappings   // 删除未使用的标签映射
+}
+
+/// 标签选择项（用于批量操作界面）
+public struct TagSelectionItem: Identifiable, Hashable {
+    public let id = UUID()
+    public let tagType: Tag.TagType
+    public let tagValue: String?  // nil表示选择整个类型
+    public let nodeCount: Int
+    public var isSelected: Bool = false
+    
+    public init(tagType: Tag.TagType, tagValue: String? = nil, nodeCount: Int, isSelected: Bool = false) {
+        self.tagType = tagType
+        self.tagValue = tagValue
+        self.nodeCount = nodeCount
+        self.isSelected = isSelected
+    }
+    
+    /// 显示文本
+    public var displayText: String {
+        if let value = tagValue {
+            return "\(tagType.displayName): \(value)"
+        } else {
+            return "\(tagType.displayName) (所有标签)"
+        }
+    }
+    
+    /// 是否为标签类型选择（而非具体标签）
+    public var isTypeSelection: Bool {
+        return tagValue == nil
+    }
 }

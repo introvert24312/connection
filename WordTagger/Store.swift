@@ -1933,6 +1933,196 @@ public final class NodeStore: ObservableObject {
         }
     }
     
+    // MARK: - 批量标签操作
+    
+    /// 批量删除标签：从所有节点中删除指定的标签类型
+    public func batchDeleteTagTypes(_ tagTypes: Set<Tag.TagType>) -> BatchDeleteResult {
+        var affectedNodeCount = 0
+        var deletedTagCount = 0
+        var affectedNodes: [(Node, [Tag])] = []
+        
+        print("🗑️ 开始批量删除标签类型: \(tagTypes.map { $0.displayName })")
+        
+        // 遍历所有节点，删除匹配的标签
+        for (index, node) in nodes.enumerated() {
+            let tagsToRemove = node.tags.filter { tag in
+                tagTypes.contains(tag.type)
+            }
+            
+            if !tagsToRemove.isEmpty {
+                var updatedNode = node
+                updatedNode.tags.removeAll { tag in
+                    tagTypes.contains(tag.type)
+                }
+                updatedNode.updatedAt = Date()
+                
+                nodes[index] = updatedNode
+                affectedNodes.append((updatedNode, tagsToRemove))
+                affectedNodeCount += 1
+                deletedTagCount += tagsToRemove.count
+                
+                // 触发复合节点刷新
+                refreshCompoundNodesReferencingNode(updatedNode.text)
+                
+                print("🗑️ 从节点 '\(node.text)' 删除 \(tagsToRemove.count) 个标签")
+            }
+        }
+        
+        // 更新选中节点引用
+        if let selectedNode = selectedNode,
+           let updatedSelectedNode = affectedNodes.first(where: { $0.0.id == selectedNode.id })?.0 {
+            self.selectedNode = updatedSelectedNode
+        }
+        
+        // 触发UI更新
+        objectWillChange.send()
+        
+        // 发送批量更新通知
+        NotificationCenter.default.post(
+            name: Notification.Name("nodesBatchUpdated"),
+            object: nil,
+            userInfo: [
+                "affectedNodeCount": affectedNodeCount,
+                "deletedTagCount": deletedTagCount
+            ]
+        )
+        
+        // 自动保存到外部存储
+        if !isLoadingFromExternal {
+            Task {
+                await forceSaveToExternalStorage()
+                print("💾 批量标签删除后已自动保存到外部存储")
+            }
+        }
+        
+        let result = BatchDeleteResult(
+            affectedNodeCount: affectedNodeCount,
+            deletedTagCount: deletedTagCount,
+            affectedNodes: affectedNodes.map { $0.0 }
+        )
+        
+        print("✅ 批量删除完成: 影响 \(affectedNodeCount) 个节点，删除 \(deletedTagCount) 个标签")
+        return result
+    }
+    
+    /// 批量删除特定标签值：从所有节点中删除指定的标签
+    public func batchDeleteSpecificTags(_ tagsToDelete: [Tag]) -> BatchDeleteResult {
+        var affectedNodeCount = 0
+        var deletedTagCount = 0
+        var affectedNodes: [(Node, [Tag])] = []
+        
+        print("🗑️ 开始批量删除特定标签: \(tagsToDelete.count) 个")
+        
+        // 创建标签匹配条件（基于类型和值）
+        let tagMatchers = tagsToDelete.map { targetTag in
+            (type: targetTag.type, value: targetTag.value)
+        }
+        
+        // 遍历所有节点，删除匹配的标签
+        for (index, node) in nodes.enumerated() {
+            let removedTags = node.tags.filter { tag in
+                tagMatchers.contains { matcher in
+                    tag.type == matcher.type && tag.value == matcher.value
+                }
+            }
+            
+            if !removedTags.isEmpty {
+                var updatedNode = node
+                updatedNode.tags.removeAll { tag in
+                    tagMatchers.contains { matcher in
+                        tag.type == matcher.type && tag.value == matcher.value
+                    }
+                }
+                updatedNode.updatedAt = Date()
+                
+                nodes[index] = updatedNode
+                affectedNodes.append((updatedNode, removedTags))
+                affectedNodeCount += 1
+                deletedTagCount += removedTags.count
+                
+                // 触发复合节点刷新
+                refreshCompoundNodesReferencingNode(updatedNode.text)
+                
+                print("🗑️ 从节点 '\(node.text)' 删除 \(removedTags.count) 个特定标签")
+            }
+        }
+        
+        // 更新选中节点引用
+        if let selectedNode = selectedNode,
+           let updatedSelectedNode = affectedNodes.first(where: { $0.0.id == selectedNode.id })?.0 {
+            self.selectedNode = updatedSelectedNode
+        }
+        
+        // 触发UI更新
+        objectWillChange.send()
+        
+        // 发送批量更新通知
+        NotificationCenter.default.post(
+            name: Notification.Name("nodesBatchUpdated"),
+            object: nil,
+            userInfo: [
+                "affectedNodeCount": affectedNodeCount,
+                "deletedTagCount": deletedTagCount
+            ]
+        )
+        
+        // 自动保存到外部存储
+        if !isLoadingFromExternal {
+            Task {
+                await forceSaveToExternalStorage()
+                print("💾 特定标签批量删除后已自动保存到外部存储")
+            }
+        }
+        
+        let result = BatchDeleteResult(
+            affectedNodeCount: affectedNodeCount,
+            deletedTagCount: deletedTagCount,
+            affectedNodes: affectedNodes.map { $0.0 }
+        )
+        
+        print("✅ 特定标签批量删除完成: 影响 \(affectedNodeCount) 个节点，删除 \(deletedTagCount) 个标签")
+        return result
+    }
+    
+    /// 获取标签使用分析
+    public func getTagUsageAnalysis() -> [TagUsageInfo] {
+        var tagUsageMap: [String: TagUsageInfo] = [:]
+        
+        // 遍历所有节点的标签，统计使用情况
+        for node in nodes {
+            for tag in node.tags {
+                let key = "\(tag.type.rawValue)|\(tag.value)"
+                
+                if var existingInfo = tagUsageMap[key] {
+                    existingInfo.nodeCount += 1
+                    existingInfo.nodes.append(node)
+                    tagUsageMap[key] = existingInfo
+                } else {
+                    tagUsageMap[key] = TagUsageInfo(
+                        tagType: tag.type,
+                        tagValue: tag.value,
+                        nodeCount: 1,
+                        nodes: [node]
+                    )
+                }
+            }
+        }
+        
+        // 按使用频率排序
+        return Array(tagUsageMap.values).sorted { $0.nodeCount > $1.nodeCount }
+    }
+    
+    /// 查找未使用的标签映射
+    public func findUnusedTagMappings() -> [TagMapping] {
+        let tagManager = TagMappingManager.shared
+        let allMappings = tagManager.tagMappings
+        let usedTagTypes = Set(allTags.map { $0.type })
+        
+        return allMappings.filter { mapping in
+            !usedTagTypes.contains(mapping.tagType)
+        }
+    }
+    
     // MARK: - 复合节点自动刷新机制
     
     /// 当子节点发生变化时，刷新所有引用该子节点的复合节点
@@ -2048,49 +2238,43 @@ public final class NodeStore: ObservableObject {
         print("   - 节点总数: \(nodes.count)")
         print("   🔍 使用提供的key: '\(key)'")
         
-        // 打印所有节点和标签的详细信息
-        for (nodeIndex, node) in nodes.enumerated() {
-            print("   - 节点[\(nodeIndex)]: '\(node.text)' 有 \(node.tags.count) 个标签")
-            for (tagIndex, tag) in node.tags.enumerated() {
-                print("     - 标签[\(tagIndex)]: type=\(tag.type), value='\(tag.value)'")
-                if case .custom(let customKey) = tag.type {
-                    print("       - 自定义标签key: '\(customKey)'")
-                    print("       - 是否匹配目标key '\(key)': \(customKey == key)")
-                }
-            }
-        }
-        
-        var updatedNodes: [Node] = []
-        var hasChanges = false
-        
+        // 检查是否有使用该key的标签
+        var hasMatchingTags = false
         for node in nodes {
-            var updatedNode = node
-            var nodeHasChanges = false
-            
-            for (_, tag) in node.tags.enumerated() {
-                // 通过key匹配，而不是typeName
+            for tag in node.tags {
                 if case .custom(let customKey) = tag.type, customKey == key {
-                    print("   ✅ 找到匹配的标签！更新节点 '\(node.text)' 的标签: key='\(key)', \(oldName) -> \(newName)")
-                    // 保持key不变，只是TagType的displayName会通过TagMappingManager更新
-                    // 这里实际上不需要更新Tag.type，因为displayName是通过TagMappingManager计算的
-                    nodeHasChanges = true
-                    hasChanges = true
+                    hasMatchingTags = true
+                    print("   ✅ 找到匹配的标签！节点 '\(node.text)' 使用了key='\(key)'的标签")
+                    break
                 }
             }
-            
-            if nodeHasChanges {
-                updatedNode.updatedAt = Date()
-                updatedNodes.append(updatedNode)
-                print("   📝 节点 '\(node.text)' 已更新")
-            } else {
-                updatedNodes.append(node)
-            }
+            if hasMatchingTags { break }
         }
         
-        if hasChanges {
-            print("✅ 标签类型名称更新完成，更新了 \(updatedNodes.filter { $0.updatedAt > Date().addingTimeInterval(-1) }.count) 个节点")
+        if hasMatchingTags {
+            print("🔄 强制触发UI刷新以更新标签显示名称")
+            
+            // 创建新的nodes数组来强制触发SwiftUI更新
+            // 这样SwiftUI会重新计算所有标签的displayName
+            let updatedNodes = nodes.map { node -> Node in
+                var updatedNode = node
+                for tag in node.tags {
+                    if case .custom(let customKey) = tag.type, customKey == key {
+                        // 标记节点已更新，但不改变标签本身
+                        // displayName会通过TagType.displayName自动更新
+                        updatedNode.updatedAt = Date()
+                        break
+                    }
+                }
+                return updatedNode
+            }
+            
+            // 强制更新nodes数组以触发UI刷新
             nodes = updatedNodes
-            print("🔄 触发UI更新和自动同步")
+            print("✅ UI刷新已触发，标签显示名称将更新为: \(newName)")
+            
+            // 强制发送更新通知，确保所有UI组件都能收到变化
+            objectWillChange.send()
             
             // 触发自动同步
             if !isLoadingFromExternal {
@@ -2099,11 +2283,15 @@ public final class NodeStore: ObservableObject {
                 }
             }
         } else {
-            print("❌ 没有找到需要更新的标签")
-            print("🔍 可能的原因:")
-            print("   1. 没有使用key '\(key)' 的自定义标签类型的节点")
-            print("   2. 标签类型不是 .custom 类型")
-            print("   3. 自定义标签key不匹配")
+            print("⚠️ 没有找到使用key '\(key)' 的标签，可能：")
+            print("   1. 该标签映射没有被任何节点使用")
+            print("   2. 标签key不匹配")
+            print("   3. 标签类型不是 .custom 类型")
+            
+            // 即使没有匹配的标签，也强制触发一次UI刷新
+            // 因为可能有其他UI组件（如标签管理界面）需要更新
+            print("🔄 仍然触发UI刷新以确保所有相关界面更新")
+            objectWillChange.send()
         }
     }
 }

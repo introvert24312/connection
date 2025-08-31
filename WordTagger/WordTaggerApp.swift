@@ -173,6 +173,64 @@ class TagMappingManager: ObservableObject {
         }
     }
     
+    /// 删除标签映射
+    func removeMapping(_ mapping: TagMapping) {
+        print("🗑️ TagMappingManager.removeMapping() 开始")
+        print("   - 要删除的映射: id=\(mapping.id), key=\(mapping.key), typeName=\(mapping.typeName)")
+        
+        if let index = tagMappings.firstIndex(where: { $0.id == mapping.id }) {
+            let removedMapping = tagMappings.remove(at: index)
+            print("   - 已删除映射: \(removedMapping.key) -> \(removedMapping.typeName)")
+            
+            saveToUserDefaults()
+            
+            // 同步到外部存储
+            Task {
+                do {
+                    try await ExternalDataService.shared.saveTagMappingsOnly()
+                    print("✅ 删除后TagMappings已同步到外部存储")
+                } catch {
+                    print("⚠️ 删除后TagMappings同步到外部存储失败: \(error)")
+                }
+            }
+            
+            print("✅ TagMappingManager.removeMapping() 完成")
+        } else {
+            print("⚠️ 未找到要删除的映射: \(mapping.key)")
+        }
+    }
+    
+    /// 批量删除标签映射
+    func removeMappings(_ mappings: [TagMapping]) {
+        print("🗑️ TagMappingManager.removeMappings() 开始批量删除 \(mappings.count) 个映射")
+        
+        let idsToRemove = Set(mappings.map { $0.id })
+        let removedCount = tagMappings.count
+        
+        tagMappings.removeAll { mapping in
+            idsToRemove.contains(mapping.id)
+        }
+        
+        let actualRemovedCount = removedCount - tagMappings.count
+        print("   - 实际删除了 \(actualRemovedCount) 个映射")
+        
+        if actualRemovedCount > 0 {
+            saveToUserDefaults()
+            
+            // 同步到外部存储
+            Task {
+                do {
+                    try await ExternalDataService.shared.saveTagMappingsOnly()
+                    print("✅ 批量删除后TagMappings已同步到外部存储")
+                } catch {
+                    print("⚠️ 批量删除后TagMappings同步到外部存储失败: \(error)")
+                }
+            }
+        }
+        
+        print("✅ TagMappingManager.removeMappings() 完成")
+    }
+    
     // 智能解析token为TagType，支持动态创建
     func parseTokenToTagType(_ token: String, store: NodeStore? = nil) -> Tag.TagType? {
         let lowerToken = token.lowercased()
@@ -3116,14 +3174,36 @@ struct WordTaggerApp: App {
 
 struct TagManagerView: View {
     @ObservedObject private var tagManager = TagMappingManager.shared
+    @EnvironmentObject private var store: NodeStore
     
     @State private var newKey: String = ""
     @State private var newTypeName: String = ""
     @State private var editingMapping: TagMapping?
     @State private var showSystemTags: Bool = false  // 默认隐藏系统标签
+    @State private var showingTagEditSheet: Bool = false  // 控制标签编辑弹窗
+    @State private var selectedModule: TagManagerModule = .tagManagement  // 当前选择的模块
     @FocusState private var isViewFocused: Bool
     
+    // 定义三个模块
+    enum TagManagerModule: String, CaseIterable {
+        case tagManagement = "标签管理"
+        case usageAnalysis = "使用分析"  
+        case batchManagement = "批量管理"
+    }
+    
     let onDismiss: () -> Void
+    
+    // 计算属性
+    private var filteredMappings: [TagMapping] {
+        let allMappings = tagManager.tagMappings
+        
+        return allMappings.filter { mapping in
+            if !showSystemTags && shouldHideSystemTag(mapping) {
+                return false
+            }
+            return true
+        }.sorted { $0.typeName.localizedCompare($1.typeName) == .orderedAscending }
+    }
     
     var body: some View {
         ZStack {
@@ -3144,7 +3224,7 @@ struct TagManagerView: View {
             VStack(spacing: 0) {
                 // 标题栏
                 HStack {
-                    Text("标签管理")
+                    Text("标签系统")
                         .font(.title)
                         .fontWeight(.semibold)
                     
@@ -3191,9 +3271,94 @@ struct TagManagerView: View {
                 .padding(.vertical, 16)
                 .background(.ultraThinMaterial)
                 
+                // 模块切换按钮
+                HStack(spacing: 0) {
+                    ForEach(TagManagerModule.allCases, id: \.self) { module in
+                        Button {
+                            selectedModule = module
+                        } label: {
+                            Text(module.rawValue)
+                                .font(.system(size: 14, weight: .medium))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(selectedModule == module ? Color.accentColor : Color.clear)
+                                .foregroundColor(selectedModule == module ? .white : .primary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(8)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(.ultraThinMaterial)
+                
                 Divider()
                 
-                // 现有标签列表
+                // 根据选择显示不同内容
+                Group {
+                    switch selectedModule {
+                    case .tagManagement:
+                        tagManagementContent
+                    case .usageAnalysis:
+                        TagUsageVisualizationView()
+                            .environmentObject(store)
+                    case .batchManagement:
+                        TagBatchManagementView()
+                            .environmentObject(store)
+                    }
+                }
+            }
+            .background(.regularMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .shadow(color: Color.black.opacity(0.2), radius: 30, x: 0, y: 10)
+            .frame(maxWidth: 750, maxHeight: 500)
+            .padding(20)
+        }
+        .sheet(isPresented: $showingTagEditSheet) {
+            TagEditFormView(
+                newKey: $newKey,
+                newTypeName: $newTypeName,
+                editingMapping: $editingMapping,
+                onSave: { saveMapping() },
+                onCancel: { resetForm() }
+            )
+        }
+        .onAppear {
+            // 视图出现时自动聚焦，确保可以接收键盘事件
+            isViewFocused = true
+        }
+    }
+    
+    // 标签管理内容
+    private var tagManagementContent: some View {
+        VStack(spacing: 0) {
+            // 系统标签开关栏
+            HStack {
+                Button(action: { showSystemTags.toggle() }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: showSystemTags ? "eye" : "eye.slash")
+                            .font(.system(size: 14))
+                        Text("系统标签")
+                            .font(.system(size: 14))
+                    }
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(6)
+                }
+                .buttonStyle(.plain)
+                
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .background(.ultraThinMaterial)
+            
+            Divider()
+                
+            // 现有标签列表
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(filteredMappings, id: \.id) { mapping in
@@ -3205,6 +3370,7 @@ struct TagManagerView: View {
                                     editingMapping = mapping
                                     newKey = mapping.key
                                     newTypeName = mapping.typeName
+                                    showingTagEditSheet = true
                                     print("   - 表单已填充: newKey=\(newKey), newTypeName=\(newTypeName)")
                                 },
                                 onDelete: {
@@ -3220,63 +3386,144 @@ struct TagManagerView: View {
                 
                 Divider()
                 
-                // 添加新标签
+                // 功能按钮区域
                 VStack(spacing: 12) {
-                    Text(editingMapping != nil ? "编辑标签" : "添加新标签")
-                        .font(.title2)
-                        .foregroundColor(.primary)
-                    
-                    VStack(spacing: 12) {
-                        HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("快捷键")
+                    // 主要功能按钮行
+                    HStack(spacing: 12) {
+                        // 添加新标签按钮
+                        Button {
+                            showingTagEditSheet = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.title3)
+                                Text("添加新标签")
                                     .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                TextField("例如: root", text: $newKey)
-                                    .textFieldStyle(.roundedBorder)
+                                    .fontWeight(.medium)
                             }
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("类型名称")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                TextField("例如: 词根", text: $newTypeName)
-                                    .textFieldStyle(.roundedBorder)
-                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Color.accentColor.opacity(0.1))
+                            .foregroundColor(.accentColor)
+                            .cornerRadius(8)
                         }
-                    }
-                    
-                    HStack {
-                        if editingMapping != nil {
-                            Button("取消") {
-                                resetForm()
-                            }
-                            .buttonStyle(.bordered)
-                        }
+                        .buttonStyle(.plain)
                         
-                        Button(editingMapping != nil ? "保存" : "添加") {
-                            saveMapping()
+                            // 批量管理按钮
+                        Button {
+                            selectedModule = .batchManagement
+                        } label: {
+                            HStack {
+                                Image(systemName: "trash.fill")
+                                    .font(.title3)
+                                Text("批量管理")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Color.orange.opacity(0.1))
+                            .foregroundColor(.orange)
+                            .cornerRadius(8)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(newKey.isEmpty || newTypeName.isEmpty)
+                        .buttonStyle(.plain)
                     }
+                    
+                    // 使用分析按钮（独占一行）
+                    Button {
+                        selectedModule = .usageAnalysis
+                    } label: {
+                        HStack {
+                            Image(systemName: "chart.bar.fill")
+                                .font(.title3)
+                            Text("标签使用分析")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.blue.opacity(0.1))
+                        .foregroundColor(.blue)
+                        .cornerRadius(8)
+                    }
+                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
                 .background(.ultraThinMaterial)
                 
-            }
-            .background(.regularMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .shadow(color: Color.black.opacity(0.2), radius: 30, x: 0, y: 10)
-            .frame(maxWidth: 700, maxHeight: 600)
-            .padding(20)
-        }
-        .onAppear {
-            // 视图出现时自动聚焦，确保可以接收键盘事件
-            isViewFocused = true
         }
     }
+}
+
+// MARK: - Tag Edit Form View
+
+struct TagEditFormView: View {
+    @Binding var newKey: String
+    @Binding var newTypeName: String
+    @Binding var editingMapping: TagMapping?
+    @Environment(\.dismiss) private var dismiss
+    
+    let onSave: () -> Void
+    let onCancel: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 24) {
+            // 表单内容
+            VStack(spacing: 16) {
+                Text(editingMapping != nil ? "编辑标签" : "添加新标签")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+                
+                VStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("快捷键")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                        TextField("例如: root", text: $newKey)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.body)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("类型名称")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                        TextField("例如: 词根", text: $newTypeName)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.body)
+                    }
+                }
+                
+                // 按钮区域
+                HStack(spacing: 16) {
+                    Button("取消") {
+                        onCancel()
+                        dismiss()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    
+                    Button(editingMapping != nil ? "保存" : "添加") {
+                        onSave()
+                        dismiss()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .disabled(newKey.isEmpty || newTypeName.isEmpty)
+                }
+                .padding(.top, 8)
+            }
+            .padding(24)
+            
+            Spacer()
+        }
+        .frame(width: 400, height: 300)
+    }
+}
+
+extension TagManagerView {
     
     private func saveMapping() {
         print("💾 TagManagerView: saveMapping() 开始")
@@ -3319,11 +3566,7 @@ struct TagManagerView: View {
         return systemTagsToHide.contains(mapping.key)
     }
     
-    private var filteredMappings: [TagMapping] {
-        return tagManager.tagMappings.filter { mapping in
-            showSystemTags || !shouldHideSystemTag(mapping)
-        }
-    }
+    
     
 }
 
