@@ -378,20 +378,11 @@ struct EnhancedTagUsageView: View {
                     .pickerStyle(.menu)
                     .controlSize(.small)
                     
-                    // 展开/收起所有
-                    Button(allExpanded ? "收起全部" : "展开全部") {
-                        toggleAllExpansion()
-                    }
-                    .font(.system(size: 12))
-                    .controlSize(.small)
                 }
             }
         }
     }
     
-    private var allExpanded: Bool {
-        expandedGroups.count == sortedTagTypes.count
-    }
     
     // MARK: - Empty State
     
@@ -424,13 +415,6 @@ struct EnhancedTagUsageView: View {
         }
     }
     
-    private func toggleAllExpansion() {
-        if allExpanded {
-            expandedGroups.removeAll()
-        } else {
-            expandedGroups = Set(sortedTagTypes)
-        }
-    }
     
     private func performDelete() {
         let mappingsToDelete = unusedMappings.filter { mapping in
