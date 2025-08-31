@@ -108,11 +108,6 @@ struct EnhancedTagUsageView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // 标题栏
-            headerView
-            
-            Divider()
-            
             // 工具栏
             toolbarView
                 .padding(.horizontal, 16)
@@ -215,34 +210,6 @@ struct EnhancedTagUsageView: View {
         }
     }
     
-    // MARK: - Header
-    
-    private var headerView: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("标签使用分析")
-                    .font(.system(size: 16, weight: .semibold))
-                
-                Text("当前层: \(selectedLayerName)")
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            Text("\(tagUsageAnalysis.count) 个标签")
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
-            
-            Button("关闭") {
-                dismiss()
-            }
-            .buttonStyle(.borderless)
-            .foregroundColor(.secondary)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-    }
     
     // MARK: - Toolbar
     
