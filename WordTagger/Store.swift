@@ -2112,6 +2112,36 @@ public final class NodeStore: ObservableObject {
         return Array(tagUsageMap.values).sorted { $0.nodeCount > $1.nodeCount }
     }
     
+    /// 获取特定层的标签使用分析
+    public func getTagUsageAnalysisForLayer(_ layerId: UUID) -> [TagUsageInfo] {
+        var tagUsageMap: [String: TagUsageInfo] = [:]
+        
+        // 只遍历指定层的节点
+        let layerNodes = nodes.filter { $0.layerId == layerId }
+        
+        for node in layerNodes {
+            for tag in node.tags {
+                let key = "\(tag.type.rawValue)|\(tag.value)"
+                
+                if var existingInfo = tagUsageMap[key] {
+                    existingInfo.nodeCount += 1
+                    existingInfo.nodes.append(node)
+                    tagUsageMap[key] = existingInfo
+                } else {
+                    tagUsageMap[key] = TagUsageInfo(
+                        tagType: tag.type,
+                        tagValue: tag.value,
+                        nodeCount: 1,
+                        nodes: [node]
+                    )
+                }
+            }
+        }
+        
+        // 按使用频率排序
+        return Array(tagUsageMap.values).sorted { $0.nodeCount > $1.nodeCount }
+    }
+    
     /// 查找未使用的标签映射
     public func findUnusedTagMappings() -> [TagMapping] {
         let tagManager = TagMappingManager.shared
@@ -2121,6 +2151,181 @@ public final class NodeStore: ObservableObject {
         return allMappings.filter { mapping in
             !usedTagTypes.contains(mapping.tagType)
         }
+    }
+    
+    /// 查找在特定层未使用的标签映射
+    public func findUnusedTagMappingsForLayer(_ layerId: UUID) -> [TagMapping] {
+        let tagManager = TagMappingManager.shared
+        let allMappings = tagManager.tagMappings
+        
+        // 获取指定层的所有标签类型
+        let layerNodes = nodes.filter { $0.layerId == layerId }
+        let usedTagTypesInLayer = Set(layerNodes.flatMap { $0.tags.map { $0.type } })
+        
+        return allMappings.filter { mapping in
+            !usedTagTypesInLayer.contains(mapping.tagType)
+        }
+    }
+    
+    /// 从特定层批量删除未使用的标签映射对应的标签
+    public func batchDeleteUnusedMappingsFromLayer(_ mappings: [TagMapping], layerId: UUID) -> BatchDeleteResult {
+        var affectedNodeCount = 0
+        var deletedTagCount = 0
+        var affectedNodes: [Node] = []
+        
+        print("🗑️ 开始从层删除未使用映射对应的标签: \(mappings.count) 个映射")
+        
+        // 获取该层的所有节点
+        let layerNodes = nodes.filter { $0.layerId == layerId }
+        
+        // 创建要删除的标签类型集合
+        let tagTypesToDelete = Set(mappings.map { $0.tagType })
+        
+        // 遍历该层的节点，删除匹配的标签
+        for (index, node) in nodes.enumerated() {
+            guard node.layerId == layerId else { continue }
+            
+            let tagsToRemove = node.tags.filter { tag in
+                tagTypesToDelete.contains(tag.type)
+            }
+            
+            if !tagsToRemove.isEmpty {
+                var updatedNode = node
+                updatedNode.tags.removeAll { tag in
+                    tagTypesToDelete.contains(tag.type)
+                }
+                updatedNode.updatedAt = Date()
+                
+                nodes[index] = updatedNode
+                affectedNodes.append(updatedNode)
+                affectedNodeCount += 1
+                deletedTagCount += tagsToRemove.count
+                
+                // 触发复合节点刷新
+                refreshCompoundNodesReferencingNode(updatedNode.text)
+                
+                print("🗑️ 从节点 '\(node.text)' 删除 \(tagsToRemove.count) 个标签")
+            }
+        }
+        
+        // 更新选中节点引用
+        if let selectedNode = selectedNode,
+           let updatedSelectedNode = affectedNodes.first(where: { $0.id == selectedNode.id }) {
+            self.selectedNode = updatedSelectedNode
+        }
+        
+        // 触发UI更新
+        objectWillChange.send()
+        
+        // 发送批量更新通知
+        NotificationCenter.default.post(
+            name: Notification.Name("nodesBatchUpdated"),
+            object: nil,
+            userInfo: [
+                "affectedNodeCount": affectedNodeCount,
+                "deletedTagCount": deletedTagCount,
+                "layerId": layerId
+            ]
+        )
+        
+        // 自动保存到外部存储
+        if !isLoadingFromExternal {
+            Task {
+                await forceSaveToExternalStorage()
+                print("💾 层级标签删除后已自动保存到外部存储")
+            }
+        }
+        
+        let result = BatchDeleteResult(
+            affectedNodeCount: affectedNodeCount,
+            deletedTagCount: deletedTagCount,
+            affectedNodes: affectedNodes
+        )
+        
+        print("✅ 层级标签删除完成: 影响 \(affectedNodeCount) 个节点，删除 \(deletedTagCount) 个标签")
+        return result
+    }
+    
+    /// 从特定层删除特定标签
+    public func batchDeleteSpecificTagFromLayer(_ tagsToDelete: [Tag], layerId: UUID) -> BatchDeleteResult {
+        var affectedNodeCount = 0
+        var deletedTagCount = 0
+        var affectedNodes: [Node] = []
+        
+        print("🗑️ 开始从层删除特定标签: \(tagsToDelete.count) 个标签")
+        
+        // 创建标签匹配条件（基于类型和值）
+        let tagMatchers = tagsToDelete.map { targetTag in
+            (type: targetTag.type, value: targetTag.value)
+        }
+        
+        // 遍历该层的节点，删除匹配的标签
+        for (index, node) in nodes.enumerated() {
+            guard node.layerId == layerId else { continue }
+            
+            let removedTags = node.tags.filter { tag in
+                tagMatchers.contains { matcher in
+                    tag.type == matcher.type && tag.value == matcher.value
+                }
+            }
+            
+            if !removedTags.isEmpty {
+                var updatedNode = node
+                updatedNode.tags.removeAll { tag in
+                    tagMatchers.contains { matcher in
+                        tag.type == matcher.type && tag.value == matcher.value
+                    }
+                }
+                updatedNode.updatedAt = Date()
+                
+                nodes[index] = updatedNode
+                affectedNodes.append(updatedNode)
+                affectedNodeCount += 1
+                deletedTagCount += removedTags.count
+                
+                // 触发复合节点刷新
+                refreshCompoundNodesReferencingNode(updatedNode.text)
+                
+                print("🗑️ 从节点 '\(node.text)' 删除 \(removedTags.count) 个特定标签")
+            }
+        }
+        
+        // 更新选中节点引用
+        if let selectedNode = selectedNode,
+           let updatedSelectedNode = affectedNodes.first(where: { $0.id == selectedNode.id }) {
+            self.selectedNode = updatedSelectedNode
+        }
+        
+        // 触发UI更新
+        objectWillChange.send()
+        
+        // 发送批量更新通知
+        NotificationCenter.default.post(
+            name: Notification.Name("nodesBatchUpdated"),
+            object: nil,
+            userInfo: [
+                "affectedNodeCount": affectedNodeCount,
+                "deletedTagCount": deletedTagCount,
+                "layerId": layerId
+            ]
+        )
+        
+        // 自动保存到外部存储
+        if !isLoadingFromExternal {
+            Task {
+                await forceSaveToExternalStorage()
+                print("💾 特定标签层级删除后已自动保存到外部存储")
+            }
+        }
+        
+        let result = BatchDeleteResult(
+            affectedNodeCount: affectedNodeCount,
+            deletedTagCount: deletedTagCount,
+            affectedNodes: affectedNodes
+        )
+        
+        print("✅ 特定标签层级删除完成: 影响 \(affectedNodeCount) 个节点，删除 \(deletedTagCount) 个标签")
+        return result
     }
     
     // MARK: - 复合节点自动刷新机制
