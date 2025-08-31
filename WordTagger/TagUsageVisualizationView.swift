@@ -96,11 +96,27 @@ struct EnhancedTagUsageView: View {
     }
     
     private var sortedTagTypes: [Tag.TagType] {
-        return groupedUsage.keys.sorted { type1, type2 in
+        let allTypes = Array(groupedUsage.keys)
+        
+        // 先按选中状态分组，选中的在前，未选中的在后
+        let selectedTypes = allTypes.filter { selectedTagTypesForDeletion.contains($0) }
+        let unselectedTypes = allTypes.filter { !selectedTagTypesForDeletion.contains($0) }
+        
+        // 各自内部按使用次数排序
+        let sortedSelected = selectedTypes.sorted { type1, type2 in
             let count1 = groupedUsage[type1]?.reduce(0) { $0 + $1.nodeCount } ?? 0
             let count2 = groupedUsage[type2]?.reduce(0) { $0 + $1.nodeCount } ?? 0
             return count1 > count2
         }
+        
+        let sortedUnselected = unselectedTypes.sorted { type1, type2 in
+            let count1 = groupedUsage[type1]?.reduce(0) { $0 + $1.nodeCount } ?? 0
+            let count2 = groupedUsage[type2]?.reduce(0) { $0 + $1.nodeCount } ?? 0
+            return count1 > count2
+        }
+        
+        // 选中的在前，未选中的在后
+        return sortedSelected + sortedUnselected
     }
     
     // 获取当前选中层的显示名称
@@ -376,11 +392,24 @@ struct EnhancedTagUsageView: View {
                     .buttonStyle(.borderedProminent)
                 } else if analysisMode == .usedTags && !selectedTagTypesForDeletion.isEmpty {
                     // 已使用标签模式下的批量删除
-                    Button("批量删除选中") {
-                        showingBatchTagTypeDeleteConfirmation = true
+                    HStack(spacing: 8) {
+                        // 选中状态显示
+                        Text("已选中 \(selectedTagTypesForDeletion.count) 个")
+                            .font(.system(size: 11))
+                            .foregroundColor(.accentColor)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(Color.accentColor.opacity(0.1))
+                            )
+                        
+                        Button("批量删除选中") {
+                            showingBatchTagTypeDeleteConfirmation = true
+                        }
+                        .font(.system(size: 11))
+                        .buttonStyle(.borderedProminent)
                     }
-                    .font(.system(size: 11))
-                    .buttonStyle(.borderedProminent)
                 }
             }
             
@@ -487,12 +516,15 @@ struct EnhancedTagUsageView: View {
         print("🔄 标签类型: \(tagType.displayName)")
         print("🔄 当前选中的标签类型: \(selectedTagTypesForDeletion.map { $0.displayName })")
         
-        if selectedTagTypesForDeletion.contains(tagType) {
-            selectedTagTypesForDeletion.remove(tagType)
-            print("✅ 移除标签类型: \(tagType.displayName)")
-        } else {
-            selectedTagTypesForDeletion.insert(tagType)
-            print("✅ 添加标签类型: \(tagType.displayName)")
+        // 使用动画效果使排序变化更平滑
+        withAnimation(.easeInOut(duration: 0.3)) {
+            if selectedTagTypesForDeletion.contains(tagType) {
+                selectedTagTypesForDeletion.remove(tagType)
+                print("✅ 移除标签类型: \(tagType.displayName)")
+            } else {
+                selectedTagTypesForDeletion.insert(tagType)
+                print("✅ 添加标签类型: \(tagType.displayName)")
+            }
         }
         
         print("🔄 更新后的选中标签类型: \(selectedTagTypesForDeletion.map { $0.displayName })")
@@ -704,8 +736,8 @@ struct TagTypeGroupView: View {
                         
                         // 标签类型名称
                         Text(tagType.displayName)
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.primary)
+                            .font(.system(size: 14, weight: isTagTypeSelected ? .bold : .semibold))
+                            .foregroundColor(isTagTypeSelected ? .accentColor : .primary)
                         
                         Spacer()
                         
