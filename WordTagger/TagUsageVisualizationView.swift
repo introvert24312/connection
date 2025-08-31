@@ -20,6 +20,7 @@ struct EnhancedTagUsageView: View {
     @State private var analysisMode: AnalysisMode = .usedTags
     @State private var selectedForDeletion: Set<String> = []  // 选中要删除的项目
     @State private var selectedTagTypesForDeletion: Set<Tag.TagType> = []  // 选中要删除的标签类型
+    @State private var selectedTagValuesForDeletion: Set<String> = []  // 选中要删除的具体标签值
     @State private var showingDeleteConfirmation = false
     @State private var showingDeleteResult = false
     @State private var lastDeleteResult: String?
@@ -98,9 +99,22 @@ struct EnhancedTagUsageView: View {
     private var sortedTagTypes: [Tag.TagType] {
         let allTypes = Array(groupedUsage.keys)
         
-        // 先按选中状态分组，选中的在前，未选中的在后
-        let selectedTypes = allTypes.filter { selectedTagTypesForDeletion.contains($0) }
-        let unselectedTypes = allTypes.filter { !selectedTagTypesForDeletion.contains($0) }
+        // 先按选中状态分组，考虑标签类型选择和个体标签值选择
+        let selectedTypes = allTypes.filter { tagType in
+            // 如果标签类型被选中，或者该类型下有任何标签值被选中
+            selectedTagTypesForDeletion.contains(tagType) ||
+            (groupedUsage[tagType] ?? []).contains { usage in
+                let tagKey = "\(usage.tagType.rawValue)|\(usage.tagValue)"
+                return selectedTagValuesForDeletion.contains(tagKey)
+            }
+        }
+        let unselectedTypes = allTypes.filter { tagType in
+            !selectedTagTypesForDeletion.contains(tagType) &&
+            !(groupedUsage[tagType] ?? []).contains { usage in
+                let tagKey = "\(usage.tagType.rawValue)|\(usage.tagValue)"
+                return selectedTagValuesForDeletion.contains(tagKey)
+            }
+        }
         
         // 各自内部按使用次数排序
         let sortedSelected = selectedTypes.sorted { type1, type2 in
@@ -169,6 +183,10 @@ struct EnhancedTagUsageView: View {
                                     onDeleteTagType: {
                                         print("🗑️ TagTypeGroupView 中的 onDeleteTagType 被调用")
                                         confirmDeleteTagType(tagType)
+                                    },
+                                    selectedTagValuesForDeletion: selectedTagValuesForDeletion,
+                                    onToggleTagValueSelection: { usage in
+                                        toggleTagValueSelection(usage)
                                     }
                                 )
                             }
@@ -269,35 +287,68 @@ struct EnhancedTagUsageView: View {
                 }
             }
         }
-        .alert("批量删除标签类型", isPresented: $showingBatchTagTypeDeleteConfirmation) {
+        .alert("批量删除标签", isPresented: $showingBatchTagTypeDeleteConfirmation) {
             Button("取消", role: .cancel) { }
             Button("删除", role: .destructive) {
-                confirmBatchDeleteTagTypes()
+                confirmBatchDeleteMixed()
             }
         } message: {
             let selectedTypes = Array(selectedTagTypesForDeletion)
+            let selectedValues = Array(selectedTagValuesForDeletion)
             
             if let selectedLayerId = selectedLayerId {
                 // 特定层批量删除
-                let totalTags = selectedTypes.flatMap { tagType in
+                let typeTags = selectedTypes.flatMap { tagType in
                     groupedUsage[tagType] ?? []
-                }.count
-                let totalNodes = Set(selectedTypes.flatMap { tagType in
-                    (groupedUsage[tagType] ?? []).flatMap { $0.nodes }
-                }.map { $0.id }).count
+                }
+                let valueTags = selectedValues.compactMap { tagKey -> TagUsageInfo? in
+                    let components = tagKey.split(separator: "|")
+                    guard components.count == 2 else { return nil }
+                    let typeRaw = String(components[0])
+                    let value = String(components[1])
+                    return tagUsageAnalysis.first { usage in
+                        usage.tagType.rawValue == typeRaw && usage.tagValue == value
+                    }
+                }
                 
-                Text("确定要从层 '\(selectedLayerName)' 批量删除 \(selectedTypes.count) 个标签类型吗？\n\n这将删除该层中所有 \(totalTags) 个标签值，影响 \(totalNodes) 个节点。此操作仅影响当前层，不会影响其他层。")
+                let totalTags = typeTags.count + valueTags.count
+                let allAffectedUsage = typeTags + valueTags
+                let totalNodes = Set(allAffectedUsage.flatMap { $0.nodes }.map { $0.id }).count
+                
+                if selectedTypes.count > 0 && selectedValues.count > 0 {
+                    Text("确定要从层 '\(selectedLayerName)' 批量删除 \(selectedTypes.count) 个标签类型和 \(selectedValues.count) 个具体标签值吗？\n\n这将删除该层中共 \(totalTags) 个标签，影响 \(totalNodes) 个节点。此操作仅影响当前层。")
+                } else if selectedTypes.count > 0 {
+                    Text("确定要从层 '\(selectedLayerName)' 批量删除 \(selectedTypes.count) 个标签类型吗？\n\n这将删除该层中所有 \(totalTags) 个标签值，影响 \(totalNodes) 个节点。此操作仅影响当前层。")
+                } else {
+                    Text("确定要从层 '\(selectedLayerName)' 批量删除 \(selectedValues.count) 个具体标签值吗？\n\n这将删除该层中的这些标签，影响 \(totalNodes) 个节点。此操作仅影响当前层。")
+                }
             } else {
                 // 全局批量删除
                 let allTagsAnalysis = store.getTagUsageAnalysis()
-                let globalTotalTags = selectedTypes.flatMap { tagType in
+                let typeTags = selectedTypes.flatMap { tagType in
                     allTagsAnalysis.filter { $0.tagType == tagType }
-                }.count
-                let globalTotalNodes = Set(selectedTypes.flatMap { tagType in
-                    allTagsAnalysis.filter { $0.tagType == tagType }.flatMap { $0.nodes }
-                }.map { $0.id }).count
+                }
+                let valueTags = selectedValues.compactMap { tagKey -> TagUsageInfo? in
+                    let components = tagKey.split(separator: "|")
+                    guard components.count == 2 else { return nil }
+                    let typeRaw = String(components[0])
+                    let value = String(components[1])
+                    return allTagsAnalysis.first { usage in
+                        usage.tagType.rawValue == typeRaw && usage.tagValue == value
+                    }
+                }
                 
-                Text("确定要在所有层中批量删除 \(selectedTypes.count) 个标签类型吗？\n\n这将从所有层中删除 \(globalTotalTags) 个标签值，影响 \(globalTotalNodes) 个节点。此操作将影响所有层，无法撤销！")
+                let totalTags = typeTags.count + valueTags.count
+                let allAffectedUsage = typeTags + valueTags
+                let totalNodes = Set(allAffectedUsage.flatMap { $0.nodes }.map { $0.id }).count
+                
+                if selectedTypes.count > 0 && selectedValues.count > 0 {
+                    Text("确定要从所有层批量删除 \(selectedTypes.count) 个标签类型和 \(selectedValues.count) 个具体标签值吗？\n\n这将从所有层中删除共 \(totalTags) 个标签，影响 \(totalNodes) 个节点。此操作将影响所有层，无法撤销！")
+                } else if selectedTypes.count > 0 {
+                    Text("确定要从所有层批量删除 \(selectedTypes.count) 个标签类型吗？\n\n这将从所有层中删除所有 \(totalTags) 个标签值，影响 \(totalNodes) 个节点。此操作将影响所有层，无法撤销！")
+                } else {
+                    Text("确定要从所有层批量删除 \(selectedValues.count) 个具体标签值吗？\n\n这将从所有层中删除这些标签，影响 \(totalNodes) 个节点。此操作将影响所有层，无法撤销！")
+                }
             }
         }
     }
@@ -318,6 +369,8 @@ struct EnhancedTagUsageView: View {
                     Button("所有层") {
                         selectedLayerId = nil
                         selectedForDeletion.removeAll()
+                        selectedTagTypesForDeletion.removeAll()
+                        selectedTagValuesForDeletion.removeAll()
                     }
                     
                     Divider()
@@ -326,6 +379,8 @@ struct EnhancedTagUsageView: View {
                         Button(layer.displayName) {
                             selectedLayerId = layer.id
                             selectedForDeletion.removeAll()
+                            selectedTagTypesForDeletion.removeAll()
+                            selectedTagValuesForDeletion.removeAll()
                         }
                     }
                 } label: {
@@ -355,6 +410,8 @@ struct EnhancedTagUsageView: View {
                         Button {
                             analysisMode = mode
                             selectedForDeletion.removeAll()
+                            selectedTagTypesForDeletion.removeAll()
+                            selectedTagValuesForDeletion.removeAll()
                         } label: {
                             Text(mode.rawValue)
                                 .font(.system(size: 11, weight: .medium))
@@ -390,19 +447,44 @@ struct EnhancedTagUsageView: View {
                     .font(.system(size: 11))
                     .disabled(selectedForDeletion.isEmpty)
                     .buttonStyle(.borderedProminent)
-                } else if analysisMode == .usedTags && !selectedTagTypesForDeletion.isEmpty {
+                } else if analysisMode == .usedTags && (!selectedTagTypesForDeletion.isEmpty || !selectedTagValuesForDeletion.isEmpty) {
                     // 已使用标签模式下的批量删除
                     HStack(spacing: 8) {
                         // 选中状态显示
-                        Text("已选中 \(selectedTagTypesForDeletion.count) 个")
-                            .font(.system(size: 11))
-                            .foregroundColor(.accentColor)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(
-                                RoundedRectangle(cornerRadius: 4)
-                                    .fill(Color.accentColor.opacity(0.1))
-                            )
+                        let typeCount = selectedTagTypesForDeletion.count
+                        let valueCount = selectedTagValuesForDeletion.count
+                        
+                        if typeCount > 0 && valueCount > 0 {
+                            Text("已选中 \(typeCount) 个类型，\(valueCount) 个标签值")
+                                .font(.system(size: 11))
+                                .foregroundColor(.accentColor)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(Color.accentColor.opacity(0.1))
+                                )
+                        } else if typeCount > 0 {
+                            Text("已选中 \(typeCount) 个类型")
+                                .font(.system(size: 11))
+                                .foregroundColor(.accentColor)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(Color.accentColor.opacity(0.1))
+                                )
+                        } else {
+                            Text("已选中 \(valueCount) 个标签值")
+                                .font(.system(size: 11))
+                                .foregroundColor(.accentColor)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(Color.accentColor.opacity(0.1))
+                                )
+                        }
                         
                         Button("批量删除选中") {
                             showingBatchTagTypeDeleteConfirmation = true
@@ -521,14 +603,70 @@ struct EnhancedTagUsageView: View {
             if selectedTagTypesForDeletion.contains(tagType) {
                 selectedTagTypesForDeletion.remove(tagType)
                 print("✅ 移除标签类型: \(tagType.displayName)")
+                
+                // 当取消选择标签类型时，也取消该类型下所有个体标签值的选择
+                if let usageList = groupedUsage[tagType] {
+                    for usage in usageList {
+                        let tagKey = "\(usage.tagType.rawValue)|\(usage.tagValue)"
+                        selectedTagValuesForDeletion.remove(tagKey)
+                    }
+                }
             } else {
                 selectedTagTypesForDeletion.insert(tagType)
                 print("✅ 添加标签类型: \(tagType.displayName)")
+                
+                // 当选择标签类型时，自动选择该类型下所有个体标签值
+                if let usageList = groupedUsage[tagType] {
+                    for usage in usageList {
+                        let tagKey = "\(usage.tagType.rawValue)|\(usage.tagValue)"
+                        selectedTagValuesForDeletion.insert(tagKey)
+                    }
+                }
             }
         }
         
         print("🔄 更新后的选中标签类型: \(selectedTagTypesForDeletion.map { $0.displayName })")
         print("🔄 ----------------------------------------")
+    }
+    
+    // 切换个体标签值选择状态
+    private func toggleTagValueSelection(_ usage: TagUsageInfo) {
+        let tagKey = "\(usage.tagType.rawValue)|\(usage.tagValue)"
+        
+        print("🔘 toggleTagValueSelection 被调用")
+        print("🔘 标签值: \(usage.tagType.displayName) - \(usage.tagValue)")
+        
+        withAnimation(.easeInOut(duration: 0.3)) {
+            if selectedTagValuesForDeletion.contains(tagKey) {
+                selectedTagValuesForDeletion.remove(tagKey)
+                print("✅ 移除标签值: \(usage.tagValue)")
+                
+                // 如果该类型下没有任何个体标签值被选中，取消标签类型选择
+                let typeUsageList = groupedUsage[usage.tagType] ?? []
+                let hasSelectedValues = typeUsageList.contains { typeUsage in
+                    let typeTagKey = "\(typeUsage.tagType.rawValue)|\(typeUsage.tagValue)"
+                    return selectedTagValuesForDeletion.contains(typeTagKey)
+                }
+                if !hasSelectedValues {
+                    selectedTagTypesForDeletion.remove(usage.tagType)
+                }
+            } else {
+                selectedTagValuesForDeletion.insert(tagKey)
+                print("✅ 添加标签值: \(usage.tagValue)")
+                
+                // 检查是否该类型下所有标签值都被选中，如果是则自动选中标签类型
+                let typeUsageList = groupedUsage[usage.tagType] ?? []
+                let allValuesSelected = typeUsageList.allSatisfy { typeUsage in
+                    let typeTagKey = "\(typeUsage.tagType.rawValue)|\(typeUsage.tagValue)"
+                    return selectedTagValuesForDeletion.contains(typeTagKey)
+                }
+                if allValuesSelected {
+                    selectedTagTypesForDeletion.insert(usage.tagType)
+                }
+            }
+        }
+        
+        print("🔘 更新后的选中标签值数量: \(selectedTagValuesForDeletion.count)")
     }
     
     // 确认删除标签类型
@@ -603,6 +741,82 @@ struct EnhancedTagUsageView: View {
         
         // 清理状态
         selectedTagTypesForDeletion.removeAll()
+    }
+    
+    // 混合批量删除（标签类型 + 个体标签值）
+    private func confirmBatchDeleteMixed() {
+        let selectedTypes = Array(selectedTagTypesForDeletion)
+        let selectedValues = Array(selectedTagValuesForDeletion)
+        
+        var allTagsToDelete: [Tag] = []
+        var totalAffectedNodes = 0
+        
+        // 处理选中的标签类型
+        for tagType in selectedTypes {
+            let affectedTags = groupedUsage[tagType] ?? []
+            let tagsToDelete = affectedTags.map { Tag(type: $0.tagType, value: $0.tagValue) }
+            allTagsToDelete.append(contentsOf: tagsToDelete)
+        }
+        
+        // 处理选中的个体标签值
+        for tagKey in selectedValues {
+            let components = tagKey.split(separator: "|")
+            guard components.count == 2 else { continue }
+            
+            let typeRaw = String(components[0])
+            let value = String(components[1])
+            
+            // 创建标签类型
+            let tagType: Tag.TagType
+            if typeRaw == "location" {
+                tagType = .location
+            } else {
+                tagType = .custom(typeRaw)
+            }
+            
+            // 只有在该标签值没有被标签类型选择包含时才添加
+            if !selectedTypes.contains(tagType) {
+                let tag = Tag(type: tagType, value: value)
+                allTagsToDelete.append(tag)
+            }
+        }
+        
+        // 执行批量删除
+        if !allTagsToDelete.isEmpty {
+            if let selectedLayerId = selectedLayerId {
+                // 层级特定删除
+                let result = store.batchDeleteSpecificTagFromLayer(allTagsToDelete, layerId: selectedLayerId)
+                totalAffectedNodes = result.affectedNodeCount
+                
+                // 显示删除结果
+                if selectedTypes.count > 0 && selectedValues.count > 0 {
+                    lastDeleteResult = "已从层 '\(selectedLayerName)' 批量删除 \(selectedTypes.count) 个标签类型和 \(selectedValues.count) 个具体标签值，共影响 \(totalAffectedNodes) 个节点"
+                } else if selectedTypes.count > 0 {
+                    lastDeleteResult = "已从层 '\(selectedLayerName)' 批量删除 \(selectedTypes.count) 个标签类型，共影响 \(totalAffectedNodes) 个节点"
+                } else {
+                    lastDeleteResult = "已从层 '\(selectedLayerName)' 批量删除 \(selectedValues.count) 个具体标签值，共影响 \(totalAffectedNodes) 个节点"
+                }
+            } else {
+                // 全局删除
+                let result = store.batchDeleteSpecificTags(allTagsToDelete)
+                totalAffectedNodes = result.affectedNodeCount
+                
+                // 显示删除结果
+                if selectedTypes.count > 0 && selectedValues.count > 0 {
+                    lastDeleteResult = "已从所有层批量删除 \(selectedTypes.count) 个标签类型和 \(selectedValues.count) 个具体标签值，共影响 \(totalAffectedNodes) 个节点"
+                } else if selectedTypes.count > 0 {
+                    lastDeleteResult = "已从所有层批量删除 \(selectedTypes.count) 个标签类型，共影响 \(totalAffectedNodes) 个节点"
+                } else {
+                    lastDeleteResult = "已从所有层批量删除 \(selectedValues.count) 个具体标签值，共影响 \(totalAffectedNodes) 个节点"
+                }
+            }
+            
+            showingDeleteResult = true
+        }
+        
+        // 清理状态
+        selectedTagTypesForDeletion.removeAll()
+        selectedTagValuesForDeletion.removeAll()
     }
     
     // MARK: - Empty States
@@ -711,6 +925,10 @@ struct TagTypeGroupView: View {
     let onToggleTagTypeSelection: (() -> Void)?
     let onDeleteTagType: (() -> Void)?
     
+    // 个体标签值选择功能
+    let selectedTagValuesForDeletion: Set<String>
+    let onToggleTagValueSelection: ((TagUsageInfo) -> Void)?
+    
     private var totalNodeCount: Int {
         usageList.reduce(0) { $0 + $1.nodeCount }
     }
@@ -815,12 +1033,19 @@ struct TagTypeGroupView: View {
             if isExpanded {
                 VStack(spacing: 6) {
                     ForEach(usageList.sorted { $0.nodeCount > $1.nodeCount }, id: \.tagValue) { usage in
+                        let tagKey = "\(usage.tagType.rawValue)|\(usage.tagValue)"
+                        let isSelected = selectedTagValuesForDeletion.contains(tagKey)
+                        
                         TagUsageRow(
                             usage: usage,
                             onTap: { onSelectUsage(usage) },
                             onDelete: {
                                 print("🗑️ 删除具体标签值: \(tagType.displayName) - \(usage.tagValue)")
                                 onDeleteUsage?(usage)
+                            },
+                            isSelected: isSelected,
+                            onToggleSelection: {
+                                onToggleTagValueSelection?(usage)
                             }
                         )
                     }
@@ -837,11 +1062,24 @@ struct TagUsageRow: View {
     let usage: TagUsageInfo
     let onTap: () -> Void
     let onDelete: (() -> Void)? // 可选的删除回调
+    let isSelected: Bool? // 可选的选择状态
+    let onToggleSelection: (() -> Void)? // 可选的选择切换回调
     
     @State private var isHovered = false
     
     var body: some View {
         HStack(spacing: 8) {
+            // 选择框（仅在有选择功能时显示）
+            if let onToggleSelection = onToggleSelection {
+                Button(action: onToggleSelection) {
+                    Image(systemName: (isSelected ?? false) ? "checkmark.square.fill" : "square")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor((isSelected ?? false) ? .accentColor : .secondary)
+                }
+                .buttonStyle(.plain)
+                .help((isSelected ?? false) ? "取消选择此标签值" : "选择此标签值")
+            }
+            
             // 主内容按钮
             Button(action: onTap) {
                 HStack(spacing: 8) {
@@ -887,11 +1125,11 @@ struct TagUsageRow: View {
                 .help("删除此标签")
             }
         }
-        .background(Color(NSColor.textBackgroundColor))
+        .background((isSelected ?? false) ? Color.accentColor.opacity(0.1) : Color(NSColor.textBackgroundColor))
         .cornerRadius(6)
         .overlay(
             RoundedRectangle(cornerRadius: 6)
-                .stroke(Color(NSColor.separatorColor).opacity(0.5), lineWidth: 0.5)
+                .stroke((isSelected ?? false) ? Color.accentColor.opacity(0.3) : Color(NSColor.separatorColor).opacity(0.5), lineWidth: 0.5)
         )
         .onHover { hover in
             isHovered = hover

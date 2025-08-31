@@ -4162,6 +4162,7 @@ struct IndependentWindowWrapper: View {
                 TagManagerView {
                     showTagManager = false
                 }
+                .environmentObject(store)
                 .transition(.asymmetric(insertion: AnyTransition.scale.combined(with: .opacity), removal: .opacity))
             }
         }
