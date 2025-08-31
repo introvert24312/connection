@@ -27,6 +27,7 @@ struct EnhancedTagUsageView: View {
     // 标签类型删除确认状态
     @State private var showingTagTypeDeleteConfirmation = false
     @State private var tagTypeToDelete: Tag.TagType?
+    @State private var showingBatchTagTypeDeleteConfirmation = false
     
     enum SortMode: String, CaseIterable {
         case byUsageCount = "按使用次数"
@@ -234,6 +235,22 @@ struct EnhancedTagUsageView: View {
                 Text("确定要从层 '\(selectedLayerName)' 删除标签类型 '\(tagType.displayName)' 吗？\n\n这将删除该层中所有 \(affectedTags.count) 个标签值，影响 \(totalNodes) 个节点。此操作仅影响当前层，不会影响其他层。")
             }
         }
+        .alert("批量删除标签类型", isPresented: $showingBatchTagTypeDeleteConfirmation) {
+            Button("取消", role: .cancel) { }
+            Button("删除", role: .destructive) {
+                confirmBatchDeleteTagTypes()
+            }
+        } message: {
+            let selectedTypes = Array(selectedTagTypesForDeletion)
+            let totalTags = selectedTypes.flatMap { tagType in
+                groupedUsage[tagType] ?? []
+            }.count
+            let totalNodes = Set(selectedTypes.flatMap { tagType in
+                (groupedUsage[tagType] ?? []).flatMap { $0.nodes }
+            }.map { $0.id }).count
+            
+            Text("确定要从层 '\(selectedLayerName)' 批量删除 \(selectedTypes.count) 个标签类型吗？\n\n这将删除该层中所有 \(totalTags) 个标签值，影响 \(totalNodes) 个节点。此操作仅影响当前层，不会影响其他层。")
+        }
     }
     
     
@@ -304,7 +321,7 @@ struct EnhancedTagUsageView: View {
                 
                 Spacer()
                 
-                // 批量删除操作（仅在未使用映射模式下显示）
+                // 批量删除操作
                 if analysisMode == .unusedMappings {
                     Button("全选") {
                         if selectedForDeletion.count == unusedMappings.count {
@@ -323,6 +340,13 @@ struct EnhancedTagUsageView: View {
                     }
                     .font(.system(size: 11))
                     .disabled(selectedForDeletion.isEmpty)
+                    .buttonStyle(.borderedProminent)
+                } else if analysisMode == .usedTags && selectedLayerId != nil && !selectedTagTypesForDeletion.isEmpty {
+                    // 已使用标签模式下的批量删除
+                    Button("批量删除选中") {
+                        showingBatchTagTypeDeleteConfirmation = true
+                    }
+                    .font(.system(size: 11))
                     .buttonStyle(.borderedProminent)
                 }
             }
@@ -478,6 +502,31 @@ struct EnhancedTagUsageView: View {
         selectedTagTypesForDeletion.remove(tagType)
     }
     
+    // 批量删除标签类型
+    private func confirmBatchDeleteTagTypes() {
+        guard let selectedLayerId = selectedLayerId else { return }
+        
+        let selectedTypes = Array(selectedTagTypesForDeletion)
+        var totalDeletedTags = 0
+        var totalAffectedNodes = 0
+        
+        for tagType in selectedTypes {
+            let affectedTags = groupedUsage[tagType] ?? []
+            let tagsToDelete = affectedTags.map { Tag(type: $0.tagType, value: $0.tagValue) }
+            
+            let result = store.batchDeleteSpecificTagFromLayer(tagsToDelete, layerId: selectedLayerId)
+            totalDeletedTags += affectedTags.count
+            totalAffectedNodes += result.affectedNodeCount
+        }
+        
+        // 显示删除结果
+        lastDeleteResult = "已从层 '\(selectedLayerName)' 批量删除 \(selectedTypes.count) 个标签类型，共 \(totalDeletedTags) 个标签值，影响 \(totalAffectedNodes) 个节点"
+        showingDeleteResult = true
+        
+        // 清理状态
+        selectedTagTypesForDeletion.removeAll()
+    }
+    
     // MARK: - Empty States
     
     private var emptyUnusedStateView: some View {
@@ -598,7 +647,7 @@ struct TagTypeGroupView: View {
         VStack(spacing: 8) {
             // 标签类型头部
             HStack(spacing: 8) {
-                // 主按钮区域（展开/收起）
+                // 主按钮区域（展开/收起） - 扩大点击区域
                 Button(action: onToggleExpansion) {
                     HStack(spacing: 12) {
                         // 展开/收起图标
@@ -628,6 +677,7 @@ struct TagTypeGroupView: View {
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
+                    .contentShape(Rectangle())  // 扩大点击区域到整个矩形
                 }
                 .buttonStyle(.plain)
                 .background(
@@ -639,31 +689,41 @@ struct TagTypeGroupView: View {
                         .stroke(isTagTypeSelected ? Color.accentColor : Color(NSColor.separatorColor), lineWidth: 1)
                 )
                 
-                // 选择和删除按钮区域（仅在有特定层时显示）
-                if selectedLayerId != nil, let onToggleSelection = onToggleTagTypeSelection {
-                    VStack(spacing: 4) {
-                        // 选择按钮
-                        Button(action: onToggleSelection) {
-                            Image(systemName: isTagTypeSelected ? "checkmark.square.fill" : "square")
+                // 选择和删除按钮区域（始终显示，但功能根据层级决定）
+                VStack(spacing: 4) {
+                    // 选择按钮
+                    Button(action: {
+                        if let onToggleSelection = onToggleTagTypeSelection {
+                            onToggleSelection()
+                        }
+                    }) {
+                        Image(systemName: isTagTypeSelected ? "checkmark.square.fill" : "square")
+                            .font(.system(size: 16))  // 增大图标
+                            .foregroundColor(isTagTypeSelected ? .accentColor : .secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(onToggleTagTypeSelection == nil)  // 无层级时禁用但仍显示
+                    .help(selectedLayerId != nil ? 
+                          (isTagTypeSelected ? "取消选择此标签类型" : "选择此标签类型") :
+                          "请先选择一个特定层级")
+                    
+                    // 删除按钮（选中且有层级时显示）
+                    if isTagTypeSelected && selectedLayerId != nil {
+                        Button(action: {
+                            if let onDelete = onDeleteTagType {
+                                onDelete()
+                            }
+                        }) {
+                            Image(systemName: "trash")
                                 .font(.system(size: 14))
-                                .foregroundColor(isTagTypeSelected ? .accentColor : .secondary)
+                                .foregroundColor(.red)
                         }
                         .buttonStyle(.plain)
-                        .help(isTagTypeSelected ? "取消选择此标签类型" : "选择此标签类型")
-                        
-                        // 删除按钮（仅在选中时显示）
-                        if isTagTypeSelected, let onDelete = onDeleteTagType {
-                            Button(action: onDelete) {
-                                Image(systemName: "trash")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.red)
-                            }
-                            .buttonStyle(.plain)
-                            .help("删除此标签类型")
-                        }
+                        .help("删除此标签类型")
                     }
-                    .padding(.vertical, 4)
                 }
+                .padding(.vertical, 4)
+                .padding(.horizontal, 4)
             }
             
             // 展开的内容
