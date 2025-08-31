@@ -146,10 +146,10 @@ struct EnhancedTagUsageView: View {
                                     } : nil,
                                     selectedLayerId: selectedLayerId,
                                     isTagTypeSelected: selectedTagTypesForDeletion.contains(tagType),
-                                    onToggleTagTypeSelection: selectedLayerId != nil ? {
+                                    onToggleTagTypeSelection: {
                                         print("🔘 TagTypeGroupView 中的 onToggleTagTypeSelection 被调用")
                                         toggleTagTypeSelection(tagType)
-                                    } : nil,
+                                    },
                                     onDeleteTagType: {
                                         print("🗑️ TagTypeGroupView 中的 onDeleteTagType 被调用")
                                         confirmDeleteTagType(tagType)
@@ -220,7 +220,13 @@ struct EnhancedTagUsageView: View {
             }
         } message: {
             if let usage = tagToDelete {
-                Text("确定要从层 '\(selectedLayerName)' 删除标签 '\(usage.tagType.displayName): \(usage.tagValue)' 吗？\n\n这将从该层的 \(usage.nodeCount) 个节点中移除此标签。")
+                if selectedLayerId != nil {
+                    // 特定层删除
+                    Text("确定要从层 '\(selectedLayerName)' 删除标签 '\(usage.tagType.displayName): \(usage.tagValue)' 吗？\n\n这将从该层的 \(usage.nodeCount) 个节点中移除此标签。")
+                } else {
+                    // 全局删除
+                    Text("确定要从所有层删除标签 '\(usage.tagType.displayName): \(usage.tagValue)' 吗？\n\n这将从所有层的节点中移除此标签，影响所有层，无法撤销！")
+                }
             }
         }
         .alert("确认删除标签类型", isPresented: $showingTagTypeDeleteConfirmation) {
@@ -234,7 +240,17 @@ struct EnhancedTagUsageView: View {
             if let tagType = tagTypeToDelete {
                 let affectedTags = groupedUsage[tagType] ?? []
                 let totalNodes = Set(affectedTags.flatMap { $0.nodes }.map { $0.id }).count
-                Text("确定要从层 '\(selectedLayerName)' 删除标签类型 '\(tagType.displayName)' 吗？\n\n这将删除该层中所有 \(affectedTags.count) 个标签值，影响 \(totalNodes) 个节点。此操作仅影响当前层，不会影响其他层。")
+                
+                if let selectedLayerId = selectedLayerId {
+                    // 特定层删除
+                    Text("确定要从层 '\(selectedLayerName)' 删除标签类型 '\(tagType.displayName)' 吗？\n\n这将删除该层中所有 \(affectedTags.count) 个标签值，影响 \(totalNodes) 个节点。此操作仅影响当前层，不会影响其他层。")
+                } else {
+                    // 全局删除
+                    let allLayersTags = store.getTagUsageAnalysis().filter { $0.tagType == tagType }
+                    let globalTotalTags = allLayersTags.count
+                    let globalTotalNodes = Set(allLayersTags.flatMap { $0.nodes }.map { $0.id }).count
+                    Text("确定要在所有层中删除标签类型 '\(tagType.displayName)' 吗？\n\n这将从所有层中删除 \(globalTotalTags) 个标签值，影响 \(globalTotalNodes) 个节点。此操作将影响所有层，无法撤销！")
+                }
             }
         }
         .alert("批量删除标签类型", isPresented: $showingBatchTagTypeDeleteConfirmation) {
@@ -244,14 +260,29 @@ struct EnhancedTagUsageView: View {
             }
         } message: {
             let selectedTypes = Array(selectedTagTypesForDeletion)
-            let totalTags = selectedTypes.flatMap { tagType in
-                groupedUsage[tagType] ?? []
-            }.count
-            let totalNodes = Set(selectedTypes.flatMap { tagType in
-                (groupedUsage[tagType] ?? []).flatMap { $0.nodes }
-            }.map { $0.id }).count
             
-            Text("确定要从层 '\(selectedLayerName)' 批量删除 \(selectedTypes.count) 个标签类型吗？\n\n这将删除该层中所有 \(totalTags) 个标签值，影响 \(totalNodes) 个节点。此操作仅影响当前层，不会影响其他层。")
+            if let selectedLayerId = selectedLayerId {
+                // 特定层批量删除
+                let totalTags = selectedTypes.flatMap { tagType in
+                    groupedUsage[tagType] ?? []
+                }.count
+                let totalNodes = Set(selectedTypes.flatMap { tagType in
+                    (groupedUsage[tagType] ?? []).flatMap { $0.nodes }
+                }.map { $0.id }).count
+                
+                Text("确定要从层 '\(selectedLayerName)' 批量删除 \(selectedTypes.count) 个标签类型吗？\n\n这将删除该层中所有 \(totalTags) 个标签值，影响 \(totalNodes) 个节点。此操作仅影响当前层，不会影响其他层。")
+            } else {
+                // 全局批量删除
+                let allTagsAnalysis = store.getTagUsageAnalysis()
+                let globalTotalTags = selectedTypes.flatMap { tagType in
+                    allTagsAnalysis.filter { $0.tagType == tagType }
+                }.count
+                let globalTotalNodes = Set(selectedTypes.flatMap { tagType in
+                    allTagsAnalysis.filter { $0.tagType == tagType }.flatMap { $0.nodes }
+                }.map { $0.id }).count
+                
+                Text("确定要在所有层中批量删除 \(selectedTypes.count) 个标签类型吗？\n\n这将从所有层中删除 \(globalTotalTags) 个标签值，影响 \(globalTotalNodes) 个节点。此操作将影响所有层，无法撤销！")
+            }
         }
     }
     
@@ -343,7 +374,7 @@ struct EnhancedTagUsageView: View {
                     .font(.system(size: 11))
                     .disabled(selectedForDeletion.isEmpty)
                     .buttonStyle(.borderedProminent)
-                } else if analysisMode == .usedTags && selectedLayerId != nil && !selectedTagTypesForDeletion.isEmpty {
+                } else if analysisMode == .usedTags && !selectedTagTypesForDeletion.isEmpty {
                     // 已使用标签模式下的批量删除
                     Button("批量删除选中") {
                         showingBatchTagTypeDeleteConfirmation = true
@@ -475,17 +506,21 @@ struct EnhancedTagUsageView: View {
     }
     
     private func confirmDeleteSpecificTag() {
-        guard let usage = tagToDelete,
-              let selectedLayerId = selectedLayerId else { return }
+        guard let usage = tagToDelete else { return }
         
         // 创建要删除的标签
         let tagToDelete = Tag(type: usage.tagType, value: usage.tagValue)
         
-        // 从指定层的节点中删除此特定标签
-        let result = store.batchDeleteSpecificTagFromLayer([tagToDelete], layerId: selectedLayerId)
+        if let selectedLayerId = selectedLayerId {
+            // 从特定层删除
+            let result = store.batchDeleteSpecificTagFromLayer([tagToDelete], layerId: selectedLayerId)
+            lastDeleteResult = "已从层 '\(selectedLayerName)' 删除标签 '\(usage.tagType.displayName): \(usage.tagValue)'，影响 \(result.affectedNodeCount) 个节点"
+        } else {
+            // 从所有层删除
+            let result = store.batchDeleteSpecificTags([tagToDelete])
+            lastDeleteResult = "已从所有层删除标签 '\(usage.tagType.displayName): \(usage.tagValue)'，影响 \(result.affectedNodeCount) 个节点"
+        }
         
-        // 显示删除结果
-        lastDeleteResult = "已从层 '\(selectedLayerName)' 删除标签 '\(usage.tagType.displayName): \(usage.tagValue)'，影响 \(result.affectedNodeCount) 个节点"
         showingDeleteResult = true
         
         // 清理状态
@@ -717,13 +752,11 @@ struct TagTypeGroupView: View {
                             .foregroundColor(isTagTypeSelected ? .accentColor : (selectedLayerId != nil ? .primary : .secondary))
                     }
                     .buttonStyle(.plain)
-                    .disabled(selectedLayerId == nil)  // 只有在没有层级时才禁用
-                    .help(selectedLayerId != nil ? 
-                          (isTagTypeSelected ? "取消选择此标签类型" : "选择此标签类型") :
-                          "请先选择一个特定层级")
+                    .help(isTagTypeSelected ? "取消选择此标签类型" : 
+                          (selectedLayerId != nil ? "选择此标签类型（仅当前层）" : "选择标签类型（全局）"))
                     
-                    // 删除整个标签类型按钮（选中且有层级时显示）
-                    if isTagTypeSelected && selectedLayerId != nil {
+                    // 删除整个标签类型按钮（选中时显示）
+                    if isTagTypeSelected {
                         Button(action: {
                             print("🗑️ 删除标签类型按钮被点击: \(tagType.displayName)")
                             onDeleteTagType?()
@@ -733,7 +766,9 @@ struct TagTypeGroupView: View {
                                 .foregroundColor(.red)
                         }
                         .buttonStyle(.plain)
-                        .help("删除整个标签类型（所有标签值）")
+                        .help(selectedLayerId != nil ? 
+                              "从当前层删除整个标签类型" : 
+                              "全局删除整个标签类型（所有层）")
                     }
                 }
                 .padding(.vertical, 6)
@@ -751,10 +786,10 @@ struct TagTypeGroupView: View {
                         TagUsageRow(
                             usage: usage,
                             onTap: { onSelectUsage(usage) },
-                            onDelete: selectedLayerId != nil ? {
+                            onDelete: {
                                 print("🗑️ 删除具体标签值: \(tagType.displayName) - \(usage.tagValue)")
                                 onDeleteUsage?(usage)
-                            } : nil
+                            }
                         )
                     }
                 }
