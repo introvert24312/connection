@@ -3182,13 +3182,13 @@ struct TagManagerView: View {
     @State private var showSystemTags: Bool = false  // 默认隐藏系统标签
     @State private var showingTagEditSheet: Bool = false  // 控制标签编辑弹窗
     @State private var selectedModule: TagManagerModule = .tagManagement  // 当前选择的模块
+    @State private var searchText: String = ""  // 搜索文本
     @FocusState private var isViewFocused: Bool
     
-    // 定义三个模块
+    // 定义两个模块
     enum TagManagerModule: String, CaseIterable {
         case tagManagement = "标签管理"
         case usageAnalysis = "使用分析"  
-        case batchManagement = "批量管理"
     }
     
     let onDismiss: () -> Void
@@ -3198,9 +3198,18 @@ struct TagManagerView: View {
         let allMappings = tagManager.tagMappings
         
         return allMappings.filter { mapping in
+            // 系统标签过滤
             if !showSystemTags && shouldHideSystemTag(mapping) {
                 return false
             }
+            
+            // 搜索过滤
+            if !searchText.isEmpty {
+                let searchLower = searchText.lowercased()
+                return mapping.key.lowercased().contains(searchLower) || 
+                       mapping.typeName.lowercased().contains(searchLower)
+            }
+            
             return true
         }.sorted { $0.typeName.localizedCompare($1.typeName) == .orderedAscending }
     }
@@ -3222,75 +3231,84 @@ struct TagManagerView: View {
                 .focused($isViewFocused)
             
             VStack(spacing: 0) {
-                // 标题栏
+                // 标题栏 + 模块切换（合并到一行）
                 HStack {
-                    Text("标签系统")
-                        .font(.title)
-                        .fontWeight(.semibold)
+                    // 左侧：醒目的模块切换按钮组
+                    HStack(spacing: 4) {
+                        ForEach(TagManagerModule.allCases, id: \.self) { module in
+                            Button {
+                                selectedModule = module
+                            } label: {
+                                Text(module.rawValue)
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(selectedModule == module ? .white : .primary)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 10)
+                                    .background(selectedModule == module ? Color.accentColor : Color(NSColor.controlBackgroundColor))
+                                    .cornerRadius(8)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(selectedModule == module ? Color.clear : Color(NSColor.separatorColor), lineWidth: 1)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .help("切换到\(module.rawValue)模块")
+                        }
+                    }
                     
                     Spacer()
                     
-                    // 显示系统标签开关
-                    Button(action: { showSystemTags.toggle() }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: showSystemTags ? "eye" : "eye.slash")
-                                .font(.system(size: 14))
-                                .foregroundColor(.secondary)
-                            Text("系统标签")
-                                .font(.system(size: 14))
-                                .foregroundColor(.secondary)
+                    // 右侧：功能按钮和关闭按钮
+                    HStack(spacing: 12) {
+                        // 显示系统标签开关
+                        Button(action: { showSystemTags.toggle() }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: showSystemTags ? "eye" : "eye.slash")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.secondary)
+                                Text("系统标签")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color(NSColor.controlBackgroundColor))
+                            .cornerRadius(6)
                         }
-                    }
-                    .buttonStyle(.plain)
-                    .help(showSystemTags ? "隐藏系统标签" : "显示系统标签")
-                    
-                    // 重新扫描按钮
-                    Button(action: {
-                        tagManager.rescanAndUpdateMappings()
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 14))
-                                .foregroundColor(.secondary)
-                            Text("重新扫描")
-                                .font(.system(size: 14))
-                                .foregroundColor(.secondary)
+                        .buttonStyle(.plain)
+                        .help(showSystemTags ? "隐藏系统标签" : "显示系统标签")
+                        
+                        // 重新扫描按钮
+                        Button(action: {
+                            tagManager.rescanAndUpdateMappings()
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.secondary)
+                                Text("重新扫描")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color(NSColor.controlBackgroundColor))
+                            .cornerRadius(6)
                         }
-                    }
-                    .buttonStyle(.plain)
-                    .help("重新扫描现有标签并创建缺失的映射")
-                    
-                    Button(action: onDismiss) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
-                            .font(.title2)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-                .background(.ultraThinMaterial)
-                
-                // 模块切换按钮
-                HStack(spacing: 0) {
-                    ForEach(TagManagerModule.allCases, id: \.self) { module in
-                        Button {
-                            selectedModule = module
-                        } label: {
-                            Text(module.rawValue)
-                                .font(.system(size: 14, weight: .medium))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(selectedModule == module ? Color.accentColor : Color.clear)
-                                .foregroundColor(selectedModule == module ? .white : .primary)
+                        .buttonStyle(.plain)
+                        .help("重新扫描现有标签并创建缺失的映射")
+                        
+                        // 关闭按钮
+                        Button(action: onDismiss) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.secondary)
+                                .font(.title2)
                         }
                         .buttonStyle(.plain)
                     }
                 }
-                .background(Color(NSColor.controlBackgroundColor))
-                .cornerRadius(8)
                 .padding(.horizontal, 20)
-                .padding(.vertical, 12)
+                .padding(.vertical, 16)
                 .background(.ultraThinMaterial)
                 
                 Divider()
@@ -3301,10 +3319,7 @@ struct TagManagerView: View {
                     case .tagManagement:
                         tagManagementContent
                     case .usageAnalysis:
-                        TagUsageVisualizationView()
-                            .environmentObject(store)
-                    case .batchManagement:
-                        TagBatchManagementView()
+                        EnhancedTagUsageView()
                             .environmentObject(store)
                     }
                 }
@@ -3333,31 +3348,37 @@ struct TagManagerView: View {
     // 标签管理内容
     private var tagManagementContent: some View {
         VStack(spacing: 0) {
-            // 系统标签开关栏
+            // 搜索框
             HStack {
-                Button(action: { showSystemTags.toggle() }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: showSystemTags ? "eye" : "eye.slash")
-                            .font(.system(size: 14))
-                        Text("系统标签")
-                            .font(.system(size: 14))
-                    }
+                Image(systemName: "magnifyingglass")
                     .foregroundColor(.secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .cornerRadius(6)
-                }
-                .buttonStyle(.plain)
+                    .font(.system(size: 14))
                 
-                Spacer()
+                TextField("搜索标签映射（快捷键或类型名称）...", text: $searchText)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 14))
+                
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                            .font(.system(size: 12))
+                    }
+                    .buttonStyle(.plain)
+                }
             }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color(NSColor.textBackgroundColor))
+            .cornerRadius(8)
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
             .background(.ultraThinMaterial)
             
             Divider()
-                
+            
             // 现有标签列表
                 ScrollView {
                     LazyVStack(spacing: 0) {
@@ -3388,62 +3409,21 @@ struct TagManagerView: View {
                 
                 // 功能按钮区域
                 VStack(spacing: 12) {
-                    // 主要功能按钮行
-                    HStack(spacing: 12) {
-                        // 添加新标签按钮
-                        Button {
-                            showingTagEditSheet = true
-                        } label: {
-                            HStack {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.title3)
-                                Text("添加新标签")
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(Color.accentColor.opacity(0.1))
-                            .foregroundColor(.accentColor)
-                            .cornerRadius(8)
-                        }
-                        .buttonStyle(.plain)
-                        
-                            // 批量管理按钮
-                        Button {
-                            selectedModule = .batchManagement
-                        } label: {
-                            HStack {
-                                Image(systemName: "trash.fill")
-                                    .font(.title3)
-                                Text("批量管理")
-                                    .font(.subheadline)
-                                    .fontWeight(.medium)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(Color.orange.opacity(0.1))
-                            .foregroundColor(.orange)
-                            .cornerRadius(8)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    
-                    // 使用分析按钮（独占一行）
+                    // 添加新标签按钮（居中显示）
                     Button {
-                        selectedModule = .usageAnalysis
+                        showingTagEditSheet = true
                     } label: {
                         HStack {
-                            Image(systemName: "chart.bar.fill")
+                            Image(systemName: "plus.circle.fill")
                                 .font(.title3)
-                            Text("标签使用分析")
+                            Text("添加新标签")
                                 .font(.subheadline)
                                 .fontWeight(.medium)
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Color.blue.opacity(0.1))
-                        .foregroundColor(.blue)
+                        .padding(.vertical, 12)
+                        .background(Color.accentColor.opacity(0.1))
+                        .foregroundColor(.accentColor)
                         .cornerRadius(8)
                     }
                     .buttonStyle(.plain)
@@ -3581,66 +3561,70 @@ struct TagMappingRow: View {
     
     var body: some View {
         let _ = print("🎨 TagMappingRow: 渲染 id=\(mapping.id), key=\(mapping.key), typeName=\(mapping.typeName)")
-        return HStack {
-            // 标签颜色指示器
-            Circle()
-                .fill(Color.from(tagType: mapping.tagType))
-                .frame(width: 12, height: 12)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) {
-                    Text(mapping.key)
-                        .font(.system(size: 18, weight: .medium))
-                    
-                    if isBuiltInCore {
-                        Text("系统")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 1)
-                            .background(
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(Color.orange)
-                            )
+        return Button(action: isBuiltInCore ? {} : onEdit) {
+            HStack {
+                // 标签颜色指示器
+                Circle()
+                    .fill(Color.from(tagType: mapping.tagType))
+                    .frame(width: 12, height: 12)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 4) {
+                        Text(mapping.key)
+                            .font(.system(size: 18, weight: .medium))
+                        
+                        if isBuiltInCore {
+                            Text("系统")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .fill(Color.orange)
+                                )
+                        }
                     }
+                    
+                    Text("→ \(mapping.typeName)")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
                 }
                 
-                Text("→ \(mapping.typeName)")
+                Spacer()
+                
+                Text(mapping.typeName)
                     .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            Text(mapping.typeName)
-                .font(.subheadline)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 2)
-                .background(
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.from(tagType: mapping.tagType).opacity(0.2))
-                )
-                .foregroundColor(Color.from(tagType: mapping.tagType))
-            
-            Button(action: onEdit) {
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.from(tagType: mapping.tagType).opacity(0.2))
+                    )
+                    .foregroundColor(Color.from(tagType: mapping.tagType))
+                
+                // 编辑图标（仅作为视觉提示）
                 Image(systemName: "pencil")
                     .font(.caption)
                     .foregroundColor(isBuiltInCore ? .gray : .blue)
+                
+                // 删除按钮保持独立（避免误删）
+                Button(action: onDelete) {
+                    Image(systemName: "trash")
+                        .font(.caption)
+                        .foregroundColor(isBuiltInCore ? .gray : .red)
+                }
+                .buttonStyle(.plain)
+                .disabled(isBuiltInCore)
             }
-            .buttonStyle(.plain)
-            .disabled(isBuiltInCore)
-            
-            Button(action: onDelete) {
-                Image(systemName: "trash")
-                    .font(.caption)
-                    .foregroundColor(isBuiltInCore ? .gray : .red)
-            }
-            .buttonStyle(.plain)
-            .disabled(isBuiltInCore)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 8)
+            .background(Color.clear)
+            .contentShape(Rectangle())  // 确保整个区域都可以点击
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 8)
-        .background(Color.clear)
+        .buttonStyle(.plain)
+        .disabled(isBuiltInCore)
+        .help(isBuiltInCore ? "系统标签不可编辑" : "点击编辑标签映射")
     }
 }
 

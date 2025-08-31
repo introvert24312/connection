@@ -40,13 +40,6 @@ struct TagBatchManagementView: View {
             
             Divider()
             
-            // 模式选择
-            modeSelectionView
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-            
-            Divider()
-            
             // 搜索框
             searchView
                 .padding(.horizontal, 16)
@@ -121,50 +114,34 @@ struct TagBatchManagementView: View {
             
             Spacer()
             
-            Button("关闭") {
-                dismiss()
-            }
-            .buttonStyle(.borderless)
-            .foregroundColor(.secondary)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-    }
-    
-    // MARK: - Mode Selection
-    
-    private var modeSelectionView: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("操作模式")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.primary)
-            
-            VStack(spacing: 4) {
-                RadioButton(
-                    title: "🗑️ 清理未使用的标签（推荐）",
-                    subtitle: "找出从未使用过的标签映射，一键清理",
+            // 操作模式选择（紧凑式按钮组）
+            HStack(spacing: 8) {
+                ModeButton(
+                    title: "清理未使用",
                     isSelected: mode == .deleteUnusedMappings
                 ) {
                     mode = .deleteUnusedMappings
                 }
                 
-                RadioButton(
+                ModeButton(
                     title: "删除具体标签",
-                    subtitle: "选择要删除的具体标签值",
                     isSelected: mode == .deleteSpecificTags
                 ) {
                     mode = .deleteSpecificTags
                 }
                 
-                RadioButton(
-                    title: "删除整个标签类型",
-                    subtitle: "删除选中类型的所有标签",
+                ModeButton(
+                    title: "删除标签类型",
                     isSelected: mode == .deleteByType
                 ) {
                     mode = .deleteByType
                 }
             }
+            
+            Spacer()
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
     
     // MARK: - Search View
@@ -198,12 +175,11 @@ struct TagBatchManagementView: View {
     private var bottomActionView: some View {
         HStack {
             if mode == .deleteUnusedMappings {
-                // 未使用标签模式的快捷操作
-                Button("🚀 一键清理未使用") {
-                    selectAllUnusedAndDelete()
+                // 全选按钮（移到左边）
+                Button(allSelected ? "取消全选" : "全选未使用") {
+                    toggleSelectAll()
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(tagSelections.isEmpty || isProcessing)
+                .disabled(tagSelections.isEmpty)
                 
                 Spacer()
                 
@@ -215,11 +191,12 @@ struct TagBatchManagementView: View {
                 
                 Spacer()
                 
-                // 全选按钮
-                Button(allSelected ? "取消全选" : "全选未使用") {
-                    toggleSelectAll()
+                // 未使用标签模式的快捷操作（移到右边）
+                Button("删除") {
+                    selectAllUnusedAndDelete()
                 }
-                .disabled(tagSelections.isEmpty)
+                .buttonStyle(.borderedProminent)
+                .disabled(tagSelections.isEmpty || isProcessing)
             } else {
                 // 其他模式的常规操作
                 Button(allSelected ? "取消全选" : "全选") {
@@ -404,7 +381,8 @@ struct TagBatchManagementView: View {
                 let mappingsToDelete = store.findUnusedTagMappings()
                 let selectedMappings = mappingsToDelete.filter { mapping in
                     selectedItems.contains { item in
-                        item.tagType == mapping.tagType
+                        // 更精确的匹配：使用key和typeName
+                        item.tagValue == "[\(mapping.key)] \(mapping.typeName)"
                     }
                 }
                 
@@ -421,6 +399,10 @@ struct TagBatchManagementView: View {
             
             lastResult = result
             isProcessing = false
+            
+            // 重新加载数据以反映删除操作的结果
+            loadTagSelections()
+            
             showingResult = true
         }
     }
@@ -477,6 +459,45 @@ struct TagSelectionRow: View {
         .contentShape(Rectangle())
         .onTapGesture {
             onSelectionChanged(!isSelected)
+        }
+    }
+}
+
+struct ModeButton: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(isSelected ? .white : .primary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(isSelected ? Color.accentColor : Color(NSColor.controlBackgroundColor))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(isSelected ? Color.clear : Color(NSColor.separatorColor), lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .help(modeDescription)
+    }
+    
+    private var modeDescription: String {
+        switch title {
+        case "清理未使用":
+            return "找出从未使用过的标签映射，一键清理"
+        case "删除具体标签":
+            return "选择要删除的具体标签值"
+        case "删除标签类型":
+            return "删除选中类型的所有标签"
+        default:
+            return title
         }
     }
 }

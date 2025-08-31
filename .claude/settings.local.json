@@ -69,7 +69,8 @@
       "WebFetch(domain:developer.apple.com)",
       "Bash(true)",
       "Bash(xcrun:*)",
-      "Bash(touch:*)"
+      "Bash(touch:*)",
+      "Bash(uuidgen:*)"
     ],
     "deny": []
   }

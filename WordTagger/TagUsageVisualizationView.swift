@@ -19,9 +19,14 @@ struct EnhancedTagUsageView: View {
     // 批量管理功能状态
     @State private var analysisMode: AnalysisMode = .usedTags
     @State private var selectedForDeletion: Set<String> = []  // 选中要删除的项目
+    @State private var selectedTagTypesForDeletion: Set<Tag.TagType> = []  // 选中要删除的标签类型
     @State private var showingDeleteConfirmation = false
     @State private var showingDeleteResult = false
     @State private var lastDeleteResult: String?
+    
+    // 标签类型删除确认状态
+    @State private var showingTagTypeDeleteConfirmation = false
+    @State private var tagTypeToDelete: Tag.TagType?
     
     enum SortMode: String, CaseIterable {
         case byUsageCount = "按使用次数"
@@ -138,7 +143,14 @@ struct EnhancedTagUsageView: View {
                                     onDeleteUsage: selectedLayerId != nil ? { usage in
                                         deleteSpecificTagFromLayer(usage)
                                     } : nil,
-                                    selectedLayerId: selectedLayerId
+                                    selectedLayerId: selectedLayerId,
+                                    isTagTypeSelected: selectedTagTypesForDeletion.contains(tagType),
+                                    onToggleTagTypeSelection: selectedLayerId != nil ? {
+                                        toggleTagTypeSelection(tagType)
+                                    } : nil,
+                                    onDeleteTagType: selectedLayerId != nil && selectedTagTypesForDeletion.contains(tagType) ? {
+                                        confirmDeleteTagType(tagType)
+                                    } : nil
                                 )
                             }
                         }
@@ -206,6 +218,20 @@ struct EnhancedTagUsageView: View {
         } message: {
             if let usage = tagToDelete {
                 Text("确定要从层 '\(selectedLayerName)' 删除标签 '\(usage.tagType.displayName): \(usage.tagValue)' 吗？\n\n这将从该层的 \(usage.nodeCount) 个节点中移除此标签。")
+            }
+        }
+        .alert("确认删除标签类型", isPresented: $showingTagTypeDeleteConfirmation) {
+            Button("取消", role: .cancel) { 
+                tagTypeToDelete = nil
+            }
+            Button("删除", role: .destructive) {
+                confirmDeleteTagType()
+            }
+        } message: {
+            if let tagType = tagTypeToDelete {
+                let affectedTags = groupedUsage[tagType] ?? []
+                let totalNodes = Set(affectedTags.flatMap { $0.nodes }.map { $0.id }).count
+                Text("确定要从层 '\(selectedLayerName)' 删除标签类型 '\(tagType.displayName)' 吗？\n\n这将删除该层中所有 \(affectedTags.count) 个标签值，影响 \(totalNodes) 个节点。此操作仅影响当前层，不会影响其他层。")
             }
         }
     }
@@ -398,6 +424,21 @@ struct EnhancedTagUsageView: View {
         showingSpecificTagDeleteConfirmation = true
     }
     
+    // 切换标签类型选择状态
+    private func toggleTagTypeSelection(_ tagType: Tag.TagType) {
+        if selectedTagTypesForDeletion.contains(tagType) {
+            selectedTagTypesForDeletion.remove(tagType)
+        } else {
+            selectedTagTypesForDeletion.insert(tagType)
+        }
+    }
+    
+    // 确认删除标签类型
+    private func confirmDeleteTagType(_ tagType: Tag.TagType) {
+        tagTypeToDelete = tagType
+        showingTagTypeDeleteConfirmation = true
+    }
+    
     private func confirmDeleteSpecificTag() {
         guard let usage = tagToDelete,
               let selectedLayerId = selectedLayerId else { return }
@@ -414,6 +455,27 @@ struct EnhancedTagUsageView: View {
         
         // 清理状态
         self.tagToDelete = nil
+    }
+    
+    // 确认删除标签类型
+    private func confirmDeleteTagType() {
+        guard let tagType = tagTypeToDelete,
+              let selectedLayerId = selectedLayerId else { return }
+        
+        // 获取该标签类型的所有标签值
+        let affectedTags = groupedUsage[tagType] ?? []
+        let tagsToDelete = affectedTags.map { Tag(type: $0.tagType, value: $0.tagValue) }
+        
+        // 从指定层删除所有这个类型的标签
+        let result = store.batchDeleteSpecificTagFromLayer(tagsToDelete, layerId: selectedLayerId)
+        
+        // 显示删除结果
+        lastDeleteResult = "已从层 '\(selectedLayerName)' 删除标签类型 '\(tagType.displayName)' 的所有标签，共 \(affectedTags.count) 个标签值，影响 \(result.affectedNodeCount) 个节点"
+        showingDeleteResult = true
+        
+        // 清理状态
+        tagTypeToDelete = nil
+        selectedTagTypesForDeletion.remove(tagType)
     }
     
     // MARK: - Empty States
@@ -517,6 +579,11 @@ struct TagTypeGroupView: View {
     let onDeleteUsage: ((TagUsageInfo) -> Void)? // 可选的删除回调
     let selectedLayerId: UUID? // 当前选择的层ID
     
+    // 标签类型选择和删除功能
+    let isTagTypeSelected: Bool
+    let onToggleTagTypeSelection: (() -> Void)?
+    let onDeleteTagType: (() -> Void)?
+    
     private var totalNodeCount: Int {
         usageList.reduce(0) { $0 + $1.nodeCount }
     }
@@ -530,45 +597,74 @@ struct TagTypeGroupView: View {
     var body: some View {
         VStack(spacing: 8) {
             // 标签类型头部
-            Button(action: onToggleExpansion) {
-                HStack(spacing: 12) {
-                    // 展开/收起图标
-                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.secondary)
-                        .frame(width: 12)
-                    
-                    // 标签类型名称
-                    Text(tagType.displayName)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.primary)
-                    
-                    Spacer()
-                    
-                    // 统计信息
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text("\(usageList.count) 个标签值")
-                            .font(.system(size: 11))
+            HStack(spacing: 8) {
+                // 主按钮区域（展开/收起）
+                Button(action: onToggleExpansion) {
+                    HStack(spacing: 12) {
+                        // 展开/收起图标
+                        Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundColor(.secondary)
+                            .frame(width: 12)
                         
-                        Text("\(uniqueNodeCount) 个节点")
-                            .font(.system(size: 11))
-                            .foregroundColor(.blue)
-                            .fontWeight(.medium)
+                        // 标签类型名称
+                        Text(tagType.displayName)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.primary)
+                        
+                        Spacer()
+                        
+                        // 统计信息
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text("\(usageList.count) 个标签值")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                            
+                            Text("\(uniqueNodeCount) 个节点")
+                                .font(.system(size: 11))
+                                .foregroundColor(.blue)
+                                .fontWeight(.medium)
+                        }
                     }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .buttonStyle(.plain)
                 .background(
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(NSColor.controlBackgroundColor))
+                        .fill(isTagTypeSelected ? Color.accentColor.opacity(0.1) : Color(NSColor.controlBackgroundColor))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color(NSColor.separatorColor), lineWidth: 1)
+                        .stroke(isTagTypeSelected ? Color.accentColor : Color(NSColor.separatorColor), lineWidth: 1)
                 )
+                
+                // 选择和删除按钮区域（仅在有特定层时显示）
+                if selectedLayerId != nil, let onToggleSelection = onToggleTagTypeSelection {
+                    VStack(spacing: 4) {
+                        // 选择按钮
+                        Button(action: onToggleSelection) {
+                            Image(systemName: isTagTypeSelected ? "checkmark.square.fill" : "square")
+                                .font(.system(size: 14))
+                                .foregroundColor(isTagTypeSelected ? .accentColor : .secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help(isTagTypeSelected ? "取消选择此标签类型" : "选择此标签类型")
+                        
+                        // 删除按钮（仅在选中时显示）
+                        if isTagTypeSelected, let onDelete = onDeleteTagType {
+                            Button(action: onDelete) {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.red)
+                            }
+                            .buttonStyle(.plain)
+                            .help("删除此标签类型")
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
             }
-            .buttonStyle(.plain)
             
             // 展开的内容
             if isExpanded {
