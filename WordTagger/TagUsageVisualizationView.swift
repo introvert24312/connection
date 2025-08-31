@@ -147,11 +147,13 @@ struct EnhancedTagUsageView: View {
                                     selectedLayerId: selectedLayerId,
                                     isTagTypeSelected: selectedTagTypesForDeletion.contains(tagType),
                                     onToggleTagTypeSelection: selectedLayerId != nil ? {
+                                        print("🔘 TagTypeGroupView 中的 onToggleTagTypeSelection 被调用")
                                         toggleTagTypeSelection(tagType)
                                     } : nil,
-                                    onDeleteTagType: selectedLayerId != nil && selectedTagTypesForDeletion.contains(tagType) ? {
+                                    onDeleteTagType: {
+                                        print("🗑️ TagTypeGroupView 中的 onDeleteTagType 被调用")
                                         confirmDeleteTagType(tagType)
-                                    } : nil
+                                    }
                                 )
                             }
                         }
@@ -450,11 +452,20 @@ struct EnhancedTagUsageView: View {
     
     // 切换标签类型选择状态
     private func toggleTagTypeSelection(_ tagType: Tag.TagType) {
+        print("🔄 toggleTagTypeSelection 被调用")
+        print("🔄 标签类型: \(tagType.displayName)")
+        print("🔄 当前选中的标签类型: \(selectedTagTypesForDeletion.map { $0.displayName })")
+        
         if selectedTagTypesForDeletion.contains(tagType) {
             selectedTagTypesForDeletion.remove(tagType)
+            print("✅ 移除标签类型: \(tagType.displayName)")
         } else {
             selectedTagTypesForDeletion.insert(tagType)
+            print("✅ 添加标签类型: \(tagType.displayName)")
         }
+        
+        print("🔄 更新后的选中标签类型: \(selectedTagTypesForDeletion.map { $0.displayName })")
+        print("🔄 ----------------------------------------")
     }
     
     // 确认删除标签类型
@@ -689,41 +700,48 @@ struct TagTypeGroupView: View {
                         .stroke(isTagTypeSelected ? Color.accentColor : Color(NSColor.separatorColor), lineWidth: 1)
                 )
                 
-                // 选择和删除按钮区域（始终显示，但功能根据层级决定）
-                VStack(spacing: 4) {
-                    // 选择按钮
+                // 选择和删除按钮区域（始终显示）
+                VStack(spacing: 6) {
+                    // 选择按钮 - 修复点击问题
                     Button(action: {
-                        if let onToggleSelection = onToggleTagTypeSelection {
-                            onToggleSelection()
-                        }
+                        print("🔘 标签类型选择按钮被点击: \(tagType.displayName)")
+                        print("🔘 当前选择状态: \(isTagTypeSelected)")
+                        print("🔘 selectedLayerId: \(selectedLayerId?.uuidString.prefix(8) ?? "nil")")
+                        print("🔘 onToggleTagTypeSelection 是否为空: \(onToggleTagTypeSelection == nil)")
+                        
+                        // 直接调用切换函数
+                        onToggleTagTypeSelection?()
                     }) {
                         Image(systemName: isTagTypeSelected ? "checkmark.square.fill" : "square")
-                            .font(.system(size: 16))  // 增大图标
-                            .foregroundColor(isTagTypeSelected ? .accentColor : .secondary)
+                            .font(.system(size: 18, weight: .medium))  // 进一步增大图标
+                            .foregroundColor(isTagTypeSelected ? .accentColor : (selectedLayerId != nil ? .primary : .secondary))
                     }
                     .buttonStyle(.plain)
-                    .disabled(onToggleTagTypeSelection == nil)  // 无层级时禁用但仍显示
+                    .disabled(selectedLayerId == nil)  // 只有在没有层级时才禁用
                     .help(selectedLayerId != nil ? 
                           (isTagTypeSelected ? "取消选择此标签类型" : "选择此标签类型") :
                           "请先选择一个特定层级")
                     
-                    // 删除按钮（选中且有层级时显示）
+                    // 删除整个标签类型按钮（选中且有层级时显示）
                     if isTagTypeSelected && selectedLayerId != nil {
                         Button(action: {
-                            if let onDelete = onDeleteTagType {
-                                onDelete()
-                            }
+                            print("🗑️ 删除标签类型按钮被点击: \(tagType.displayName)")
+                            onDeleteTagType?()
                         }) {
-                            Image(systemName: "trash")
-                                .font(.system(size: 14))
+                            Image(systemName: "trash.fill")
+                                .font(.system(size: 16, weight: .medium))
                                 .foregroundColor(.red)
                         }
                         .buttonStyle(.plain)
-                        .help("删除此标签类型")
+                        .help("删除整个标签类型（所有标签值）")
                     }
                 }
-                .padding(.vertical, 4)
-                .padding(.horizontal, 4)
+                .padding(.vertical, 6)
+                .padding(.horizontal, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                )
             }
             
             // 展开的内容
@@ -734,7 +752,7 @@ struct TagTypeGroupView: View {
                             usage: usage,
                             onTap: { onSelectUsage(usage) },
                             onDelete: selectedLayerId != nil ? {
-                                // 只在选择了特定层时允许删除
+                                print("🗑️ 删除具体标签值: \(tagType.displayName) - \(usage.tagValue)")
                                 onDeleteUsage?(usage)
                             } : nil
                         )
