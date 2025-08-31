@@ -1046,6 +1046,8 @@ struct VditorWebView: NSViewRepresentable {
                 'Ctrl+D': '',
                 'Cmd+L': '',
                 'Ctrl+L': '',
+                // 🔥 Command+K 智能处理 - 不完全禁用，允许编辑器内部使用
+                // 'Cmd+K': '', // 注释掉，允许编辑器在焦点内时使用
                 // 禁用可能的组合键
                 'Cmd+Shift+O': '',
                 'Cmd+Shift+L': '',
@@ -1107,20 +1109,38 @@ struct VditorWebView: NSViewRepresentable {
                     return false;
                   }
                   
-                  // Command+K: 转发给原生App处理 - 命令面板
+                  // Command+K: 智能处理 - 只有在编辑器未激活时转发给原生App
                   if (e.metaKey && (e.key === 'k' || e.key === 'K')) {
-                    console.log('🔥 拦截 Command+K 快捷键，转发给App处理');
-                    e.preventDefault();
-                    e.stopImmediatePropagation();
+                    // 检查是否在编辑器内部且编辑器有焦点
+                    const activeElement = document.activeElement;
+                    const isInEditor = activeElement && (
+                      activeElement.closest('.vditor-ir') ||
+                      activeElement.closest('.vditor-sv') ||
+                      activeElement.closest('.vditor-wysiwyg') ||
+                      activeElement.classList.contains('vditor-reset') ||
+                      activeElement.tagName === 'TEXTAREA' ||
+                      (activeElement.contentEditable === 'true')
+                    );
                     
-                    try {
-                      window.webkit?.messageHandlers?.bridge?.postMessage({ 
-                        type: 'commandK'
-                      });
-                    } catch(err) {
-                      console.error('无法发送 Command+K 事件:', err);
+                    if (isInEditor) {
+                      console.log('🎯 Command+K 在编辑器内使用，允许编辑器处理');
+                      // 在编辑器内部时，让 Vditor 处理 Command+K（通常用于插入链接等）
+                      // 不阻止默认行为，让编辑器自己处理
+                      return true;
+                    } else {
+                      console.log('🔥 Command+K 在编辑器外使用，转发给App处理');
+                      e.preventDefault();
+                      e.stopImmediatePropagation();
+                      
+                      try {
+                        window.webkit?.messageHandlers?.bridge?.postMessage({ 
+                          type: 'commandK'
+                        });
+                      } catch(err) {
+                        console.error('无法发送 Command+K 事件:', err);
+                      }
+                      return false;
                     }
-                    return false;
                   }
                   
                   // Command+I: 转发给原生App处理 - 快速添加节点
