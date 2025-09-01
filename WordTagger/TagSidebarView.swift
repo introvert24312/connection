@@ -277,12 +277,24 @@ struct TagSidebarView: View {
                     TextField("输入标签类型快速定位...", text: $filter)
                         .textFieldStyle(.plain)
                         .font(.system(size: 14))
-                        .onSubmit {
-                            // 🆕 回车后自动展开所有匹配的标签类型
-                            if !filteredTagTypes.isEmpty {
+                        .onChange(of: filter) { _, newValue in
+                            // 🆕 输入变化时自动展开匹配的标签类型
+                            if !newValue.isEmpty && !filteredTagTypes.isEmpty {
                                 let matchedTypesSet = Set(filteredTagTypes)
                                 store.setExpandedTagTypes(matchedTypesSet)
                                 print("🔍 自动展开 \(filteredTagTypes.count) 个匹配的标签类型: \(filteredTagTypes.map { $0.displayName })")
+                            } else if newValue.isEmpty {
+                                // 清空搜索时，折叠所有标签类型
+                                store.setExpandedTagTypes(Set<Tag.TagType>())
+                                print("🔍 清空搜索，折叠所有标签类型")
+                            }
+                        }
+                        .onSubmit {
+                            // 回车时也展开（保持兼容性）
+                            if !filteredTagTypes.isEmpty {
+                                let matchedTypesSet = Set(filteredTagTypes)
+                                store.setExpandedTagTypes(matchedTypesSet)
+                                print("🔍 回车展开 \(filteredTagTypes.count) 个匹配的标签类型: \(filteredTagTypes.map { $0.displayName })")
                             }
                         }
                 }
