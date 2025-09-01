@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 
 // MARK: - 分层系统模型
 
@@ -574,22 +575,64 @@ public struct Node: Identifiable, Hashable, Codable {
         
         Task { @MainActor in
             let tagManager = TagMappingManager.shared
-            let normalizedKey = tagCode.lowercased() // 确保与TagMappingManager的key规范化一致
+            let normalizedKey = tagCode.lowercased()
             
-            // 查找现有映射（使用规范化的key）
-            if let existingMapping = tagManager.tagMappings.first(where: { $0.key == normalizedKey }) {
-                // 更新现有映射
-                let updatedMapping = TagMapping(id: existingMapping.id, key: normalizedKey, typeName: displayName)
-                tagManager.updateMapping(updatedMapping)
-                print("✅ 已更新标签映射: \(normalizedKey) = \(displayName)")
-            } else {
-                // 创建新映射
+            // 检查映射冲突
+            let conflictResult = tagManager.checkMappingConflict(key: normalizedKey, typeName: displayName)
+            
+            switch conflictResult {
+            case .conflict(let existing, let requested):
+                // 有映射更新请求，显示确认对话框
+                print("🔄 检测到映射更新请求: \(normalizedKey) 从 '\(existing.typeName)' 更新到 '\(requested)'")
+                showMappingUpdateConfirmation(
+                    tagCode: normalizedKey,
+                    currentDisplayName: existing.typeName,
+                    newDisplayName: requested
+                ) { confirmed in
+                    if confirmed {
+                        // 用户确认更新映射
+                        let updatedMapping = TagMapping(id: existing.id, key: normalizedKey, typeName: requested)
+                        tagManager.updateMapping(updatedMapping)
+                        print("✅ 用户确认更新标签映射: \(normalizedKey) = \(requested)")
+                    } else {
+                        print("❌ 用户取消更新映射，保持现有映射: \(normalizedKey) = \(existing.typeName)")
+                    }
+                }
+                
+            case .noConflict(let existingMapping):
+                // 无冲突，映射已存在且相同
+                print("✅ 标签映射已存在且相同: \(normalizedKey) = \(displayName)")
+                
+            case .canCreate:
+                // 可以创建新映射
                 let newMapping = TagMapping(key: normalizedKey, typeName: displayName)
                 tagManager.addMapping(newMapping)
                 print("✅ 已创建标签映射: \(normalizedKey) = \(displayName)")
             }
             
             print("🔄 TagMappingManager将自动触发UI更新")
+        }
+    }
+    
+    /// 显示标签映射更新确认对话框
+    private static func showMappingUpdateConfirmation(
+        tagCode: String,
+        currentDisplayName: String,
+        newDisplayName: String,
+        completion: @escaping (Bool) -> Void
+    ) {
+        DispatchQueue.main.async {
+            let alert = NSAlert()
+            alert.messageText = "更新标签映射"
+            alert.informativeText = "你正在将快捷键 '\(tagCode)' 的显示名从 '\(currentDisplayName)' 更改为 '\(newDisplayName)'。\n\n确定要更新这个映射吗？\n\n更新后，所有使用 '\(tagCode)' 的标签都会显示为 '\(newDisplayName)'。"
+            alert.alertStyle = .informational
+            alert.icon = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: "更新")
+            
+            alert.addButton(withTitle: "确定更新")
+            alert.addButton(withTitle: "取消")
+            
+            let response = alert.runModal()
+            completion(response == .alertFirstButtonReturn)
         }
     }
     

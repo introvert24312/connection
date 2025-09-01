@@ -29,7 +29,7 @@ struct CommandLineEditorSheet: View {
                         handleCancel()
                     }
                     .buttonStyle(.bordered)
-                    .keyboardShortcut(.escape)
+                    .keyboardShortcut(.escape, modifiers: [])
                     
                     Button("保存") {
                         handleSave()

@@ -914,13 +914,9 @@ struct TagEditCommandView: View {
                         let conflictResult = TagMappingManager.shared.checkMappingConflict(key: baseTagKey, typeName: displayName)
                         switch conflictResult {
                         case .conflict(let existing, let requested):
-                            print("❌ 映射冲突：快捷键 '\(baseTagKey)' 已映射到 '\(existing.typeName)'，无法映射到 '\(requested)'")
-                            // 设置错误消息并返回错误，阻止创建标签
-                            await MainActor.run {
-                                mappingConflictMessage = "快捷键 '\(baseTagKey)' 已经映射到 '\(existing.typeName)'，无法同时映射到 '\(requested)'。\n\n请先删除现有映射或使用不同的快捷键。"
-                                showingMappingConflictAlert = true
-                            }
-                            return false
+                            print("🔄 映射更新请求：快捷键 '\(baseTagKey)' 从 '\(existing.typeName)' 更新到 '\(requested)'")
+                            // 继续创建标签，映射更新由 Node.updateTagDisplayName 处理
+                            break
                         case .noConflict(_), .canCreate:
                             let success = TagMappingManager.shared.addMappingIfNeeded(key: baseTagKey, typeName: displayName)
                             if !success {
@@ -1006,15 +1002,9 @@ struct TagEditCommandView: View {
                                 let conflictResult = TagMappingManager.shared.checkMappingConflict(key: displayName, typeName: displayName)
                                 switch conflictResult {
                                 case .conflict(let existing, let requested):
-                                    print("❌ 映射冲突：快捷键 '\(displayName)' 已映射到 '\(existing.typeName)'，无法映射到 '\(requested)'")
-                                    // 设置错误消息
-                                    await MainActor.run {
-                                        mappingConflictMessage = "快捷键 '\(displayName)' 已经映射到 '\(existing.typeName)'，无法同时映射到 '\(requested)'。\n\n请先删除现有映射或使用不同的快捷键。"
-                                        showingMappingConflictAlert = true
-                                    }
-                                    // 跳过这个标签，继续处理下一个
-                                    i += 1
-                                    continue
+                                    print("🔄 映射更新请求：快捷键 '\(displayName)' 从 '\(existing.typeName)' 更新到 '\(requested)'")
+                                    // 继续创建标签，映射更新由 Node.updateTagDisplayName 处理
+                                    break
                                 case .noConflict(_), .canCreate:
                                     let success = TagMappingManager.shared.addMappingIfNeeded(key: displayName, typeName: displayName)
                                     if !success {
@@ -1213,15 +1203,9 @@ struct TagEditCommandView: View {
                         let conflictResult = TagMappingManager.shared.checkMappingConflict(key: displayName, typeName: displayName)
                         switch conflictResult {
                         case .conflict(let existing, let requested):
-                            print("❌ 映射冲突：快捷键 '\(displayName)' 已映射到 '\(existing.typeName)'，无法映射到 '\(requested)'")
-                            // 设置错误消息
-                            await MainActor.run {
-                                mappingConflictMessage = "快捷键 '\(displayName)' 已经映射到 '\(existing.typeName)'，无法同时映射到 '\(requested)'。\n\n请先删除现有映射或使用不同的快捷键。"
-                                showingMappingConflictAlert = true
-                            }
-                            // 跳过这个标签，继续处理下一个
-                            i += 1
-                            continue
+                            print("🔄 映射更新请求：快捷键 '\(displayName)' 从 '\(existing.typeName)' 更新到 '\(requested)'")
+                            // 继续创建标签，映射更新由 Node.updateTagDisplayName 处理
+                            break
                         case .noConflict(_), .canCreate:
                             let success = TagMappingManager.shared.addMappingIfNeeded(key: displayName, typeName: displayName)
                             if !success {
@@ -1332,8 +1316,9 @@ struct TagEditCommandView: View {
                     let conflictResult = tagManager.checkMappingConflict(key: beforeBracket, typeName: insideBracket)
                     switch conflictResult {
                     case .conflict(let existing, let requested):
-                        print("❌ mapTokenToTagType: 映射冲突：快捷键 '\(beforeBracket)' 已映射到 '\(existing.typeName)'，无法映射到 '\(requested)'")
-                        return nil // 返回nil表示无法创建
+                        print("🔄 mapTokenToTagType: 映射更新请求：快捷键 '\(beforeBracket)' 从 '\(existing.typeName)' 更新到 '\(requested)'")
+                        // 不要阻止创建，让标签创建继续进行，映射更新由 Node.updateTagDisplayName 处理
+                        return Tag.TagType.custom(beforeBracket)
                     case .noConflict(_), .canCreate:
                         print("🔍 mapTokenToTagType: '\(token)' -> 创建新的快捷键映射: \(beforeBracket) -> \(insideBracket)")
                         let success = tagManager.addMappingIfNeeded(key: beforeBracket, typeName: insideBracket)
