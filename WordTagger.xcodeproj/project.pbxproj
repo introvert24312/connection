@@ -11,6 +11,8 @@
 		54209B7D2E3F248300388A1B /* ExternalDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54209B7A2E3F248300388A1B /* ExternalDataManager.swift */; };
 		54831DBD2E64470E00CD4724 /* TagBatchManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54831DBC2E64470E00CD4724 /* TagBatchManagementView.swift */; };
 		54831DBF2E64473500CD4724 /* TagUsageVisualizationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54831DBE2E64473500CD4724 /* TagUsageVisualizationView.swift */; };
+		54831DC42E64D09600CD4724 /* TagTypeGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54831DC32E64D09600CD4724 /* TagTypeGraphView.swift */; };
+		54831DC62E64E12700CD4724 /* FullscreenTagTypeGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54831DC52E64E12700CD4724 /* FullscreenTagTypeGraphView.swift */; };
 		A001 /* WordTaggerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101 /* WordTaggerApp.swift */; };
 		A002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B102 /* ContentView.swift */; };
 		A003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B103 /* Assets.xcassets */; };
@@ -47,6 +49,8 @@
 		54209B7B2E3F248300388A1B /* ExternalDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalDataService.swift; sourceTree = "<group>"; };
 		54831DBC2E64470E00CD4724 /* TagBatchManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagBatchManagementView.swift; sourceTree = "<group>"; };
 		54831DBE2E64473500CD4724 /* TagUsageVisualizationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagUsageVisualizationView.swift; sourceTree = "<group>"; };
+		54831DC32E64D09600CD4724 /* TagTypeGraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagTypeGraphView.swift; sourceTree = "<group>"; };
+		54831DC52E64E12700CD4724 /* FullscreenTagTypeGraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullscreenTagTypeGraphView.swift; sourceTree = "<group>"; };
 		B101 /* WordTaggerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordTaggerApp.swift; sourceTree = "<group>"; };
 		B102 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		B103 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -144,6 +148,8 @@
 				R100 /* Resources */,
 				R101 /* ResourceManager.swift */,
 				V100 /* VditorWebView.swift */,
+				54831DC32E64D09600CD4724 /* TagTypeGraphView.swift */,
+				54831DC52E64E12700CD4724 /* FullscreenTagTypeGraphView.swift */,
 			);
 			path = WordTagger;
 			sourceTree = "<group>";
@@ -249,6 +255,8 @@
 				W001 /* WindowFocusManager.swift in Sources */,
 				R002 /* ResourceManager.swift in Sources */,
 				V001 /* VditorWebView.swift in Sources */,
+				54831DC42E64D09600CD4724 /* TagTypeGraphView.swift in Sources */,
+				54831DC62E64E12700CD4724 /* FullscreenTagTypeGraphView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

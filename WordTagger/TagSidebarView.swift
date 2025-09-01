@@ -23,6 +23,8 @@ struct TagSidebarView: View {
     @State private var currentMode: SidebarMode = .tagFiltering  // 默认显示标签筛选模块
     // 注意：expandedTagTypes 现在使用 Store 中的状态，不再是本地 @State
     
+    // 标签类型图谱相关状态（保留以兼容现有代码，但不再使用sheet模式）
+    
     // 窗口焦点管理
     @StateObject private var focusManager = WindowFocusManager.shared
     @State private var windowId = UUID()
@@ -130,6 +132,16 @@ struct TagSidebarView: View {
             guard keyPress.modifiers.contains(.command) else { return .ignored }
             print("🔑 TagSidebarView: Command+2 - 切换到标签搜索模式")
             currentMode = .tagSearch
+            return .handled
+        })
+        .onKeyPress(.init("g"), phases: .down, action: { keyPress in
+            print("🔑 Key 'g' pressed with modifiers: command=\(keyPress.modifiers.contains(.command)), shift=\(keyPress.modifiers.contains(.shift))")
+            guard keyPress.modifiers.contains(.command) && keyPress.modifiers.contains(.shift) else { 
+                print("🔑 Ignoring - wrong modifiers")
+                return .ignored 
+            }
+            print("🔑 TagSidebarView: Command+Shift+G - 打开标签类型图谱")
+            openTagTypeGraphShortcut()
             return .handled
         })
         .onKeyPress(.escape) {
@@ -314,6 +326,19 @@ struct TagSidebarView: View {
                         .foregroundColor(.primary)
                     
                     Spacer()
+                    
+                    // 图谱按钮
+                    Button(action: {
+                        print("🖱️ Network button clicked for tag type: \(tagType.displayName)")
+                        openTagTypeGraphInNewWindow(tagType)
+                    }) {
+                        Image(systemName: "network")
+                            .font(.system(size: 12))
+                            .foregroundColor(.blue)
+                            .opacity(0.8)
+                    }
+                    .buttonStyle(.plain)
+                    .help("查看标签类型关系图谱 (⌘⇧G)")
                     
                     Text("(\(tags.count))")
                         .font(.system(size: 12))
@@ -511,6 +536,54 @@ struct TagSidebarView: View {
         let uniqueTypes = Array(Set(currentLayerTagTypes))
         // 按类型名称排序，确保consistent显示顺序
         return uniqueTypes.sorted { $0.displayName < $1.displayName }
+    }
+    
+    // MARK: - 标签类型图谱相关方法
+    
+    /// 通过快捷键打开标签类型图谱
+    private func openTagTypeGraphShortcut() {
+        print("🔍 openTagTypeGraphShortcut() called")
+        
+        // 检查是否有选中的标签类型
+        if let currentTagType = getCurrentSelectedTagType() {
+            print("🕸️ Found current tag type: \(currentTagType.displayName)")
+            openTagTypeGraphInNewWindow(currentTagType)
+        } else {
+            print("⚠️ 没有选中的标签类型，尝试使用第一个可用的标签类型")
+            
+            // 如果没有选中的，尝试使用第一个可用的标签类型
+            if let firstType = uniqueTagTypes.first {
+                print("🔄 Using first available tag type: \(firstType.displayName)")
+                openTagTypeGraphInNewWindow(firstType)
+            } else {
+                print("❌ No tag types available at all")
+            }
+        }
+    }
+    
+    /// 在新窗口中打开标签类型图谱
+    private func openTagTypeGraphInNewWindow(_ tagType: Tag.TagType) {
+        print("🕸️ 在新窗口中打开标签类型图谱: \(tagType.displayName)")
+        NotificationCenter.default.post(
+            name: NSNotification.Name("openTagTypeGraph"),
+            object: tagType
+        )
+    }
+    
+    /// 获取当前选中的标签类型
+    private func getCurrentSelectedTagType() -> Tag.TagType? {
+        // 如果有选中的具体标签，返回其类型
+        if let selectedTag = store.selectedTag {
+            return selectedTag.type
+        }
+        
+        // 如果没有选中具体标签，可以考虑返回第一个展开的标签类型
+        if let firstExpandedType = store.expandedTagTypes.first {
+            return firstExpandedType
+        }
+        
+        // 如果都没有，返回第一个可用的标签类型
+        return uniqueTagTypes.first
     }
     
     // 获取当前层指定类型的所有标签
@@ -1060,5 +1133,4 @@ struct TagRowView: View {
 //         Text("Detail")
 //     }
 // }
-
 }

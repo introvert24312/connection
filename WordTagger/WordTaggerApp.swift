@@ -2615,6 +2615,7 @@ struct WordTaggerApp: App {
     @State private var showTagManager = false
     @State private var showCompoundNodeAdd = false
     @State private var nodeToEditInManager: Node? = nil
+    @State private var tagTypeForGraph: Tag.TagType?
     
     // 主窗口的唯一标识符
     private let mainWindowId = UUID()
@@ -2900,6 +2901,21 @@ struct WordTaggerApp: App {
                 print("✅ 主窗口: 处理openNodeManager通知 - 打开节点管理")
                 NotificationCenter.default.post(name: NSNotification.Name("executeOpenNodeManager"), object: nil)
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagTypeGraph"))) { notification in
+                // openTagTypeGraph 是全局命令，只在当前key窗口处理
+                guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true, commandName: "openTagTypeGraph") else {
+                    print("🚫 主窗口: 忽略openTagTypeGraph通知 - 非key窗口或冷却期")
+                    return
+                }
+                
+                if let tagType = notification.object as? Tag.TagType {
+                    print("✅ 主窗口: 处理openTagTypeGraph通知 - 打开标签类型图谱: \(tagType.displayName)")
+                    tagTypeForGraph = tagType
+                    NotificationCenter.default.post(name: NSNotification.Name("executeOpenWindow"), object: "tagTypeGraph")
+                } else {
+                    print("❌ 主窗口: openTagTypeGraph通知缺少标签类型信息")
+                }
+            }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("executeOpenNodeManager"))) { notification in
                 // 检查当前窗口是否应该响应此通知
                 guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true, commandName: "executeOpenNodeManager") else {
@@ -3152,6 +3168,19 @@ struct WordTaggerApp: App {
         WindowGroup("全屏图谱", id: "fullscreenGraph") {
             FullscreenGraphView()
                 .environmentObject(store)
+        }
+        .defaultSize(width: 1200, height: 800)
+        .windowToolbarStyle(.unified)
+        
+        // 标签类型图谱窗口
+        WindowGroup("标签类型图谱", id: "tagTypeGraph") {
+            if let tagType = tagTypeForGraph {
+                FullscreenTagTypeGraphView(tagType: tagType)
+                    .environmentObject(store)
+            } else {
+                Text("无效的标签类型")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
         .defaultSize(width: 1200, height: 800)
         .windowToolbarStyle(.unified)
