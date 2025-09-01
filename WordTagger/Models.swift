@@ -925,3 +925,49 @@ public struct TagValueNode {
         self.usageCount = usageCount
     }
 }
+
+// MARK: - 标签类型图谱UniversalRelationshipGraphView适配器
+
+public struct TagTypeGraphNode: UniversalGraphNode {
+    public let id: Int
+    public let label: String
+    public let subtitle: String?
+    public let nodeType: TagGraphNodeType
+    
+    // 用于颜色分配的标识符
+    public var typeIdentifier: String {
+        switch nodeType {
+        case .tagType:
+            return "tagType"
+        case .tagValue(let value, _):
+            return "tagValue_\(value)"
+        case .contentNode(let node):
+            return "contentNode_\(node.id)"
+        }
+    }
+    
+    public init(id: Int, label: String, subtitle: String?, nodeType: TagGraphNodeType) {
+        self.id = id
+        self.label = label
+        self.subtitle = subtitle
+        self.nodeType = nodeType
+    }
+}
+
+public struct TagTypeGraphEdge: UniversalGraphEdge {
+    public let fromId: Int
+    public let toId: Int
+    public let label: String?
+    
+    public init(fromId: Int, toId: Int, label: String? = nil) {
+        self.fromId = fromId
+        self.toId = toId
+        self.label = label
+    }
+}
+
+public enum TagGraphNodeType {
+    case tagType(Tag.TagType)           // 中心节点
+    case tagValue(String, Int)          // 标签值节点 (值, 使用次数)
+    case contentNode(Node)              // 内容节点
+}

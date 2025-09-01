@@ -1046,6 +1046,25 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
             }
         }
         
+        // 检查是否是TagTypeGraphNode（标签类型图谱节点）
+        if let tagTypeNode = node as? TagTypeGraphNode {
+            switch tagTypeNode.nodeType {
+            case .tagType(_):
+                return "#FF6B6B" // 红色表示标签类型中心节点
+            case .tagValue(_, let count):
+                // 根据使用频率分配颜色深度
+                if count > 10 {
+                    return "#4ECDC4" // 青色表示高频标签值
+                } else if count > 5 {
+                    return "#45B7D1" // 蓝色表示中频标签值
+                } else {
+                    return "#96CEB4" // 绿色表示低频标签值
+                }
+            case .contentNode(_):
+                return "#FECA57" // 黄色表示内容节点
+            }
+        }
+        
         // 检查是否是NodeGraphNode，如果是的话根据节点类型分配颜色
         if let wordNode = node as? NodeGraphNode {
             switch wordNode.nodeType {

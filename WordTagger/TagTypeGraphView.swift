@@ -1,10 +1,5 @@
 import SwiftUI
 
-enum TagGraphNodeType {
-    case tagType(Tag.TagType)           // 中心节点
-    case tagValue(String, Int)          // 标签值节点 (值, 使用次数)
-    case contentNode(Node)              // 内容节点
-}
 
 // MARK: - 主视图
 

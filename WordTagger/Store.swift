@@ -2158,6 +2158,62 @@ public final class NodeStore: ObservableObject {
         return TagTypeGraphData(tagType: tagType, tagValues: tagValues)
     }
     
+    /// 获取标签类型图谱的UniversalRelationshipGraphView数据
+    public func getTagTypeUniversalGraphData(for tagType: Tag.TagType) -> (nodes: [TagTypeGraphNode], edges: [TagTypeGraphEdge]) {
+        let data = getTagTypeGraphData(for: tagType)
+        
+        var nodes: [TagTypeGraphNode] = []
+        var edges: [TagTypeGraphEdge] = []
+        var nextId = 1
+        
+        // 1. 添加中心节点（标签类型）
+        let centerNode = TagTypeGraphNode(
+            id: nextId,
+            label: tagType.displayName,
+            subtitle: "标签类型",
+            nodeType: .tagType(tagType)
+        )
+        nodes.append(centerNode)
+        let centerNodeId = nextId
+        nextId += 1
+        
+        // 2. 添加标签值节点和连接线
+        for tagValue in data.tagValues.prefix(20) { // 限制显示数量避免过于复杂
+            let tagValueNodeId = nextId
+            let tagValueNode = TagTypeGraphNode(
+                id: tagValueNodeId,
+                label: tagValue.value,
+                subtitle: "\(tagValue.usageCount)个节点",
+                nodeType: .tagValue(tagValue.value, tagValue.usageCount)
+            )
+            nodes.append(tagValueNode)
+            
+            // 从中心节点到标签值的连接
+            edges.append(TagTypeGraphEdge(fromId: centerNodeId, toId: tagValueNodeId))
+            
+            nextId += 1
+            
+            // 3. 为每个标签值添加部分内容节点（最多5个）
+            for contentNode in tagValue.nodes.prefix(5) {
+                let contentNodeId = nextId
+                let contentGraphNode = TagTypeGraphNode(
+                    id: contentNodeId,
+                    label: String(contentNode.text.prefix(20)) + (contentNode.text.count > 20 ? "..." : ""),
+                    subtitle: "内容节点",
+                    nodeType: .contentNode(contentNode)
+                )
+                nodes.append(contentGraphNode)
+                
+                // 从标签值到内容节点的连接
+                edges.append(TagTypeGraphEdge(fromId: tagValueNodeId, toId: contentNodeId))
+                
+                nextId += 1
+            }
+        }
+        
+        return (nodes: nodes, edges: edges)
+    }
+    
     /// 查找未使用的标签映射
     public func findUnusedTagMappings() -> [TagMapping] {
         let tagManager = TagMappingManager.shared
