@@ -2221,7 +2221,12 @@ public final class NodeStore: ObservableObject {
         let usedTagTypes = Set(allTags.map { $0.type })
         
         return allMappings.filter { mapping in
-            !usedTagTypes.contains(mapping.tagType)
+            // 过滤掉系统标签映射
+            if isSystemTagMapping(mapping) {
+                return false
+            }
+            
+            return !usedTagTypes.contains(mapping.tagType)
         }
     }
     
@@ -2235,8 +2240,27 @@ public final class NodeStore: ObservableObject {
         let usedTagTypesInLayer = Set(layerNodes.flatMap { $0.tags.map { $0.type } })
         
         return allMappings.filter { mapping in
-            !usedTagTypesInLayer.contains(mapping.tagType)
+            // 过滤掉系统标签映射
+            if isSystemTagMapping(mapping) {
+                return false
+            }
+            
+            return !usedTagTypesInLayer.contains(mapping.tagType)
         }
+    }
+    
+    /// 判断是否为系统标签映射
+    private func isSystemTagMapping(_ mapping: TagMapping) -> Bool {
+        let tagManager = TagMappingManager.shared
+        
+        // 检查是否是内置核心标签
+        if tagManager.isBuiltInCoreTag(mapping.key) {
+            return true
+        }
+        
+        // 检查是否是应该隐藏的系统标签
+        let systemTagsToHide = ["compound", "child", "loc"]
+        return systemTagsToHide.contains(mapping.key.lowercased())
     }
     
     /// 从特定层批量删除未使用的标签映射对应的标签
