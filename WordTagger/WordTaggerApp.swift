@@ -3398,6 +3398,19 @@ struct TagManagerView: View {
                 isSearchFieldFocused = true
                 print("🔍 TagManagerView: 设置搜索框焦点")
             }
+            
+            // 额外的延迟重新设置焦点，防止被其他组件抢夺
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                if !isSearchFieldFocused {
+                    isSearchFieldFocused = true
+                    print("🔍 TagManagerView: 重新设置搜索框焦点")
+                }
+            }
+        }
+        .onKeyPress(.escape) {
+            print("⌨️ TagManagerView: ESC键按下，准备关闭")
+            onDismiss()
+            return .handled
         }
     }
     
@@ -3414,6 +3427,9 @@ struct TagManagerView: View {
                     .textFieldStyle(.plain)
                     .font(.system(size: 14))
                     .focused($isSearchFieldFocused)
+                    .onChange(of: isSearchFieldFocused) { _, newValue in
+                        print("🎯 TagManagerView: 搜索框焦点状态变更 = \(newValue)")
+                    }
                 
                 if !searchText.isEmpty {
                     Button {
