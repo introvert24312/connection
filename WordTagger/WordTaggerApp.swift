@@ -1978,11 +1978,17 @@ struct QuickSearchView: View {
             return Array(store.nodes.prefix(10)) // 显示前10个
         } else {
             return store.nodes.filter { node in
+                // 搜索节点文本
                 node.text.localizedCaseInsensitiveContains(searchText) ||
+                // 搜索节点含义
                 node.meaning?.localizedCaseInsensitiveContains(searchText) == true ||
+                // 搜索节点markdown内容
                 node.markdown.localizedCaseInsensitiveContains(searchText) ||
+                // 搜索标签值、标签快捷键(rawValue)、标签显示名
                 node.tags.contains { tag in
-                    tag.value.localizedCaseInsensitiveContains(searchText)
+                    tag.value.localizedCaseInsensitiveContains(searchText) ||
+                    tag.type.rawValue.localizedCaseInsensitiveContains(searchText) ||
+                    tag.type.displayName.localizedCaseInsensitiveContains(searchText)
                 }
             }
         }
