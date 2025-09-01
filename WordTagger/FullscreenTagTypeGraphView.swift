@@ -3,15 +3,23 @@ import SwiftUI
 // MARK: - 全屏标签类型图谱视图
 
 struct FullscreenTagTypeGraphView: View {
-    @State private var currentTagType: Tag.TagType
+    @StateObject private var windowManager = TagGraphWindowManager.shared
     @EnvironmentObject private var store: NodeStore
     @State private var graphNodes: [TagTypeGraphNode] = []
     @State private var graphEdges: [TagTypeGraphEdge] = []
     @State private var isLoading = true
     @AppStorage("tagTypeGraphInitialScale") private var tagTypeGraphInitialScale: Double = 0.8
     
+    // 保留初始标签类型作为fallback
+    private let initialTagType: Tag.TagType
+    
     init(tagType: Tag.TagType) {
-        self._currentTagType = State(initialValue: tagType)
+        self.initialTagType = tagType
+    }
+    
+    // 计算当前应该使用的标签类型
+    private var currentTagType: Tag.TagType {
+        return windowManager.currentTagType ?? initialTagType
     }
     
     var body: some View {
@@ -64,19 +72,46 @@ struct FullscreenTagTypeGraphView: View {
         .navigationTitle("标签类型图谱: \(currentTagType.displayName)")
         .onAppear {
             print("📊 FullscreenTagTypeGraphView appeared for: \(currentTagType.displayName)")
-            loadGraphData()
+            
+            // 标记窗口为可见
+            windowManager.markWindowVisible()
+            
+            // 如果WindowManager有不同的标签类型，更新为WindowManager的类型
+            if let managerTagType = windowManager.currentTagType, managerTagType != initialTagType {
+                print("🔄 FullscreenTagTypeGraphView: 使用WindowManager的标签类型: \(managerTagType.displayName)")
+                loadGraphData()
+            } else if windowManager.currentTagType == nil {
+                // 如果WindowManager没有标签类型，设置为初始类型
+                print("🔄 FullscreenTagTypeGraphView: 设置WindowManager的标签类型为初始类型: \(initialTagType.displayName)")
+                windowManager.updateTagType(initialTagType)
+                loadGraphData()
+            } else {
+                loadGraphData()
+            }
+        }
+        .onDisappear {
+            print("📊 FullscreenTagTypeGraphView disappeared")
+            windowManager.markWindowHidden()
+        }
+        .onReceive(windowManager.$currentTagType) { newTagType in
+            guard let newTagType = newTagType else { return }
+            
+            print("🔄 FullscreenTagTypeGraphView: 接收到WindowManager标签类型更新: \(newTagType.displayName)")
+            print("🔄 当前标签类型: \(currentTagType.displayName)")
+            
+            // 只有当标签类型真的改变时才重新加载
+            if newTagType != currentTagType {
+                print("✅ FullscreenTagTypeGraphView: 标签类型已更改，重新加载数据")
+                loadGraphData()
+            } else {
+                print("ℹ️ FullscreenTagTypeGraphView: 标签类型相同，无需重新加载")
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagTypeGraph"))) { notification in
+            // 保留通知监听作为向后兼容性 - 但主要逻辑已转移到WindowManager
             if let newTagType = notification.object as? Tag.TagType {
-                print("🔄 FullscreenTagTypeGraphView: 接收到新的标签类型: \(newTagType.displayName)")
-                print("🔄 当前标签类型: \(currentTagType.displayName)")
-                if newTagType != currentTagType {
-                    print("✅ FullscreenTagTypeGraphView: 标签类型已更改，重新加载数据")
-                    currentTagType = newTagType
-                    loadGraphData()
-                } else {
-                    print("ℹ️ FullscreenTagTypeGraphView: 标签类型相同，无需重新加载")
-                }
+                print("🔄 FullscreenTagTypeGraphView: 接收到openTagTypeGraph通知 (向后兼容): \(newTagType.displayName)")
+                // WindowManager会处理这个通知，我们这里只做日志记录
             }
         }
     }

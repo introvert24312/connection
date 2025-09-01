@@ -2930,7 +2930,13 @@ struct WordTaggerApp: App {
                 
                 if let tagType = notification.object as? Tag.TagType {
                     print("✅ 主窗口: 处理openTagTypeGraph通知 - 打开标签类型图谱: \(tagType.displayName)")
+                    
+                    // 更新共享的TagGraphWindowManager状态
+                    TagGraphWindowManager.shared.updateTagType(tagType)
+                    
+                    // 保持原有的tagTypeForGraph更新以确保向后兼容
                     tagTypeForGraph = tagType
+                    
                     NotificationCenter.default.post(name: NSNotification.Name("executeOpenWindow"), object: "tagTypeGraph")
                 } else {
                     print("❌ 主窗口: openTagTypeGraph通知缺少标签类型信息")
@@ -3194,12 +3200,40 @@ struct WordTaggerApp: App {
         
         // 标签类型图谱窗口
         WindowGroup("标签类型图谱", id: "tagTypeGraph") {
-            if let tagType = tagTypeForGraph {
+            // 优先使用WindowManager中的标签类型，然后回退到tagTypeForGraph
+            if let tagType = TagGraphWindowManager.shared.currentTagType ?? tagTypeForGraph {
                 FullscreenTagTypeGraphView(tagType: tagType)
                     .environmentObject(store)
+                    .onAppear {
+                        print("🖼️ 标签类型图谱窗口: 窗口已显示，标签类型: \(tagType.displayName)")
+                        // 确保WindowManager状态与实际显示的标签类型同步
+                        if TagGraphWindowManager.shared.currentTagType != tagType {
+                            TagGraphWindowManager.shared.updateTagType(tagType)
+                        }
+                    }
+                    .onDisappear {
+                        print("🖼️ 标签类型图谱窗口: 窗口已隐藏")
+                        TagGraphWindowManager.shared.markWindowHidden()
+                    }
             } else {
-                Text("无效的标签类型")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                VStack(spacing: 16) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 48))
+                        .foregroundColor(.orange)
+                    
+                    Text("无效的标签类型")
+                        .font(.title2)
+                        .fontWeight(.medium)
+                    
+                    Text("请重新选择标签类型以查看图谱")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .onAppear {
+                    print("❌ 标签类型图谱窗口: 无有效标签类型")
+                }
             }
         }
         .defaultSize(width: 1200, height: 800)
