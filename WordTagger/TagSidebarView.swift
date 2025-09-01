@@ -279,14 +279,27 @@ struct TagSidebarView: View {
                         .font(.system(size: 14))
                         .onChange(of: filter) { _, newValue in
                             // 🆕 输入变化时自动展开匹配的标签类型
-                            if !newValue.isEmpty && !filteredTagTypes.isEmpty {
-                                let matchedTypesSet = Set(filteredTagTypes)
-                                store.setExpandedTagTypes(matchedTypesSet)
-                                print("🔍 自动展开 \(filteredTagTypes.count) 个匹配的标签类型: \(filteredTagTypes.map { $0.displayName })")
-                            } else if newValue.isEmpty {
-                                // 清空搜索时，折叠所有标签类型
-                                store.setExpandedTagTypes(Set<Tag.TagType>())
-                                print("🔍 清空搜索，折叠所有标签类型")
+                            // 使用 DispatchQueue 确保计算在下一个运行循环中进行
+                            DispatchQueue.main.async {
+                                print("🔍 搜索词变化: '\(newValue)'")
+                                print("🔍 当前层可用标签类型: \(self.uniqueTagTypes.map { $0.displayName })")
+                                
+                                if !newValue.isEmpty {
+                                    let matchedTypes = self.filteredTagTypes
+                                    print("🔍 匹配到的标签类型: \(matchedTypes.map { $0.displayName })")
+                                    
+                                    if !matchedTypes.isEmpty {
+                                        let matchedTypesSet = Set(matchedTypes)
+                                        store.setExpandedTagTypes(matchedTypesSet)
+                                        print("🔍 自动展开 \(matchedTypes.count) 个匹配的标签类型: \(matchedTypes.map { $0.displayName })")
+                                    } else {
+                                        print("🔍 没有匹配的标签类型，保持当前状态")
+                                    }
+                                } else {
+                                    // 清空搜索时，折叠所有标签类型
+                                    store.setExpandedTagTypes(Set<Tag.TagType>())
+                                    print("🔍 清空搜索，折叠所有标签类型")
+                                }
                             }
                         }
                         .onSubmit {
