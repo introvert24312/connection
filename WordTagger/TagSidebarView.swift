@@ -10,6 +10,7 @@ struct TagSidebarView: View {
     @State private var selectedTagTypes: Set<Tag.TagType> = []
     @State private var expandedGroups: Set<Tag.TagType> = []
     @State private var hiddenTagTypes: Set<Tag.TagType> = [] // 默认不隐藏任何标签
+    @State private var searchParsedTagTypes: Set<Tag.TagType> = [] // 跟踪从搜索解析出的标签类型
     @Binding var selectedNode: Node?
     @State private var selectedIndex: Int = -1
     @FocusState private var isListFocused: Bool
@@ -277,11 +278,11 @@ struct TagSidebarView: View {
                         .textFieldStyle(.plain)
                         .font(.system(size: 14))
                         .onSubmit {
-                            // 回车后自动展开匹配的第一个标签类型
+                            // 🆕 回车后自动展开所有匹配的标签类型
                             if !filteredTagTypes.isEmpty {
-                                let firstType = filteredTagTypes[0]
-                                store.setExpandedTagTypes([firstType])
-                                print("🔍 自动展开第一个匹配的标签类型: \(firstType.displayName)")
+                                let matchedTypesSet = Set(filteredTagTypes)
+                                store.setExpandedTagTypes(matchedTypesSet)
+                                print("🔍 自动展开 \(filteredTagTypes.count) 个匹配的标签类型: \(filteredTagTypes.map { $0.displayName })")
                             }
                         }
                 }
@@ -292,10 +293,36 @@ struct TagSidebarView: View {
                 )
                 
                 if !filter.isEmpty {
-                    Text("匹配 \(filteredTagTypes.count) 个标签类型")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
+                    let searchTerms = filter.components(separatedBy: .whitespaces)
+                        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                        .filter { !$0.isEmpty }
+                    
+                    if searchTerms.count > 1 {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("匹配 \(filteredTagTypes.count) 个标签类型（多词搜索）")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+                            
+                            // 显示搜索词
+                            HStack(spacing: 4) {
+                                ForEach(searchTerms, id: \.self) { term in
+                                    Text(term)
+                                        .font(.system(size: 10))
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.blue.opacity(0.1))
+                                        .foregroundColor(.blue)
+                                        .cornerRadius(4)
+                                }
+                            }
+                        }
                         .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        Text("匹配 \(filteredTagTypes.count) 个标签类型")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
             }
             .padding(.horizontal, 12)
@@ -500,6 +527,43 @@ struct TagSidebarView: View {
                             .padding(.horizontal, 4)
                         }
                         .frame(maxHeight: 40)
+                        
+                        // 🆕 多标签类型解析提示
+                        let searchTerms = tagTypeSearchQuery.components(separatedBy: .whitespaces)
+                            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                            .filter { !$0.isEmpty }
+                        
+                        if searchTerms.count > 1 {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("多标签类型搜索")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(.blue)
+                                
+                                HStack {
+                                    Text("解析到 \(searchTerms.count) 个搜索词:")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(.secondary)
+                                    
+                                    ForEach(searchTerms, id: \.self) { term in
+                                        Text("'\(term)'")
+                                            .font(.system(size: 11, weight: .medium))
+                                            .foregroundColor(.blue)
+                                            .padding(.horizontal, 4)
+                                            .padding(.vertical, 1)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 4)
+                                                    .fill(Color.blue.opacity(0.1))
+                                            )
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(Color.blue.opacity(0.05))
+                            )
+                        }
                     }
                     
                     // 已选择的标签类型
@@ -513,6 +577,7 @@ struct TagSidebarView: View {
                                 ForEach(Array(selectedTagTypes.sorted(by: { $0.displayName < $1.displayName })), id: \.self) { type in
                                     SelectedTagTypeChip(
                                         type: type,
+                                        isSearchParsed: searchParsedTagTypes.contains(type),
                                         onRemove: {
                                             removeTagType(type)
                                         }
@@ -530,6 +595,8 @@ struct TagSidebarView: View {
                                 Button("清空") {
                                     selectedTagTypes.removeAll()
                                     expandedGroups.removeAll()
+                                    searchParsedTagTypes.removeAll()
+                                    print("🧹 清空所有选中的标签类型")
                                 }
                                 .font(.system(size: 14))
                                 .foregroundColor(.blue)
@@ -596,31 +663,45 @@ struct TagSidebarView: View {
         return uniqueTypes.sorted { $0.displayName < $1.displayName }
     }
     
-    // 根据搜索过滤的标签类型
+    // 根据搜索过滤的标签类型 - 支持空格分隔的多标签类型搜索
     private var filteredTagTypes: [Tag.TagType] {
         guard !filter.isEmpty else { return [] }
         
-        return uniqueTagTypes.filter { tagType in
-            // 搜索显示名称
-            if tagType.displayName.localizedCaseInsensitiveContains(filter) {
-                return true
-            }
-            
-            // 搜索rawValue
-            if tagType.rawValue.localizedCaseInsensitiveContains(filter) {
-                return true
-            }
-            
-            // 搜索该类型下的标签值
-            let tagsOfThisType = store.currentLayerTags.filter { $0.type == tagType }
-            for tag in tagsOfThisType {
-                if tag.value.localizedCaseInsensitiveContains(filter) {
+        // 🆕 支持多标签类型搜索语法
+        let searchTerms = filter.components(separatedBy: .whitespaces)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        
+        var allMatchingTypes = Set<Tag.TagType>()
+        
+        // 对每个搜索词查找匹配的标签类型
+        for searchTerm in searchTerms {
+            let matchingTypes = uniqueTagTypes.filter { tagType in
+                // 搜索显示名称
+                if tagType.displayName.localizedCaseInsensitiveContains(searchTerm) {
                     return true
                 }
+                
+                // 搜索rawValue
+                if tagType.rawValue.localizedCaseInsensitiveContains(searchTerm) {
+                    return true
+                }
+                
+                // 搜索该类型下的标签值
+                let tagsOfThisType = store.currentLayerTags.filter { $0.type == tagType }
+                for tag in tagsOfThisType {
+                    if tag.value.localizedCaseInsensitiveContains(searchTerm) {
+                        return true
+                    }
+                }
+                
+                return false
             }
             
-            return false
+            allMatchingTypes.formUnion(matchingTypes)
         }
+        
+        return Array(allMatchingTypes)
     }
     
     // 按匹配优先级排序的标签类型：匹配的在前，非匹配的在后
@@ -791,6 +872,9 @@ struct TagSidebarView: View {
     private func removeTagType(_ tagType: Tag.TagType) {
         selectedTagTypes.remove(tagType)
         expandedGroups.remove(tagType)
+        // 如果移除的是搜索解析的标签类型，也要从搜索解析记录中移除
+        searchParsedTagTypes.remove(tagType)
+        print("🗑️ 手动移除标签类型: \(tagType.displayName)")
     }
     
     private func toggleTagType(_ tagType: Tag.TagType) {
@@ -871,29 +955,153 @@ struct TagSidebarView: View {
         print("📋 标签类型展开状态已更新，等待用户点击具体标签值")
     }
     
-    // 处理标签类型搜索，自动智能选择相关标签类型
+    // 处理标签类型搜索，支持空格分隔的多标签类型语法
     private func handleTagTypeSearch(_ query: String) {
         print("🔍 TagSidebarView: handleTagTypeSearch('\(query)')")
         
-        // 如果搜索查询为空，不做处理
-        guard !query.isEmpty else { return }
-        
-        // 智能搜索：如果搜索的是标签值（如"里脊"），自动添加包含该标签值的标签类型
-        let currentLayerTags = store.currentLayerTags
-        let matchingTagsByValue = currentLayerTags.filter { tag in
-            tag.value.localizedCaseInsensitiveContains(query)
+        // 如果搜索查询为空，清空自动选择的标签类型
+        guard !query.isEmpty else { 
+            // 清空所有从搜索解析出的标签类型
+            clearSearchParsedTagTypes()
+            return 
         }
         
-        print("🔍 在当前层找到 \(matchingTagsByValue.count) 个匹配标签值的标签")
+        // 🆕 多标签类型语法：按空格分隔搜索词
+        let searchTerms = query.components(separatedBy: .whitespaces)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
         
-        // 自动添加包含匹配标签值的标签类型
-        for tag in matchingTagsByValue {
-            if !selectedTagTypes.contains(tag.type) {
-                print("🎯 自动添加标签类型: \(tag.type.displayName) (因为包含标签值 '\(tag.value)')")
-                selectedTagTypes.insert(tag.type)
-                expandedGroups.insert(tag.type)
+        print("🔍 解析出 \(searchTerms.count) 个搜索词: \(searchTerms)")
+        
+        // 跟踪从当前搜索解析出的标签类型
+        var newlyParsedTagTypes = Set<Tag.TagType>()
+        
+        // 对每个搜索词进行匹配
+        for searchTerm in searchTerms {
+            let matchedTypes = findMatchingTagTypes(for: searchTerm)
+            newlyParsedTagTypes.formUnion(matchedTypes)
+            
+            print("🎯 搜索词 '\(searchTerm)' 匹配到 \(matchedTypes.count) 个标签类型: \(matchedTypes.map { $0.displayName })")
+        }
+        
+        // 🔄 同步标签类型选择状态
+        syncTagTypeSelections(newlyParsedTypes: newlyParsedTagTypes)
+    }
+    
+    // 查找匹配指定搜索词的标签类型
+    private func findMatchingTagTypes(for searchTerm: String) -> Set<Tag.TagType> {
+        let currentLayerTags = store.currentLayerTags
+        let allExistingTypes = Set(currentLayerTags.map { $0.type })
+        let tagManager = TagMappingManager.shared
+        var matchingTypes = Set<Tag.TagType>()
+        
+        print("🔍 为搜索词 '\(searchTerm)' 查找匹配的标签类型")
+        
+        for tagType in allExistingTypes {
+            // 过滤掉隐藏的标签类型
+            guard !hiddenTagTypes.contains(tagType) else { continue }
+            
+            var isMatch = false
+            
+            // 1. 匹配显示名称（如"牛肉类型"）
+            if tagType.displayName.localizedCaseInsensitiveContains(searchTerm) {
+                print("  ✅ 匹配displayName: \(tagType.displayName)")
+                isMatch = true
+            }
+            
+            // 2. 匹配rawValue（如"beef"）
+            if tagType.rawValue.localizedCaseInsensitiveContains(searchTerm) {
+                print("  ✅ 匹配rawValue: \(tagType.rawValue)")
+                isMatch = true
+            }
+            
+            // 3. 对于自定义标签类型，搜索映射
+            if case .custom(let key) = tagType {
+                let matchingMappings = tagManager.tagMappings.filter { mapping in
+                    mapping.key.lowercased() == key.lowercased()
+                }
+                
+                for mapping in matchingMappings {
+                    if mapping.typeName.localizedCaseInsensitiveContains(searchTerm) ||
+                       mapping.key.localizedCaseInsensitiveContains(searchTerm) {
+                        print("  ✅ 匹配映射: \(mapping.typeName)")
+                        isMatch = true
+                        break
+                    }
+                }
+            }
+            
+            // 4. 智能搜索：搜索该类型下的标签值
+            if !isMatch {
+                let tagsOfThisType = currentLayerTags.filter { $0.type == tagType }
+                for tag in tagsOfThisType {
+                    if tag.value.localizedCaseInsensitiveContains(searchTerm) {
+                        print("  ✅ 匹配标签值: \(tag.value) -> \(tagType.displayName)")
+                        isMatch = true
+                        break
+                    }
+                }
+            }
+            
+            if isMatch {
+                matchingTypes.insert(tagType)
             }
         }
+        
+        return matchingTypes
+    }
+    
+    // 同步标签类型选择状态
+    private func syncTagTypeSelections(newlyParsedTypes: Set<Tag.TagType>) {
+        print("🔄 同步标签类型选择状态")
+        print("  - 新解析的类型: \(newlyParsedTypes.map { $0.displayName })")
+        print("  - 当前选中的类型: \(selectedTagTypes.map { $0.displayName })")
+        print("  - 之前搜索解析的类型: \(searchParsedTagTypes.map { $0.displayName })")
+        
+        // 🔄 更新选中的标签类型
+        for tagType in newlyParsedTypes {
+            if !selectedTagTypes.contains(tagType) {
+                print("  ➕ 添加标签类型: \(tagType.displayName)")
+                selectedTagTypes.insert(tagType)
+                expandedGroups.insert(tagType)
+            }
+        }
+        
+        // 🗑️ 移除不再匹配的搜索解析的标签类型
+        let searchParsedTypesToRemove = searchParsedTagTypes.filter { parsedType in
+            !newlyParsedTypes.contains(parsedType)
+        }
+        
+        for tagType in searchParsedTypesToRemove {
+            print("  ➖ 移除搜索解析的标签类型: \(tagType.displayName)")
+            selectedTagTypes.remove(tagType)
+            expandedGroups.remove(tagType)
+        }
+        
+        // 🔄 更新搜索解析的标签类型记录
+        searchParsedTagTypes = newlyParsedTypes
+        
+        print("🔄 同步完成")
+        print("  - 当前选中类型: \(selectedTagTypes.map { $0.displayName })")
+        print("  - 当前搜索解析类型: \(searchParsedTagTypes.map { $0.displayName })")
+    }
+    
+    
+    // 清空从搜索解析出的标签类型
+    private func clearSearchParsedTagTypes() {
+        print("🧹 清空搜索解析的标签类型")
+        print("  - 将移除的类型: \(searchParsedTagTypes.map { $0.displayName })")
+        
+        // 只移除从搜索解析出的标签类型，保留用户手动选择的
+        for tagType in searchParsedTagTypes {
+            selectedTagTypes.remove(tagType)
+            expandedGroups.remove(tagType)
+        }
+        
+        // 清空搜索解析记录
+        searchParsedTagTypes.removeAll()
+        
+        print("🧹 清空完成，当前选中类型: \(selectedTagTypes.map { $0.displayName })")
     }
 
 // MARK: - 标签类型搜索结果按钮
@@ -940,10 +1148,18 @@ struct TagTypeSearchResultButton: View {
 
 struct SelectedTagTypeChip: View {
     let type: Tag.TagType
+    let isSearchParsed: Bool
     let onRemove: () -> Void
     
     var body: some View {
         HStack(spacing: 6) {
+            // 搜索解析指示器
+            if isSearchParsed {
+                Image(systemName: "magnifyingglass.circle.fill")
+                    .font(.system(size: 10))
+                    .foregroundColor(.blue)
+            }
+            
             Circle()
                 .fill(Color.from(tagType: type))
                 .frame(width: 8, height: 8)
@@ -963,11 +1179,11 @@ struct SelectedTagTypeChip: View {
         .padding(.vertical, 4)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.blue.opacity(0.1))
+                .fill(isSearchParsed ? Color.green.opacity(0.1) : Color.blue.opacity(0.1))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.blue, lineWidth: 1)
+                .stroke(isSearchParsed ? Color.green : Color.blue, lineWidth: 1)
         )
     }
 }
