@@ -2142,6 +2142,22 @@ public final class NodeStore: ObservableObject {
         return Array(tagUsageMap.values).sorted { $0.nodeCount > $1.nodeCount }
     }
     
+    /// 获取标签类型图谱数据
+    public func getTagTypeGraphData(for tagType: Tag.TagType) -> TagTypeGraphData {
+        let analysis = getTagUsageAnalysis()
+        let filteredAnalysis = analysis.filter { $0.tagType == tagType }
+        
+        let tagValues = filteredAnalysis.map { usage in
+            TagValueNode(
+                value: usage.tagValue,
+                nodes: usage.nodes,
+                usageCount: usage.nodeCount
+            )
+        }
+        
+        return TagTypeGraphData(tagType: tagType, tagValues: tagValues)
+    }
+    
     /// 查找未使用的标签映射
     public func findUnusedTagMappings() -> [TagMapping] {
         let tagManager = TagMappingManager.shared

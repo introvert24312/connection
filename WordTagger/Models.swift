@@ -901,3 +901,27 @@ public struct TagSelectionItem: Identifiable, Hashable {
         return tagValue == nil
     }
 }
+
+// MARK: - 标签类型图谱数据结构
+
+public struct TagTypeGraphData {
+    public let tagType: Tag.TagType
+    public let tagValues: [TagValueNode]
+    
+    public init(tagType: Tag.TagType, tagValues: [TagValueNode]) {
+        self.tagType = tagType
+        self.tagValues = tagValues
+    }
+}
+
+public struct TagValueNode {
+    public let value: String
+    public let nodes: [Node]
+    public let usageCount: Int
+    
+    public init(value: String, nodes: [Node], usageCount: Int) {
+        self.value = value
+        self.nodes = nodes
+        self.usageCount = usageCount
+    }
+}

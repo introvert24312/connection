@@ -1,18 +1,5 @@
 import SwiftUI
 
-// MARK: - 数据模型
-
-struct TagTypeGraphData {
-    let tagType: Tag.TagType
-    let tagValues: [TagValueNode]
-}
-
-struct TagValueNode {
-    let value: String
-    let nodes: [Node]
-    let usageCount: Int
-}
-
 enum TagGraphNodeType {
     case tagType(Tag.TagType)           // 中心节点
     case tagValue(String, Int)          // 标签值节点 (值, 使用次数)
@@ -513,25 +500,6 @@ struct InfoPanel: View {
     }
 }
 
-// MARK: - NodeStore 扩展
-
-extension NodeStore {
-    /// 获取标签类型的图谱数据
-    func getTagTypeGraphData(for tagType: Tag.TagType) -> TagTypeGraphData {
-        let analysis = getTagUsageAnalysis()
-        let filteredAnalysis = analysis.filter { $0.tagType == tagType }
-        
-        let tagValues = filteredAnalysis.map { usage in
-            TagValueNode(
-                value: usage.tagValue,
-                nodes: usage.nodes,
-                usageCount: usage.nodeCount
-            )
-        }
-        
-        return TagTypeGraphData(tagType: tagType, tagValues: tagValues)
-    }
-}
 
 // MARK: - 导出图谱工具
 

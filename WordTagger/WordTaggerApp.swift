@@ -2902,11 +2902,8 @@ struct WordTaggerApp: App {
                 NotificationCenter.default.post(name: NSNotification.Name("executeOpenNodeManager"), object: nil)
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagTypeGraph"))) { notification in
-                // openTagTypeGraph 是全局命令，只在当前key窗口处理
-                guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true, commandName: "openTagTypeGraph") else {
-                    print("🚫 主窗口: 忽略openTagTypeGraph通知 - 非key窗口或冷却期")
-                    return
-                }
+                // openTagTypeGraph 应该总是由主窗口处理，因为只有主窗口有WindowGroup定义
+                print("🎯 主窗口: 接收到openTagTypeGraph通知")
                 
                 if let tagType = notification.object as? Tag.TagType {
                     print("✅ 主窗口: 处理openTagTypeGraph通知 - 打开标签类型图谱: \(tagType.displayName)")
