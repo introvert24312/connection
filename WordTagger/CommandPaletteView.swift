@@ -1043,16 +1043,12 @@ struct LayerStructureGraphViewSimple: View {
             edges: cachedEdges,
             title: "层结构图谱",
             initialScale: layerGraphInitialScale,
-            onNodeSelected: { nodeId in
+            onNodeSelected: { nodeId, commandPressed in
                 if let selectedGraphNode = cachedNodes.first(where: { $0.id == nodeId }),
                    let layerId = selectedGraphNode.layerId,
                    let targetLayer = store.layers.first(where: { $0.id == layerId }) {
                     
-                    // 检查是否按住了Command键
-                    let currentEvent = NSApp.currentEvent
-                    let isCommandPressed = currentEvent?.modifierFlags.contains(.command) ?? false
-                    
-                    if isCommandPressed {
+                    if commandPressed {
                         // ⌘+点击：切换到该层（只对普通层有效）
                         if !targetLayer.isCompound {
                             print("🔄 CommandPalette: ⌘+点击切换到层 '\(targetLayer.displayName)'")

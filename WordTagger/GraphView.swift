@@ -343,7 +343,7 @@ struct GraphView: View {
                     edges: cachedEdges,
                     title: "全局图谱",
                     initialScale: globalGraphInitialScale,
-                    onNodeSelected: { nodeId in
+                    onNodeSelected: { nodeId, commandPressed in
                         // 当点击节点时，选择对应的节点（只有节点才会触发选择）
                         if let selectedGraphNode = cachedNodes.first(where: { $0.id == nodeId }),
                            let selectedNode = selectedGraphNode.node {
