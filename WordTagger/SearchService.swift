@@ -104,10 +104,21 @@ public final class SearchService: ObservableObject {
             totalScore += score
         }
         
-        // Search in tag values (medium weight)
+        // Search in tag values, tag codes (rawValue), and tag display names (medium weight)
         var tagScore: Double = 0
         for tag in node.tags {
+            // Search in tag value
             if let score = calculateFieldScore(tag.value, against: searchTerms, weight: 1.8) {
+                tagScore = max(tagScore, score)
+            }
+            
+            // Search in tag code (rawValue) - the shortcut key like "dmub"
+            if let score = calculateFieldScore(tag.type.rawValue, against: searchTerms, weight: 2.0) {
+                tagScore = max(tagScore, score)
+            }
+            
+            // Search in tag display name - the mapped name like "恶心"
+            if let score = calculateFieldScore(tag.type.displayName, against: searchTerms, weight: 1.9) {
                 tagScore = max(tagScore, score)
             }
         }
