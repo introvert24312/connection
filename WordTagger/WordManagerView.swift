@@ -1306,8 +1306,22 @@ struct TagEditCommandView: View {
                     let tagManager = TagMappingManager.shared
                     
                     // 先检查映射字典，避免创建错误的映射
-                    if let (typeName, tagType) = tagManager.mappingDictionary[beforeBracket.lowercased()] {
-                        print("🔍 mapTokenToTagType: '\(token)' -> 找到现有映射: \(beforeBracket) -> \(typeName)")
+                    if let (existingTypeName, tagType) = tagManager.mappingDictionary[beforeBracket.lowercased()] {
+                        print("🔍 mapTokenToTagType: '\(token)' -> 找到现有映射: \(beforeBracket) -> \(existingTypeName)")
+                        
+                        // 检查是否需要更新显示名（如果括号内提供了新的显示名）
+                        if !insideBracket.isEmpty && insideBracket != existingTypeName {
+                            print("🔄 mapTokenToTagType: 检测到显示名更新需求: '\(existingTypeName)' -> '\(insideBracket)'")
+                            // 找到现有映射并更新其显示名
+                            if let existingMapping = tagManager.tagMappings.first(where: { $0.key.lowercased() == beforeBracket.lowercased() }) {
+                                let updatedMapping = TagMapping(id: existingMapping.id, key: existingMapping.key, typeName: insideBracket)
+                                tagManager.updateMapping(updatedMapping)
+                                print("✅ mapTokenToTagType: 映射显示名更新成功: \(beforeBracket) -> \(insideBracket)")
+                            } else {
+                                print("⚠️ mapTokenToTagType: 找不到现有映射，无法更新")
+                            }
+                        }
+                        
                         return tagType
                     }
                     
