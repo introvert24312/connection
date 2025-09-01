@@ -1977,18 +1977,27 @@ struct QuickSearchView: View {
         if searchText.isEmpty {
             return Array(store.nodes.prefix(10)) // 显示前10个
         } else {
+            // 🔍 多重检索：按空格分割搜索词，节点必须同时满足所有搜索词
+            let searchTerms = searchText.components(separatedBy: .whitespaces)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+            
+            guard !searchTerms.isEmpty else {
+                return Array(store.nodes.prefix(10))
+            }
+            
             return store.nodes.filter { node in
-                // 搜索节点文本
-                node.text.localizedCaseInsensitiveContains(searchText) ||
-                // 搜索节点含义
-                node.meaning?.localizedCaseInsensitiveContains(searchText) == true ||
-                // 搜索节点markdown内容
-                node.markdown.localizedCaseInsensitiveContains(searchText) ||
-                // 搜索标签值、标签快捷键(rawValue)、标签显示名
-                node.tags.contains { tag in
-                    tag.value.localizedCaseInsensitiveContains(searchText) ||
-                    tag.type.rawValue.localizedCaseInsensitiveContains(searchText) ||
-                    tag.type.displayName.localizedCaseInsensitiveContains(searchText)
+                // 每个节点必须同时满足所有搜索词（AND逻辑）
+                return searchTerms.allSatisfy { term in
+                    // 每个搜索词可以匹配节点的任意字段（OR逻辑）
+                    node.text.localizedCaseInsensitiveContains(term) ||
+                    node.meaning?.localizedCaseInsensitiveContains(term) == true ||
+                    node.markdown.localizedCaseInsensitiveContains(term) ||
+                    node.tags.contains { tag in
+                        tag.value.localizedCaseInsensitiveContains(term) ||
+                        tag.type.rawValue.localizedCaseInsensitiveContains(term) ||
+                        tag.type.displayName.localizedCaseInsensitiveContains(term)
+                    }
                 }
             }
         }
@@ -2000,7 +2009,7 @@ struct QuickSearchView: View {
                 .foregroundColor(.blue)
                 .font(.title2)
             
-            TextField("搜索单词、含义或标签...", text: $searchText)
+            TextField("搜索关键词（空格分隔多个条件）...", text: $searchText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 16, weight: .medium))
                 .focused($isSearchFieldFocused)
@@ -2078,9 +2087,17 @@ struct QuickSearchView: View {
     
     private var helpSection: some View {
         HStack {
-            Text("💡 输入关键词搜索单词")
-                .font(.caption)
-                .foregroundColor(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("💡 搜索语法：")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Text("• 单个关键词：dumb")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                Text("• 多重条件：dumb 手机（空格分隔，同时满足）")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
             Spacer()
             Text("⌘+F")
                 .font(.caption)
