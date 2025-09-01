@@ -520,6 +520,20 @@ class WindowFocusManager: ObservableObject {
             }
         }
         windowObservers.append(appInactiveObserver)
+        
+        // 监听Command+点击切换到主窗口并选中节点的通知
+        let switchToMainObserver = NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("switchToMainWindowAndSelectNode"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            Task { @MainActor in
+                if let contentNode = notification.object as? Node {
+                    self?.handleSwitchToMainWindowAndSelectNode(contentNode)
+                }
+            }
+        }
+        windowObservers.append(switchToMainObserver)
     }
     
     /// 设置与KeyboardEventManager的集成
@@ -930,5 +944,33 @@ extension WindowFocusManager {
         // 如果这个窗口是其他窗口的源窗口，也要清理
         windowMappings = windowMappings.filter { $0.value != windowId }
         print("🧹 WindowFocusManager: 清理窗口映射 - \\(windowId.prefix(8))")
+    }
+    
+    /// 处理Command+点击从子窗口切换到主窗口并选中节点
+    /// - Parameter contentNode: 要选中的节点
+    func handleSwitchToMainWindowAndSelectNode(_ contentNode: Node) {
+        print("⌘ WindowFocusManager: 处理Command+点击切换到主窗口并选中节点: \(contentNode.text)")
+        
+        // 查找主窗口（类型为.main的窗口）
+        guard let (mainWindowId, mainWindowInfo) = windowRegistry.first(where: { $0.value.type == .main }),
+              let mainWindow = uuidToWindowMap[mainWindowId]?.window else {
+            print("❌ WindowFocusManager: 找不到主窗口")
+            return
+        }
+        
+        // 切换到主窗口
+        mainWindow.makeKeyAndOrderFront(NSApp)
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        
+        // 发送选择节点的通知给主窗口的Store
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            NotificationCenter.default.post(
+                name: NSNotification.Name("selectNodeFromCommandClick"),
+                object: contentNode,
+                userInfo: ["sourceAction": "commandClickFromGraph"]
+            )
+        }
+        
+        print("✅ WindowFocusManager: 成功切换到主窗口并发送选中节点通知")
     }
 }

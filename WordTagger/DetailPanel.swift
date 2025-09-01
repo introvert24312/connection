@@ -1512,7 +1512,7 @@ struct NodeGraphView: View {
                     edges: graphData.edges,
                     title: "节点详情图谱",
                     initialScale: detailGraphInitialScale,
-                    onNodeSelected: { nodeId in
+                    onNodeSelected: { nodeId, commandPressed in
                         // 当点击节点时，选择对应的节点（只有节点才会触发选择）
                         if let selectedNode = graphData.nodes.first(where: { $0.id == nodeId }),
                            let selectedTargetNode = selectedNode.node {
@@ -1761,7 +1761,7 @@ struct FullscreenGraphView: View {
                     edges: graphData.edges,
                     title: "复合节点全屏图谱",
                     initialScale: fullscreenGraphInitialScale,
-                    onNodeSelected: { nodeId in
+                    onNodeSelected: { nodeId, commandPressed in
                         // 在全屏图谱中点击节点时，选择对应的节点
                         if let selectedNode = graphData.nodes.first(where: { $0.id == nodeId }),
                            let selectedTargetNode = selectedNode.node {

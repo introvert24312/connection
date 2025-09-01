@@ -684,7 +684,7 @@ struct LayerGraphView: View {
                     edges: cachedEdges,
                     title: "层图谱",
                     initialScale: 0.8,
-                    onNodeSelected: { nodeId in
+                    onNodeSelected: { nodeId, commandPressed in
                         // 当点击节点时，选择对应的节点
                         if let selectedGraphNode = cachedNodes.first(where: { $0.id == nodeId }),
                            let selectedNode = selectedGraphNode.node {
@@ -1040,7 +1040,7 @@ struct LayerStructureGraphView: View {
                     edges: cachedEdges,
                     title: "层结构图谱",
                     initialScale: layerStructureGraphInitialScale,
-                    onNodeSelected: { nodeId in
+                    onNodeSelected: { nodeId, commandPressed in
                         // 当点击层节点时，直接切换到该层，使整个节点区域都可点击
                         print("🔍 LayerStructureGraphView: 层节点被点击, nodeId = \(nodeId)")
                         if let selectedGraphNode = cachedNodes.first(where: { $0.id == nodeId }),

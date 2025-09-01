@@ -27,13 +27,28 @@ struct FullscreenTagTypeGraphView: View {
                     edges: graphEdges,
                     title: "标签类型图谱: \(tagType.displayName)",
                     initialScale: tagTypeGraphInitialScale,
-                    onNodeSelected: { nodeId in
-                        // 处理节点选择
-                        if let selectedNode = graphNodes.first(where: { $0.id == nodeId }),
-                           case .contentNode(let contentNode) = selectedNode.nodeType {
-                            store.selectNode(contentNode)
+                    onNodeSelected: { nodeId, commandPressed in
+                        // 检查是否按下了Command键
+                        if commandPressed {
+                            // Command+点击：进入节点（切换到主窗口并选中该节点）
+                            if let selectedGraphNode = graphNodes.first(where: { $0.id == nodeId }),
+                               case .contentNode(let contentNode) = selectedGraphNode.nodeType {
+                                print("⌘ Command+点击进入节点: \(contentNode.text)")
+                                
+                                // 切换到主窗口并选中该节点
+                                NotificationCenter.default.post(
+                                    name: NSNotification.Name("switchToMainWindowAndSelectNode"),
+                                    object: contentNode
+                                )
+                            }
+                        } else {
+                            // 普通点击：标准选择行为
+                            if let selectedGraphNode = graphNodes.first(where: { $0.id == nodeId }),
+                               case .contentNode(let contentNode) = selectedGraphNode.nodeType {
+                                store.selectNode(contentNode)
+                            }
+                            print("🖱️ 选中标签类型图谱节点: \(nodeId)")
                         }
-                        print("🖱️ 选中标签类型图谱节点: \(nodeId)")
                     },
                     onNodeDeselected: {
                         print("🖱️ 取消选中标签类型图谱节点")

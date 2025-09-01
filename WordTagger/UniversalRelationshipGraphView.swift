@@ -226,7 +226,7 @@ struct UniversalRelationshipGraphView<Node: UniversalGraphNode, Edge: UniversalG
     let title: String
     let initialScale: Double
     let useHierarchicalLayout: Bool
-    let onNodeSelected: ((Int) -> Void)?
+    let onNodeSelected: ((Int, Bool) -> Void)?
     let onNodeDeselected: (() -> Void)?
     let onFitGraph: (() -> Void)?
     let onNodeRightClicked: ((Int, CGFloat, CGFloat) -> Void)?
@@ -235,7 +235,7 @@ struct UniversalRelationshipGraphView<Node: UniversalGraphNode, Edge: UniversalG
     @StateObject private var selectionManager = GlobalGraphSelectionManager.shared
     
     
-    init(nodes: [Node], edges: [Edge], title: String = "节点关系图", initialScale: Double = 1.0, useHierarchicalLayout: Bool = false, onNodeSelected: ((Int) -> Void)? = nil, onNodeDeselected: (() -> Void)? = nil, onFitGraph: (() -> Void)? = nil, onNodeRightClicked: ((Int, CGFloat, CGFloat) -> Void)? = nil) {
+    init(nodes: [Node], edges: [Edge], title: String = "节点关系图", initialScale: Double = 1.0, useHierarchicalLayout: Bool = false, onNodeSelected: ((Int, Bool) -> Void)? = nil, onNodeDeselected: (() -> Void)? = nil, onFitGraph: (() -> Void)? = nil, onNodeRightClicked: ((Int, CGFloat, CGFloat) -> Void)? = nil) {
         self.nodes = nodes
         self.edges = edges
         self.title = title
@@ -262,11 +262,11 @@ struct UniversalRelationshipGraphView<Node: UniversalGraphNode, Edge: UniversalG
                             debugInfo = info
                         }
                     },
-                    onNodeSelected: { nodeId in
+                    onNodeSelected: { nodeId, commandPressed in
                         // 更新全局选中状态
                         selectionManager.selectNode(nodeId)
                         // 调用原始回调
-                        onNodeSelected?(nodeId)
+                        onNodeSelected?(nodeId, commandPressed)
                     },
                     onNodeDeselected: {
                         // 调用原始回调
@@ -312,13 +312,13 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
     let initialScale: Double
     let useHierarchicalLayout: Bool
     let onDebugInfo: (String) -> Void
-    let onNodeSelected: ((Int) -> Void)?
+    let onNodeSelected: ((Int, Bool) -> Void)?
     let onNodeDeselected: (() -> Void)?
     let onFitGraph: (() -> Void)?
     let onNodeRightClicked: ((Int, CGFloat, CGFloat) -> Void)?
     let selectionManager: GlobalGraphSelectionManager
     
-    init(nodes: [Node], edges: [Edge], initialScale: Double = 1.0, useHierarchicalLayout: Bool = false, onDebugInfo: @escaping (String) -> Void, onNodeSelected: ((Int) -> Void)? = nil, onNodeDeselected: (() -> Void)? = nil, onFitGraph: (() -> Void)? = nil, onNodeRightClicked: ((Int, CGFloat, CGFloat) -> Void)? = nil, selectionManager: GlobalGraphSelectionManager = GlobalGraphSelectionManager.shared) {
+    init(nodes: [Node], edges: [Edge], initialScale: Double = 1.0, useHierarchicalLayout: Bool = false, onDebugInfo: @escaping (String) -> Void, onNodeSelected: ((Int, Bool) -> Void)? = nil, onNodeDeselected: (() -> Void)? = nil, onFitGraph: (() -> Void)? = nil, onNodeRightClicked: ((Int, CGFloat, CGFloat) -> Void)? = nil, selectionManager: GlobalGraphSelectionManager = GlobalGraphSelectionManager.shared) {
         self.nodes = nodes
         self.edges = edges
         self.initialScale = initialScale
@@ -435,7 +435,7 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
     
     class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler, GraphCoordinator {
         var onDebugInfo: ((String) -> Void)?
-        var onNodeSelected: ((Int) -> Void)?
+        var onNodeSelected: ((Int, Bool) -> Void)?
         var onNodeDeselected: (() -> Void)?
         var onFitGraph: (() -> Void)?
         var onNodeRightClicked: ((Int, CGFloat, CGFloat) -> Void)?
@@ -468,6 +468,7 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
             case "nodeSelected":
                 if let nodeId = body["nodeId"] as? Int,
                    let selected = body["selected"] as? Bool {
+                    let commandPressed = body["commandPressed"] as? Bool ?? false
                     // 使用全局选择管理器来切换状态
                     if selected {
                         selectionManager?.selectNode(nodeId)
@@ -475,7 +476,7 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                         selectionManager?.deselectNode(nodeId)
                     }
                     // 调用原始回调
-                    onNodeSelected?(nodeId)
+                    onNodeSelected?(nodeId, commandPressed)
                 }
             case "nodeDeselected":
                 onNodeDeselected?()
@@ -880,11 +881,19 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                                 network.redraw();
                             }, 50);
                             
+                            // 检测是否按下了Command键
+                            var commandPressed = false;
+                            if (params.event && params.event.srcEvent) {
+                                commandPressed = params.event.srcEvent.metaKey || false;
+                                console.log('⌘ Command键状态:', commandPressed);
+                            }
+                            
                             // 通知Swift层
                             window.webkit.messageHandlers.nodeSelected.postMessage({
                                 nodeId: nodeId,
                                 selected: !isSelected,
-                                allSelected: selectedNodeIds
+                                allSelected: selectedNodeIds,
+                                commandPressed: commandPressed
                             });
                         } else {
                             // 点击空白区域时清除所有选中状态，释放任何可能黏住的节点

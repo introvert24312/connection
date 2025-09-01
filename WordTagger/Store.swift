@@ -2509,6 +2509,27 @@ public final class NodeStore: ObservableObject {
                 await self.updateTagTypeNames(from: oldName, to: newName, key: key)
             }
         }
+        
+        // 监听Command+点击选择节点的通知
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("selectNodeFromCommandClick"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self = self,
+                  let contentNode = notification.object as? Node else { return }
+            
+            print("⌘ Store收到Command+点击选择节点通知: \(contentNode.text)")
+            Task { @MainActor in
+                // 直接选择该节点
+                self.selectNode(contentNode)
+                
+                // 清除所有标签筛选状态，让用户专注于选中的节点
+                self.clearTagFilter()
+                
+                print("✅ 已通过Command+点击选择节点: \(contentNode.text)")
+            }
+        }
     }
     
     private func updateTagTypeNames(from oldName: String, to newName: String, key: String) {
