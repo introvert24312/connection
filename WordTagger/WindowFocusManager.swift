@@ -949,26 +949,48 @@ extension WindowFocusManager {
     /// 处理Command+点击从子窗口切换到主窗口并选中节点
     /// - Parameter contentNode: 要选中的节点
     func handleSwitchToMainWindowAndSelectNode(_ contentNode: Node) {
-        print("⌘ WindowFocusManager: 处理Command+点击切换到主窗口并选中节点: \(contentNode.text)")
+        print("⌘ WindowFocusManager: 处理Command+点击切换到主窗口并选中节点")
+        print("   - 目标节点: \(contentNode.text)")
+        print("   - 节点ID: \(contentNode.id)")
+        print("   - 节点层ID: \(contentNode.layerId)")
+        print("   - 当前注册窗口数量: \(windowRegistry.count)")
+        
+        // 打印所有注册窗口的详情
+        print("   - 已注册窗口:")
+        for (uuid, info) in windowRegistry {
+            print("     * \(info.displayName) (类型: \(info.type)) - \(uuid.uuidString.prefix(8))")
+        }
         
         // 查找主窗口（类型为.main的窗口）
-        guard let (mainWindowId, mainWindowInfo) = windowRegistry.first(where: { $0.value.type == .main }),
-              let mainWindow = uuidToWindowMap[mainWindowId]?.window else {
-            print("❌ WindowFocusManager: 找不到主窗口")
+        guard let (mainWindowId, mainWindowInfo) = windowRegistry.first(where: { $0.value.type == .main }) else {
+            print("❌ WindowFocusManager: 找不到类型为.main的窗口")
             return
         }
         
+        print("   - 找到主窗口: \(mainWindowInfo.displayName) (\(mainWindowId.uuidString.prefix(8)))")
+        
+        guard let mainWindow = uuidToWindowMap[mainWindowId]?.window else {
+            print("❌ WindowFocusManager: 主窗口UUID映射不存在或窗口已关闭")
+            return
+        }
+        
+        print("   - 主窗口NSWindow存在: \(mainWindow.title)")
+        
         // 切换到主窗口
+        print("🔄 切换到主窗口...")
         mainWindow.makeKeyAndOrderFront(NSApp)
         NSApplication.shared.activate(ignoringOtherApps: true)
         
         // 发送选择节点的通知给主窗口的Store
+        print("📡 准备发送selectNodeFromCommandClick通知...")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            print("📡 发送selectNodeFromCommandClick通知: \(contentNode.text)")
             NotificationCenter.default.post(
                 name: NSNotification.Name("selectNodeFromCommandClick"),
                 object: contentNode,
                 userInfo: ["sourceAction": "commandClickFromGraph"]
             )
+            print("✅ selectNodeFromCommandClick通知已发送")
         }
         
         print("✅ WindowFocusManager: 成功切换到主窗口并发送选中节点通知")

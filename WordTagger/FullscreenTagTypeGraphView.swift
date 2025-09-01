@@ -28,14 +28,10 @@ struct FullscreenTagTypeGraphView: View {
                     title: "标签类型图谱: \(tagType.displayName)",
                     initialScale: tagTypeGraphInitialScale,
                     onNodeSelected: { nodeId, commandPressed in
-                        // 检查是否按下了Command键
                         if commandPressed {
                             // Command+点击：进入节点（切换到主窗口并选中该节点）
                             if let selectedGraphNode = graphNodes.first(where: { $0.id == nodeId }),
                                case .contentNode(let contentNode) = selectedGraphNode.nodeType {
-                                print("⌘ Command+点击进入节点: \(contentNode.text)")
-                                
-                                // 切换到主窗口并选中该节点
                                 NotificationCenter.default.post(
                                     name: NSNotification.Name("switchToMainWindowAndSelectNode"),
                                     object: contentNode
@@ -47,7 +43,6 @@ struct FullscreenTagTypeGraphView: View {
                                case .contentNode(let contentNode) = selectedGraphNode.nodeType {
                                 store.selectNode(contentNode)
                             }
-                            print("🖱️ 选中标签类型图谱节点: \(nodeId)")
                         }
                     },
                     onNodeDeselected: {

@@ -2516,18 +2516,78 @@ public final class NodeStore: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            guard let self = self,
-                  let contentNode = notification.object as? Node else { return }
+            print("📥 Store收到selectNodeFromCommandClick通知")
+            print("   - Store实例存在: \(self != nil)")
             
-            print("⌘ Store收到Command+点击选择节点通知: \(contentNode.text)")
+            guard let self = self else { 
+                print("❌ Store实例为nil")
+                return 
+            }
+            
+            guard let contentNode = notification.object as? Node else {
+                print("❌ 通知对象不是Node类型: \(notification.object ?? "nil")")
+                return
+            }
+            
+            print("⌘ Store开始处理Command+点击选择节点: \(contentNode.text)")
+            print("   - 节点ID: \(contentNode.id)")
+            print("   - 节点层ID: \(contentNode.layerId)")
+            print("   - 当前层数量: \(self.layers.count)")
+            print("   - 当前节点数量: \(self.nodes.count)")
+            
             Task { @MainActor in
-                // 直接选择该节点
-                self.selectNode(contentNode)
+                // 检查节点所属的层
+                let nodeLayerId = contentNode.layerId
+                let currentLayerId = self.currentLayer?.id
                 
-                // 清除所有标签筛选状态，让用户专注于选中的节点
-                self.clearTagFilter()
+                print("🔍 节点层检查:")
+                print("   - 节点层ID: \(nodeLayerId.uuidString.prefix(8))")
+                print("   - 当前层ID: \(currentLayerId?.uuidString.prefix(8) ?? "nil")")
+                print("   - 层匹配: \(nodeLayerId == currentLayerId)")
                 
-                print("✅ 已通过Command+点击选择节点: \(contentNode.text)")
+                // 验证节点是否在Store中存在
+                let nodeExistsInStore = self.nodes.contains { $0.id == contentNode.id }
+                print("   - 节点在Store中存在: \(nodeExistsInStore)")
+                
+                if !nodeExistsInStore {
+                    print("⚠️ 节点不在当前Store中，可能需要从其他窗口实例获取")
+                }
+                
+                // 如果节点不在当前层，先切换到节点所属的层
+                if nodeLayerId != currentLayerId {
+                    print("🔄 需要切换层...")
+                    if let nodeLayer = self.layers.first(where: { $0.id == nodeLayerId }) {
+                        print("🔄 切换到节点所属层: \(nodeLayer.displayName)")
+                        self.setCurrentLayer(nodeLayer)
+                        
+                        // 给UI一点时间更新
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            print("✅ 层切换完成，现在选择节点...")
+                            // 然后选择节点
+                            self.selectNode(contentNode)
+                            
+                            // 清除所有标签筛选状态，让用户专注于选中的节点
+                            self.clearTagFilter()
+                            
+                            print("✅ 已通过Command+点击切换层并选择节点: \(contentNode.text)")
+                        }
+                    } else {
+                        print("❌ 找不到节点所属的层: \(nodeLayerId)")
+                        print("   - 可用层列表: \(self.layers.map { "\($0.displayName)(\($0.id.uuidString.prefix(8)))" })")
+                        // 如果找不到层，仍然尝试选择节点
+                        self.selectNode(contentNode)
+                        self.clearTagFilter()
+                    }
+                } else {
+                    print("✅ 节点在当前层，直接选择...")
+                    // 节点在当前层，直接选择
+                    self.selectNode(contentNode)
+                    
+                    // 清除所有标签筛选状态，让用户专注于选中的节点
+                    self.clearTagFilter()
+                    
+                    print("✅ 已通过Command+点击选择节点: \(contentNode.text)")
+                }
             }
         }
     }
