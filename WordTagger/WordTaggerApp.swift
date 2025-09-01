@@ -3233,6 +3233,7 @@ struct TagManagerView: View {
     @State private var selectedModule: TagManagerModule = .tagManagement  // 当前选择的模块
     @State private var searchText: String = ""  // 搜索文本
     @FocusState private var isViewFocused: Bool
+    @FocusState private var isSearchFieldFocused: Bool  // 搜索框焦点状态
     
     // 定义两个模块
     enum TagManagerModule: String, CaseIterable {
@@ -3391,6 +3392,12 @@ struct TagManagerView: View {
         .onAppear {
             // 视图出现时自动聚焦，确保可以接收键盘事件
             isViewFocused = true
+            
+            // 延迟设置搜索框焦点，确保视图已完全加载
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                isSearchFieldFocused = true
+                print("🔍 TagManagerView: 设置搜索框焦点")
+            }
         }
     }
     
@@ -3406,6 +3413,7 @@ struct TagManagerView: View {
                 TextField("搜索标签映射（快捷键或类型名称）...", text: $searchText)
                     .textFieldStyle(.plain)
                     .font(.system(size: 14))
+                    .focused($isSearchFieldFocused)
                 
                 if !searchText.isEmpty {
                     Button {
