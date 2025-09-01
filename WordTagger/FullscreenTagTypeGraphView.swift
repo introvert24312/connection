@@ -3,12 +3,16 @@ import SwiftUI
 // MARK: - 全屏标签类型图谱视图
 
 struct FullscreenTagTypeGraphView: View {
-    let tagType: Tag.TagType
+    @State private var currentTagType: Tag.TagType
     @EnvironmentObject private var store: NodeStore
     @State private var graphNodes: [TagTypeGraphNode] = []
     @State private var graphEdges: [TagTypeGraphEdge] = []
     @State private var isLoading = true
     @AppStorage("tagTypeGraphInitialScale") private var tagTypeGraphInitialScale: Double = 0.8
+    
+    init(tagType: Tag.TagType) {
+        self._currentTagType = State(initialValue: tagType)
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -25,7 +29,7 @@ struct FullscreenTagTypeGraphView: View {
                 UniversalRelationshipGraphView(
                     nodes: graphNodes,
                     edges: graphEdges,
-                    title: "标签类型图谱: \(tagType.displayName)",
+                    title: "标签类型图谱: \(currentTagType.displayName)",
                     initialScale: tagTypeGraphInitialScale,
                     onNodeSelected: { nodeId, commandPressed in
                         if commandPressed {
@@ -57,10 +61,23 @@ struct FullscreenTagTypeGraphView: View {
                 emptyStateView
             }
         }
-        .navigationTitle("标签类型图谱: \(tagType.displayName)")
+        .navigationTitle("标签类型图谱: \(currentTagType.displayName)")
         .onAppear {
-            print("📊 FullscreenTagTypeGraphView appeared for: \(tagType.displayName)")
+            print("📊 FullscreenTagTypeGraphView appeared for: \(currentTagType.displayName)")
             loadGraphData()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagTypeGraph"))) { notification in
+            if let newTagType = notification.object as? Tag.TagType {
+                print("🔄 FullscreenTagTypeGraphView: 接收到新的标签类型: \(newTagType.displayName)")
+                print("🔄 当前标签类型: \(currentTagType.displayName)")
+                if newTagType != currentTagType {
+                    print("✅ FullscreenTagTypeGraphView: 标签类型已更改，重新加载数据")
+                    currentTagType = newTagType
+                    loadGraphData()
+                } else {
+                    print("ℹ️ FullscreenTagTypeGraphView: 标签类型相同，无需重新加载")
+                }
+            }
         }
     }
     
@@ -68,7 +85,7 @@ struct FullscreenTagTypeGraphView: View {
     
     private var toolbar: some View {
         HStack {
-            Text("标签类型图谱: \(tagType.displayName)")
+            Text("标签类型图谱: \(currentTagType.displayName)")
                 .font(.title2)
                 .fontWeight(.semibold)
             
@@ -127,11 +144,11 @@ struct FullscreenTagTypeGraphView: View {
         isLoading = true
         
         Task { @MainActor in
-            let universalData = store.getTagTypeUniversalGraphData(for: tagType)
+            let universalData = store.getTagTypeUniversalGraphData(for: currentTagType)
             self.graphNodes = universalData.nodes
             self.graphEdges = universalData.edges
             self.isLoading = false
-            print("🕸️ 图谱数据加载完成: \(tagType.displayName), 节点数量: \(universalData.nodes.count), 边数量: \(universalData.edges.count)")
+            print("🕸️ 图谱数据加载完成: \(currentTagType.displayName), 节点数量: \(universalData.nodes.count), 边数量: \(universalData.edges.count)")
         }
     }
 }
