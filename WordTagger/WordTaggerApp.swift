@@ -3239,6 +3239,14 @@ struct WordTaggerApp: App {
         .defaultSize(width: 1200, height: 800)
         .windowToolbarStyle(.unified)
         
+        // 🆕 全局标签图谱窗口
+        WindowGroup("全局标签图谱", id: "globalTagGraph") {
+            GlobalTagGraphView()
+                .environmentObject(store)
+        }
+        .defaultSize(width: 1200, height: 800)
+        .windowToolbarStyle(.unified)
+        
         // 独立窗口 - 完全分离的数据和状态
         WindowGroup("独立窗口", id: "layerView") {
             IndependentWindowWrapper()
@@ -4886,6 +4894,17 @@ struct GlobalCommands: Commands {
             }
             .keyboardShortcut("g", modifiers: [.command])
             .disabled(openGraphWindow == nil)
+            
+            // 🆕 全局标签功能菜单项
+            Button("全局标签图谱") {
+                GlobalTagGraphWindowManager.shared.showGlobalTagGraphWindow()
+            }
+            .keyboardShortcut("g", modifiers: [.command, .shift])
+            
+            Button("标签索引看板") {
+                NewTagIndexWindowManager.shared.showTagIndexWindow()
+            }
+            .keyboardShortcut("b", modifiers: [.command, .shift])
             
             Divider()
             

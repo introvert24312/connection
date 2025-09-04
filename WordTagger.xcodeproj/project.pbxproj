@@ -43,6 +43,9 @@
 		V001 /* VditorWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = V100 /* VditorWebView.swift */; };
 		W001 /* WindowFocusManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = W100 /* WindowFocusManager.swift */; };
 		W002 /* TagGraphWindowManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = W101 /* TagGraphWindowManager.swift */; };
+		OE33980ORF4VZBIIRH8YSAZ9 /* GlobalTagGraphSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = G3586Z8DANM2G65L0T6DV8ET /* GlobalTagGraphSystem.swift */; };
+		IN1E39G6Y34HG9UURGVXCEV9 /* GlobalTagGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6U00WS1Z0BEM1E0G3PQC7O8V /* GlobalTagGraphView.swift */; };
+		MR8R1RM3FTLQLCAQRR1XGJGF /* NewTagIndexBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = XIGWDDQHBCE8WQO56X0ZQO7Z /* NewTagIndexBoard.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -84,6 +87,9 @@
 		V100 /* VditorWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VditorWebView.swift; sourceTree = "<group>"; };
 		W100 /* WindowFocusManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowFocusManager.swift; sourceTree = "<group>"; };
 		W101 /* TagGraphWindowManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagGraphWindowManager.swift; sourceTree = "<group>"; };
+		G3586Z8DANM2G65L0T6DV8ET /* GlobalTagGraphSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalTagGraphSystem.swift; sourceTree = "<group>"; };
+		6U00WS1Z0BEM1E0G3PQC7O8V /* GlobalTagGraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalTagGraphView.swift; sourceTree = "<group>"; };
+		XIGWDDQHBCE8WQO56X0ZQO7Z /* NewTagIndexBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewTagIndexBoard.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -117,6 +123,10 @@
 			isa = PBXGroup;
 			children = (
 				54831DBE2E64473500CD4724 /* TagUsageVisualizationView.swift */,
+				G3586Z8DANM2G65L0T6DV8ET /* GlobalTagGraphSystem.swift */,
+				6U00WS1Z0BEM1E0G3PQC7O8V /* GlobalTagGraphView.swift */,
+				XIGWDDQHBCE8WQO56X0ZQO7Z /* NewTagIndexBoard.swift */,
+
 				54831DBC2E64470E00CD4724 /* TagBatchManagementView.swift */,
 				54209B7A2E3F248300388A1B /* ExternalDataManager.swift */,
 				54209B7B2E3F248300388A1B /* ExternalDataService.swift */,
@@ -229,6 +239,10 @@
 			files = (
 				A002 /* ContentView.swift in Sources */,
 				54831DBF2E64473500CD4724 /* TagUsageVisualizationView.swift in Sources */,
+				OE33980ORF4VZBIIRH8YSAZ9 /* GlobalTagGraphSystem.swift in Sources */,
+				IN1E39G6Y34HG9UURGVXCEV9 /* GlobalTagGraphView.swift in Sources */,
+				MR8R1RM3FTLQLCAQRR1XGJGF /* NewTagIndexBoard.swift in Sources */,
+
 				A001 /* WordTaggerApp.swift in Sources */,
 				A004 /* Models.swift in Sources */,
 				54831DBD2E64470E00CD4724 /* TagBatchManagementView.swift in Sources */,
