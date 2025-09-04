@@ -368,9 +368,8 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                     font-weight: 600;
                     margin: -16px -16px 12px -16px;
                     padding: 12px 16px;
-                    border-bottom: 1px solid var(--border);
-                    background: var(--accent);
-                    color: white;
+                    background: transparent;
+                    color: var(--text);
                     border-radius: 7px 7px 0 0;
                     margin-bottom: 16px;
                 }

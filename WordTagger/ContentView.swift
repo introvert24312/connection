@@ -205,6 +205,14 @@ struct ContentViewModifier: ViewModifier {
             .help("打开全局图谱 (⌘G)")
             
             Button(action: {
+                GlobalTagGraphWindowManager.shared.showGlobalTagGraphWindow()
+            }) {
+                Image(systemName: "network")
+                    .foregroundColor(.orange)
+            }
+            .help("全局标签图谱 (⌘⇧G)")
+            
+            Button(action: {
                 store.selectNode(nil)
                 selectedNode = nil
             }) {
