@@ -24,7 +24,7 @@ struct TagSidebarView: View {
     @State private var currentMode: SidebarMode = .tagFiltering  // 默认显示标签筛选模块
     // 注意：expandedTagTypes 现在使用 Store 中的状态，不再是本地 @State
     
-    // 标签类型图谱相关状态（保留以兼容现有代码，但不再使用sheet模式）
+    // 标签图谱相关状态（保留以兼容现有代码，但不再使用sheet模式）
     
     // 窗口焦点管理
     @StateObject private var focusManager = WindowFocusManager.shared
@@ -141,7 +141,7 @@ struct TagSidebarView: View {
                 print("🔑 Ignoring - wrong modifiers")
                 return .ignored 
             }
-            print("🔑 TagSidebarView: Command+Shift+G - 打开标签类型图谱")
+            print("🔑 TagSidebarView: Command+Shift+G - 打开标签图谱")
             openTagTypeGraphShortcut()
             return .handled
         })
@@ -742,9 +742,9 @@ struct TagSidebarView: View {
         return matchingTypes + nonMatchingTypes
     }
     
-    // MARK: - 标签类型图谱相关方法
+    // MARK: - 标签图谱相关方法
     
-    /// 通过快捷键打开标签类型图谱
+    /// 通过快捷键打开标签图谱
     private func openTagTypeGraphShortcut() {
         print("🔍 openTagTypeGraphShortcut() called")
         
@@ -765,9 +765,9 @@ struct TagSidebarView: View {
         }
     }
     
-    /// 在新窗口中打开标签类型图谱
+    /// 在新窗口中打开标签图谱
     private func openTagTypeGraphInNewWindow(_ tagType: Tag.TagType) {
-        print("🕸️ 在新窗口中打开标签类型图谱: \(tagType.displayName)")
+        print("🕸️ 在新窗口中打开标签图谱: \(tagType.displayName)")
         NotificationCenter.default.post(
             name: NSNotification.Name("openTagTypeGraph"),
             object: tagType

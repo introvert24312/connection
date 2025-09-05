@@ -1649,15 +1649,6 @@ struct GeneralSettingsView: View {
                 // 界面设置
                 GroupBox("界面设置") {
                     VStack(alignment: .leading, spacing: 12) {
-                        SettingRow(
-                            title: "默认显示音标",
-                            description: "在节点列表中自动显示音标信息"
-                        ) {
-                            Toggle("", isOn: $showPhoneticByDefault)
-                                .toggleStyle(SwitchToggleStyle())
-                        }
-                        
-                        Divider()
                         
                         SettingRow(
                             title: "全局图谱初始缩放",
@@ -1690,22 +1681,6 @@ struct GeneralSettingsView: View {
                         }
                         
                         SettingRow(
-                            title: "全屏图谱初始缩放",
-                            description: "Command+D打开的全屏图谱默认缩放级别"
-                        ) {
-                            HStack(spacing: 8) {
-                                Text("\(String(format: "%.1f", fullscreenGraphInitialScale))x")
-                                    .foregroundColor(.secondary)
-                                    .frame(width: 40, alignment: .trailing)
-                                
-                                Slider(value: $fullscreenGraphInitialScale, in: 0.5...3.0, step: 0.1)
-                                    .frame(width: 120)
-                            }
-                        }
-                        
-                        Divider()
-                        
-                        SettingRow(
                             title: "层结构图谱初始缩放",
                             description: "命令面板中层结构图谱的默认缩放级别"
                         ) {
@@ -1722,8 +1697,8 @@ struct GeneralSettingsView: View {
                         Divider()
                         
                         SettingRow(
-                            title: "标签类型图谱初始缩放",
-                            description: "标签类型图谱的默认缩放级别"
+                            title: "标签图谱初始缩放",
+                            description: "标签图谱的默认缩放级别"
                         ) {
                             HStack(spacing: 8) {
                                 Text("\(String(format: "%.1f", tagTypeGraphInitialScale))x")
@@ -1736,9 +1711,6 @@ struct GeneralSettingsView: View {
                         }
                         
                         Divider()
-                        
-                        // 全局图谱选中状态管理
-                        GlobalGraphSelectionSettingsView()
                     }
                     .padding(12)
                 }
@@ -2697,38 +2669,6 @@ struct FeatureRow: View {
     }
 }
 
-// MARK: - 全局图谱选中状态设置
-struct GlobalGraphSelectionSettingsView: View {
-    @StateObject private var selectionManager = GlobalGraphSelectionManager.shared
-    
-    var body: some View {
-        SettingRow(
-            title: "全局图谱选中状态",
-            description: "管理全局图谱中的节点选中状态持久化"
-        ) {
-            VStack(alignment: .trailing, spacing: 8) {
-                HStack(spacing: 8) {
-                    Text("\(selectionManager.selectedNodeIds.count)个选中")
-                        .foregroundColor(.secondary)
-                        .font(.caption)
-                    
-                    Button("清除选中") {
-                        selectionManager.clearAllSelections()
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                }
-                
-                if selectionManager.selectedNodeIds.count > 0 {
-                    Text("选中的节点ID: \(selectionManager.selectedNodeIds.sorted().map(String.init).joined(separator: ", "))")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
-                }
-            }
-        }
-    }
-}
 
 // MARK: - 外部数据存储面板
 

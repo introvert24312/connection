@@ -2142,7 +2142,7 @@ public final class NodeStore: ObservableObject {
         return Array(tagUsageMap.values).sorted { $0.nodeCount > $1.nodeCount }
     }
     
-    /// 获取标签类型图谱数据
+    /// 获取标签图谱数据
     public func getTagTypeGraphData(for tagType: Tag.TagType) -> TagTypeGraphData {
         let analysis = getTagUsageAnalysis()
         let filteredAnalysis = analysis.filter { $0.tagType == tagType }
@@ -2158,7 +2158,7 @@ public final class NodeStore: ObservableObject {
         return TagTypeGraphData(tagType: tagType, tagValues: tagValues)
     }
     
-    /// 获取标签类型图谱的UniversalRelationshipGraphView数据
+    /// 获取标签图谱的UniversalRelationshipGraphView数据
     public func getTagTypeUniversalGraphData(for tagType: Tag.TagType) -> (nodes: [TagTypeGraphNode], edges: [TagTypeGraphEdge]) {
         let data = getTagTypeGraphData(for: tagType)
         

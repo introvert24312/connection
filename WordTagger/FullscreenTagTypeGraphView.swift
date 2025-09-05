@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - 全屏标签类型图谱视图
+// MARK: - 全屏标签图谱视图
 
 struct FullscreenTagTypeGraphView: View {
     @StateObject private var windowManager = TagGraphWindowManager.shared
@@ -37,7 +37,7 @@ struct FullscreenTagTypeGraphView: View {
                 UniversalRelationshipGraphView(
                     nodes: graphNodes,
                     edges: graphEdges,
-                    title: "标签类型图谱: \(currentTagType.displayName)",
+                    title: "标签图谱: \(currentTagType.displayName)",
                     initialScale: tagTypeGraphInitialScale,
                     onNodeSelected: { nodeId, commandPressed in
                         if commandPressed {
@@ -58,7 +58,7 @@ struct FullscreenTagTypeGraphView: View {
                         }
                     },
                     onNodeDeselected: {
-                        print("🖱️ 取消选中标签类型图谱节点")
+                        print("🖱️ 取消选中标签图谱节点")
                     },
                     onFitGraph: {
                         print("🔄 适应画布")
@@ -69,7 +69,7 @@ struct FullscreenTagTypeGraphView: View {
                 emptyStateView
             }
         }
-        .navigationTitle("标签类型图谱: \(currentTagType.displayName)")
+        .navigationTitle("标签图谱: \(currentTagType.displayName)")
         .onAppear {
             print("📊 FullscreenTagTypeGraphView appeared for: \(currentTagType.displayName)")
             
@@ -120,7 +120,7 @@ struct FullscreenTagTypeGraphView: View {
     
     private var toolbar: some View {
         HStack {
-            Text("标签类型图谱: \(currentTagType.displayName)")
+            Text("标签图谱: \(currentTagType.displayName)")
                 .font(.title2)
                 .fontWeight(.semibold)
             
@@ -147,7 +147,7 @@ struct FullscreenTagTypeGraphView: View {
             ProgressView()
                 .scaleEffect(1.2)
             
-            Text("正在加载标签类型图谱...")
+            Text("正在加载标签图谱...")
                 .font(.system(size: 16))
                 .foregroundColor(.secondary)
         }

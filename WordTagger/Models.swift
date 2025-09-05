@@ -945,7 +945,7 @@ public struct TagSelectionItem: Identifiable, Hashable {
     }
 }
 
-// MARK: - 标签类型图谱数据结构
+// MARK: - 标签图谱数据结构
 
 public struct TagTypeGraphData {
     public let tagType: Tag.TagType
@@ -969,7 +969,7 @@ public struct TagValueNode {
     }
 }
 
-// MARK: - 标签类型图谱UniversalRelationshipGraphView适配器
+// MARK: - 标签图谱UniversalRelationshipGraphView适配器
 
 public struct TagTypeGraphNode: UniversalGraphNode {
     public let id: Int

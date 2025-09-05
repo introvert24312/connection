@@ -2929,7 +2929,7 @@ struct WordTaggerApp: App {
                 print("🎯 主窗口: 接收到openTagTypeGraph通知")
                 
                 if let tagType = notification.object as? Tag.TagType {
-                    print("✅ 主窗口: 处理openTagTypeGraph通知 - 打开标签类型图谱: \(tagType.displayName)")
+                    print("✅ 主窗口: 处理openTagTypeGraph通知 - 打开标签图谱: \(tagType.displayName)")
                     
                     // 更新共享的TagGraphWindowManager状态
                     TagGraphWindowManager.shared.updateTagType(tagType)
@@ -3198,21 +3198,21 @@ struct WordTaggerApp: App {
         .defaultSize(width: 1200, height: 800)
         .windowToolbarStyle(.unified)
         
-        // 标签类型图谱窗口
-        WindowGroup("标签类型图谱", id: "tagTypeGraph") {
+        // 标签图谱窗口
+        WindowGroup("标签图谱", id: "tagTypeGraph") {
             // 优先使用WindowManager中的标签类型，然后回退到tagTypeForGraph
             if let tagType = TagGraphWindowManager.shared.currentTagType ?? tagTypeForGraph {
                 FullscreenTagTypeGraphView(tagType: tagType)
                     .environmentObject(store)
                     .onAppear {
-                        print("🖼️ 标签类型图谱窗口: 窗口已显示，标签类型: \(tagType.displayName)")
+                        print("🖼️ 标签图谱窗口: 窗口已显示，标签类型: \(tagType.displayName)")
                         // 确保WindowManager状态与实际显示的标签类型同步
                         if TagGraphWindowManager.shared.currentTagType != tagType {
                             TagGraphWindowManager.shared.updateTagType(tagType)
                         }
                     }
                     .onDisappear {
-                        print("🖼️ 标签类型图谱窗口: 窗口已隐藏")
+                        print("🖼️ 标签图谱窗口: 窗口已隐藏")
                         TagGraphWindowManager.shared.markWindowHidden()
                     }
             } else {
@@ -3232,7 +3232,7 @@ struct WordTaggerApp: App {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .onAppear {
-                    print("❌ 标签类型图谱窗口: 无有效标签类型")
+                    print("❌ 标签图谱窗口: 无有效标签类型")
                 }
             }
         }

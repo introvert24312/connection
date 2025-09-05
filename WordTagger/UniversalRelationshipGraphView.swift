@@ -1055,7 +1055,7 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
             }
         }
         
-        // 检查是否是TagTypeGraphNode（标签类型图谱节点）
+        // 检查是否是TagTypeGraphNode（标签图谱节点）
         if let tagTypeNode = node as? TagTypeGraphNode {
             switch tagTypeNode.nodeType {
             case .tagType(_):

@@ -230,7 +230,7 @@ struct GlobalTagGraphCanvas: View {
                 UniversalRelationshipGraphView(
                     nodes: nodes,
                     edges: edges,
-                    title: "全局标签关系图谱",
+                    title: "全局标签图谱",
                     initialScale: 1.0,
                     onNodeSelected: { nodeId, commandPressed in
                         handleNodeSelection(nodeId: nodeId, commandPressed: commandPressed)

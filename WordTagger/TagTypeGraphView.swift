@@ -30,7 +30,7 @@ struct TagTypeGraphView: View {
             }
         }
         .frame(minWidth: 800, minHeight: 600)
-        .navigationTitle("标签类型图谱: \(tagType.displayName)")
+        .navigationTitle("标签图谱: \(tagType.displayName)")
         .onAppear {
             print("📊 TagTypeGraphView appeared for: \(tagType.displayName)")
             loadGraphData()
@@ -83,7 +83,7 @@ struct TagTypeGraphView: View {
             ProgressView()
                 .scaleEffect(1.2)
             
-            Text("正在加载标签类型图谱...")
+            Text("正在加载标签图谱...")
                 .font(.system(size: 16))
                 .foregroundColor(.secondary)
         }
@@ -623,7 +623,7 @@ struct ExportGraphSheetView: View {
     }
     
     private func generateTextFormat(data: TagTypeGraphData) -> String {
-        var content = "标签类型图谱: \(data.tagType.displayName)\n"
+        var content = "标签图谱: \(data.tagType.displayName)\n"
         content += "生成时间: \(Date().formatted())\n\n"
         
         for tagValue in data.tagValues {
