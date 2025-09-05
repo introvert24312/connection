@@ -3177,14 +3177,14 @@ struct WordTaggerApp: App {
         .defaultSize(width: 1000, height: 700)
         
         // 图谱窗口
-        WindowGroup("全局图谱", id: "graph") {
+        WindowGroup("全局节点图谱", id: "graph") {
             GraphView()
                 .environmentObject(store)
         }
         .defaultSize(width: 1200, height: 800)
         
-        // 节点管理窗口
-        WindowGroup("节点管理", id: "nodeManager") {
+        // 节点管理窗口 - 使用单例窗口管理器
+        Window("节点管理", id: "nodeManager") {
             NodeManagerView(nodeToEdit: $nodeToEditInManager)
                 .environmentObject(store)
         }
