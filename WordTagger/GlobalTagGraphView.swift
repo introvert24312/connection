@@ -8,9 +8,10 @@ struct GlobalTagGraphView: View {
     @Environment(\.dismiss) private var dismiss
     
     @State private var graphData: (nodes: [GlobalTagGraphNode], edges: [GlobalTagGraphEdge])?
-    @State private var isLoading = true
+    @State private var isLoading = false
     @State private var resetTrigger = UUID()
     @State private var showingExportSheet = false
+    @State private var hasPerformedInitialLoad = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -40,8 +41,22 @@ struct GlobalTagGraphView: View {
         .frame(minWidth: 1000, minHeight: 700)
         .navigationTitle("全局标签图谱")
         .onAppear {
-            print("🌍 [全局标签图谱] 视图出现")
-            loadGraphData()
+            print("🌍 [全局标签图谱] 视图出现，当前isLoading: \(isLoading), hasPerformedInitialLoad: \(hasPerformedInitialLoad)")
+            
+            // 确保状态干净
+            if isLoading {
+                print("🔧 [全局标签图谱] 检测到异常的初始加载状态，强制重置")
+                isLoading = false
+            }
+            
+            // 只在首次出现或没有数据时才加载
+            if !hasPerformedInitialLoad || graphData == nil {
+                print("🚀 [全局标签图谱] 执行初始数据加载")
+                hasPerformedInitialLoad = true
+                loadGraphData()
+            } else {
+                print("📊 [全局标签图谱] 已有数据，跳过重复加载")
+            }
         }
         .onReceive(dataManager.$filteredLayers.combineLatest(dataManager.$filteredTagTypes, dataManager.$filteredTagValues)) { _, _, _ in
             print("🔄 [全局标签图谱] 过滤器变化，准备重新加载数据")
@@ -183,6 +198,10 @@ struct GlobalTagGraphView: View {
             }
             
             Button("刷新数据") {
+                print("🔄 [全局标签图谱] 手动刷新数据，重置所有状态")
+                isLoading = false  // 强制重置状态
+                graphData = nil
+                hasPerformedInitialLoad = false  // 重置初始加载标记
                 loadGraphData()
             }
             .buttonStyle(.borderedProminent)
@@ -196,13 +215,26 @@ struct GlobalTagGraphView: View {
     private func loadGraphData() {
         print("🔄 [全局标签图谱] loadGraphData开始，当前isLoading: \(isLoading)")
         
-        // 避免重复加载
-        guard !isLoading else {
+        // 添加强制重置机制：如果连续多次调用都被跳过，强制重置状态
+        if isLoading {
+            print("⚠️ [全局标签图谱] 检测到加载状态异常，检查是否需要强制重置")
+            
+            // 设置一个合理的超时检查，如果状态异常持续太久就强制重置
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                if self.isLoading && self.graphData == nil {
+                    print("🔧 [全局标签图谱] 强制重置异常的加载状态")
+                    self.isLoading = false
+                    // 递归调用重新尝试加载
+                    self.loadGraphData()
+                }
+            }
+            
             print("⏸️ [全局标签图谱] 已在加载中，跳过本次请求")
             return
         }
         
         // 在主线程上设置加载状态
+        print("🔄 [全局标签图谱] 设置isLoading = true，清空graphData")
         isLoading = true
         graphData = nil
         
