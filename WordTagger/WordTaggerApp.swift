@@ -13,8 +13,8 @@ class TagMappingManager: ObservableObject {
     private let userDefaultsKey = "tagMappings"
     
     private init() {
-        // 启动时只加载基础标签，延迟扫描现有标签
-        tagMappings = Self.builtInCoreTags + Self.commonTags
+        // 启动时只加载内置核心标签，不再自动添加commonTags
+        tagMappings = Self.builtInCoreTags
         
         // 异步尝试从外部存储加载，并扫描现有标签
         Task { @MainActor in
@@ -345,9 +345,9 @@ class TagMappingManager: ObservableObject {
         TagMapping(key: "child", typeName: "子节点")
     ]
     
-    // 常用标签 - 可以删除的预设标签
-    static let commonTags = [
-        TagMapping(key: "root", typeName: "词根")
+    // 常用标签 - 可以删除的预设标签（已移除自动添加功能）
+    static let commonTags: [TagMapping] = [
+        // 不再自动添加任何预设标签，让用户完全控制标签系统
     ]
     
     // 检查是否是内置核心标签
@@ -503,10 +503,8 @@ class TagMappingManager: ObservableObject {
     func resetToDefaults() {
         print("🔄 TagMappingManager.resetToDefaults() 开始")
         
-        tagMappings = Self.builtInCoreTags + [
-            TagMapping(key: "time", typeName: "时间"),
-            TagMapping(key: "sub", typeName: "子类")
-        ]
+        // 只包含内置核心标签，不再自动添加其他预设标签
+        tagMappings = Self.builtInCoreTags
         
         print("   - 重置后映射数量: \(tagMappings.count)")
         
@@ -635,8 +633,8 @@ class TagMappingManager: ObservableObject {
     // 获取默认映射
     @MainActor
     private func getDefaultMappings() -> [TagMapping] {
-        // 总是包含内置核心标签和常用标签
-        var mappings = Self.builtInCoreTags + Self.commonTags
+        // 只包含内置核心标签，不再自动添加commonTags
+        var mappings = Self.builtInCoreTags
         
         // 扫描现有节点中的标签，自动创建缺失的映射
         let store = NodeStore.shared
