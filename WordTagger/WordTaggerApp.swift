@@ -739,6 +739,7 @@ struct QuickAddSheetView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(prefilledNode != nil ? "保存" : "添加") {
+                        print("🔧 DEBUG: 添加按钮被点击")
                         processInput()
                     }
                     .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -792,8 +793,6 @@ struct QuickAddSheetView: View {
                 if let alert = store.tagTypeModificationAlert {
                     Button("取消", role: .cancel) {
                         alert.onCancel()
-                        showingTagModificationAlert = false
-                        cleanupAndDismiss()
                     }
                     Button("确认修改") {
                         alert.onConfirm()
@@ -1055,6 +1054,11 @@ struct QuickAddSheetView: View {
     }
     
     private func processInput() {
+        print("🔧 DEBUG: processInput() called with inputText: '\(inputText)'")
+        print("🔧 DEBUG: inputText is empty: \(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)")
+        print("🔧 DEBUG: prefilledNode: \(prefilledNode?.text ?? "nil")")
+        print("🔧 DEBUG: current layer: \(store.currentLayer?.displayName ?? "nil")")
+        
         // 🔧 添加异常保护，避免命令解析时崩溃
         do {
             try processInputSafely()
@@ -4013,7 +4017,7 @@ struct CompoundNodeAddSheetView: View {
                     .padding(.top, 4)
                 
                 HStack {
-                    Text("快捷键: ⌘+R提交 • Esc关闭")
+                    Text("快捷键: ⌘+Shift+R提交 • Esc关闭")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                     Spacer()
@@ -4039,7 +4043,7 @@ struct CompoundNodeAddSheetView: View {
                     processInput()
                 }
                 .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                .keyboardShortcut("r", modifiers: .command)
+                .keyboardShortcut("r", modifiers: [.command, .shift])
             }
         }
         .alert("错误", isPresented: $showingErrorAlert) {
