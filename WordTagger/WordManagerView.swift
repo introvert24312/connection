@@ -738,6 +738,10 @@ struct TagEditCommandView: View {
             }
             return .ignored
         }
+        .onKeyPress(.escape) {
+            dismiss()
+            return .handled
+        }
         .background(
             Button("") {
                 openMapForLocationSelection()

@@ -267,7 +267,7 @@ struct GraphView: View {
         VStack(spacing: 0) {
             // 工具栏
             HStack {
-                Text("全局图谱")
+                Text("全局节点图谱")
                     .font(.title2)
                     .fontWeight(.semibold)
                 
@@ -341,7 +341,7 @@ struct GraphView: View {
                 NodeContextGraphView(
                     nodes: cachedNodes,
                     edges: cachedEdges,
-                    title: "全局图谱",
+                    title: "全局节点图谱",
                     initialScale: globalGraphInitialScale,
                     onNodeSelected: { nodeId, commandPressed in
                         // 当点击节点时，选择对应的节点（只有节点才会触发选择）
@@ -447,7 +447,7 @@ struct GraphView: View {
         @AppStorage("enableGraphDebug") var enableGraphDebug: Bool = false
         if enableGraphDebug {
             let indentPrefix = String(repeating: "  ", count: depth)
-            print("\(indentPrefix)🏗️ 全局图谱添加子节点结构: \(node.text) (深度: \(depth))")
+            print("\(indentPrefix)🏗️ 全局节点图谱添加子节点结构: \(node.text) (深度: \(depth))")
         }
         #endif
         
@@ -505,7 +505,7 @@ struct EmptyGraphView: View {
                 .font(.title2)
                 .foregroundColor(.secondary)
             
-            Text("添加一些节点来生成全局图谱")
+            Text("添加一些节点来生成全局节点图谱")
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)

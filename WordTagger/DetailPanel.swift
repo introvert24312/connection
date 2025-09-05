@@ -1065,7 +1065,7 @@ struct NodeGraphEdge: UniversalGraphEdge {
     }
 }
 
-// MARK: - 全局图谱数据缓存管理器
+// MARK: - 全局节点图谱数据缓存管理器
 class NodeGraphDataCache: ObservableObject {
     static let shared = NodeGraphDataCache()
     
@@ -1131,11 +1131,13 @@ class NodeGraphDataCache: ObservableObject {
     
     @MainActor
     private func calculateGraphData(for node: Node, store: NodeStore) -> (nodes: [NodeGraphNode], edges: [NodeGraphEdge]) {
+        // 🎯 节点图谱：以当前节点为中心，显示其关联的标签和子节点
+        // 这是与全局标签图谱相互补充的视图：节点 → 标签 vs 标签类型 → 标签值 → 节点
         let nodes = calculateGraphNodes(for: node, store: store)
         var edges: [NodeGraphEdge] = []
         let centerNode = nodes.first { $0.isCenter }!
         
-        // 建立层次化连接：高级复合节点 → 低级复合节点 → 节点 → 标签
+        // 建立以节点为中心的层次化连接：节点 → 子节点 → 标签
         if node.isCompound {
             // 分组节点和标签
             let nodeGraphNodes = nodes.filter { !$0.isCenter && $0.node != nil }

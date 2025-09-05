@@ -1651,8 +1651,8 @@ struct GeneralSettingsView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         
                         SettingRow(
-                            title: "全局图谱初始缩放",
-                            description: "全局图谱窗口打开时的默认缩放级别"
+                            title: "全局节点图谱初始缩放",
+                            description: "全局节点图谱窗口打开时的默认缩放级别"
                         ) {
                             HStack(spacing: 8) {
                                 Text("\(String(format: "%.1f", globalGraphInitialScale))x")

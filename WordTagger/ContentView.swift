@@ -202,7 +202,7 @@ struct ContentViewModifier: ViewModifier {
                 Image(systemName: "circle.hexagonpath")
                     .foregroundColor(.purple)
             }
-            .help("打开全局图谱 (⌘G)")
+            .help("打开全局节点图谱 (⌘G)")
             
             Button(action: {
                 GlobalTagGraphWindowManager.shared.showGlobalTagGraphWindow()
