@@ -314,27 +314,54 @@ class GlobalTagDataManager: ObservableObject {
     // MARK: - 私有辅助方法
     
     private func applyFilters(to items: [GlobalTagItem], store: NodeStore) -> [GlobalTagItem] {
+        print("🔍 [全局标签管理器] 开始过滤，原始项目: \(items.count)")
+        print("🔍 [全局标签管理器] 过滤条件:")
+        print("   - 层级: \(filteredLayers)")  
+        print("   - 标签类型: \(filteredTagTypes.map { $0.displayName })")
+        print("   - 标签值: \(filteredTagValues)")
+        
         var filtered = items
+        
+        // 如果没有任何过滤条件，返回原始数据
+        if filteredLayers.isEmpty && filteredTagTypes.isEmpty && filteredTagValues.isEmpty {
+            print("🔍 [全局标签管理器] 无过滤条件，返回原始数据")
+            return filtered
+        }
         
         // 层级过滤
         if !filteredLayers.isEmpty {
+            let beforeCount = filtered.count
             filtered = filtered.filter { item in
                 !Set(item.layerNames).isDisjoint(with: filteredLayers)
             }
+            print("🔍 [全局标签管理器] 层级过滤: \(beforeCount) → \(filtered.count)")
         }
         
-        // 标签类型过滤
-        if !filteredTagTypes.isEmpty {
+        // 🔧 修复：当有标签值过滤时，优先使用标签值过滤，标签类型作为辅助
+        if !filteredTagValues.isEmpty {
+            let beforeCount = filtered.count
+            
+            // 修复逻辑：如果有选中的标签值，直接过滤出这些标签值的项目
+            // 不再依赖标签类型过滤，因为用户直接选择了具体的标签值
+            filtered = filtered.filter { item in
+                let match = filteredTagValues.contains(item.tagValue)
+                if !match {
+                    print("   - 排除: \(item.tagType):\(item.tagValue) (不在选中值中)")
+                }
+                return match
+            }
+            print("🔍 [全局标签管理器] 标签值过滤: \(beforeCount) → \(filtered.count)")
+            print("   - 最终保留的项目: \(filtered.map { $0.tagType + ":" + $0.tagValue })")
+        } else if !filteredTagTypes.isEmpty {
+            // 仅当没有标签值过滤时，才应用标签类型过滤
+            let beforeCount = filtered.count
             let filteredTypeNames = Set(filteredTagTypes.map { $0.displayName })
             filtered = filtered.filter { filteredTypeNames.contains($0.tagType) }
+            print("🔍 [全局标签管理器] 标签类型过滤: \(beforeCount) → \(filtered.count)")
+            print("   - 通过类型过滤的项目: \(filtered.map { $0.tagType + ":" + $0.tagValue })")
         }
         
-        // 标签值过滤
-        if !filteredTagValues.isEmpty {
-            filtered = filtered.filter { filteredTagValues.contains($0.tagValue) }
-        }
-        
-        print("🔍 [全局标签管理器] 过滤结果: \(items.count) → \(filtered.count)")
+        print("✅ [全局标签管理器] 过滤完成: \(items.count) → \(filtered.count)")
         return filtered
     }
     
