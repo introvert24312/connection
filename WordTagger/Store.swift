@@ -308,6 +308,7 @@ public final class NodeStore: ObservableObject {
     // MARK: - 节点管理
     
     @Published public var duplicateNodeAlert: DuplicateNodeAlert?
+    @Published public var tagTypeModificationAlert: TagTypeModificationAlert?
     
     /// 修复所有节点中的旧标签类型（移除custom_前缀）
     private func fixLegacyTagTypesInAllNodes() {
@@ -520,8 +521,107 @@ public final class NodeStore: ObservableObject {
         let isDuplicate: Bool
         let existingNode: Node?
         let newNode: Node
+        let isContextConflict: Bool // 新增：标记是否为上下文冲突
+        let conflictDetails: [String]? // 新增：冲突详细信息
+        
+        // 便利初始化方法保持向后兼容
+        init(message: String, isDuplicate: Bool, existingNode: Node?, newNode: Node) {
+            self.message = message
+            self.isDuplicate = isDuplicate
+            self.existingNode = existingNode
+            self.newNode = newNode
+            self.isContextConflict = false
+            self.conflictDetails = nil
+        }
+        
+        // 完整初始化方法
+        init(message: String, isDuplicate: Bool, existingNode: Node?, newNode: Node, 
+             isContextConflict: Bool, conflictDetails: [String]? = nil) {
+            self.message = message
+            self.isDuplicate = isDuplicate
+            self.existingNode = existingNode
+            self.newNode = newNode
+            self.isContextConflict = isContextConflict
+            self.conflictDetails = conflictDetails
+        }
     }
     
+    // 标签类型修改确认结果
+    public struct TagTypeModificationAlert {
+        let message: String
+        let tagKey: String
+        let oldTypeName: String
+        let newTypeName: String
+        let affectedNodesCount: Int
+        let pendingCommand: String // 保存待执行的完整命令
+        let onConfirm: () -> Void
+        let onCancel: () -> Void
+        
+        init(message: String, tagKey: String, oldTypeName: String, newTypeName: String, 
+             affectedNodesCount: Int, pendingCommand: String, 
+             onConfirm: @escaping () -> Void, onCancel: @escaping () -> Void) {
+            self.message = message
+            self.tagKey = tagKey
+            self.oldTypeName = oldTypeName
+            self.newTypeName = newTypeName
+            self.affectedNodesCount = affectedNodesCount
+            self.pendingCommand = pendingCommand
+            self.onConfirm = onConfirm
+            self.onCancel = onCancel
+        }
+    }
+    
+    // MARK: - 上下文边界检查
+    
+    /// 检查两个命令的上下文边界是否不同
+    /// 这用于检测标签名相同但使用场景不同的冲突情况
+    private func hasContextBoundaryConflict(_ command1: String, _ command2: String, tagName: String) -> Bool {
+        // 提取标签周围的上下文（前后各3个词）
+        let context1 = extractTagContext(command1, tagName: tagName)
+        let context2 = extractTagContext(command2, tagName: tagName)
+        
+        // 如果上下文显著不同，则认为是冲突
+        return !areContextsSimilar(context1, context2)
+    }
+    
+    /// 提取标签周围的上下文
+    private func extractTagContext(_ command: String, tagName: String) -> [String] {
+        let words = command.components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+        
+        // 找到包含标签的位置（可能在方括号中）
+        var tagPosition = -1
+        for (index, word) in words.enumerated() {
+            if word.contains(tagName) || word.contains("[\(tagName)]") {
+                tagPosition = index
+                break
+            }
+        }
+        
+        if tagPosition == -1 { return [] }
+        
+        // 提取前后各3个词作为上下文
+        let startIndex = max(0, tagPosition - 3)
+        let endIndex = min(words.count - 1, tagPosition + 3)
+        
+        return Array(words[startIndex...endIndex])
+    }
+    
+    /// 判断两个上下文是否相似
+    private func areContextsSimilar(_ context1: [String], _ context2: [String]) -> Bool {
+        // 如果任一上下文为空，认为不相似
+        guard !context1.isEmpty && !context2.isEmpty else { return false }
+        
+        // 计算重叠单词数
+        let set1 = Set(context1.map { $0.lowercased() })
+        let set2 = Set(context2.map { $0.lowercased() })
+        let intersection = set1.intersection(set2)
+        
+        // 如果重叠比例小于50%，认为是不同的上下文
+        let similarity = Double(intersection.count) / Double(max(set1.count, set2.count))
+        return similarity >= 0.5
+    }
+
     @MainActor
     public func addNode(_ node: Node) -> Bool {
         print("📝 Store: 添加节点 - \(node.text)")
@@ -565,117 +665,208 @@ public final class NodeStore: ObservableObject {
             return false
         }
         
-        // 检查是否存在相同的节点
-        print("🔍 检查重复 - 新节点: '\(node.text)', 现有节点数量: \(nodes.count)")
-        for (index, existingNode) in nodes.enumerated() {
-            print("🔍 现有节点[\(index)]: '\(existingNode.text)' (小写: '\(existingNode.text.lowercased())')")
-        }
+        // 安全地检查节点名称冲突，避免崩溃
+        print("🔍 检查节点名称冲突 - 新节点: '\(node.text)', 现有节点数量: \(nodes.count)")
         
-        if let existingNode = nodes.first(where: { $0.text.lowercased() == node.text.lowercased() }) {
-            print("⚠️ 发现重复节点: \(node.text)")
-            print("⚠️ 现有节点: '\(existingNode.text)' 标签数: \(existingNode.tags.count)")
-            print("⚠️ 新节点: '\(node.text)' 标签数: \(node.tags.count)")
-            
-            // 检查是否有相同的标签
-            print("🏷️ 检查标签重复:")
-            print("🏷️ 现有节点标签:")
-            for (i, tag) in existingNode.tags.enumerated() {
-                print("   [\(i)] \(tag.type.displayName): '\(tag.value)'")
-            }
-            print("🏷️ 新节点标签:")
-            for (i, tag) in node.tags.enumerated() {
-                print("   [\(i)] \(tag.type.displayName): '\(tag.value)'")
+        do {
+            // 使用安全的方式查找重复节点
+            let potentialDuplicates = nodes.filter { existingNode in
+                existingNode.text.lowercased() == node.text.lowercased()
             }
             
-            let duplicateTags = node.tags.filter { newTag in
-                let isDuplicate = existingNode.tags.contains { existingTag in
-                    let typeMatch = existingTag.type == newTag.type
-                    let valueMatch = existingTag.value.lowercased() == newTag.value.lowercased()
-                    print("🏷️ 比较: \(existingTag.type.displayName):'\(existingTag.value)' vs \(newTag.type.displayName):'\(newTag.value)' -> type:\(typeMatch), value:\(valueMatch)")
-                    return typeMatch && valueMatch
+            if let existingNode = potentialDuplicates.first {
+                print("⚠️ 发现重复节点名称: \(node.text)")
+                print("⚠️ 现有节点: '\(existingNode.text)' 标签数: \(existingNode.tags.count)")
+                print("⚠️ 新节点: '\(node.text)' 标签数: \(node.tags.count)")
+                
+                // 检查标签冲突，包含上下文边界分析
+                print("🏷️ 开始标签冲突检测:")
+                print("🏷️ 现有节点标签:")
+                for (i, tag) in existingNode.tags.enumerated() {
+                    print("   [\(i)] \(tag.type.displayName): '\(tag.value)'")
                 }
-                return isDuplicate
-            }
-            
-            print("🏷️ 重复标签数量: \(duplicateTags.count)")
-            
-            if !duplicateTags.isEmpty {
-                // 有相同标签，提示用户
-                let tagNames = duplicateTags.map { "\($0.type.displayName)-\($0.value)" }.joined(separator: ", ")
-                duplicateNodeAlert = DuplicateNodeAlert(
-                    message: "节点 \"\(node.text)\" 已存在相同的标签: \(tagNames)",
-                    isDuplicate: true,
-                    existingNode: existingNode,
-                    newNode: node
-                )
-                print("❌ 相同节点相同标签，不添加")
-                return false
-            } else {
-                // 有不同标签，自动合并
-                let newTags = node.tags.filter { newTag in
-                    !existingNode.tags.contains { existingTag in
-                        existingTag.type == newTag.type && existingTag.value.lowercased() == newTag.value.lowercased()
+                print("🏷️ 新节点标签:")
+                for (i, tag) in node.tags.enumerated() {
+                    print("   [\(i)] \(tag.type.displayName): '\(tag.value)'")
+                }
+                
+                // 检查是否有相同类型和值的标签
+                var conflictingTags: [Tag] = []
+                var contextConflicts: [String] = []
+                
+                for newTag in node.tags {
+                    let matchingExistingTags = existingNode.tags.filter { existingTag in
+                        let typeMatch = existingTag.type == newTag.type
+                        let valueMatch = existingTag.value.lowercased() == newTag.value.lowercased()
+                        return typeMatch && valueMatch
+                    }
+                    
+                    if !matchingExistingTags.isEmpty {
+                        conflictingTags.append(newTag)
+                        
+                        // 检查上下文边界冲突（这里我们假设有原始命令文本，实际中可能需要从其他地方获取）
+                        // 由于当前架构限制，我们使用节点的基本信息来判断上下文
+                        let existingContext = "\(existingNode.text) \(existingNode.meaning ?? "") \(existingNode.phonetic ?? "")"
+                        let newContext = "\(node.text) \(node.meaning ?? "") \(node.phonetic ?? "")"
+                        
+                        if !areContextsSimilar(existingContext.components(separatedBy: .whitespacesAndNewlines), 
+                                             newContext.components(separatedBy: .whitespacesAndNewlines)) {
+                            contextConflicts.append("标签'\(newTag.value)'在不同上下文中使用")
+                        }
                     }
                 }
                 
-                if !newTags.isEmpty {
-                    // 添加新标签到现有节点
-                    for tag in newTags {
-                        addTag(to: existingNode.id, tag: tag)
-                    }
-                    
-                    let tagNames = newTags.map { "\($0.type.displayName)-\($0.value)" }.joined(separator: ", ")
+                print("🏷️ 冲突标签数量: \(conflictingTags.count)")
+                print("🏷️ 上下文冲突数量: \(contextConflicts.count)")
+                
+                // 如果有上下文冲突，优先提示上下文冲突
+                if !contextConflicts.isEmpty {
+                    let conflictMessage = contextConflicts.joined(separator: "；")
                     duplicateNodeAlert = DuplicateNodeAlert(
-                        message: "已将新标签 \(tagNames) 合并到现有节点 \"\(node.text)\"",
-                        isDuplicate: false,
+                        message: "检测到标签使用冲突：\(conflictMessage)。请确认是否要继续添加？",
+                        isDuplicate: true,
                         existingNode: existingNode,
-                        newNode: node
+                        newNode: node,
+                        isContextConflict: true,
+                        conflictDetails: contextConflicts
                     )
-                    print("✅ 节点合并成功，添加了 \(newTags.count) 个新标签")
-                    print("🚨 设置警告弹窗: \(duplicateNodeAlert?.message ?? "nil")")
-                    return true
-                } else {
+                    print("⚠️ 上下文冲突，需要用户确认")
+                    return false
+                }
+                
+                // 如果有完全相同的标签
+                if !conflictingTags.isEmpty {
+                    let tagNames = conflictingTags.map { "\($0.type.displayName)-\($0.value)" }.joined(separator: ", ")
                     duplicateNodeAlert = DuplicateNodeAlert(
-                        message: "节点 \"\(node.text)\" 已存在，且所有标签都相同",
+                        message: "节点 \"\(node.text)\" 已存在相同的标签: \(tagNames)",
                         isDuplicate: true,
                         existingNode: existingNode,
                         newNode: node
                     )
-                    print("❌ 完全重复，不添加")
+                    print("❌ 相同节点相同标签，不添加")
                     return false
+                } else {
+                    // 有不同标签，自动合并
+                    let newTags = node.tags.filter { newTag in
+                        !existingNode.tags.contains { existingTag in
+                            existingTag.type == newTag.type && existingTag.value.lowercased() == newTag.value.lowercased()
+                        }
+                    }
+                    
+                    if !newTags.isEmpty {
+                        // 添加新标签到现有节点
+                        for tag in newTags {
+                            addTag(to: existingNode.id, tag: tag)
+                        }
+                        
+                        let tagNames = newTags.map { "\($0.type.displayName)-\($0.value)" }.joined(separator: ", ")
+                        duplicateNodeAlert = DuplicateNodeAlert(
+                            message: "已将新标签 \(tagNames) 合并到现有节点 \"\(node.text)\"",
+                            isDuplicate: false,
+                            existingNode: existingNode,
+                            newNode: node
+                        )
+                        print("✅ 节点合并成功，添加了 \(newTags.count) 个新标签")
+                        return true
+                    } else {
+                        duplicateNodeAlert = DuplicateNodeAlert(
+                            message: "节点 \"\(node.text)\" 已存在，且所有标签都相同",
+                            isDuplicate: true,
+                            existingNode: existingNode,
+                            newNode: node
+                        )
+                        print("❌ 完全重复，不添加")
+                        return false
+                    }
                 }
+            } else {
+                // 新节点，直接添加
+                print("✅ 未发现重复，直接添加新节点")
+                
+                // 确保节点与当前层关联
+                var nodeWithLayer = node
+                nodeWithLayer.layerId = currentLayer.id
+                print("🔗 设置节点层ID: \(currentLayer.id)")
+                
+                nodes.append(nodeWithLayer)
+                print("✅ 节点添加成功，当前总数: \(nodes.count)")
+                
+                // 手动触发objectWillChange以确保UI更新
+                objectWillChange.send()
+                
+                // 发送节点更新通知，触发自动同步
+                NotificationCenter.default.post(
+                    name: Notification.Name("nodeUpdated"),
+                    object: nodeWithLayer
+                )
+                print("📡 已发送nodeUpdated通知，将触发Git自动同步")
+                
+                // 自动保存到外部存储
+                if !isLoadingFromExternal {
+                    Task {
+                        await forceSaveToExternalStorage()
+                        print("💾 节点添加后已自动保存到外部存储")
+                    }
+                }
+                
+                return true
             }
-        } else {
-            // 新节点，直接添加
-            print("✅ 未发现重复，直接添加新节点")
-            
-            // 确保节点与当前层关联
+        } catch {
+            // 捕获任何可能的崩溃，提供友好的错误信息
+            print("❌ 节点添加过程中发生错误: \(error)")
+            duplicateNodeAlert = DuplicateNodeAlert(
+                message: "节点添加失败：\(error.localizedDescription)",
+                isDuplicate: false,
+                existingNode: nil,
+                newNode: node
+            )
+            return false
+        }
+    }
+    
+    /// 强制添加节点（用户确认冲突后）
+    @MainActor
+    public func forceAddNode(_ node: Node, ignoreConflicts: Bool = false) -> Bool {
+        print("🔥 Store: 强制添加节点 - \(node.text) (忽略冲突: \(ignoreConflicts))")
+        
+        // 检查基本条件
+        guard !layers.isEmpty, let currentLayer = currentLayer, !currentLayer.isCompound else {
+            duplicateNodeAlert = DuplicateNodeAlert(
+                message: "无法强制添加节点：层设置无效",
+                isDuplicate: false,
+                existingNode: nil,
+                newNode: node
+            )
+            return false
+        }
+        
+        if ignoreConflicts {
+            // 忽略所有冲突，直接添加
             var nodeWithLayer = node
             nodeWithLayer.layerId = currentLayer.id
-            print("🔗 设置节点层ID: \(currentLayer.id)")
-            
             nodes.append(nodeWithLayer)
-            print("✅ 节点添加成功，当前总数: \(nodes.count)")
             
-            // 手动触发objectWillChange以确保UI更新
+            print("✅ 节点强制添加成功，当前总数: \(nodes.count)")
+            
+            // 手动触发UI更新和保存
             objectWillChange.send()
             
-            // 发送节点更新通知，触发自动同步
             NotificationCenter.default.post(
                 name: Notification.Name("nodeUpdated"),
                 object: nodeWithLayer
             )
-            print("📡 已发送nodeUpdated通知，将触发Git自动同步")
             
-            // 自动保存到外部存储
             if !isLoadingFromExternal {
                 Task {
                     await forceSaveToExternalStorage()
-                    print("💾 节点添加后已自动保存到外部存储")
+                    print("💾 强制添加的节点已自动保存到外部存储")
                 }
             }
             
             return true
+        } else {
+            // 使用正常的添加流程
+            return addNode(node)
         }
     }
     

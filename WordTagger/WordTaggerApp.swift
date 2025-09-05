@@ -2,6 +2,7 @@ import SwiftUI
 import MapKit
 import CoreLocation
 import Combine
+import AppKit
 
 // MARK: - Tag Mapping Manager
 
@@ -713,6 +714,7 @@ struct QuickAddSheetView: View {
     @FocusState private var isInputFocused: Bool
     @State private var isWaitingForLocationSelection = false
     @State private var showingDuplicateAlert = false
+    @State private var showingTagModificationAlert = false
     
     // 新增：支持预填充节点（用于编辑模式）
     let prefilledNode: Node?
@@ -744,7 +746,40 @@ struct QuickAddSheetView: View {
                 }
             }
             .alert("重复检测", isPresented: $showingDuplicateAlert) {
-                Button("确定") { }
+                if let alert = store.duplicateNodeAlert {
+                    if alert.isContextConflict {
+                        // 上下文冲突：提供强制添加选项
+                        Button("取消", role: .cancel) { 
+                            store.duplicateNodeAlert = nil
+                            showingDuplicateAlert = false
+                            cleanupAndDismiss()
+                        }
+                        Button("忽略冲突，强制添加") {
+                            // 强制添加节点
+                            let success = store.forceAddNode(alert.newNode, ignoreConflicts: true)
+                            if success {
+                                inputText = ""
+                                dismiss()
+                            }
+                            store.duplicateNodeAlert = nil
+                        }
+                        Button("查看详情") {
+                            // 显示详细的冲突信息
+                            if let details = alert.conflictDetails {
+                                print("🔍 冲突详情: \(details)")
+                            }
+                            store.duplicateNodeAlert = nil
+                        }
+                    } else {
+                        // 普通重复或其他错误
+                        Button("确定") { 
+                            store.duplicateNodeAlert = nil
+                            showingDuplicateAlert = false
+                        }
+                    }
+                } else {
+                    Button("确定") { }
+                }
             } message: {
                 if let alert = store.duplicateNodeAlert {
                     Text(alert.message)
@@ -753,8 +788,42 @@ struct QuickAddSheetView: View {
             .onReceive(store.$duplicateNodeAlert) { alert in
                 handleDuplicateAlert(alert)
             }
+            .alert("标签类型修改确认", isPresented: $showingTagModificationAlert) {
+                if let alert = store.tagTypeModificationAlert {
+                    Button("取消", role: .cancel) {
+                        alert.onCancel()
+                        showingTagModificationAlert = false
+                        cleanupAndDismiss()
+                    }
+                    Button("确认修改") {
+                        alert.onConfirm()
+                    }
+                } else {
+                    Button("确定") { }
+                }
+            } message: {
+                if let alert = store.tagTypeModificationAlert {
+                    Text(alert.message)
+                }
+            }
+            .onReceive(store.$tagTypeModificationAlert) { alert in
+                if alert != nil {
+                    showingTagModificationAlert = true
+                } else {
+                    showingTagModificationAlert = false
+                }
+            }
             .onAppear {
                 setupView()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("emergencyWindowCleanup"))) { _ in
+                print("🚨 QuickAddSheetView: 收到紧急窗口清理通知，立即关闭")
+                cleanupAndDismiss()
+            }
+            .onKeyPress(.escape) {
+                print("🚪 QuickAddSheetView: Escape键被按下，强制关闭对话框")
+                cleanupAndDismiss()
+                return .handled
             }
             .onKeyPress(.init("p"), phases: .down) { keyPress in
                 if keyPress.modifiers.contains(.command) && isInputFocused {
@@ -877,14 +946,25 @@ struct QuickAddSheetView: View {
     }
     
     private func cleanupAndDismiss() {
+        print("🚪 QuickAddSheetView: cleanupAndDismiss called")
+        
+        // 立即清理状态
         isInputFocused = false
         inputText = ""
         selectedSuggestionIndex = -1
         suggestions = []
+        showingDuplicateAlert = false
+        showingTagModificationAlert = false
+        isWaitingForLocationSelection = false
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            dismiss()
-        }
+        // 清理Store中可能遗留的alert状态
+        store.duplicateNodeAlert = nil
+        store.tagTypeModificationAlert = nil
+        
+        // 立即调用dismiss，不使用延迟
+        dismiss()
+        
+        print("✅ QuickAddSheetView: 清理和关闭完成")
     }
     
     private func handleDuplicateAlert(_ alert: NodeStore.DuplicateNodeAlert?) {
@@ -975,14 +1055,28 @@ struct QuickAddSheetView: View {
     }
     
     private func processInput() {
-        
+        // 🔧 添加异常保护，避免命令解析时崩溃
+        do {
+            try processInputSafely()
+        } catch {
+            print("❌ 命令处理异常: \(error)")
+            // 显示友好的错误信息
+            store.duplicateNodeAlert = NodeStore.DuplicateNodeAlert(
+                message: "命令处理失败: \(error.localizedDescription)",
+                isDuplicate: false,
+                existingNode: nil,
+                newNode: Node(text: "错误", layerId: UUID(), tags: [])
+            )
+        }
+    }
+    
+    private func processInputSafely() throws {
         let components = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
             .split(separator: " ", omittingEmptySubsequences: true)
             .map(String.init)
         
-        
         guard !components.isEmpty else { 
-                return 
+            return 
         }
         
         // 🔧 检查是否是复合节点命令 (以"c"开头)
@@ -1012,21 +1106,69 @@ struct QuickAddSheetView: View {
                     let newTypeName = String(tagKey[tagKey.index(after: startBracket)..<endBracket])
                     
                     
-                    // 处理标签重命名
+                    // 🔧 检查是否正在修改已存在的标签类型名称
                     if let existingMapping = tagManager.tagMappings.first(where: { $0.key == actualTagKey }) {
-                        _ = existingMapping.typeName // 原类型名，用于日志记录
+                        let oldTypeName = existingMapping.typeName
                         
-                        // 创建更新后的映射
-                        let updatedMapping = TagMapping(
-                            id: existingMapping.id,
-                            key: actualTagKey,
-                            typeName: newTypeName
-                        )
-                        
-                        // 保存到TagManager，会自动触发UI更新
-                        tagManager.saveMapping(updatedMapping)
-                        
+                        // 如果新名称与旧名称不同，需要用户确认
+                        if oldTypeName != newTypeName {
+                            // 计算会受影响的节点数量
+                            let affectedNodes = store.nodes.filter { node in
+                                node.tags.contains { tag in
+                                    if case .custom(let key) = tag.type {
+                                        return key == actualTagKey
+                                    }
+                                    return false
+                                }
+                            }
+                            
+                            print("🔔 检测到标签类型名称修改: '\(oldTypeName)' -> '\(newTypeName)', 影响 \(affectedNodes.count) 个节点")
+                            
+                            // 暂停处理，显示确认对话框
+                            store.tagTypeModificationAlert = NodeStore.TagTypeModificationAlert(
+                                message: "你正在修改标签类型 '\(actualTagKey)' 的显示名称：\n从 '\(oldTypeName)' 改为 '\(newTypeName)'\n这将影响 \(affectedNodes.count) 个节点的显示。",
+                                tagKey: actualTagKey,
+                                oldTypeName: oldTypeName,
+                                newTypeName: newTypeName,
+                                affectedNodesCount: affectedNodes.count,
+                                pendingCommand: inputText,
+                                onConfirm: {
+                                    // 用户确认修改，执行标签重命名
+                                    print("✅ 用户确认标签类型修改")
+                                    let updatedMapping = TagMapping(
+                                        id: existingMapping.id,
+                                        key: actualTagKey,
+                                        typeName: newTypeName
+                                    )
+                                    tagManager.saveMapping(updatedMapping)
+                                    
+                                    // 清除alert状态
+                                    store.tagTypeModificationAlert = nil
+                                    
+                                    // 继续处理完整命令
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                        // 简单清除输入
+                                        inputText = ""
+                                    }
+                                },
+                                onCancel: {
+                                    // 用户取消修改，清空输入
+                                    print("❌ 用户取消标签类型修改")
+                                    inputText = ""
+                                    store.tagTypeModificationAlert = nil
+                                }
+                            )
+                            
+                            return // 暂停处理，等待用户确认
+                        } else {
+                            // 名称相同，正常处理
+                            print("✅ 标签类型名称未变化，继续处理")
+                        }
                     } else {
+                        // 新标签映射，正常处理
+                        print("🆕 创建新的标签映射: \(actualTagKey) -> \(newTypeName)")
+                        let newMapping = TagMapping(key: actualTagKey, typeName: newTypeName)
+                        tagManager.addMapping(newMapping)
                     }
                     
                     // 重命名完成后，继续处理标签创建
@@ -1258,14 +1400,50 @@ struct QuickAddSheetView: View {
         }
     }
     
+    // 继续处理被标签修改确认中断的命令
+    private func continueProcessingCommand() {
+        guard let alert = store.tagTypeModificationAlert else { return }
+        
+        // 清除alert并继续处理原命令
+        let savedCommand = alert.pendingCommand
+        store.tagTypeModificationAlert = nil
+        
+        // 重新设置输入文本并处理
+        inputText = savedCommand
+        
+        // 延迟一下，让alert消失后再处理
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            do {
+                try self.processInputSafely()
+                // 如果处理成功，清空输入并关闭窗口
+                self.inputText = ""
+                self.dismiss()
+            } catch {
+                print("❌ 继续处理命令时出错: \(error)")
+            }
+        }
+    }
+    
     // 处理复合节点命令 (c 复合节点名 节点1 节点2 ...)
     private func handleCompoundNodeCommand(components: [String]) {
         print("🔧 处理复合节点命令: \(components)")
         
+        // 🔧 添加安全检查，避免数组越界
         guard components.count >= 3 else {
             // 触发错误警告
             store.duplicateNodeAlert = NodeStore.DuplicateNodeAlert(
                 message: "复合节点命令格式错误：至少需要 'c 复合节点名 子节点1'",
+                isDuplicate: false,
+                existingNode: nil,
+                newNode: Node(text: "错误命令", layerId: UUID(), tags: [])
+            )
+            return
+        }
+        
+        // 🔧 安全地获取节点名称和子节点列表
+        guard components.count >= 2 else {
+            store.duplicateNodeAlert = NodeStore.DuplicateNodeAlert(
+                message: "复合节点命令参数不足",
                 isDuplicate: false,
                 existingNode: nil,
                 newNode: Node(text: "错误命令", layerId: UUID(), tags: [])
@@ -1667,6 +1845,7 @@ struct QuickAddView: View {
     @State private var suggestions: [String] = []
     @State private var selectedSuggestionIndex: Int = -1
     @State private var showingDuplicateAlert = false
+    @State private var showingTagModificationAlert = false
     let onDismiss: () -> Void
     
     var body: some View {
@@ -1709,7 +1888,26 @@ struct QuickAddView: View {
         }
         .onKeyPress(.escape) { onDismiss(); return .handled }
         .alert("重复检测", isPresented: $showingDuplicateAlert) {
-            Button("确定") { }
+            if let alert = store.duplicateNodeAlert {
+                if alert.isContextConflict {
+                    // 上下文冲突：提供强制添加选项
+                    Button("取消", role: .cancel) { 
+                        store.duplicateNodeAlert = nil
+                    }
+                    Button("忽略冲突，强制添加") {
+                        // 强制添加节点
+                        _ = store.forceAddNode(alert.newNode, ignoreConflicts: true)
+                        store.duplicateNodeAlert = nil
+                    }
+                } else {
+                    // 普通重复或其他错误
+                    Button("确定") { 
+                        store.duplicateNodeAlert = nil
+                    }
+                }
+            } else {
+                Button("确定") { }
+            }
         } message: {
             if let alert = store.duplicateNodeAlert {
                 Text(alert.message)
@@ -1722,6 +1920,29 @@ struct QuickAddView: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     store.duplicateNodeAlert = nil
                 }
+            }
+        }
+        .alert("标签类型修改确认", isPresented: $showingTagModificationAlert) {
+            if let alert = store.tagTypeModificationAlert {
+                Button("取消", role: .cancel) {
+                    alert.onCancel()
+                }
+                Button("确认修改") {
+                    alert.onConfirm()
+                }
+            } else {
+                Button("确定") { }
+            }
+        } message: {
+            if let alert = store.tagTypeModificationAlert {
+                Text(alert.message)
+            }
+        }
+        .onReceive(store.$tagTypeModificationAlert) { alert in
+            if alert != nil {
+                showingTagModificationAlert = true
+            } else {
+                showingTagModificationAlert = false
             }
         }
         .onAppear {
@@ -2573,6 +2794,32 @@ struct WordTaggerApp: App {
     private let mainWindowId = UUID()
     @State private var isOpeningWindow = false // 防止重复打开窗口的标志
     
+    /// 紧急清理所有打开的对话框和sheet
+    private func performEmergencySheetCleanup() {
+        print("🚨 WordTaggerApp: 执行紧急sheet清理...")
+        
+        // 强制关闭所有sheet
+        showPalette = false
+        showQuickAdd = false
+        showQuickSearch = false
+        showTagManager = false
+        showCompoundNodeAdd = false
+        nodeToEditInManager = nil
+        tagTypeForGraph = nil
+        
+        // 清理Store中的alert状态
+        store.duplicateNodeAlert = nil
+        store.tagTypeModificationAlert = nil
+        
+        // 发送清理通知给所有子组件
+        NotificationCenter.default.post(
+            name: NSNotification.Name("emergencyWindowCleanup"),
+            object: nil
+        )
+        
+        print("✅ WordTaggerApp: 紧急sheet清理完成")
+    }
+    
     
     init() {
         // 设置环境变量以抑制SQLite系统数据库访问警告
@@ -2688,6 +2935,21 @@ struct WordTaggerApp: App {
                     showQuickSearch = false
                     return .handled
                 }
+                // 检查是否有其他sheet需要紧急关闭
+                if showQuickAdd || showCompoundNodeAdd {
+                    print("🚨 WordTaggerApp: Escape键检测到未关闭的sheet，执行紧急清理")
+                    performEmergencySheetCleanup()
+                    return .handled
+                }
+                return .ignored
+            }
+            .onKeyPress(.init("c"), phases: .down) { keyPress in
+                // Command+Option+C = 紧急清理所有sheet
+                if keyPress.modifiers.contains([.command, .option]) {
+                    print("🚨 WordTaggerApp: 检测到紧急清理快捷键：Command+Option+C")
+                    performEmergencySheetCleanup()
+                    return .handled
+                }
                 return .ignored
             }
             .sheet(isPresented: $showQuickAdd) {
@@ -2697,6 +2959,10 @@ struct WordTaggerApp: App {
             .sheet(isPresented: $showCompoundNodeAdd) {
                 CompoundNodeAddSheetView()
                     .environmentObject(store)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("forceCloseAllSheets"))) { _ in
+                print("🚨 WordTaggerApp: 收到强制关闭所有sheet的通知")
+                performEmergencySheetCleanup()
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("showCommandPalette"))) { _ in
                 // showCommandPalette 是全局命令，应该在任何活跃窗口中可用
