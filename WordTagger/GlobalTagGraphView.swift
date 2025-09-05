@@ -43,11 +43,8 @@ struct GlobalTagGraphView: View {
         .onAppear {
             print("🌍 [全局标签图谱] 视图出现，当前isLoading: \(isLoading), hasPerformedInitialLoad: \(hasPerformedInitialLoad)")
             
-            // 确保状态干净
-            if isLoading {
-                print("🔧 [全局标签图谱] 检测到异常的初始加载状态，强制重置")
-                isLoading = false
-            }
+            // 🔧 强制确保初始状态正确
+            isLoading = false
             
             // 只在首次出现或没有数据时才加载
             if !hasPerformedInitialLoad || graphData == nil {
