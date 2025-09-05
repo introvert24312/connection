@@ -10,7 +10,6 @@ struct GlobalTagGraphView: View {
     @State private var graphData: (nodes: [GlobalTagGraphNode], edges: [GlobalTagGraphEdge])?
     @State private var isLoading = false
     @State private var resetTrigger = UUID()
-    @State private var showingExportSheet = false
     @State private var hasPerformedInitialLoad = false
     
     // 🆕 图谱预设管理状态
@@ -84,9 +83,6 @@ struct GlobalTagGraphView: View {
             print("🔙 [全局标签图谱] ESC键按下，关闭窗口")
             dismiss()
             return .handled
-        }
-        .sheet(isPresented: $showingExportSheet) {
-            GlobalTagExportSheetView(graphData: graphData)
         }
         .sheet(isPresented: $showingPresetSheet) {
             GraphPresetManagerView(dataManager: dataManager)
@@ -458,195 +454,6 @@ struct GlobalTagGraphCanvas: View {
     }
 }
 
-// MARK: - 全局标签图谱导出
-
-struct GlobalTagExportSheetView: View {
-    let graphData: (nodes: [GlobalTagGraphNode], edges: [GlobalTagGraphEdge])?
-    @Environment(\.dismiss) private var dismiss
-    @State private var selectedFormat: ExportFormat = .text
-    @State private var isExporting = false
-    
-    enum ExportFormat: String, CaseIterable {
-        case text = "文本格式"
-        case json = "JSON格式"
-        case csv = "CSV格式"
-    }
-    
-    var body: some View {
-        VStack(spacing: 20) {
-            HStack {
-                Text("导出全局标签图谱")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                
-                Spacer()
-                
-                Button("取消") {
-                    dismiss()
-                }
-                .buttonStyle(.borderless)
-            }
-            
-            VStack(alignment: .leading, spacing: 12) {
-                Text("全局标签图谱数据")
-                    .font(.headline)
-                
-                if let data = graphData {
-                    Text("包含 \(data.nodes.count) 个节点和 \(data.edges.count) 条关系")
-                        .foregroundColor(.secondary)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            
-            VStack(alignment: .leading, spacing: 8) {
-                Text("导出格式")
-                    .font(.headline)
-                
-                ForEach(ExportFormat.allCases, id: \.self) { format in
-                    HStack {
-                        Image(systemName: selectedFormat == format ? "checkmark.circle.fill" : "circle")
-                            .foregroundColor(selectedFormat == format ? .blue : .secondary)
-                        
-                        Text(format.rawValue)
-                            .font(.system(size: 15))
-                        
-                        Spacer()
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        selectedFormat = format
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            
-            Spacer()
-            
-            HStack {
-                Spacer()
-                
-                Button("导出") {
-                    performExport()
-                }
-                .disabled(isExporting || graphData == nil)
-                .buttonStyle(.borderedProminent)
-            }
-        }
-        .padding()
-        .frame(width: 400, height: 350)
-    }
-    
-    private func performExport() {
-        guard let data = graphData else { return }
-        
-        isExporting = true
-        
-        let savePanel = NSSavePanel()
-        savePanel.title = "导出全局标签图谱"
-        savePanel.nameFieldStringValue = "global_tag_graph"
-        
-        switch selectedFormat {
-        case .text:
-            savePanel.allowedContentTypes = [.plainText]
-        case .json:
-            savePanel.allowedContentTypes = [.json]
-        case .csv:
-            savePanel.allowedContentTypes = [.commaSeparatedText]
-        }
-        
-        savePanel.begin { response in
-            defer { isExporting = false }
-            
-            guard response == .OK, let url = savePanel.url else {
-                return
-            }
-            
-            do {
-                let content = generateExportContent(data: data, format: selectedFormat)
-                try content.write(to: url, atomically: true, encoding: .utf8)
-                print("✅ [全局标签图谱] 导出成功: \(url.path)")
-                dismiss()
-            } catch {
-                print("❌ [全局标签图谱] 导出失败: \(error)")
-            }
-        }
-    }
-    
-    private func generateExportContent(data: (nodes: [GlobalTagGraphNode], edges: [GlobalTagGraphEdge]), format: ExportFormat) -> String {
-        switch format {
-        case .text:
-            return generateTextFormat(data: data)
-        case .json:
-            return generateJSONFormat(data: data)
-        case .csv:
-            return generateCSVFormat(data: data)
-        }
-    }
-    
-    private func generateTextFormat(data: (nodes: [GlobalTagGraphNode], edges: [GlobalTagGraphEdge])) -> String {
-        var content = "全局标签图谱导出\n"
-        content += "生成时间: \(Date().formatted())\n\n"
-        
-        content += "=== 节点列表 ===\n"
-        for node in data.nodes {
-            content += "ID: \(node.id), 标签: \(node.label)"
-            if let subtitle = node.subtitle {
-                content += ", 描述: \(subtitle)"
-            }
-            content += ", 类型: \(node.nodeType)\n"
-        }
-        
-        content += "\n=== 关系列表 ===\n"
-        for edge in data.edges {
-            content += "从 \(edge.fromId) 到 \(edge.toId)"
-            if let label = edge.label {
-                content += " (\(label))"
-            }
-            content += "\n"
-        }
-        
-        return content
-    }
-    
-    private func generateJSONFormat(data: (nodes: [GlobalTagGraphNode], edges: [GlobalTagGraphEdge])) -> String {
-        let exportData: [String: Any] = [
-            "exportTime": ISO8601DateFormatter().string(from: Date()),
-            "graphType": "GlobalTagGraph",
-            "nodes": data.nodes.map { node in
-                [
-                    "id": node.id,
-                    "label": node.label,
-                    "subtitle": node.subtitle ?? "",
-                    "isCenter": node.isCenter
-                ]
-            },
-            "edges": data.edges.map { edge in
-                [
-                    "fromId": edge.fromId,
-                    "toId": edge.toId,
-                    "label": edge.label ?? ""
-                ]
-            }
-        ]
-        
-        if let jsonData = try? JSONSerialization.data(withJSONObject: exportData, options: .prettyPrinted),
-           let jsonString = String(data: jsonData, encoding: .utf8) {
-            return jsonString
-        }
-        
-        return "{}"
-    }
-    
-    private func generateCSVFormat(data: (nodes: [GlobalTagGraphNode], edges: [GlobalTagGraphEdge])) -> String {
-        var content = "节点ID,节点标签,节点描述,节点类型\n"
-        
-        for node in data.nodes {
-            content += "\(node.id),\"\(node.label)\",\"\(node.subtitle ?? "")\",\"\(node.nodeType)\"\n"
-        }
-        
-        return content
-    }
-}
 
 // MARK: - 图谱预设管理视图
 
@@ -718,6 +525,7 @@ struct PresetRowView: View {
     let onDelete: () -> Void
     
     @State private var showingDeleteAlert = false
+    @State private var showingButtons = false
     
     var body: some View {
         HStack(spacing: 12) {
@@ -766,23 +574,42 @@ struct PresetRowView: View {
             
             Spacer()
             
-            VStack(spacing: 8) {
-                Button("加载") {
-                    onLoad()
+            if showingButtons {
+                VStack(spacing: 8) {
+                    Button("加载") {
+                        onLoad()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isCurrent)
+                    
+                    Button("删除") {
+                        showingDeleteAlert = true
+                    }
+                    .buttonStyle(.bordered)
+                    .foregroundColor(.red)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(isCurrent)
-                
-                Button("删除") {
-                    showingDeleteAlert = true
-                }
-                .buttonStyle(.bordered)
-                .foregroundColor(.red)
             }
         }
         .padding()
         .background(Color.secondary.opacity(0.1))
         .cornerRadius(8)
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) {
+            // 双击加载预设
+            if !isCurrent {
+                onLoad()
+            }
+        }
+        .simultaneousGesture(
+            TapGesture()
+                .modifiers(.command)
+                .onEnded {
+                    // Command+点击切换按钮显示状态
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showingButtons.toggle()
+                    }
+                }
+        )
         .alert("删除预设", isPresented: $showingDeleteAlert) {
             Button("删除", role: .destructive) {
                 onDelete()

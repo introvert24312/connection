@@ -94,20 +94,8 @@ class GlobalTagDataManager: ObservableObject {
     @Published var graphPresets: [GraphPreset] = []
     @Published var currentPreset: GraphPreset?
     
-    // 🆕 持久化存储文件路径 - 使用外部数据存储系统
-    private static let filterStateFileName = "GlobalTagGraph_FilterState.json"
+    // 持久化存储文件路径 - 使用外部数据存储系统
     private static let presetsFileName = "GlobalTagGraph_Presets.json"
-    
-    private static var filterStateFileURL: URL? {
-        // 使用外部数据管理器的路径，保存到 metadata 文件夹
-        guard let basePath = ExternalDataManager.shared.currentDataPath else {
-            print("⚠️ [全局标签管理器] 外部数据路径未设置，回退到本地Documents文件夹")
-            let documentDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-            return documentDir.appendingPathComponent(filterStateFileName)
-        }
-        let metadataDir = basePath.appendingPathComponent("data/metadata")
-        return metadataDir.appendingPathComponent(filterStateFileName)
-    }
     
     private static var presetsFileURL: URL? {
         // 图谱预设文件路径
@@ -439,115 +427,6 @@ class GlobalTagDataManager: ObservableObject {
         return nil
     }
     
-    // MARK: - 🆕 持久化过滤状态
-    
-    /// 检查是否曾经有过过滤状态（用于区分首次使用和主动清除过滤）
-    private func hasEverHadFilterState() -> Bool {
-        guard let fileURL = Self.filterStateFileURL else { return false }
-        return FileManager.default.fileExists(atPath: fileURL.path)
-    }
-    
-    /// 加载上次的过滤状态
-    private func loadLastFilterState() {
-        print("💾 [全局标签管理器-\(instanceId)] 从外部数据存储加载过滤状态")
-        
-        guard let fileURL = Self.filterStateFileURL else {
-            print("❌ [全局标签管理器-\(instanceId)] 无法获取过滤状态文件路径")
-            return
-        }
-        
-        print("   - 过滤状态文件路径: \(fileURL.path)")
-        print("   - 使用外部数据存储: \(ExternalDataManager.shared.currentDataPath != nil)")
-        
-        // 检查文件是否存在
-        guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            print("ℹ️ [全局标签管理器-\(instanceId)] 过滤状态文件不存在，使用默认状态")
-            return
-        }
-        
-        do {
-            let data = try Data(contentsOf: fileURL)
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601  // 🔧 修复：添加日期解码策略
-            let filterState = try decoder.decode(FilterState.self, from: data)
-            
-            // 恢复过滤状态
-            filteredLayers = Set(filterState.filteredLayers)
-            filteredTagValues = Set(filterState.filteredTagValues)
-            
-            // 恢复标签类型
-            var restoredTypes: Set<Tag.TagType> = []
-            for typeString in filterState.filteredTagTypes {
-                if let tagType = parseTagTypeFromString(typeString) {
-                    restoredTypes.insert(tagType)
-                }
-            }
-            filteredTagTypes = restoredTypes
-            
-            let totalFilters = filteredLayers.count + filteredTagTypes.count + filteredTagValues.count
-            print("✅ [全局标签管理器-\(instanceId)] 成功从文件恢复 \(totalFilters) 个过滤条件")
-            print("   - 层级: \(filteredLayers.count) 个")
-            print("   - 标签类型: \(filteredTagTypes.count) 个")
-            print("   - 标签值: \(filteredTagValues.count) 个")
-            
-        } catch {
-            print("❌ [全局标签管理器-\(instanceId)] 读取过滤状态文件失败: \(error)")
-            print("   - 使用默认状态")
-        }
-    }
-    
-    /// 保存当前的过滤状态
-    func saveCurrentFilterState() {
-        print("💾 [全局标签管理器-\(instanceId)] 保存过滤状态到外部数据存储")
-        
-        guard let fileURL = Self.filterStateFileURL else {
-            print("❌ [全局标签管理器-\(instanceId)] 无法获取过滤状态文件路径")
-            return
-        }
-        
-        let filterState = FilterState(
-            filteredLayers: Array(filteredLayers),
-            filteredTagTypes: filteredTagTypes.map { tagTypeToString($0) },
-            filteredTagValues: Array(filteredTagValues),
-            lastSaved: Date()
-        )
-        
-        do {
-            // 确保metadata文件夹存在
-            let metadataDir = fileURL.deletingLastPathComponent()
-            if !FileManager.default.fileExists(atPath: metadataDir.path) {
-                try FileManager.default.createDirectory(at: metadataDir, withIntermediateDirectories: true, attributes: nil)
-                print("📁 [全局标签管理器-\(instanceId)] 创建metadata文件夹: \(metadataDir.path)")
-            }
-            
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            encoder.dateEncodingStrategy = .iso8601
-            
-            let data = try encoder.encode(filterState)
-            try data.write(to: fileURL)
-            
-            let totalFilters = filteredLayers.count + filteredTagTypes.count + filteredTagValues.count
-            print("✅ [全局标签管理器-\(instanceId)] 成功保存 \(totalFilters) 个过滤条件到外部存储")
-            print("   - 文件路径: \(fileURL.path)")
-            print("   - 使用外部数据存储: \(ExternalDataManager.shared.currentDataPath != nil)")
-            print("   - 层级: \(filteredLayers.count) 个")
-            print("   - 标签类型: \(filteredTagTypes.count) 个")
-            print("   - 标签值: \(filteredTagValues.count) 个")
-            
-            // 🆕 触发自动同步到Git（如果启用）
-            DispatchQueue.main.async {
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("TriggerAutoSync"),
-                    object: nil,
-                    userInfo: ["reason": "GlobalTagGraphFilterStateChanged"]
-                )
-            }
-            
-        } catch {
-            print("❌ [全局标签管理器-\(instanceId)] 保存过滤状态文件失败: \(error)")
-        }
-    }
     
     /// 将TagType转换为字符串用于存储
     private func tagTypeToString(_ tagType: Tag.TagType) -> String {
@@ -713,15 +592,7 @@ class GlobalTagDataManager: ObservableObject {
     }
 }
 
-// MARK: - 过滤状态持久化数据模型
-
-/// 过滤状态数据结构
-struct FilterState: Codable {
-    let filteredLayers: [String]
-    let filteredTagTypes: [String]  // TagType 的字符串表示
-    let filteredTagValues: [String]
-    let lastSaved: Date
-}
+// MARK: - 数据模型
 
 /// 图谱预设数据结构
 struct GraphPreset: Codable, Identifiable {
