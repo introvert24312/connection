@@ -21,7 +21,7 @@ protocol GraphCoordinator {
     func fitGraph()
 }
 
-// MARK: - 全局图谱管理器
+// MARK: - 全局节点图谱管理器
 class GraphManager: ObservableObject {
     static let shared = GraphManager()
     private var coordinators: [ObjectIdentifier: GraphCoordinator] = [:]
@@ -41,7 +41,7 @@ class GraphManager: ObservableObject {
     }
 }
 
-// MARK: - 全局图谱选中状态管理器
+// MARK: - 全局节点图谱选中状态管理器
 class GlobalGraphSelectionManager: ObservableObject {
     static let shared = GlobalGraphSelectionManager()
     
@@ -59,7 +59,7 @@ class GlobalGraphSelectionManager: ObservableObject {
         if let data = UserDefaults.standard.data(forKey: storageKey),
            let nodeIds = try? JSONDecoder().decode(Set<Int>.self, from: data) {
             selectedNodeIds = nodeIds
-            print("🔄 加载全局图谱选中状态: \(nodeIds.count)个节点")
+            print("🔄 加载全局节点图谱选中状态: \(nodeIds.count)个节点")
         }
     }
     
@@ -67,7 +67,7 @@ class GlobalGraphSelectionManager: ObservableObject {
     private func saveSelectedNodes() {
         if let data = try? JSONEncoder().encode(selectedNodeIds) {
             UserDefaults.standard.set(data, forKey: storageKey)
-            print("💾 保存全局图谱选中状态: \(selectedNodeIds.count)个节点")
+            print("💾 保存全局节点图谱选中状态: \(selectedNodeIds.count)个节点")
         }
     }
     
@@ -1055,7 +1055,31 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
             }
         }
         
-        // 检查是否是TagTypeGraphNode（标签图谱节点）
+        // 🎨 检查是否是GlobalTagGraphNode（全局标签图谱节点）
+        if let globalTagNode = node as? GlobalTagGraphNode {
+            switch globalTagNode.nodeType {
+            case .root:
+                return "#9B59B6" // 紫色表示根节点（已废弃）
+                
+            case .tagType(_):
+                return "#E74C3C" // 🏷️ 红色表示标签类型（中心节点）- 醒目易识别
+                
+            case .tagValue(_, let count):
+                // 🔖 根据标签值使用频率分配渐变色系
+                if count > 10 {
+                    return "#3498DB" // 深蓝色表示高频标签值
+                } else if count > 5 {
+                    return "#5DADE2" // 中蓝色表示中频标签值
+                } else {
+                    return "#85C1E9" // 浅蓝色表示低频标签值
+                }
+                
+            case .contentNode(_):
+                return "#2ECC71" // 📄 绿色表示内容节点（叶子节点）
+            }
+        }
+        
+        // 检查是否是TagTypeGraphNode（其他标签图谱节点）
         if let tagTypeNode = node as? TagTypeGraphNode {
             switch tagTypeNode.nodeType {
             case .tagType(_):

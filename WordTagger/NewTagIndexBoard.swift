@@ -728,24 +728,18 @@ extension NewTagIndexWebViewModel: WKScriptMessageHandler {
         
         // 转换选择数据并发送通知
         var selectedTagValues: Set<String> = []
-        var selectedTagTypes: Set<Tag.TagType> = []
+        // 🔧 修复：当用户选择具体标签值时，不设置标签类型过滤，避免冲突
+        // 让标签值过滤起主导作用，这样多选同类型标签值就能正常显示
         
         for selection in selections {
-            if let value = selection["value"] as? String,
-               let tagTypeName = selection["tagType"] as? String {
+            if let value = selection["value"] as? String {
                 selectedTagValues.insert(value)
-                
-                // 尝试找到对应的TagType
-                if let tagType = findTagType(by: tagTypeName) {
-                    selectedTagTypes.insert(tagType)
-                }
             }
         }
         
         // 发送通知给全局标签管理器
         DispatchQueue.main.async {
             print("📤 [新标签索引] 发送选择变化通知")
-            print("   - 选中标签类型: \(selectedTagTypes.map { $0.displayName })")
             print("   - 选中标签值: \(selectedTagValues)")
             
             NotificationCenter.default.post(
@@ -753,7 +747,7 @@ extension NewTagIndexWebViewModel: WKScriptMessageHandler {
                 object: nil,
                 userInfo: [
                     "selectedLayers": Set<String>(), // 暂时为空，后续扩展
-                    "selectedTagTypes": selectedTagTypes,
+                    "selectedTagTypes": Set<Tag.TagType>(), // 🔧 修复：清空标签类型过滤，只用标签值过滤
                     "selectedTagValues": selectedTagValues
                 ]
             )

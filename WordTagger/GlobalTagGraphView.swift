@@ -35,7 +35,16 @@ struct GlobalTagGraphView: View {
                 }
             }
             .onAppear {
-                print("🔄 [全局标签图谱] UI状态检查 - isLoading: \(isLoading), hasData: \(graphData?.nodes.isEmpty == false)")
+                print("🔄 [全局标签图谱] UI状态检查 - isLoading: \(isLoading), hasData: \(graphData?.nodes.count ?? 0)个节点")
+                // 🚨 强制调试：检查数据是否真的被设置
+                if let data = graphData {
+                    print("🚨 [调试] graphData存在: \(data.nodes.count)个节点, \(data.edges.count)条边")
+                    for (i, node) in data.nodes.enumerated() {
+                        print("   节点\(i): \(node.label) (ID: \(node.id))")
+                    }
+                } else {
+                    print("🚨 [调试] graphData为nil")
+                }
             }
         }
         .frame(minWidth: 1000, minHeight: 700)
@@ -55,11 +64,14 @@ struct GlobalTagGraphView: View {
                 print("📊 [全局标签图谱] 已有数据，跳过重复加载")
             }
         }
-        .onReceive(dataManager.$filteredLayers.combineLatest(dataManager.$filteredTagTypes, dataManager.$filteredTagValues)) { _, _, _ in
+        .onReceive(dataManager.$filteredLayers.combineLatest(dataManager.$filteredTagTypes, dataManager.$filteredTagValues)) { layers, types, values in
             print("🔄 [全局标签图谱] 过滤器变化，准备重新加载数据")
-            // 简化逻辑，直接重新加载，loadGraphData内部有重复加载保护
-            DispatchQueue.main.async {
-                loadGraphData()
+            print("   新的过滤条件: 层级=\(layers.count), 类型=\(types.count), 值=\(values.count)")
+            // 🔧 防抖动：延迟100ms再执行，避免快速连续更改时的多次调用
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                if !self.isLoading {  // 只有在不加载时才执行
+                    self.loadGraphData()
+                }
             }
         }
         .onKeyPress(.escape) {
@@ -272,22 +284,25 @@ struct GlobalTagGraphView: View {
                 // 检查任务是否被取消
                 try Task.checkCancellation()
                 
-                // 更新数据
+                // 🔧 修复竞态条件：同时更新数据和状态
                 self.graphData = data
-                print("🔄 [全局标签图谱] graphData已更新，节点数: \(data.nodes.count)")
-                print("🔄 [全局标签图谱] 当前UI状态: isLoading=\(isLoading), hasData=\(data.nodes.isEmpty ? "无" : "有")")
+                self.isLoading = false  // 立即重置状态
+                
+                print("✅ [修复竞态] 同步更新: graphData=\(data.nodes.count)个节点, isLoading=false")
                 
                 if data.nodes.isEmpty {
                     print("⚠️ [全局标签图谱] 警告：没有生成任何节点数据")
+                } else {
+                    print("✅ [全局标签图谱] 成功生成图谱数据：")
+                    for (i, node) in data.nodes.enumerated() {
+                        print("   节点\(i): \(node.label) (ID: \(node.id))")
+                    }
                 }
-                
-                // 成功完成，重置状态
-                resetLoadingState()
                 
             } catch {
                 print("❌ [全局标签图谱] 数据加载失败: \(error)")
                 // 出错时也要重置状态
-                resetLoadingState()
+                self.isLoading = false
             }
         }
     }

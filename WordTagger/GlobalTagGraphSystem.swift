@@ -52,15 +52,7 @@ struct GlobalTagGraphNode: UniversalGraphNode {
         self.isCenter = false
     }
     
-    static func createRootNode() -> GlobalTagGraphNode {
-        return GlobalTagGraphNode(
-            id: 0,
-            label: "全局标签",
-            subtitle: "标签类型总览",
-            nodeType: .root,
-            isCenter: true
-        )
-    }
+    // 🚫 已废弃：全局标签图谱不再使用根节点，直接以标签类型为中心
     
     private init(id: Int, label: String, subtitle: String?, nodeType: NodeType, isCenter: Bool) {
         self.id = id
@@ -129,12 +121,22 @@ class GlobalTagDataManager: ObservableObject {
         print("   - 选中标签类型: \(selectedTagTypes.map { $0.displayName })")
         print("   - 选中标签值: \(selectedTagValues)")
         
+        // 🚨 调试：检查是否有标签值但没有清空标签类型
+        if !selectedTagValues.isEmpty && !selectedTagTypes.isEmpty {
+            print("⚠️ [调试] 检测到同时有标签值和标签类型！这会导致冲突!")
+            print("   - 标签值: \(selectedTagValues)")
+            print("   - 标签类型: \(selectedTagTypes.map { $0.displayName })")
+        }
+        
         // 更新过滤器
         filteredLayers = selectedLayers
         filteredTagTypes = selectedTagTypes
         filteredTagValues = selectedTagValues
         
         print("🔄 [全局标签管理器] 过滤器已更新")
+        print("   - filteredLayers: \(filteredLayers)")
+        print("   - filteredTagTypes: \(filteredTagTypes.map { $0.displayName })")
+        print("   - filteredTagValues: \(filteredTagValues)")
         
         // 清除缓存以触发重新计算
         cachedGraphData = nil
@@ -232,9 +234,10 @@ class GlobalTagDataManager: ObservableObject {
         return result
     }
     
-    /// 生成全局标签图谱数据
+    /// 生成全局标签图谱数据 - 三层结构：标签类型 → 标签值 → 节点名称
+    /// 这是专门用于展示标签分类和使用情况的图谱，与节点图谱（节点 → 标签）形成互补
     func generateGlobalGraphData(from store: NodeStore) -> (nodes: [GlobalTagGraphNode], edges: [GlobalTagGraphEdge]) {
-        print("🏗️ [全局标签管理器] 开始生成全局图谱数据")
+        print("🏗️ [全局标签管理器] 生成三层标签图谱：标签类型 → 标签值 → 节点名称")
         
         var nodes: [GlobalTagGraphNode] = []
         var edges: [GlobalTagGraphEdge] = []
@@ -261,25 +264,21 @@ class GlobalTagDataManager: ObservableObject {
             return (nodes: [], edges: [])
         }
         
-        // 1. 创建根节点
-        let rootNode = GlobalTagGraphNode.createRootNode()
-        nodes.append(rootNode)
-        
-        // 2. 按标签类型分组
+        // 📊 三层图谱结构：标签类型(第1层) → 标签值(第2层) → 节点名称(第3层)
         let groupedByType = Dictionary(grouping: itemsToShow) { $0.tagType }
         
-        // 3. 创建标签类型节点
+        // 🔧 节点去重：使用字典避免重复创建相同节点
+        var createdNodes: [String: GlobalTagGraphNode] = [:]
+        
+        // 🏷️ 第1层：创建标签类型节点（中心层）
         for (tagTypeName, items) in groupedByType {
-            // 找到对应的TagType
             guard let tagType = findTagType(by: tagTypeName, in: store) else { continue }
             
             let tagTypeNode = GlobalTagGraphNode(tagType: tagType, usageCount: items.count)
             nodes.append(tagTypeNode)
+            print("🏷️ [全局标签管理器] 第1层 - 标签类型: \(tagTypeName)")
             
-            // 连接根节点到标签类型节点
-            edges.append(GlobalTagGraphEdge(from: rootNode, to: tagTypeNode))
-            
-            // 4. 为每个标签值创建节点（限制显示数量）
+            // 🔖 第2层：为每个标签值创建节点
             for item in items.prefix(10) {
                 let tagValueNode = GlobalTagGraphNode(
                     tagValue: item.tagValue,
@@ -288,17 +287,30 @@ class GlobalTagDataManager: ObservableObject {
                 )
                 nodes.append(tagValueNode)
                 
-                // 连接标签类型到标签值
+                // 连接：标签类型 → 标签值
                 edges.append(GlobalTagGraphEdge(from: tagTypeNode, to: tagValueNode))
+                print("🔗 [全局标签管理器] 第1层→第2层: \(tagTypeName) → \(item.tagValue)")
                 
-                // 5. 添加部分内容节点（每个标签值最多3个节点）
+                // 📄 第3层：添加具体的节点名称（去重处理）
                 for nodeName in item.nodes.prefix(3) {
                     if let node = store.nodes.first(where: { $0.text == nodeName }) {
-                        let contentNode = GlobalTagGraphNode(node: node)
-                        nodes.append(contentNode)
+                        // 🔧 使用节点唯一标识符避免重复创建
+                        let nodeKey = node.id.uuidString
                         
-                        // 连接标签值到内容节点
+                        let contentNode: GlobalTagGraphNode
+                        if let existingNode = createdNodes[nodeKey] {
+                            contentNode = existingNode
+                            print("🔄 [去重] 复用已存在的节点: \(nodeName)")
+                        } else {
+                            contentNode = GlobalTagGraphNode(node: node)
+                            nodes.append(contentNode)
+                            createdNodes[nodeKey] = contentNode
+                            print("🆕 [新建] 创建新的内容节点: \(nodeName)")
+                        }
+                        
+                        // 连接：标签值 → 节点名称
                         edges.append(GlobalTagGraphEdge(from: tagValueNode, to: contentNode))
+                        print("🔗 [全局标签管理器] 第2层→第3层: \(item.tagValue) → \(nodeName)")
                     }
                 }
             }
@@ -307,7 +319,8 @@ class GlobalTagDataManager: ObservableObject {
         let result = (nodes: nodes, edges: edges)
         cachedGraphData = result
         
-        print("✅ [全局标签管理器] 图谱生成完成: \(nodes.count)个节点, \(edges.count)条边")
+        print("✅ [全局标签管理器] 标签图谱生成完成: \(nodes.count)个节点, \(edges.count)条边")
+        print("🎯 [全局标签管理器] 图谱结构: 标签类型(\(groupedByType.count)) → 标签值 → 节点名称")
         return result
     }
     
