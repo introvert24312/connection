@@ -202,34 +202,63 @@ struct GlobalTagGraphView: View {
             return
         }
         
+        // 在主线程上设置加载状态
         isLoading = true
         graphData = nil
         
-        Task { @MainActor in
-            print("🔄 [全局标签图谱] Task开始执行")
-            
-            defer { 
-                isLoading = false
+        // 确保在外层设置 defer，无论 Task 如何都会执行
+        let resetLoadingState = {
+            DispatchQueue.main.async {
+                self.isLoading = false
                 print("🔄 [全局标签图谱] isLoading已重置为false")
             }
+        }
+        
+        // 设置超时机制
+        let timeoutTask = Task {
+            try await Task.sleep(nanoseconds: 30_000_000_000) // 30秒超时
+            if !Task.isCancelled {
+                print("⏰ [全局标签图谱] 加载超时，强制重置状态")
+                resetLoadingState()
+            }
+        }
+        
+        Task { @MainActor in
+            defer {
+                timeoutTask.cancel() // 正常完成时取消超时任务
+            }
             
-            print("🔄 [全局标签图谱] 开始生成图谱数据")
-            print("   - 数据源节点数: \(store.nodes.count)")
-            print("   - 数据源层级数: \(store.layers.count)")
-            
-            let data = dataManager.generateGlobalGraphData(from: store)
-            
-            print("✅ [全局标签图谱] 图谱数据生成完成")
-            print("   - 节点数: \(data.nodes.count)")
-            print("   - 边数: \(data.edges.count)")
-            
-            // 直接更新，因为已经在MainActor上下文中
-            self.graphData = data
-            print("🔄 [全局标签图谱] graphData已更新，节点数: \(data.nodes.count)")
-            print("🔄 [全局标签图谱] 当前UI状态: isLoading=\(isLoading), hasData=\(data.nodes.isEmpty ? "无" : "有")")
-            
-            if data.nodes.isEmpty {
-                print("⚠️ [全局标签图谱] 警告：没有生成任何节点数据")
+            do {
+                print("🔄 [全局标签图谱] Task开始执行")
+                print("🔄 [全局标签图谱] 开始生成图谱数据")
+                print("   - 数据源节点数: \(store.nodes.count)")
+                print("   - 数据源层级数: \(store.layers.count)")
+                
+                let data = dataManager.generateGlobalGraphData(from: store)
+                
+                print("✅ [全局标签图谱] 图谱数据生成完成")
+                print("   - 节点数: \(data.nodes.count)")
+                print("   - 边数: \(data.edges.count)")
+                
+                // 检查任务是否被取消
+                try Task.checkCancellation()
+                
+                // 更新数据
+                self.graphData = data
+                print("🔄 [全局标签图谱] graphData已更新，节点数: \(data.nodes.count)")
+                print("🔄 [全局标签图谱] 当前UI状态: isLoading=\(isLoading), hasData=\(data.nodes.isEmpty ? "无" : "有")")
+                
+                if data.nodes.isEmpty {
+                    print("⚠️ [全局标签图谱] 警告：没有生成任何节点数据")
+                }
+                
+                // 成功完成，重置状态
+                resetLoadingState()
+                
+            } catch {
+                print("❌ [全局标签图谱] 数据加载失败: \(error)")
+                // 出错时也要重置状态
+                resetLoadingState()
             }
         }
     }
