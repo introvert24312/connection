@@ -1415,18 +1415,7 @@ struct TagEditCommandView: View {
         let tagManager = TagMappingManager.shared
         print("🔍 mapTokenToTagType: 检查单独token '\(token)'")
         
-        // 特殊处理beef，强制确保映射正确
-        if token.lowercased() == "beef" {
-            print("🔧 检测到beef token，强制重建映射...")
-            tagManager.forceRebuildBeefMapping()
-            print("🔧 重建后映射字典keys: \(Array(tagManager.mappingDictionary.keys))")
-            if let (typeName, tagType) = tagManager.mappingDictionary["beef"] {
-                print("✅ beef映射确认: beef -> \(typeName)")
-                return tagType
-            } else {
-                print("❌ beef映射仍然不存在！这是严重错误！")
-            }
-        }
+        // 🔧 已移除beef特殊处理，允许用户永久删除beef映射
         
         print("🔍 当前映射字典keys: \(Array(tagManager.mappingDictionary.keys))")
         let result = tagManager.parseTokenToTagTypeWithStore(token, store: store)

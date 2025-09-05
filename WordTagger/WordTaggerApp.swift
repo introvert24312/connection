@@ -366,56 +366,12 @@ class TagMappingManager: ObservableObject {
             }
         }
         
-        // 确保beef映射始终存在且正确
-        print("🔧 检查beef映射状态...")
-        print("🔧 当前所有映射: \(tagMappings.map { "\($0.key)->\($0.typeName)" })")
-        
-        // 查找任何beef相关的映射
-        if let existingBeefIndex = tagMappings.firstIndex(where: { $0.key == "beef" }) {
-            let existingMapping = tagMappings[existingBeefIndex]
-            print("🔧 找到现有beef映射: \(existingMapping.key) -> \(existingMapping.typeName)")
-            
-            // 保持用户的映射，不强制覆盖为"牛肉种类"
-            print("🔧 保持用户的beef映射: \(existingMapping.typeName)")
-        } else {
-            // 如果没有beef映射，检查是否有相关的牛肉映射需要恢复
-            // 首先尝试恢复用户最近的映射
-            if let recentBeefMapping = restoreMostRecentBeefMapping() {
-                tagMappings.append(recentBeefMapping)
-                print("🔧 恢复最近的beef映射: beef -> \(recentBeefMapping.typeName)")
-            } else {
-                // 如果没有历史记录，添加默认的（使用用户偏好的名称）
-                let newBeefMapping = TagMapping(key: "beef", typeName: "牛肉类型")
-                tagMappings.append(newBeefMapping)
-                print("🔧 添加默认的beef映射: beef -> 牛肉类型")
-            }
-        }
-        
-        print("🔧 修复后的映射字典keys: \(Array(mappingDictionary.keys))")
-        
-        saveToUserDefaults()
-        
-        // 立即同步到外部存储，确保修复不会被覆盖
-        Task {
-            do {
-                try await ExternalDataService.shared.saveTagMappingsOnly()
-                print("✅ beef映射修复已同步到外部存储")
-            } catch {
-                print("⚠️ beef映射修复同步到外部存储失败: \(error)")
-            }
-        }
+        // 🔧 移除自动beef映射恢复逻辑，允许用户永久删除beef映射
+        print("🔧 内置核心标签确保完成，不再自动恢复已删除的beef映射")
     }
     
-    // 尝试恢复最近的beef映射
-    private func restoreMostRecentBeefMapping() -> TagMapping? {
-        // 根据用户的历史，应该是 beef -> 牛肉类型
-        print("🔧 检测用户历史beef映射偏好...")
-        
-        // 直接使用用户最常用的"牛肉类型"，这是从之前的会话分析得出的
-        let preferredTypeName = "牛肉类型"
-        print("🔧 使用用户偏好的beef映射: beef -> \(preferredTypeName)")
-        return TagMapping(key: "beef", typeName: preferredTypeName)
-    }
+    // 🔧 已移除自动beef映射恢复功能，允许用户永久删除beef映射
+    // private func restoreMostRecentBeefMapping() -> TagMapping? { ... }
     
     // 修复节点中错误的标签类型
     @MainActor
@@ -471,33 +427,8 @@ class TagMappingManager: ObservableObject {
         }
     }
     
-    // 强制重建beef映射
-    func forceRebuildBeefMapping() {
-        print("🔧 强制重建beef映射...")
-        
-        // 删除所有beef相关映射
-        tagMappings.removeAll { $0.key == "beef" }
-        
-        // 添加正确的beef映射（使用用户偏好的名称）
-        let correctBeefMapping = TagMapping(key: "beef", typeName: "牛肉类型")
-        tagMappings.append(correctBeefMapping)
-        
-        // 立即保存到本地和外部存储
-        saveToUserDefaults()
-        
-        // 立即同步到外部存储
-        Task {
-            do {
-                try await ExternalDataService.shared.saveTagMappingsOnly()
-                print("✅ beef映射重建已同步到外部存储")
-            } catch {
-                print("⚠️ beef映射重建同步失败: \(error)")
-            }
-        }
-        
-        print("✅ beef映射重建完成: beef -> 牛肉类型")
-        print("✅ 当前所有映射: \(tagMappings.map { "\($0.key)->\($0.typeName)" })")
-    }
+    // 🔧 已移除强制重建beef映射功能，允许用户永久删除beef映射
+    // func forceRebuildBeefMapping() { ... }
     
     // 重置为默认映射
     func resetToDefaults() {
