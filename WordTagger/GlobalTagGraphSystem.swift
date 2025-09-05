@@ -80,7 +80,7 @@ struct GlobalTagGraphEdge: UniversalGraphEdge {
 
 @MainActor
 class GlobalTagDataManager: ObservableObject {
-    static let shared = GlobalTagDataManager()
+    // 🆕 移除单例模式，每个窗口独立创建实例
     
     @Published var filteredLayers: Set<String> = []
     @Published var filteredTagTypes: Set<Tag.TagType> = []
@@ -88,8 +88,10 @@ class GlobalTagDataManager: ObservableObject {
     
     private(set) var cachedTagItems: [GlobalTagItem] = []
     private var cachedGraphData: (nodes: [GlobalTagGraphNode], edges: [GlobalTagGraphEdge])?
+    private let instanceId = UUID().uuidString.prefix(8)  // 🆕 实例标识符
     
-    private init() {
+    init() {
+        print("🏗️ [全局标签管理器-\(instanceId)] 创建新实例")
         setupNotifications()
     }
     
@@ -104,11 +106,11 @@ class GlobalTagDataManager: ObservableObject {
     }
     
     @objc private func handleSelectionChanged(_ notification: Notification) {
-        print("🔔 [全局标签管理器] 收到通知: \(notification.name)")
-        print("🔔 [全局标签管理器] userInfo: \(notification.userInfo ?? [:])")
+        print("🔔 [全局标签管理器-\(instanceId)] 收到通知: \(notification.name)")
+        print("🔔 [全局标签管理器-\(instanceId)] userInfo: \(notification.userInfo ?? [:])")
         
         guard let userInfo = notification.userInfo else {
-            print("❌ [全局标签管理器] userInfo为空")
+            print("❌ [全局标签管理器-\(instanceId)] userInfo为空")
             return
         }
         
@@ -116,14 +118,14 @@ class GlobalTagDataManager: ObservableObject {
         let selectedTagTypes = userInfo["selectedTagTypes"] as? Set<Tag.TagType> ?? Set<Tag.TagType>()
         let selectedTagValues = userInfo["selectedTagValues"] as? Set<String> ?? Set<String>()
         
-        print("✅ [全局标签管理器] 成功解析选择数据")
+        print("✅ [全局标签管理器-\(instanceId)] 成功解析选择数据")
         print("   - 选中层级: \(selectedLayers)")
         print("   - 选中标签类型: \(selectedTagTypes.map { $0.displayName })")
         print("   - 选中标签值: \(selectedTagValues)")
         
         // 🚨 调试：检查是否有标签值但没有清空标签类型
         if !selectedTagValues.isEmpty && !selectedTagTypes.isEmpty {
-            print("⚠️ [调试] 检测到同时有标签值和标签类型！这会导致冲突!")
+            print("⚠️ [调试-\(instanceId)] 检测到同时有标签值和标签类型！这会导致冲突!")
             print("   - 标签值: \(selectedTagValues)")
             print("   - 标签类型: \(selectedTagTypes.map { $0.displayName })")
         }
@@ -133,7 +135,7 @@ class GlobalTagDataManager: ObservableObject {
         filteredTagTypes = selectedTagTypes
         filteredTagValues = selectedTagValues
         
-        print("🔄 [全局标签管理器] 过滤器已更新")
+        print("🔄 [全局标签管理器-\(instanceId)] 过滤器已更新")
         print("   - filteredLayers: \(filteredLayers)")
         print("   - filteredTagTypes: \(filteredTagTypes.map { $0.displayName })")
         print("   - filteredTagValues: \(filteredTagValues)")
@@ -141,7 +143,7 @@ class GlobalTagDataManager: ObservableObject {
         // 清除缓存以触发重新计算
         cachedGraphData = nil
         
-        print("🗑️ [全局标签管理器] 图谱缓存已清除")
+        print("🗑️ [全局标签管理器-\(instanceId)] 图谱缓存已清除")
     }
     
     /// 生成全局标签索引数据

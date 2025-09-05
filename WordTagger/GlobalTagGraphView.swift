@@ -4,7 +4,7 @@ import SwiftUI
 
 struct GlobalTagGraphView: View {
     @EnvironmentObject private var store: NodeStore
-    @StateObject private var dataManager = GlobalTagDataManager.shared
+    @StateObject private var dataManager = GlobalTagDataManager()  // 🆕 每个视图独立的数据管理器
     @Environment(\.dismiss) private var dismiss
     
     @State private var graphData: (nodes: [GlobalTagGraphNode], edges: [GlobalTagGraphEdge])?
@@ -115,9 +115,9 @@ struct GlobalTagGraphView: View {
                 }
                 .disabled(graphData == nil)
                 
-                Button("打开标签索引") {
-                    NewTagIndexWindowManager.shared.showTagIndexWindow()
-                    print("📋 [全局标签图谱] 打开标签索引面板")
+                Button("打开关联标签索引") {
+                    showAssociatedTagIndexWindow()
+                    print("📋 [全局标签图谱] 打开关联标签索引面板")
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -217,6 +217,33 @@ struct GlobalTagGraphView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
+    }
+    
+    // MARK: - 关联功能
+    
+    private func showAssociatedTagIndexWindow() {
+        // 🆕 创建与当前图谱窗口关联的标签索引窗口
+        let associatedTagIndexView = NewTagIndexBoardView(
+            associatedDataManager: dataManager  // 传递当前窗口的数据管理器
+        )
+        .environmentObject(store)
+        
+        let hostingView = NSHostingView(rootView: associatedTagIndexView)
+        
+        let newWindow = NSWindow(
+            contentRect: NSRect(x: 200, y: 200, width: 1200, height: 800),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        
+        newWindow.contentView = hostingView
+        newWindow.title = "标签索引看板（关联）"
+        newWindow.setFrameAutosaveName("AssociatedTagIndexBoardWindow")
+        newWindow.isReleasedWhenClosed = false
+        newWindow.makeKeyAndOrderFront(nil)
+        
+        print("🪟 [关联标签索引] 窗口已创建")
     }
     
     // MARK: - 数据加载
@@ -595,10 +622,7 @@ class GlobalTagGraphWindowManager: ObservableObject {
     private init() {}
     
     func showGlobalTagGraphWindow() {
-        if let existingWindow = window {
-            existingWindow.makeKeyAndOrderFront(nil)
-            return
-        }
+        // 🆕 支持多开：不再检查已存在窗口，直接创建新窗口
         
         let contentView = GlobalTagGraphView()
             .environmentObject(NodeStore.shared)
@@ -625,7 +649,8 @@ class GlobalTagGraphWindowManager: ObservableObject {
         self.windowDelegate = delegate
         newWindow.delegate = delegate
         
-        self.window = newWindow
+        // 🆕 多开支持：不再保存窗口引用，每次都创建新窗口
+        // self.window = newWindow
         newWindow.makeKeyAndOrderFront(nil)
         
         print("🪟 [全局标签图谱] 窗口已创建")

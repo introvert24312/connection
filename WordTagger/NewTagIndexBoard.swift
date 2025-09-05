@@ -4,7 +4,7 @@ import Foundation
 
 // MARK: - 新版标签索引看板 - 重构版本
 
-/// 标签索引窗口管理器 - 简化版
+/// 标签索引窗口管理器 - 支持多开版
 @MainActor
 class NewTagIndexWindowManager: ObservableObject {
     static let shared = NewTagIndexWindowManager()
@@ -15,10 +15,7 @@ class NewTagIndexWindowManager: ObservableObject {
     private init() {}
     
     func showTagIndexWindow() {
-        if let existingWindow = window {
-            existingWindow.makeKeyAndOrderFront(nil)
-            return
-        }
+        // 🆕 支持多开：不再检查已存在窗口，直接创建新窗口
         
         let contentView = NewTagIndexBoardView()
             .environmentObject(NodeStore.shared) // 直接使用共享实例，避免复杂性
@@ -26,7 +23,7 @@ class NewTagIndexWindowManager: ObservableObject {
         let hostingView = NSHostingView(rootView: contentView)
         
         let newWindow = NSWindow(
-            contentRect: NSRect(x: 100, y: 100, width: 1200, height: 800),
+            contentRect: NSRect(x: 150, y: 150, width: 1200, height: 800),
             styleMask: [.titled, .closable, .resizable, .miniaturizable],
             backing: .buffered,
             defer: false
@@ -37,7 +34,7 @@ class NewTagIndexWindowManager: ObservableObject {
         newWindow.setFrameAutosaveName("NewTagIndexBoardWindow")
         newWindow.isReleasedWhenClosed = false
         
-        // 简化窗口关闭处理
+        // 窗口关闭处理（不再保存窗口引用）
         let delegate = WindowCloseDelegate { [weak self] in
             self?.window = nil
             self?.windowDelegate = nil
@@ -45,10 +42,11 @@ class NewTagIndexWindowManager: ObservableObject {
         self.windowDelegate = delegate
         newWindow.delegate = delegate
         
-        self.window = newWindow
+        // 🆕 多开支持：不再保存窗口引用，每次都创建新窗口
+        // self.window = newWindow
         newWindow.makeKeyAndOrderFront(nil)
         
-        print("🪟 [新标签索引看板] 窗口已创建")
+        print("🪟 [新标签索引看板] 窗口已创建（支持多开）")
     }
     
     func closeWindow() {
@@ -75,7 +73,12 @@ private class WindowCloseDelegate: NSObject, NSWindowDelegate {
 // MARK: - 新版标签索引看板主视图
 struct NewTagIndexBoardView: View {
     @EnvironmentObject private var store: NodeStore
-    @StateObject private var webViewModel = NewTagIndexWebViewModel()
+    @StateObject private var webViewModel: NewTagIndexWebViewModel
+    
+    // 🆕 支持关联数据管理器的初始化器
+    init(associatedDataManager: GlobalTagDataManager? = nil) {
+        self._webViewModel = StateObject(wrappedValue: NewTagIndexWebViewModel(associatedDataManager: associatedDataManager))
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -146,8 +149,12 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
     let webView: WKWebView
     private var isWebViewReady = false
     private var pendingData: [GlobalTagItem] = []
+    private let associatedDataManager: GlobalTagDataManager?  // 🆕 关联的数据管理器
+    private let instanceId = UUID().uuidString.prefix(8)     // 🆕 实例标识符
     
-    override init() {
+    init(associatedDataManager: GlobalTagDataManager? = nil) {
+        self.associatedDataManager = associatedDataManager
+        
         // 先创建配置
         let config = WKWebViewConfiguration()
         
@@ -155,6 +162,7 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
         webView = WKWebView(frame: .zero, configuration: config)
         
         super.init()
+        print("🏗️ [标签索引WebView-\(instanceId)] 创建新实例，关联数据管理器: \(associatedDataManager != nil)")
         setupWebView()
     }
     
@@ -182,8 +190,9 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
     func loadTagData(from store: NodeStore) {
         print("📊 [新标签索引] 开始加载标签数据")
         
-        // 使用全局标签管理器生成数据
-        let tagItems = GlobalTagDataManager.shared.generateTagIndexData(from: store)
+        // 🆕 使用临时数据管理器生成数据，避免单例依赖
+        let tempDataManager = GlobalTagDataManager()
+        let tagItems = tempDataManager.generateTagIndexData(from: store)
         
         print("📊 [新标签索引] 生成了 \(tagItems.count) 个标签项")
         
@@ -936,7 +945,7 @@ extension NewTagIndexWebViewModel: WKScriptMessageHandler {
     @MainActor
     private func handleSelectionChanged(_ messageBody: [String: Any]) {
         guard let selections = messageBody["selections"] as? [[String: Any]] else {
-            print("❌ [新标签索引] 无效的选择数据")
+            print("❌ [标签索引-\(instanceId)] 无效的选择数据")
             return
         }
         
@@ -944,12 +953,10 @@ extension NewTagIndexWebViewModel: WKScriptMessageHandler {
         let selectedLayerNames = messageBody["selectedLayers"] as? [String] ?? []
         let selectedLayersSet = Set(selectedLayerNames)
         
-        print("🔄 [新标签索引] 处理选择变化: \(selections.count) 项标签值, \(selectedLayersSet.count) 个层级")
+        print("🔄 [标签索引-\(instanceId)] 处理选择变化: \(selections.count) 项标签值, \(selectedLayersSet.count) 个层级")
         
-        // 转换选择数据并发送通知
+        // 转换选择数据
         var selectedTagValues: Set<String> = []
-        // 🔧 修复：当用户选择具体标签值时，不设置标签类型过滤，避免冲突
-        // 让标签值过滤起主导作用，这样多选同类型标签值就能正常显示
         
         for selection in selections {
             if let value = selection["value"] as? String {
@@ -957,18 +964,24 @@ extension NewTagIndexWebViewModel: WKScriptMessageHandler {
             }
         }
         
-        // 发送通知给全局标签管理器
-        DispatchQueue.main.async {
-            print("📤 [新标签索引] 发送选择变化通知")
+        // 🆕 如果有关联的数据管理器，直接更新它；否则发送全局通知
+        if let dataManager = associatedDataManager {
+            print("📤 [标签索引-\(instanceId)] 更新关联数据管理器")
             print("   - 选中标签值: \(selectedTagValues)")
             print("   - 选中层级: \(selectedLayersSet)")
+            
+            dataManager.filteredLayers = selectedLayersSet
+            dataManager.filteredTagTypes = Set<Tag.TagType>()  // 清空标签类型过滤
+            dataManager.filteredTagValues = selectedTagValues
+        } else {
+            print("📤 [标签索引-\(instanceId)] 发送全局选择变化通知")
             
             NotificationCenter.default.post(
                 name: .tagIndexSelectionChanged,
                 object: nil,
                 userInfo: [
-                    "selectedLayers": selectedLayersSet, // 🆕 现在支持层级过滤
-                    "selectedTagTypes": Set<Tag.TagType>(), // 🔧 修复：清空标签类型过滤，只用标签值过滤
+                    "selectedLayers": selectedLayersSet,
+                    "selectedTagTypes": Set<Tag.TagType>(),
                     "selectedTagValues": selectedTagValues
                 ]
             )
@@ -977,21 +990,12 @@ extension NewTagIndexWebViewModel: WKScriptMessageHandler {
     
     @MainActor
     private func findTagType(by displayName: String) -> Tag.TagType? {
-        // 从数据中查找实际的标签类型
-        let allTags = GlobalTagDataManager.shared.cachedTagItems
-        for item in allTags {
-            if item.tagType == displayName {
-                // 尝试从现有数据中推断标签类型
-                if displayName == "地点" {
-                    return .location
-                } else {
-                    return .custom(displayName.lowercased().replacingOccurrences(of: " ", with: "_"))
-                }
-            }
+        // 简化标签类型推断，不依赖共享实例
+        if displayName == "地点" {
+            return .location
+        } else {
+            return .custom(displayName.lowercased().replacingOccurrences(of: " ", with: "_"))
         }
-        
-        // 如果找不到，创建自定义类型
-        return .custom(displayName.lowercased().replacingOccurrences(of: " ", with: "_"))
     }
 }
 
