@@ -90,8 +90,40 @@ class GlobalTagDataManager: ObservableObject {
     private var cachedGraphData: (nodes: [GlobalTagGraphNode], edges: [GlobalTagGraphEdge])?
     private let instanceId = UUID().uuidString.prefix(8)  // 🆕 实例标识符
     
+    // 🆕 图谱预设管理
+    @Published var graphPresets: [GraphPreset] = []
+    @Published var currentPreset: GraphPreset?
+    
+    // 🆕 持久化存储文件路径 - 使用外部数据存储系统
+    private static let filterStateFileName = "GlobalTagGraph_FilterState.json"
+    private static let presetsFileName = "GlobalTagGraph_Presets.json"
+    
+    private static var filterStateFileURL: URL? {
+        // 使用外部数据管理器的路径，保存到 metadata 文件夹
+        guard let basePath = ExternalDataManager.shared.currentDataPath else {
+            print("⚠️ [全局标签管理器] 外部数据路径未设置，回退到本地Documents文件夹")
+            let documentDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+            return documentDir.appendingPathComponent(filterStateFileName)
+        }
+        let metadataDir = basePath.appendingPathComponent("data/metadata")
+        return metadataDir.appendingPathComponent(filterStateFileName)
+    }
+    
+    private static var presetsFileURL: URL? {
+        // 图谱预设文件路径
+        guard let basePath = ExternalDataManager.shared.currentDataPath else {
+            let documentDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+            return documentDir.appendingPathComponent(presetsFileName)
+        }
+        let metadataDir = basePath.appendingPathComponent("data/metadata")
+        return metadataDir.appendingPathComponent(presetsFileName)
+    }
+    
     init() {
         print("🏗️ [全局标签管理器-\(instanceId)] 创建新实例")
+        loadGraphPresets()     // 加载图谱预设
+        print("🔍 [调试-\(instanceId)] 初始化后的状态:")
+        print("   - 预设数量: \(graphPresets.count)")
         setupNotifications()
     }
     
@@ -139,6 +171,8 @@ class GlobalTagDataManager: ObservableObject {
         print("   - filteredLayers: \(filteredLayers)")
         print("   - filteredTagTypes: \(filteredTagTypes.map { $0.displayName })")
         print("   - filteredTagValues: \(filteredTagValues)")
+        
+        print("🔄 [全局标签管理器-\(instanceId)] 过滤器已更新")
         
         // 清除缓存以触发重新计算
         cachedGraphData = nil
@@ -252,13 +286,19 @@ class GlobalTagDataManager: ObservableObject {
         let filteredItems = applyFilters(to: tagItems, store: store)
         print("🔍 [全局标签管理器] 过滤后数量: \(filteredItems.count)")
         
-        // 如果没有过滤器且有数据，显示前20个项目避免图谱过于复杂
+        // 使用过滤结果，没有过滤条件时显示所有数据
         let itemsToShow: [GlobalTagItem]
-        if filteredLayers.isEmpty && filteredTagTypes.isEmpty && filteredTagValues.isEmpty {
-            itemsToShow = Array(tagItems.prefix(20))
-            print("🌟 [全局标签管理器] 无过滤器，显示前20个项目: \(itemsToShow.count)")
-        } else {
+        let hasAnyFilter = !filteredLayers.isEmpty || !filteredTagTypes.isEmpty || !filteredTagValues.isEmpty
+        
+        if hasAnyFilter {
+            // 有过滤条件时，使用过滤结果
             itemsToShow = filteredItems
+            print("🌟 [全局标签管理器] 使用过滤结果: \(itemsToShow.count) 个项目")
+            print("   - 过滤条件: 层级(\(filteredLayers.count)) + 类型(\(filteredTagTypes.count)) + 值(\(filteredTagValues.count))")
+        } else {
+            // 没有过滤条件时，显示前20个项目作为默认展示
+            itemsToShow = Array(tagItems.prefix(20))
+            print("🌟 [全局标签管理器] 无过滤条件，显示前20个项目: \(itemsToShow.count)")
         }
         
         if itemsToShow.isEmpty {
@@ -397,6 +437,324 @@ class GlobalTagDataManager: ObservableObject {
         }
         
         return nil
+    }
+    
+    // MARK: - 🆕 持久化过滤状态
+    
+    /// 检查是否曾经有过过滤状态（用于区分首次使用和主动清除过滤）
+    private func hasEverHadFilterState() -> Bool {
+        guard let fileURL = Self.filterStateFileURL else { return false }
+        return FileManager.default.fileExists(atPath: fileURL.path)
+    }
+    
+    /// 加载上次的过滤状态
+    private func loadLastFilterState() {
+        print("💾 [全局标签管理器-\(instanceId)] 从外部数据存储加载过滤状态")
+        
+        guard let fileURL = Self.filterStateFileURL else {
+            print("❌ [全局标签管理器-\(instanceId)] 无法获取过滤状态文件路径")
+            return
+        }
+        
+        print("   - 过滤状态文件路径: \(fileURL.path)")
+        print("   - 使用外部数据存储: \(ExternalDataManager.shared.currentDataPath != nil)")
+        
+        // 检查文件是否存在
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            print("ℹ️ [全局标签管理器-\(instanceId)] 过滤状态文件不存在，使用默认状态")
+            return
+        }
+        
+        do {
+            let data = try Data(contentsOf: fileURL)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601  // 🔧 修复：添加日期解码策略
+            let filterState = try decoder.decode(FilterState.self, from: data)
+            
+            // 恢复过滤状态
+            filteredLayers = Set(filterState.filteredLayers)
+            filteredTagValues = Set(filterState.filteredTagValues)
+            
+            // 恢复标签类型
+            var restoredTypes: Set<Tag.TagType> = []
+            for typeString in filterState.filteredTagTypes {
+                if let tagType = parseTagTypeFromString(typeString) {
+                    restoredTypes.insert(tagType)
+                }
+            }
+            filteredTagTypes = restoredTypes
+            
+            let totalFilters = filteredLayers.count + filteredTagTypes.count + filteredTagValues.count
+            print("✅ [全局标签管理器-\(instanceId)] 成功从文件恢复 \(totalFilters) 个过滤条件")
+            print("   - 层级: \(filteredLayers.count) 个")
+            print("   - 标签类型: \(filteredTagTypes.count) 个")
+            print("   - 标签值: \(filteredTagValues.count) 个")
+            
+        } catch {
+            print("❌ [全局标签管理器-\(instanceId)] 读取过滤状态文件失败: \(error)")
+            print("   - 使用默认状态")
+        }
+    }
+    
+    /// 保存当前的过滤状态
+    func saveCurrentFilterState() {
+        print("💾 [全局标签管理器-\(instanceId)] 保存过滤状态到外部数据存储")
+        
+        guard let fileURL = Self.filterStateFileURL else {
+            print("❌ [全局标签管理器-\(instanceId)] 无法获取过滤状态文件路径")
+            return
+        }
+        
+        let filterState = FilterState(
+            filteredLayers: Array(filteredLayers),
+            filteredTagTypes: filteredTagTypes.map { tagTypeToString($0) },
+            filteredTagValues: Array(filteredTagValues),
+            lastSaved: Date()
+        )
+        
+        do {
+            // 确保metadata文件夹存在
+            let metadataDir = fileURL.deletingLastPathComponent()
+            if !FileManager.default.fileExists(atPath: metadataDir.path) {
+                try FileManager.default.createDirectory(at: metadataDir, withIntermediateDirectories: true, attributes: nil)
+                print("📁 [全局标签管理器-\(instanceId)] 创建metadata文件夹: \(metadataDir.path)")
+            }
+            
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            encoder.dateEncodingStrategy = .iso8601
+            
+            let data = try encoder.encode(filterState)
+            try data.write(to: fileURL)
+            
+            let totalFilters = filteredLayers.count + filteredTagTypes.count + filteredTagValues.count
+            print("✅ [全局标签管理器-\(instanceId)] 成功保存 \(totalFilters) 个过滤条件到外部存储")
+            print("   - 文件路径: \(fileURL.path)")
+            print("   - 使用外部数据存储: \(ExternalDataManager.shared.currentDataPath != nil)")
+            print("   - 层级: \(filteredLayers.count) 个")
+            print("   - 标签类型: \(filteredTagTypes.count) 个")
+            print("   - 标签值: \(filteredTagValues.count) 个")
+            
+            // 🆕 触发自动同步到Git（如果启用）
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("TriggerAutoSync"),
+                    object: nil,
+                    userInfo: ["reason": "GlobalTagGraphFilterStateChanged"]
+                )
+            }
+            
+        } catch {
+            print("❌ [全局标签管理器-\(instanceId)] 保存过滤状态文件失败: \(error)")
+        }
+    }
+    
+    /// 将TagType转换为字符串用于存储
+    private func tagTypeToString(_ tagType: Tag.TagType) -> String {
+        switch tagType {
+        case .location:
+            return "location"
+        case .custom(let name):
+            return "custom:\(name)"
+        }
+    }
+    
+    /// 从字符串解析TagType
+    private func parseTagTypeFromString(_ string: String) -> Tag.TagType? {
+        switch string {
+        case "location":
+            return .location
+        default:
+            if string.hasPrefix("custom:") {
+                let customName = String(string.dropFirst("custom:".count))
+                return .custom(customName)
+            }
+            return nil
+        }
+    }
+    
+    // MARK: - 🆕 图谱预设管理
+    
+    /// 保存当前过滤状态为新预设
+    func saveCurrentAsPreset(name: String, description: String? = nil) {
+        print("💾 [全局标签管理器-\(instanceId)] 保存当前状态为预设: \(name)")
+        
+        let preset = GraphPreset(
+            name: name,
+            description: description,
+            filteredLayers: Array(filteredLayers),
+            filteredTagTypes: filteredTagTypes.map { tagTypeToString($0) },
+            filteredTagValues: Array(filteredTagValues)
+        )
+        
+        // 检查是否已存在同名预设
+        if let existingIndex = graphPresets.firstIndex(where: { $0.name == name }) {
+            graphPresets[existingIndex] = preset
+            print("🔄 [全局标签管理器-\(instanceId)] 更新现有预设: \(name)")
+        } else {
+            graphPresets.append(preset)
+            print("🆕 [全局标签管理器-\(instanceId)] 创建新预设: \(name)")
+        }
+        
+        currentPreset = preset
+        saveGraphPresets()
+    }
+    
+    /// 加载指定预设
+    func loadPreset(_ preset: GraphPreset) {
+        print("📖 [全局标签管理器-\(instanceId)] 加载预设: \(preset.name)")
+        
+        // 更新当前过滤状态
+        filteredLayers = Set(preset.filteredLayers)
+        filteredTagValues = Set(preset.filteredTagValues)
+        
+        // 恢复标签类型
+        var restoredTypes: Set<Tag.TagType> = []
+        for typeString in preset.filteredTagTypes {
+            if let tagType = parseTagTypeFromString(typeString) {
+                restoredTypes.insert(tagType)
+            }
+        }
+        filteredTagTypes = restoredTypes
+        
+        // 更新当前预设
+        currentPreset = preset
+        
+        // 清除缓存以触发重新计算
+        cachedGraphData = nil
+        
+        print("✅ [全局标签管理器-\(instanceId)] 预设加载完成")
+        print("   - 层级: \(filteredLayers.count) 个")
+        print("   - 标签类型: \(filteredTagTypes.count) 个")
+        print("   - 标签值: \(filteredTagValues.count) 个")
+    }
+    
+    /// 删除预设
+    func deletePreset(_ preset: GraphPreset) {
+        print("🗑️ [全局标签管理器-\(instanceId)] 删除预设: \(preset.name)")
+        
+        graphPresets.removeAll { $0.id == preset.id }
+        
+        if currentPreset?.id == preset.id {
+            currentPreset = nil
+        }
+        
+        saveGraphPresets()
+    }
+    
+    /// 加载所有图谱预设
+    private func loadGraphPresets() {
+        print("📖 [全局标签管理器-\(instanceId)] 加载图谱预设")
+        
+        guard let fileURL = Self.presetsFileURL else {
+            print("❌ [全局标签管理器-\(instanceId)] 无法获取预设文件路径")
+            return
+        }
+        
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            print("ℹ️ [全局标签管理器-\(instanceId)] 预设文件不存在，使用默认空列表")
+            return
+        }
+        
+        do {
+            let data = try Data(contentsOf: fileURL)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601  // 🔧 修复：添加日期解码策略
+            let collection = try decoder.decode(GraphPresetCollection.self, from: data)
+            
+            graphPresets = collection.presets
+            print("✅ [全局标签管理器-\(instanceId)] 成功加载 \(graphPresets.count) 个预设")
+            
+        } catch {
+            print("❌ [全局标签管理器-\(instanceId)] 加载预设失败: \(error)")
+        }
+    }
+    
+    /// 保存所有图谱预设
+    private func saveGraphPresets() {
+        print("💾 [全局标签管理器-\(instanceId)] 保存图谱预设到外部存储")
+        
+        guard let fileURL = Self.presetsFileURL else {
+            print("❌ [全局标签管理器-\(instanceId)] 无法获取预设文件路径")
+            return
+        }
+        
+        let collection = GraphPresetCollection(presets: graphPresets)
+        
+        do {
+            // 确保metadata文件夹存在
+            let metadataDir = fileURL.deletingLastPathComponent()
+            if !FileManager.default.fileExists(atPath: metadataDir.path) {
+                try FileManager.default.createDirectory(at: metadataDir, withIntermediateDirectories: true, attributes: nil)
+                print("📁 [全局标签管理器-\(instanceId)] 创建metadata文件夹")
+            }
+            
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            encoder.dateEncodingStrategy = .iso8601
+            
+            let data = try encoder.encode(collection)
+            try data.write(to: fileURL)
+            
+            print("✅ [全局标签管理器-\(instanceId)] 成功保存 \(graphPresets.count) 个预设")
+            
+            // 触发自动同步到Git
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("TriggerAutoSync"),
+                    object: nil,
+                    userInfo: ["reason": "GraphPresetsChanged"]
+                )
+            }
+            
+        } catch {
+            print("❌ [全局标签管理器-\(instanceId)] 保存预设失败: \(error)")
+        }
+    }
+}
+
+// MARK: - 过滤状态持久化数据模型
+
+/// 过滤状态数据结构
+struct FilterState: Codable {
+    let filteredLayers: [String]
+    let filteredTagTypes: [String]  // TagType 的字符串表示
+    let filteredTagValues: [String]
+    let lastSaved: Date
+}
+
+/// 图谱预设数据结构
+struct GraphPreset: Codable, Identifiable {
+    let id: String
+    let name: String
+    let description: String?
+    let filteredLayers: [String]
+    let filteredTagTypes: [String]
+    let filteredTagValues: [String]
+    let createdAt: Date
+    let lastUsed: Date
+    
+    init(id: String = UUID().uuidString, name: String, description: String? = nil, 
+         filteredLayers: [String], filteredTagTypes: [String], filteredTagValues: [String]) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.filteredLayers = filteredLayers
+        self.filteredTagTypes = filteredTagTypes
+        self.filteredTagValues = filteredTagValues
+        self.createdAt = Date()
+        self.lastUsed = Date()
+    }
+}
+
+/// 图谱预设集合
+struct GraphPresetCollection: Codable {
+    var presets: [GraphPreset]
+    let lastModified: Date
+    
+    init(presets: [GraphPreset] = []) {
+        self.presets = presets
+        self.lastModified = Date()
     }
 }
 

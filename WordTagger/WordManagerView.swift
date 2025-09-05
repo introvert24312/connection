@@ -9,15 +9,15 @@ struct NodeManagerView: View {
     @State private var localSearchQuery: String = ""
     @State private var searchTask: Task<Void, Never>?
     @State private var showingDeleteAlert = false
-    @State private var sortOption: SortOption = .alphabetical
+    @State private var sortOption: SortOption = .createdDate
     @State private var filterOption: FilterOption = .all
+    @State private var selectedLayerId: UUID? = nil
     @State private var showingCommandPalette = false
     @State private var commandPaletteNode: Node?
     @State private var isSelectionMode = false
     @FocusState private var isSearchFieldFocused: Bool
     
     enum SortOption: String, CaseIterable {
-        case alphabetical = "按字母排序"
         case createdDate = "按创建时间"
         case updatedDate = "按修改时间"
         case tagCount = "按标签数量"
@@ -33,6 +33,11 @@ struct NodeManagerView: View {
     
     var filteredAndSortedNodes: [Node] {
         var nodes = store.nodes
+        
+        // 层级筛选
+        if let layerId = selectedLayerId {
+            nodes = nodes.filter { $0.layerId == layerId }
+        }
         
         // 如果有搜索查询，优先显示搜索结果，忽略selectedTag过滤
         if !localSearchQuery.isEmpty {
@@ -63,8 +68,6 @@ struct NodeManagerView: View {
         
         // 应用排序
         switch sortOption {
-        case .alphabetical:
-            nodes.sort { $0.text.localizedCompare($1.text) == .orderedAscending }
         case .createdDate:
             nodes.sort { $0.createdAt > $1.createdAt }
         case .updatedDate:
@@ -86,33 +89,52 @@ struct NodeManagerView: View {
                         .fontWeight(.semibold)
                     
                     // 显示当前过滤状态
-                    if !localSearchQuery.isEmpty {
-                        HStack(spacing: 4) {
-                            Text("搜索: \"\(localSearchQuery)\" - 忽略标签过滤")
+                    VStack(alignment: .leading, spacing: 2) {
+                        if !localSearchQuery.isEmpty {
+                            HStack(spacing: 4) {
+                                Text("搜索: \"\(localSearchQuery)\" - 忽略标签过滤")
+                                    .font(.caption)
+                                    .foregroundColor(.green)
+                                
+                                Button("✕") {
+                                    localSearchQuery = ""
+                                }
                                 .font(.caption)
                                 .foregroundColor(.green)
-                            
-                            Button("✕") {
-                                localSearchQuery = ""
+                                .buttonStyle(.plain)
+                                .help("清除搜索")
                             }
-                            .font(.caption)
-                            .foregroundColor(.green)
-                            .buttonStyle(.plain)
-                            .help("清除搜索")
-                        }
-                    } else if let selectedTag = store.selectedTag {
-                        HStack(spacing: 4) {
-                            Text("过滤: \(selectedTag.type.displayName) - \(selectedTag.value)")
+                        } else if let selectedTag = store.selectedTag {
+                            HStack(spacing: 4) {
+                                Text("过滤: \(selectedTag.type.displayName) - \(selectedTag.value)")
+                                    .font(.caption)
+                                    .foregroundColor(.blue)
+                                
+                                Button("✕") {
+                                    store.selectTag(nil)
+                                }
                                 .font(.caption)
                                 .foregroundColor(.blue)
-                            
-                            Button("✕") {
-                                store.selectTag(nil)
+                                .buttonStyle(.plain)
+                                .help("清除标签过滤")
                             }
-                            .font(.caption)
-                            .foregroundColor(.blue)
-                            .buttonStyle(.plain)
-                            .help("清除标签过滤")
+                        }
+                        
+                        if let layerId = selectedLayerId,
+                           let layer = store.layers.first(where: { $0.id == layerId }) {
+                            HStack(spacing: 4) {
+                                Text("层级: \(layer.name)")
+                                    .font(.caption)
+                                    .foregroundColor(.orange)
+                                
+                                Button("✕") {
+                                    selectedLayerId = nil
+                                }
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                                .buttonStyle(.plain)
+                                .help("清除层级筛选")
+                            }
                         }
                     }
                 }
@@ -173,6 +195,41 @@ struct NodeManagerView: View {
                     .foregroundColor(.blue)
                 }
                 .help("过滤选项")
+                
+                // 层级选择器
+                Menu {
+                    Button(action: {
+                        selectedLayerId = nil
+                    }) {
+                        HStack {
+                            Text("全部层级")
+                            if selectedLayerId == nil {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                    
+                    ForEach(store.layers, id: \.id) { layer in
+                        Button(action: {
+                            selectedLayerId = layer.id
+                        }) {
+                            HStack {
+                                Text(layer.name)
+                                if selectedLayerId == layer.id {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "folder")
+                        Text(selectedLayerId == nil ? "全部层级" : 
+                             store.layers.first { $0.id == selectedLayerId }?.name ?? "未知层级")
+                    }
+                    .foregroundColor(.orange)
+                }
+                .help("层级筛选")
                 
                 // 排序选项
                 Menu {

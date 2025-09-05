@@ -13,6 +13,12 @@ struct GlobalTagGraphView: View {
     @State private var showingExportSheet = false
     @State private var hasPerformedInitialLoad = false
     
+    // 🆕 图谱预设管理状态
+    @State private var showingPresetSheet = false
+    @State private var showingSavePresetDialog = false
+    @State private var newPresetName = ""
+    @State private var newPresetDescription = ""
+    
     var body: some View {
         VStack(spacing: 0) {
             // 顶部工具栏
@@ -82,37 +88,76 @@ struct GlobalTagGraphView: View {
         .sheet(isPresented: $showingExportSheet) {
             GlobalTagExportSheetView(graphData: graphData)
         }
+        .sheet(isPresented: $showingPresetSheet) {
+            GraphPresetManagerView(dataManager: dataManager)
+        }
+        .alert("保存图谱预设", isPresented: $showingSavePresetDialog) {
+            TextField("预设名称", text: $newPresetName)
+            TextField("描述（可选）", text: $newPresetDescription)
+            
+            Button("保存") {
+                if !newPresetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    let description = newPresetDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+                    dataManager.saveCurrentAsPreset(
+                        name: newPresetName.trimmingCharacters(in: .whitespacesAndNewlines),
+                        description: description.isEmpty ? nil : description
+                    )
+                    
+                    // 清空输入框
+                    newPresetName = ""
+                    newPresetDescription = ""
+                }
+            }
+            .disabled(newPresetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            
+            Button("取消", role: .cancel) {
+                newPresetName = ""
+                newPresetDescription = ""
+            }
+        } message: {
+            Text("为当前的标签过滤状态创建一个预设，以便后续快速加载。")
+        }
     }
     
     // MARK: - 子视图
     
     private var toolbar: some View {
-        HStack {
-            Button("关闭") { 
-                dismiss() 
-            }
-            .keyboardShortcut(.escape, modifiers: [])
-            
-            Spacer()
-            
-            // 过滤状态显示
+        HStack(alignment: .center, spacing: 8) {
+            // 🆕 将过滤状态显示移到最左边，替换关闭按钮
             filterStatusView
             
             Spacer()
             
-            HStack(spacing: 12) {
+            HStack(spacing: 8) {
+                // 🆕 图谱预设按钮组
+                Button("图谱预设") {
+                    showingPresetSheet = true
+                    print("📚 [全局标签图谱] 打开预设管理")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                
+                Button("保存为预设") {
+                    showingSavePresetDialog = true
+                    print("💾 [全局标签图谱] 保存当前状态为预设")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(dataManager.filteredLayers.isEmpty && 
+                         dataManager.filteredTagTypes.isEmpty && 
+                         dataManager.filteredTagValues.isEmpty)
+                
+                Divider()
+                    .frame(height: 20)
+                
                 Button("重置视图") { 
                     withAnimation(.easeInOut(duration: 0.5)) {
                         resetTrigger = UUID()
                     }
                     print("🔄 [全局标签图谱] 重置视图")
                 }
-                .disabled(graphData == nil)
-                
-                Button("导出图谱") { 
-                    showingExportSheet = true
-                    print("📤 [全局标签图谱] 导出图谱")
-                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
                 .disabled(graphData == nil)
                 
                 Button("打开关联标签索引") {
@@ -120,50 +165,58 @@ struct GlobalTagGraphView: View {
                     print("📋 [全局标签图谱] 打开关联标签索引面板")
                 }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                
+                Button("关闭") { 
+                    dismiss() 
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .keyboardShortcut(.escape, modifiers: [])
             }
         }
-        .padding()
+        .frame(height: 36) // 固定工具栏高度
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
     }
     
     private var filterStatusView: some View {
-        VStack(spacing: 4) {
+        HStack(spacing: 8) {
             if !dataManager.filteredLayers.isEmpty || !dataManager.filteredTagTypes.isEmpty || !dataManager.filteredTagValues.isEmpty {
-                HStack(spacing: 8) {
-                    Image(systemName: "line.horizontal.3.decrease.circle")
-                        .foregroundColor(.blue)
-                    
-                    VStack(alignment: .leading, spacing: 2) {
-                        if !dataManager.filteredLayers.isEmpty {
-                            Text("层级: \(dataManager.filteredLayers.joined(separator: ", "))")
-                        }
-                        if !dataManager.filteredTagTypes.isEmpty {
-                            Text("类型: \(dataManager.filteredTagTypes.map { $0.displayName }.joined(separator: ", "))")
-                        }
-                        if !dataManager.filteredTagValues.isEmpty {
-                            Text("值: \(Array(dataManager.filteredTagValues.prefix(3)).joined(separator: ", "))\(dataManager.filteredTagValues.count > 3 ? "..." : "")")
-                        }
-                    }
+                Image(systemName: "line.horizontal.3.decrease.circle")
+                    .foregroundColor(.blue)
+                
+                Text(buildFilterText())
                     .font(.caption)
                     .foregroundColor(.secondary)
-                    
-                    Button("清除") {
-                        dataManager.filteredLayers.removeAll()
-                        dataManager.filteredTagTypes.removeAll()
-                        dataManager.filteredTagValues.removeAll()
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.mini)
-                }
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             } else {
-                HStack {
-                    Image(systemName: "globe")
-                        .foregroundColor(.green)
-                    Text("显示所有标签")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+                Image(systemName: "globe")
+                    .foregroundColor(.green)
+                Text("显示所有标签")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
+        .frame(maxHeight: 30) // 限制最大高度
+    }
+    
+    private func buildFilterText() -> String {
+        var parts: [String] = []
+        
+        if !dataManager.filteredLayers.isEmpty {
+            parts.append("层级: \(dataManager.filteredLayers.joined(separator: ", "))")
+        }
+        if !dataManager.filteredTagTypes.isEmpty {
+            parts.append("类型: \(dataManager.filteredTagTypes.map { $0.displayName }.joined(separator: ", "))")
+        }
+        if !dataManager.filteredTagValues.isEmpty {
+            let values = Array(dataManager.filteredTagValues.prefix(3)).joined(separator: ", ")
+            parts.append("值: \(values)\(dataManager.filteredTagValues.count > 3 ? "..." : "")")
+        }
+        
+        return parts.joined(separator: " | ")
     }
     
     private var loadingView: some View {
@@ -592,6 +645,152 @@ struct GlobalTagExportSheetView: View {
         }
         
         return content
+    }
+}
+
+// MARK: - 图谱预设管理视图
+
+struct GraphPresetManagerView: View {
+    @ObservedObject var dataManager: GlobalTagDataManager
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            HStack {
+                Text("图谱预设管理")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+                
+                Button("关闭") {
+                    dismiss()
+                }
+                .buttonStyle(.borderless)
+            }
+            
+            if dataManager.graphPresets.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "bookmark.slash")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary)
+                    
+                    Text("暂无保存的图谱预设")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                    
+                    Text("在全局标签图谱中选择标签后，点击\"保存为预设\"来创建您的第一个预设。")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(dataManager.graphPresets) { preset in
+                            PresetRowView(
+                                preset: preset,
+                                isCurrent: dataManager.currentPreset?.id == preset.id,
+                                onLoad: {
+                                    dataManager.loadPreset(preset)
+                                    dismiss()
+                                },
+                                onDelete: {
+                                    dataManager.deletePreset(preset)
+                                }
+                            )
+                        }
+                    }
+                    .padding(.vertical)
+                }
+            }
+        }
+        .padding()
+        .frame(width: 500, height: 400)
+    }
+}
+
+struct PresetRowView: View {
+    let preset: GraphPreset
+    let isCurrent: Bool
+    let onLoad: () -> Void
+    let onDelete: () -> Void
+    
+    @State private var showingDeleteAlert = false
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(preset.name)
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    if isCurrent {
+                        Text("当前")
+                            .font(.caption)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.blue.opacity(0.2))
+                            .foregroundColor(.blue)
+                            .cornerRadius(4)
+                    }
+                }
+                
+                if let description = preset.description {
+                    Text(description)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                }
+                
+                HStack {
+                    if !preset.filteredLayers.isEmpty {
+                        Label("\(preset.filteredLayers.count) 层级", systemImage: "folder")
+                    }
+                    if !preset.filteredTagTypes.isEmpty {
+                        Label("\(preset.filteredTagTypes.count) 类型", systemImage: "tag")
+                    }
+                    if !preset.filteredTagValues.isEmpty {
+                        Label("\(preset.filteredTagValues.count) 标签", systemImage: "bookmark")
+                    }
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
+                
+                Text("创建于 \(preset.createdAt.formatted(date: .abbreviated, time: .shortened))")
+                    .font(.caption2)
+                    .foregroundColor(Color.secondary.opacity(0.8))
+            }
+            
+            Spacer()
+            
+            VStack(spacing: 8) {
+                Button("加载") {
+                    onLoad()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isCurrent)
+                
+                Button("删除") {
+                    showingDeleteAlert = true
+                }
+                .buttonStyle(.bordered)
+                .foregroundColor(.red)
+            }
+        }
+        .padding()
+        .background(Color.secondary.opacity(0.1))
+        .cornerRadius(8)
+        .alert("删除预设", isPresented: $showingDeleteAlert) {
+            Button("删除", role: .destructive) {
+                onDelete()
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("确定要删除预设\"\(preset.name)\"吗？此操作无法撤销。")
+        }
     }
 }
 

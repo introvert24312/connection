@@ -973,6 +973,9 @@ extension NewTagIndexWebViewModel: WKScriptMessageHandler {
             dataManager.filteredLayers = selectedLayersSet
             dataManager.filteredTagTypes = Set<Tag.TagType>()  // 清空标签类型过滤
             dataManager.filteredTagValues = selectedTagValues
+            
+            // 🚨 移除自动保存逻辑：只实时更新过滤，不自动保存到文件
+            print("🔄 [标签索引-\(instanceId)] 实时更新过滤条件（不自动保存）")
         } else {
             print("📤 [标签索引-\(instanceId)] 发送全局选择变化通知")
             

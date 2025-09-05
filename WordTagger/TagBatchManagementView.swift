@@ -103,6 +103,10 @@ struct TagBatchManagementView: View {
                 Text("已删除 \(result.deletedTagCount) 个标签，影响了 \(result.affectedNodeCount) 个节点。")
             }
         }
+        .onKeyPress(.escape) {
+            dismiss()
+            return .handled
+        }
     }
     
     // MARK: - Header View
