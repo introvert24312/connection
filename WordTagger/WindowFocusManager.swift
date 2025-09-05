@@ -36,6 +36,9 @@ class WindowFocusManager: ObservableObject {
     private init() {
         setupWindowObservers()
         setupKeyboardEventManagerIntegration()
+        
+        // 设置定期清理任务
+        startPeriodicCleanup()
     }
     
     deinit {
@@ -84,12 +87,34 @@ class WindowFocusManager: ObservableObject {
             print("🏠 WindowFocusManager: 注销窗口 - \(info.displayName) (\(windowId.uuidString.prefix(8)))")
         }
         
-        // 清理窗口映射关系
-        if let windowRef = uuidToWindowMap.removeValue(forKey: windowId),
-           let window = windowRef.window {
-            windowToUUIDMap.removeValue(forKey: window)
-            print("🧹 WindowFocusManager: 清理窗口映射 - \(windowId.uuidString.prefix(8))")
+        // 🔧 增强的清理逻辑：确保完全清除映射关系
+        var windowToClear: NSWindow? = nil
+        
+        // 从 UUID 到 Window 的映射中查找并清理
+        if let windowRef = uuidToWindowMap.removeValue(forKey: windowId) {
+            if let window = windowRef.window {
+                windowToClear = window
+                print("🧹 WindowFocusManager: 找到并清理UUID映射 - \(windowId.uuidString.prefix(8))")
+            } else {
+                print("🧹 WindowFocusManager: UUID映射的窗口弱引用已失效")
+            }
         }
+        
+        // 从 Window 到 UUID 的映射中清理
+        if let window = windowToClear {
+            windowToUUIDMap.removeValue(forKey: window)
+            print("🧹 WindowFocusManager: 清理双向映射 - \(window.title)")
+        } else {
+            // 如果没有找到窗口，也要检查是否有孤儿映射
+            let orphanedMappings = windowToUUIDMap.filter { $0.value == windowId }
+            for (window, _) in orphanedMappings {
+                windowToUUIDMap.removeValue(forKey: window)
+                print("🧹 WindowFocusManager: 清理孤儿窗口映射 - \(window.title)")
+            }
+        }
+        
+        // 清理窗口映射关系（子窗口到源窗口的映射）
+        removeWindowMapping(for: windowId.uuidString)
         
         // 如果是当前活跃窗口，清除活跃状态
         if activeWindowInfo?.id == windowId.uuidString {
@@ -99,6 +124,8 @@ class WindowFocusManager: ObservableObject {
         
         // 同时从KeyboardEventManager注销
         keyboardEventManager?.unregisterWindow(windowId)
+        
+        print("📊 WindowFocusManager: 注销后映射统计 - windowToUUID: \(windowToUUIDMap.count), uuidToWindow: \(uuidToWindowMap.count)")
     }
     
     // MARK: - Focus Management
@@ -609,11 +636,57 @@ class WindowFocusManager: ObservableObject {
     ///   - window: NSWindow实例
     ///   - uuid: 对应的UUID
     private func associateWindowWithUUID(_ window: NSWindow, uuid: UUID) {
+        // 🔧 增强的安全检查：确保映射的唯一性
+        print("🔗 WindowFocusManager: 准备建立窗口映射 - \(window.title) <-> \(uuid.uuidString.prefix(8))")
+        
+        // 检查该窗口是否已经映射到其他UUID
+        if let existingUUID = windowToUUIDMap[window] {
+            if existingUUID != uuid {
+                print("⚠️ WindowFocusManager: 窗口已映射到不同UUID - 现有: \(existingUUID.uuidString.prefix(8)), 新: \(uuid.uuidString.prefix(8))")
+                // 清理旧的映射
+                windowToUUIDMap.removeValue(forKey: window)
+                uuidToWindowMap.removeValue(forKey: existingUUID)
+                print("🧹 WindowFocusManager: 已清理旧的窗口映射")
+            } else {
+                print("✅ WindowFocusManager: 窗口已正确映射到相同UUID，无需重复操作")
+                return
+            }
+        }
+        
+        // 检查该UUID是否已经映射到其他窗口
+        if let existingWindowRef = uuidToWindowMap[uuid] {
+            if let existingWindow = existingWindowRef.window {
+                if existingWindow != window {
+                    print("⚠️ WindowFocusManager: UUID已映射到不同窗口 - 现有: \(existingWindow.title), 新: \(window.title)")
+                    // 检查现有窗口是否仍然有效
+                    if existingWindow.isVisible && existingWindow.parent == nil && !existingWindow.isMiniaturized {
+                        print("⚠️ WindowFocusManager: 现有窗口仍然有效，但允许重新映射以支持窗口切换")
+                        // 清理旧映射，允许新映射
+                        windowToUUIDMap.removeValue(forKey: existingWindow)
+                        uuidToWindowMap.removeValue(forKey: uuid)
+                        print("🔧 WindowFocusManager: 已清理旧映射，准备建立新映射")
+                    } else {
+                        print("🧹 WindowFocusManager: 现有窗口已失效，清理映射")
+                        windowToUUIDMap.removeValue(forKey: existingWindow)
+                        uuidToWindowMap.removeValue(forKey: uuid)
+                    }
+                } else {
+                    print("✅ WindowFocusManager: UUID已正确映射到相同窗口，无需重复操作")
+                    return
+                }
+            } else {
+                // 弱引用已失效，清理映射
+                print("🧹 WindowFocusManager: 清理失效的弱引用映射")
+                uuidToWindowMap.removeValue(forKey: uuid)
+            }
+        }
+        
         // 建立双向映射
         windowToUUIDMap[window] = uuid
         uuidToWindowMap[uuid] = WeakWindowReference(window: window)
         
-        print("🔗 WindowFocusManager: 建立窗口映射 - \(window.title) <-> \(uuid.uuidString.prefix(8))")
+        print("🔗 WindowFocusManager: 成功建立窗口映射 - \(window.title) <-> \(uuid.uuidString.prefix(8))")
+        print("📊 WindowFocusManager: 当前映射统计 - windowToUUID: \(windowToUUIDMap.count), uuidToWindow: \(uuidToWindowMap.count)")
     }
     
     /// 从NSWindow更新活跃窗口信息
@@ -638,8 +711,28 @@ class WindowFocusManager: ObservableObject {
         let registeredWindows = Array(windowRegistry.keys)
         
         if registeredWindows.count == 1 {
-            // 如果只有一个注册窗口，直接关联
             let uuid = registeredWindows[0]
+            // 检查是否已有窗口映射到这个UUID
+            if let existingWindow = uuidToWindowMap[uuid]?.window {
+                print("⚠️ WindowFocusManager: UUID已被占用 - 现有窗口: \(existingWindow.title), 新窗口: \(window.title)")
+                // 如果是相同的窗口，直接使用现有映射
+                if existingWindow == window {
+                    print("✅ WindowFocusManager: 相同窗口，使用现有映射")
+                    setActiveWindow(uuid)
+                    return
+                }
+                // 如果现有窗口已失效或不可见，清理映射
+                if !existingWindow.isVisible || existingWindow.parent != nil {
+                    windowToUUIDMap.removeValue(forKey: existingWindow)
+                    uuidToWindowMap.removeValue(forKey: uuid)
+                    print("🧹 WindowFocusManager: 清理失效窗口映射")
+                } else {
+                    print("⚠️ WindowFocusManager: UUID仍被其他有效窗口占用，尝试重新分配")
+                    // 不要直接返回，继续尝试其他方法
+                }
+            }
+            
+            // 如果只有一个注册窗口且UUID未被占用，直接关联
             associateWindowWithUUID(window, uuid: uuid)
             print("🔄 WindowFocusManager: 单窗口自动关联 - \(uuid.uuidString.prefix(8))")
             setActiveWindow(uuid)
@@ -706,6 +799,45 @@ class WindowFocusManager: ObservableObject {
            activeWindowInfo == nil {
             print("🔧 WindowFocusManager: 检测到key窗口但没有活跃窗口，尝试重新建立映射")
             updateActiveWindowFromNSWindow(keyWindow)
+        }
+    }
+    
+    /// 开始定期清理任务
+    private func startPeriodicCleanup() {
+        Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.cleanupStaleWindowMappings()
+            }
+        }
+    }
+    
+    /// 清理过期的窗口映射
+    @MainActor
+    private func cleanupStaleWindowMappings() {
+        var staleMappingsRemoved = 0
+        
+        // 清理失效的 uuidToWindow 映射
+        for (uuid, windowRef) in uuidToWindowMap {
+            if windowRef.window == nil {
+                uuidToWindowMap.removeValue(forKey: uuid)
+                staleMappingsRemoved += 1
+                print("🧹 定期清理: 移除失效的UUID映射 - \(uuid.uuidString.prefix(8))")
+            }
+        }
+        
+        // 清理失效的 windowToUUID 映射
+        for (window, uuid) in windowToUUIDMap {
+            if !window.isVisible || window.parent != nil {
+                windowToUUIDMap.removeValue(forKey: window)
+                uuidToWindowMap.removeValue(forKey: uuid)
+                staleMappingsRemoved += 1
+                print("🧹 定期清理: 移除失效的窗口映射 - \(window.title)")
+            }
+        }
+        
+        if staleMappingsRemoved > 0 {
+            print("🧹 定期清理完成: 移除了 \(staleMappingsRemoved) 个过期映射")
+            print("📊 清理后映射统计 - windowToUUID: \(windowToUUIDMap.count), uuidToWindow: \(uuidToWindowMap.count)")
         }
     }
     

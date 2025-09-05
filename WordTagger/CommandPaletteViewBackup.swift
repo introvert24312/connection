@@ -193,7 +193,7 @@ struct CommandPaletteView: View {
             Button("") {
                 createNewLayer()
             }
-            .keyboardShortcut("r", modifiers: .command)
+            .keyboardShortcut("l", modifiers: .command)
             .hidden()
         )
         .onChange(of: shouldDismiss) { _, newValue in

@@ -682,7 +682,7 @@ struct TagEditCommandView: View {
                     executeCommand()
                 }
                 .buttonStyle(.borderedProminent)
-                .keyboardShortcut("r", modifiers: [.command])
+                .keyboardShortcut("e", modifiers: [.command])
             }
             .padding()
             
