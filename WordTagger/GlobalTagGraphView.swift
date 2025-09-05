@@ -44,13 +44,10 @@ struct GlobalTagGraphView: View {
             loadGraphData()
         }
         .onReceive(dataManager.$filteredLayers.combineLatest(dataManager.$filteredTagTypes, dataManager.$filteredTagValues)) { _, _, _ in
-            print("🔄 [全局标签图谱] 过滤器变化，重新加载数据")
-            // 使用异步延迟避免多次快速触发
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(100))
-                if !isLoading { // 只有在不在加载状态时才重新加载
-                    loadGraphData()
-                }
+            print("🔄 [全局标签图谱] 过滤器变化，准备重新加载数据")
+            // 简化逻辑，直接重新加载，loadGraphData内部有重复加载保护
+            DispatchQueue.main.async {
+                loadGraphData()
             }
         }
         .onKeyPress(.escape) {
@@ -209,6 +206,8 @@ struct GlobalTagGraphView: View {
         graphData = nil
         
         Task { @MainActor in
+            print("🔄 [全局标签图谱] Task开始执行")
+            
             defer { 
                 isLoading = false
                 print("🔄 [全局标签图谱] isLoading已重置为false")
@@ -224,12 +223,10 @@ struct GlobalTagGraphView: View {
             print("   - 节点数: \(data.nodes.count)")
             print("   - 边数: \(data.edges.count)")
             
-            // 确保数据更新在主线程
-            await MainActor.run {
-                self.graphData = data
-                print("🔄 [全局标签图谱] graphData已更新，节点数: \(data.nodes.count)")
-                print("🔄 [全局标签图谱] 当前UI状态: isLoading=\(isLoading), hasData=\(data.nodes.isEmpty ? "无" : "有")")
-            }
+            // 直接更新，因为已经在MainActor上下文中
+            self.graphData = data
+            print("🔄 [全局标签图谱] graphData已更新，节点数: \(data.nodes.count)")
+            print("🔄 [全局标签图谱] 当前UI状态: isLoading=\(isLoading), hasData=\(data.nodes.isEmpty ? "无" : "有")")
             
             if data.nodes.isEmpty {
                 print("⚠️ [全局标签图谱] 警告：没有生成任何节点数据")
