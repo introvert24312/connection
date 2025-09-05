@@ -20,16 +20,21 @@ struct GlobalTagGraphView: View {
             Divider()
             
             // 图谱主体
-            if isLoading {
-                loadingView
-            } else if let data = graphData, !data.nodes.isEmpty {
-                GlobalTagGraphCanvas(
-                    nodes: data.nodes, 
-                    edges: data.edges, 
-                    resetTrigger: resetTrigger
-                )
-            } else {
-                emptyStateView
+            Group {
+                if isLoading {
+                    loadingView
+                } else if let data = graphData, !data.nodes.isEmpty {
+                    GlobalTagGraphCanvas(
+                        nodes: data.nodes, 
+                        edges: data.edges, 
+                        resetTrigger: resetTrigger
+                    )
+                } else {
+                    emptyStateView
+                }
+            }
+            .onAppear {
+                print("🔄 [全局标签图谱] UI状态检查 - isLoading: \(isLoading), hasData: \(graphData?.nodes.isEmpty == false)")
             }
         }
         .frame(minWidth: 1000, minHeight: 700)
@@ -40,7 +45,13 @@ struct GlobalTagGraphView: View {
         }
         .onReceive(dataManager.$filteredLayers.combineLatest(dataManager.$filteredTagTypes, dataManager.$filteredTagValues)) { _, _, _ in
             print("🔄 [全局标签图谱] 过滤器变化，重新加载数据")
-            loadGraphData()
+            // 使用异步延迟避免多次快速触发
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(100))
+                if !isLoading { // 只有在不在加载状态时才重新加载
+                    loadGraphData()
+                }
+            }
         }
         .onKeyPress(.escape) {
             print("🔙 [全局标签图谱] ESC键按下，关闭窗口")
@@ -186,22 +197,39 @@ struct GlobalTagGraphView: View {
     // MARK: - 数据加载
     
     private func loadGraphData() {
+        print("🔄 [全局标签图谱] loadGraphData开始，当前isLoading: \(isLoading)")
+        
+        // 避免重复加载
+        guard !isLoading else {
+            print("⏸️ [全局标签图谱] 已在加载中，跳过本次请求")
+            return
+        }
+        
         isLoading = true
         graphData = nil
         
         Task { @MainActor in
+            defer { 
+                isLoading = false
+                print("🔄 [全局标签图谱] isLoading已重置为false")
+            }
+            
             print("🔄 [全局标签图谱] 开始生成图谱数据")
             print("   - 数据源节点数: \(store.nodes.count)")
             print("   - 数据源层级数: \(store.layers.count)")
             
             let data = dataManager.generateGlobalGraphData(from: store)
             
-            self.graphData = data
-            self.isLoading = false
-            
             print("✅ [全局标签图谱] 图谱数据生成完成")
             print("   - 节点数: \(data.nodes.count)")
             print("   - 边数: \(data.edges.count)")
+            
+            // 确保数据更新在主线程
+            await MainActor.run {
+                self.graphData = data
+                print("🔄 [全局标签图谱] graphData已更新，节点数: \(data.nodes.count)")
+                print("🔄 [全局标签图谱] 当前UI状态: isLoading=\(isLoading), hasData=\(data.nodes.isEmpty ? "无" : "有")")
+            }
             
             if data.nodes.isEmpty {
                 print("⚠️ [全局标签图谱] 警告：没有生成任何节点数据")
