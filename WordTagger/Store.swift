@@ -2021,16 +2021,41 @@ public final class NodeStore: ObservableObject {
         // 遍历所有节点，删除匹配的标签
         for (index, node) in nodes.enumerated() {
             let removedTags = node.tags.filter { tag in
-                tagMatchers.contains { matcher in
-                    tag.type == matcher.type && tag.value == matcher.value
+                let isMatch = tagMatchers.contains { matcher in
+                    // 🔧 修复TagType匹配问题：使用rawValue进行规范化比较而非直接枚举比较
+                    let typeMatch: Bool
+                    switch (tag.type, matcher.type) {
+                    case (.location, .location):
+                        typeMatch = true
+                    case (.custom(let tagKey), .custom(let matcherKey)):
+                        // 使用rawValue进行比较，避免因大小写等问题导致的匹配失败
+                        typeMatch = tagKey.lowercased() == matcherKey.lowercased()
+                    default:
+                        typeMatch = false
+                    }
+                    
+                    let valueMatch = tag.value == matcher.value
+                    
+                    return typeMatch && valueMatch
                 }
+                return isMatch
             }
             
             if !removedTags.isEmpty {
                 var updatedNode = node
                 updatedNode.tags.removeAll { tag in
                     tagMatchers.contains { matcher in
-                        tag.type == matcher.type && tag.value == matcher.value
+                        // 🔧 应用相同的修复：使用规范化比较
+                        let typeMatch: Bool
+                        switch (tag.type, matcher.type) {
+                        case (.location, .location):
+                            typeMatch = true
+                        case (.custom(let tagKey), .custom(let matcherKey)):
+                            typeMatch = tagKey.lowercased() == matcherKey.lowercased()
+                        default:
+                            typeMatch = false
+                        }
+                        return typeMatch && tag.value == matcher.value
                     }
                 }
                 updatedNode.updatedAt = Date()
@@ -2363,7 +2388,17 @@ public final class NodeStore: ObservableObject {
             
             let removedTags = node.tags.filter { tag in
                 tagMatchers.contains { matcher in
-                    tag.type == matcher.type && tag.value == matcher.value
+                    // 🔧 应用相同的TagType修复：使用规范化比较
+                    let typeMatch: Bool
+                    switch (tag.type, matcher.type) {
+                    case (.location, .location):
+                        typeMatch = true
+                    case (.custom(let tagKey), .custom(let matcherKey)):
+                        typeMatch = tagKey.lowercased() == matcherKey.lowercased()
+                    default:
+                        typeMatch = false
+                    }
+                    return typeMatch && tag.value == matcher.value
                 }
             }
             
@@ -2371,7 +2406,17 @@ public final class NodeStore: ObservableObject {
                 var updatedNode = node
                 updatedNode.tags.removeAll { tag in
                     tagMatchers.contains { matcher in
-                        tag.type == matcher.type && tag.value == matcher.value
+                        // 🔧 应用相同的TagType修复：使用规范化比较
+                        let typeMatch: Bool
+                        switch (tag.type, matcher.type) {
+                        case (.location, .location):
+                            typeMatch = true
+                        case (.custom(let tagKey), .custom(let matcherKey)):
+                            typeMatch = tagKey.lowercased() == matcherKey.lowercased()
+                        default:
+                            typeMatch = false
+                        }
+                        return typeMatch && tag.value == matcher.value
                     }
                 }
                 updatedNode.updatedAt = Date()
