@@ -46,6 +46,8 @@
 		OE33980ORF4VZBIIRH8YSAZ9 /* GlobalTagGraphSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = G3586Z8DANM2G65L0T6DV8ET /* GlobalTagGraphSystem.swift */; };
 		IN1E39G6Y34HG9UURGVXCEV9 /* GlobalTagGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6U00WS1Z0BEM1E0G3PQC7O8V /* GlobalTagGraphView.swift */; };
 		MR8R1RM3FTLQLCAQRR1XGJGF /* NewTagIndexBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = XIGWDDQHBCE8WQO56X0ZQO7Z /* NewTagIndexBoard.swift */; };
+		L001 /* LayerGraphWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = L100 /* LayerGraphWindowView.swift */; };
+		L002 /* LayerGraphPresetManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = L101 /* LayerGraphPresetManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -90,6 +92,8 @@
 		G3586Z8DANM2G65L0T6DV8ET /* GlobalTagGraphSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalTagGraphSystem.swift; sourceTree = "<group>"; };
 		6U00WS1Z0BEM1E0G3PQC7O8V /* GlobalTagGraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalTagGraphView.swift; sourceTree = "<group>"; };
 		XIGWDDQHBCE8WQO56X0ZQO7Z /* NewTagIndexBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewTagIndexBoard.swift; sourceTree = "<group>"; };
+		L100 /* LayerGraphWindowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayerGraphWindowView.swift; sourceTree = "<group>"; };
+		L101 /* LayerGraphPresetManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayerGraphPresetManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -126,6 +130,8 @@
 				G3586Z8DANM2G65L0T6DV8ET /* GlobalTagGraphSystem.swift */,
 				6U00WS1Z0BEM1E0G3PQC7O8V /* GlobalTagGraphView.swift */,
 				XIGWDDQHBCE8WQO56X0ZQO7Z /* NewTagIndexBoard.swift */,
+				L100 /* LayerGraphWindowView.swift */,
+				L101 /* LayerGraphPresetManager.swift */,
 
 				54831DBC2E64470E00CD4724 /* TagBatchManagementView.swift */,
 				54209B7A2E3F248300388A1B /* ExternalDataManager.swift */,
@@ -242,6 +248,8 @@
 				OE33980ORF4VZBIIRH8YSAZ9 /* GlobalTagGraphSystem.swift in Sources */,
 				IN1E39G6Y34HG9UURGVXCEV9 /* GlobalTagGraphView.swift in Sources */,
 				MR8R1RM3FTLQLCAQRR1XGJGF /* NewTagIndexBoard.swift in Sources */,
+				L001 /* LayerGraphWindowView.swift in Sources */,
+				L002 /* LayerGraphPresetManager.swift in Sources */,
 
 				A001 /* WordTaggerApp.swift in Sources */,
 				A004 /* Models.swift in Sources */,

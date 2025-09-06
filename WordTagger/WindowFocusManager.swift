@@ -30,7 +30,7 @@ class WindowFocusManager: ObservableObject {
     
     // 防止重复执行全局命令的冷却机制
     private var lastGlobalCommandTime: [String: Date] = [:]
-    private let globalCommandCooldown: TimeInterval = 0.1 // 100ms冷却时间（缩短以减少误阻止）
+    private let globalCommandCooldown: TimeInterval = 0.3 // 300ms冷却时间，防止多窗口重复执行
     
     // MARK: - Initialization
     private init() {
@@ -961,7 +961,7 @@ class WindowFocusManager: ObservableObject {
                         return uuid
                     }
                 case .graph:
-                    if windowTitle.contains("图谱") || windowTitle.contains("graph") {
+                    if windowTitle.contains("图谱") || windowTitle.contains("graph") || windowTitle.contains("标签") {
                         print("✅ WindowFocusManager: 根据类型匹配到图谱窗口 - '\(windowInfo.displayName)'")
                         return uuid
                     }

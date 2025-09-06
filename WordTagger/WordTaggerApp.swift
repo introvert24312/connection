@@ -2993,12 +2993,12 @@ struct WordTaggerApp: App {
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("showCommandPalette"))) { _ in
                 // showCommandPalette 是全局命令，应该在任何活跃窗口中可用
-                guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true) else {
-                    print("🚫 主窗口: 忽略showCommandPalette通知 - 应用无活跃窗口")
+                guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true, commandName: "showCommandPalette") else {
+                    print("🚫 主窗口: 忽略showCommandPalette通知 - 应用无活跃窗口或冷却期")
                     return
                 }
-                print("✅ 主窗口: 处理showCommandPalette通知 - 打开命令面板")
-                showPalette = true
+                print("✅ 主窗口: 处理showCommandPalette通知 - 打开层图谱窗口")
+                NotificationCenter.default.post(name: NSNotification.Name("executeOpenWindow"), object: "layerGraph")
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openNewWindow"))) { notification in
                 // openNewWindow 是全局命令，应该在任何活跃窗口中可用
@@ -3306,6 +3306,37 @@ struct WordTaggerApp: App {
                 print("✅ 主窗口: 处理restorePreviousTagFilterState通知，恢复标签筛选")
                 store.restorePreviousTagFilterState()
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("switchToLayer"))) { notification in
+                // 🔧 处理来自层图谱窗口的层切换请求
+                guard let layer = notification.object as? Layer else {
+                    print("⚠️ 主窗口: switchToLayer通知格式错误 - 缺少层对象")
+                    return
+                }
+                
+                if let userInfo = notification.userInfo,
+                   let sourceWindowId = userInfo["sourceWindowId"] as? String,
+                   !sourceWindowId.isEmpty {
+                    // 检查是否是发给主窗口的
+                    if sourceWindowId == mainWindowId.uuidString || sourceWindowId == "MAIN_WINDOW" {
+                        print("🔄 主窗口: 处理来自层图谱的层切换请求 - 切换到层: \(layer.displayName)")
+                        Task {
+                            await store.switchToLayer(layer)
+                        }
+                    } else {
+                        print("🚫 主窗口: 忽略发给其他窗口的switchToLayer通知 - 目标: \(sourceWindowId.prefix(8))")
+                    }
+                } else {
+                    // 如果没有指定源窗口，使用WindowFocusManager检查
+                    guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: false, commandName: "switchToLayer") else {
+                        print("🚫 主窗口: 忽略switchToLayer通知 - 窗口非活跃状态")
+                        return
+                    }
+                    print("✅ 主窗口: 作为活跃窗口处理层切换请求 - 切换到层: \(layer.displayName)")
+                    Task {
+                        await store.switchToLayer(layer)
+                    }
+                }
+            }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("handleMapPinTap"))) { notification in
                 print("🔔 主窗口: 收到handleMapPinTap通知")
                 print("🔔 主窗口ID = \(mainWindowId.uuidString)")
@@ -3468,6 +3499,13 @@ struct WordTaggerApp: App {
         }
         .defaultSize(width: 1200, height: 800)
         .windowToolbarStyle(.unified)
+        
+        // 🆕 层图谱窗口
+        WindowGroup("层结构图谱", id: "layerGraph") {
+            LayerGraphWindowView()
+                .environmentObject(store)
+        }
+        .defaultSize(width: 900, height: 650)
         
         // 独立窗口 - 完全分离的数据和状态
         WindowGroup("独立窗口", id: "layerView") {
@@ -4654,12 +4692,13 @@ struct IndependentWindowModifier: ViewModifier {
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("showCommandPalette"))) { _ in
-                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
-                    print("🚫 独立窗口: 忽略showCommandPalette通知 - 应用无活跃窗口")
+                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "showCommandPalette") else {
+                    print("🚫 独立窗口: 忽略showCommandPalette通知 - 应用无活跃窗口或冷却期")
                     return
                 }
-                print("✅ 独立窗口: 处理showCommandPalette通知 - 打开命令面板")
-                showPalette = true
+                print("✅ 独立窗口: 处理showCommandPalette通知 - 打开层图谱窗口")
+                // 打开层图谱窗口，而不是显示 sheet
+                NotificationCenter.default.post(name: NSNotification.Name("executeOpenWindow"), object: "layerGraph")
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("addNewNode"))) { _ in
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
@@ -4886,6 +4925,37 @@ struct IndependentWindowModifier: ViewModifier {
                 print("✅ 独立窗口: 处理restorePreviousTagFilterState通知，恢复标签筛选")
                 store.restorePreviousTagFilterState()
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("switchToLayer"))) { notification in
+                // 🔧 处理来自层图谱窗口的层切换请求
+                guard let layer = notification.object as? Layer else {
+                    print("⚠️ 独立窗口: switchToLayer通知格式错误 - 缺少层对象")
+                    return
+                }
+                
+                if let userInfo = notification.userInfo,
+                   let sourceWindowId = userInfo["sourceWindowId"] as? String,
+                   !sourceWindowId.isEmpty {
+                    // 检查是否是发给这个独立窗口的
+                    if sourceWindowId == windowId.uuidString {
+                        print("🔄 独立窗口: 处理来自层图谱的层切换请求 - 切换到层: \(layer.displayName)")
+                        Task {
+                            await store.switchToLayer(layer)
+                        }
+                    } else {
+                        print("🚫 独立窗口: 忽略发给其他窗口的switchToLayer通知 - 目标: \(sourceWindowId.prefix(8))")
+                    }
+                } else {
+                    // 如果没有指定源窗口，使用WindowFocusManager检查
+                    guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: false, commandName: "switchToLayer") else {
+                        print("🚫 独立窗口: 忽略switchToLayer通知 - 窗口非活跃状态")
+                        return
+                    }
+                    print("✅ 独立窗口: 作为活跃窗口处理层切换请求 - 切换到层: \(layer.displayName)")
+                    Task {
+                        await store.switchToLayer(layer)
+                    }
+                }
+            }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("handleMapPinTap"))) { notification in
                 print("🔔 独立窗口: 收到handleMapPinTap通知")
                 guard let userInfo = notification.userInfo,
@@ -5038,11 +5108,11 @@ struct GlobalCommands: Commands {
     var body: some Commands {
         CommandGroup(replacing: .appInfo) {}
         CommandMenu("全局快捷键") {
-            Button("命令面板") {
-                showCommandPalette?()
+            Button("层图谱") {
+                // 🔧 修复：发送统一的通知，避免多开问题
+                NotificationCenter.default.post(name: NSNotification.Name("showCommandPalette"), object: nil)
             }
             .keyboardShortcut("k", modifiers: [.command])
-            .disabled(showCommandPalette == nil)
             
             Button("快速添加节点") {
                 addNewNode?()

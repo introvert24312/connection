@@ -150,8 +150,13 @@ struct ContentViewModifier: ViewModifier {
                 dataManager: dataManager
             ))
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("executeOpenWindow"))) { notification in
+                // 只让主窗口处理 executeOpenWindow，避免多窗口重复打开
+                guard store.isSharedInstance else {
+                    print("🚫 ContentView: 非主窗口忽略executeOpenWindow通知")
+                    return
+                }
                 if let windowId = notification.object as? String {
-                    print("✅ ContentView: 收到executeOpenWindow通知 - windowId: \(windowId)")
+                    print("✅ ContentView: (主窗口) 收到executeOpenWindow通知 - windowId: \(windowId)")
                     openWindow(id: windowId)
                 }
             }

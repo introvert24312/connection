@@ -18,6 +18,14 @@ struct LayerGraphPreset: Identifiable, Codable {
         self.lastUsedAt = Date()
     }
     
+    init(id: UUID, name: String, filteredLayerIds: Set<UUID>) {
+        self.id = id
+        self.name = name
+        self.filteredLayerIds = filteredLayerIds
+        self.createdAt = Date()
+        self.lastUsedAt = Date()
+    }
+    
     mutating func updateLastUsed() {
         lastUsedAt = Date()
     }
@@ -47,9 +55,7 @@ class LayerGraphPresetManager: ObservableObject {
     /// 获取默认预设（显示所有层）
     func getDefaultPreset(allLayers: [Layer]) -> LayerGraphPreset {
         let allLayerIds = Set(allLayers.map { $0.id })
-        var defaultPreset = LayerGraphPreset(name: "默认", filteredLayerIds: allLayerIds)
-        defaultPreset.id = defaultPresetId
-        return defaultPreset
+        return LayerGraphPreset(id: defaultPresetId, name: "默认", filteredLayerIds: allLayerIds)
     }
     
     /// 保存预设
