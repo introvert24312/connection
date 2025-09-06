@@ -288,6 +288,17 @@ struct LayerGraphWindowView: View {
         loadPreset(defaultPreset)
         selectedLayerId = store.currentLayer?.id
         
+        // 调试信息
+        print("🔍 LayerGraphWindow: setupWindow completed")
+        print("   - defaultPreset.id: \(defaultPreset.id)")
+        print("   - presetManager.currentPreset?.id: \(presetManager.currentPreset?.id ?? UUID())")
+        print("   - 是否匹配: \(presetManager.currentPreset?.id == defaultPreset.id)")
+        
+        // 确保 UI 更新
+        DispatchQueue.main.async {
+            self.presetManager.objectWillChange.send()
+        }
+        
         updateGraphData()
     }
     
@@ -500,11 +511,15 @@ struct LayerGraphWindowView: View {
                 LazyVStack(spacing: 8) {
                     // 默认预设
                     let defaultPreset = presetManager.getDefaultPreset(allLayers: store.layers)
+                    let isDefaultSelected = presetManager.currentPreset?.id == defaultPreset.id
                     SimplePresetRow(
                         preset: defaultPreset,
-                        isSelected: presetManager.currentPreset?.id == defaultPreset.id,
+                        isSelected: isDefaultSelected,
                         isDefault: true,
                         onSelect: { 
+                            print("🔍 手动选择默认预设")
+                            print("   - defaultPreset.id: \(defaultPreset.id)")
+                            print("   - 当前选中状态: \(isDefaultSelected)")
                             loadPreset(defaultPreset)
                             showingPresetMenu = false
                         }
