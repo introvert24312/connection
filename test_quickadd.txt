@@ -1,0 +1,1 @@
+测试：输入'test hello'到QuickAdd并点击添加按钮

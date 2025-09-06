@@ -60,8 +60,12 @@ struct GlobalTagGraphView: View {
             // 🔧 强制确保初始状态正确
             isLoading = false
             
-            // 🆕 修改：默认不自动加载，让用户手动决定何时加载
-            print("📋 [全局标签图谱] 默认显示未加载状态，等待用户手动加载")
+            // 🔄 默认自动加载当前层的标签图谱
+            if !hasPerformedInitialLoad {
+                print("📋 [全局标签图谱] 自动开始加载当前层的标签图谱")
+                hasPerformedInitialLoad = true
+                loadCurrentLayerGraphData()
+            }
         }
         .onReceive(dataManager.$filteredLayers.combineLatest(dataManager.$filteredTagTypes, dataManager.$filteredTagValues)) { layers, types, values in
             print("🔄 [全局标签图谱] 过滤器变化，准备重新加载数据")
@@ -233,34 +237,14 @@ struct GlobalTagGraphView: View {
     }
     
     private var emptyStateView: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 30) {
             Image(systemName: "network")
-                .font(.system(size: 48))
+                .font(.system(size: 64))
                 .foregroundColor(.blue)
             
             Text("全局标签图谱")
-                .font(.system(size: 24, weight: .medium))
+                .font(.system(size: 28, weight: .medium))
                 .foregroundColor(.primary)
-            
-            VStack(spacing: 8) {
-                Text("点击按钮开始分析标签关系")
-                    .font(.body)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                
-                Text("将会分析所有节点的标签，生成完整的关系图谱")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            
-            Button("生成标签图谱") {
-                print("🚀 [全局标签图谱] 用户手动触发数据加载")
-                hasPerformedInitialLoad = true
-                loadGraphData()
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
@@ -294,6 +278,27 @@ struct GlobalTagGraphView: View {
     }
     
     // MARK: - 数据加载
+    
+    /// 加载当前层的标签图谱数据（默认加载使用）
+    private func loadCurrentLayerGraphData() {
+        print("🔄 [全局标签图谱] loadCurrentLayerGraphData开始，当前isLoading: \(isLoading)")
+        
+        guard !isLoading else {
+            print("⏸️ [全局标签图谱] 已在加载中，跳过当前层加载请求")
+            return
+        }
+        
+        // 设置只加载当前层的过滤器
+        if let currentLayer = store.currentLayer {
+            print("📋 [全局标签图谱] 设置过滤器为当前层: \(currentLayer.displayName)")
+            dataManager.filteredLayers = Set([currentLayer.displayName])
+            
+            // 然后使用正常的加载流程
+            loadGraphData()
+        } else {
+            print("⚠️ [全局标签图谱] 没有当前层，跳过自动加载")
+        }
+    }
     
     private func loadGraphData() {
         print("🔄 [全局标签图谱] loadGraphData开始，当前isLoading: \(isLoading)")

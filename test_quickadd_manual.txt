@@ -1,0 +1,23 @@
+Manual test for QuickAdd functionality:
+
+1. Open WordTagger app
+2. Press Shift+Space to open QuickAdd
+3. Type "test node" in the input field
+4. Test both:
+   - Click "添加" button
+   - Press Command+R
+5. Check console for debug output:
+   - "🔧 DEBUG: processInput() called with inputText: 'test node'"
+   - "🔧 DEBUG: inputText is empty: false"
+   - "🔧 DEBUG: 添加按钮被点击" (when clicking button)
+
+Expected behavior:
+- Both button click and Command+R should call processInput()
+- Node should be created successfully
+- Console should show debug messages
+
+Check for failures:
+- Button/shortcut not responding
+- processInput() not being called
+- Debug messages not appearing
+- Node creation failing

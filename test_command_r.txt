@@ -1,0 +1,9 @@
+Command+R keyboard shortcut conflict resolution:
+
+Fixed conflicts:
+1. QuickAddSheetView (line 745): Keep Command+R for main tag addition
+2. CompoundNodeAddSheetView (line 4019): Changed to Command+Shift+R
+3. WordManagerView (line 685): Changed to Command+E
+4. CommandPaletteViewBackup (line 196): Changed to Command+L
+
+The Command+R shortcut should now work exclusively for the QuickAddSheetView's "添加" button.
