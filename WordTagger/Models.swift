@@ -51,6 +51,33 @@ public struct Layer: Identifiable, Hashable, Codable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
+    
+    /// 创建层的副本，可选择修改颜色
+    public func copy(withColor newColor: String? = nil) -> Layer {
+        // 创建一个临时的Layer来保存新颜色，但需要保留原始属性
+        return Layer(
+            id: self.id,
+            name: self.name, 
+            displayName: self.displayName, 
+            color: newColor ?? self.color, 
+            isActive: self.isActive, 
+            isCompound: self.isCompound, 
+            childLayerIds: self.childLayerIds, 
+            createdAt: self.createdAt
+        )
+    }
+    
+    /// 内部初始化器，用于复制时保留所有原始属性
+    private init(id: UUID, name: String, displayName: String, color: String, isActive: Bool, isCompound: Bool, childLayerIds: [UUID], createdAt: Date) {
+        self.id = id
+        self.name = name
+        self.displayName = displayName
+        self.color = color
+        self.isActive = isActive
+        self.isCompound = isCompound
+        self.childLayerIds = childLayerIds
+        self.createdAt = createdAt
+    }
 }
 
 public struct Node: Identifiable, Hashable, Codable {

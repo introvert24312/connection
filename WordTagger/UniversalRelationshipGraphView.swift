@@ -1035,10 +1035,8 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         if let layerNode = node as? LayerGraphNode {
             if layerNode.isSelected {
                 return "#FFD700" // 金色表示选中的层
-            } else if layerNode.isCompound {
-                return "#9B59B6" // 紫色表示复合层
             } else {
-                // 根据层的颜色属性返回对应颜色
+                // 根据层的颜色属性返回对应颜色（包括复合层的层级颜色）
                 if let layer = layerNode.layer {
                     switch layer.color {
                     case "blue": return "#3498DB"
@@ -1048,6 +1046,8 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                     case "purple": return "#9B59B6"
                     case "yellow": return "#F1C40F"
                     case "cyan": return "#1ABC9C"
+                    case "teal": return "#16A085"
+                    case "pink": return "#E91E63"
                     default: return "#34495E"
                     }
                 }

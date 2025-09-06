@@ -43,8 +43,8 @@ class LayerGraphPresetManager: ObservableObject {
     private let userDefaultsKey = "layerGraphPresets"
     private let currentPresetKey = "layerGraphCurrentPreset"
     
-    // 默认预设ID（内置）
-    private let defaultPresetId = UUID()
+    // 默认预设ID（内置，固定UUID）
+    private let defaultPresetId = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
     
     private init() {
         loadPresets()

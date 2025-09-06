@@ -350,6 +350,41 @@ struct LayerGraphWindowView: View {
         cachedEdges = data.edges
     }
     
+    // MARK: - 复合层层级计算
+    
+    /// 计算复合层的层级深度
+    private func calculateLayerDepth(layer: Layer, allLayers: [Layer], visited: Set<UUID> = Set()) -> Int {
+        // 防止循环引用
+        if visited.contains(layer.id) {
+            return 0
+        }
+        
+        if !layer.isCompound || layer.childLayerIds.isEmpty {
+            return 0 // 普通层或无子层的复合层深度为0
+        }
+        
+        var newVisited = visited
+        newVisited.insert(layer.id)
+        
+        let childLayers = allLayers.filter { layer.childLayerIds.contains($0.id) }
+        let maxChildDepth = childLayers.map { childLayer in
+            calculateLayerDepth(layer: childLayer, allLayers: allLayers, visited: newVisited)
+        }.max() ?? 0
+        
+        return maxChildDepth + 1
+    }
+    
+    /// 根据层级深度获取颜色
+    private func getColorForDepth(_ depth: Int) -> String {
+        let colors = ["green", "purple", "orange", "red", "teal", "pink"]
+        if depth == 0 {
+            return "blue" // 普通层使用蓝色
+        } else {
+            let colorIndex = (depth - 1) % colors.count
+            return colors[colorIndex]
+        }
+    }
+    
     private func calculateLayerGraphData() -> (nodes: [LayerGraphNode], edges: [LayerGraphEdge]) {
         var nodes: [LayerGraphNode] = []
         var edges: [LayerGraphEdge] = []
@@ -366,7 +401,13 @@ struct LayerGraphWindowView: View {
         for layer in compoundLayers {
             let nodeCount = store.nodes.filter { $0.layerId == layer.id }.count
             let isSelected = layer.id == selectedLayerId
-            nodes.append(LayerGraphNode(layer: layer, nodeCount: nodeCount, isSelected: isSelected, allLayers: store.layers))
+            let layerDepth = calculateLayerDepth(layer: layer, allLayers: store.layers)
+            let colorForDepth = getColorForDepth(layerDepth)
+            
+            // 创建带有层级颜色的layer副本
+            let layerWithDepthColor = layer.copy(withColor: colorForDepth)
+            
+            nodes.append(LayerGraphNode(layer: layerWithDepthColor, nodeCount: nodeCount, isSelected: isSelected, allLayers: store.layers))
         }
         
         // 添加独立的普通层
