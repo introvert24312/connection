@@ -249,11 +249,7 @@ struct LayerGraphWindowView: View {
         
         if commandPressed {
             // ⌘+点击：通知对应的主窗口切换层
-            if !targetLayer.isCompound {
-                switchToLayerInMainWindow(targetLayer)
-            } else {
-                print("⚠️ 复合层不支持切换")
-            }
+            switchToLayerInMainWindow(targetLayer)
         } else {
             // 普通点击：只选中
             selectedLayerId = layerId
