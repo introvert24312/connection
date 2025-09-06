@@ -1907,6 +1907,17 @@ struct LayerManagementView: View {
     @State private var showingCreateLayerSheet = false
     @State private var showingDeleteAlert = false
     @State private var layerToDelete: Layer?
+    @State private var searchText = ""
+    
+    private var filteredLayers: [Layer] {
+        if searchText.isEmpty {
+            return store.sortedLayers
+        }
+        return store.sortedLayers.filter { layer in
+            layer.displayName.localizedCaseInsensitiveContains(searchText) ||
+            layer.name.localizedCaseInsensitiveContains(searchText)
+        }
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -2010,6 +2021,47 @@ struct LayerManagementView: View {
                             .controlSize(.regular)
                         }
                         
+                        // 搜索框和统计
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: "magnifyingglass")
+                                    .foregroundColor(.secondary)
+                                    .font(.body)
+                                
+                                TextField("搜索层...", text: $searchText)
+                                    .textFieldStyle(.plain)
+                                
+                                if !searchText.isEmpty {
+                                    Button(action: {
+                                        searchText = ""
+                                    }) {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color(NSColor.controlBackgroundColor))
+                            .cornerRadius(8)
+                            
+                            // 搜索结果统计
+                            if !searchText.isEmpty {
+                                HStack {
+                                    Text("找到 \(filteredLayers.count) 个匹配的层")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Spacer()
+                                    if filteredLayers.isEmpty {
+                                        Text("试试其他关键词")
+                                            .font(.caption)
+                                            .foregroundColor(.blue)
+                                    }
+                                }
+                            }
+                        }
+                        
                         // 层列表
                         if store.layers.isEmpty {
                             VStack(spacing: 16) {
@@ -2049,9 +2101,38 @@ struct LayerManagementView: View {
                                 RoundedRectangle(cornerRadius: 12)
                                     .fill(Color(NSColor.controlBackgroundColor).opacity(0.5))
                             )
+                        } else if filteredLayers.isEmpty {
+                            VStack(spacing: 16) {
+                                Image(systemName: "magnifyingglass")
+                                    .font(.system(size: 48))
+                                    .foregroundColor(.gray.opacity(0.6))
+                                
+                                VStack(spacing: 8) {
+                                    Text("未找到匹配的层")
+                                        .font(.title3)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.primary)
+                                    
+                                    Text("尝试修改搜索关键词或清除搜索条件")
+                                        .font(.body)
+                                        .foregroundColor(.secondary)
+                                        .multilineTextAlignment(.center)
+                                }
+                                
+                                Button("清除搜索") {
+                                    searchText = ""
+                                }
+                                .buttonStyle(.borderedProminent)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 40)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                            )
                         } else {
                             LazyVStack(spacing: 12) {
-                                ForEach(store.sortedLayers, id: \.id) { layer in
+                                ForEach(filteredLayers, id: \.id) { layer in
                                     LayerRowView(
                                         layer: layer,
                                         wordCount: store.nodes.filter { $0.layerId == layer.id }.count,

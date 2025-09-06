@@ -93,8 +93,8 @@ struct LayerGraphWindowView: View {
             
             Spacer()
             
-            // 层搜索输入框和提示（居中显示）
-            VStack(spacing: 0) {
+            // 层搜索输入框和下拉框（居中显示）
+            ZStack(alignment: .top) {
                 TextField("新建层", text: $layerSearchText)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 300, height: 32)
@@ -108,43 +108,50 @@ struct LayerGraphWindowView: View {
                         updateMatchedLayers(searchText: newValue)
                     }
                 
-                // 层匹配提示
+                // 层匹配下拉框
                 if !matchedLayers.isEmpty && !layerSearchText.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(matchedLayers.prefix(3)) { layer in
-                            HStack {
-                                Circle()
-                                    .fill(Color.from(layer.color))
-                                    .frame(width: 8, height: 8)
-                                Text(layer.displayName)
-                                    .font(.caption)
-                                    .foregroundColor(.primary)
-                                if layer.displayName != layer.name {
-                                    Text("(\(layer.name))")
+                    VStack(spacing: 0) {
+                        // 空白区域占位符（让下拉框在输入框下方）
+                        Spacer()
+                            .frame(height: 36)
+                        
+                        // 下拉框内容
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach(matchedLayers.prefix(5)) { layer in
+                                LayerDropdownItem(
+                                    layer: layer,
+                                    searchText: layerSearchText,
+                                    onSelect: { selectedLayer in
+                                        selectLayerFromDropdown(selectedLayer)
+                                    }
+                                )
+                            }
+                            
+                            if matchedLayers.count > 5 {
+                                HStack {
+                                    Text("…还有\(matchedLayers.count - 5)个匹配项")
                                         .font(.caption2)
                                         .foregroundColor(.secondary)
+                                    Spacer()
                                 }
-                                Spacer()
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
                             }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
                         }
-                        
-                        if matchedLayers.count > 3 {
-                            Text("…还有\(matchedLayers.count - 3)个匹配项")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 2)
-                        }
+                        .frame(width: 300)
+                        .background(Color(NSColor.controlBackgroundColor))
+                        .cornerRadius(8)
+                        .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                        )
+                        .zIndex(1000) // 确保下拉框在最上层
                     }
-                    .frame(width: 300)
-                    .padding(.vertical, 4)
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .cornerRadius(6)
-                    .shadow(radius: 2, x: 0, y: 1)
                 }
             }
+            .frame(width: 300)
             
             Spacer()
             
@@ -603,6 +610,16 @@ struct LayerGraphWindowView: View {
         } else {
             print("⚠️ 未找到匹配的层: \(trimmedInput)")
         }
+    }
+    
+    private func selectLayerFromDropdown(_ layer: Layer) {
+        // 直接切换到选中的层
+        switchToLayerInMainWindow(layer)
+        print("🔄 从下拉框选择层: \(layer.displayName)")
+        
+        // 清空输入框和匹配结果
+        layerSearchText = ""
+        matchedLayers = []
     }
     
     private func createNewLayer() {
@@ -1391,6 +1408,74 @@ struct ModernPresetRow: View {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
         return formatter.localizedString(for: date, relativeTo: Date())
+    }
+}
+
+// MARK: - 层下拉框项目
+struct LayerDropdownItem: View {
+    let layer: Layer
+    let searchText: String
+    let onSelect: (Layer) -> Void
+    
+    @State private var isHovered = false
+    
+    var body: some View {
+        Button(action: {
+            onSelect(layer)
+        }) {
+            HStack(spacing: 10) {
+                // 层颜色指示器
+                Circle()
+                    .fill(Color.from(layer.color))
+                    .frame(width: 12, height: 12)
+                    .shadow(radius: 1)
+                
+                // 层信息
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        Text(layer.displayName)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+                        
+                        if layer.isCompound {
+                            Image(systemName: "square.stack.3d.up")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                        }
+                        
+                        Spacer()
+                        
+                        if layer.isActive {
+                            Circle()
+                                .fill(Color.green)
+                                .frame(width: 6, height: 6)
+                        }
+                    }
+                    
+                    if layer.displayName != layer.name {
+                        Text(layer.name)
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+                
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                Rectangle()
+                    .fill(isHovered ? Color.blue.opacity(0.1) : Color.clear)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovered = hovering
+            }
+        }
     }
 }
 
