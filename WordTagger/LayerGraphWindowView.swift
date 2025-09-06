@@ -20,8 +20,10 @@ struct LayerGraphWindowView: View {
     @State private var newPresetName = ""
     @State private var showingPresetMenu = false
     
-    // 新建层状态
-    @State private var newLayerName = ""
+    // 层搜索/创建状态
+    @State private var layerSearchText = ""
+    @FocusState private var isSearchFieldFocused: Bool
+    @State private var matchedLayers: [Layer] = []
     
     
     // 使用设置中的层结构图谱缩放级别
@@ -40,6 +42,10 @@ struct LayerGraphWindowView: View {
         .registerWindow(windowId, type: .graph, displayName: "层结构图谱")
         .onAppear {
             setupWindow()
+            // 设置输入框焦点
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                isSearchFieldFocused = true
+            }
         }
         .onChange(of: store.layers) { _, _ in
             updateGraphData()
@@ -69,6 +75,13 @@ struct LayerGraphWindowView: View {
         } message: {
             Text("为当前的层选择状态创建一个预设，以便后续快速加载。")
         }
+        .background {
+            Button("") {
+                createNewLayer()
+            }
+            .keyboardShortcut("r", modifiers: .command)
+            .hidden()
+        }
     }
     
     // MARK: - 顶部工具栏（参考全局标签图谱的设计）
@@ -80,16 +93,58 @@ struct LayerGraphWindowView: View {
             
             Spacer()
             
-            // 新建层输入框（居中显示）
-            TextField("新建层... (复合层: \"复合层名 子层1 子层2\")", text: $newLayerName)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 300, height: 32)
-                .controlSize(.large)
-                .font(.system(size: 14, weight: .medium))
-                .onSubmit {
-                    createNewLayer()
+            // 层搜索输入框和提示（居中显示）
+            VStack(spacing: 0) {
+                TextField("新建层", text: $layerSearchText)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 300, height: 32)
+                    .controlSize(.large)
+                    .font(.system(size: 14, weight: .medium))
+                    .focused($isSearchFieldFocused)
+                    .onSubmit {
+                        switchToMatchedLayer()
+                    }
+                    .onChange(of: layerSearchText) { _, newValue in
+                        updateMatchedLayers(searchText: newValue)
+                    }
+                
+                // 层匹配提示
+                if !matchedLayers.isEmpty && !layerSearchText.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(matchedLayers.prefix(3)) { layer in
+                            HStack {
+                                Circle()
+                                    .fill(Color.from(layer.color))
+                                    .frame(width: 8, height: 8)
+                                Text(layer.displayName)
+                                    .font(.caption)
+                                    .foregroundColor(.primary)
+                                if layer.displayName != layer.name {
+                                    Text("(\(layer.name))")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                        }
+                        
+                        if matchedLayers.count > 3 {
+                            Text("…还有\(matchedLayers.count - 3)个匹配项")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                        }
+                    }
+                    .frame(width: 300)
+                    .padding(.vertical, 4)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(6)
+                    .shadow(radius: 2, x: 0, y: 1)
                 }
-                .keyboardShortcut("r", modifiers: .command)
+            }
             
             Spacer()
             
@@ -513,10 +568,45 @@ struct LayerGraphWindowView: View {
         }
     }
     
-    // MARK: - 新建层功能
+    // MARK: - 层搜索和创建功能
+    
+    private func updateMatchedLayers(searchText: String) {
+        let trimmedText = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else {
+            matchedLayers = []
+            return
+        }
+        
+        matchedLayers = store.layers.filter { layer in
+            layer.displayName.localizedCaseInsensitiveContains(trimmedText) ||
+            layer.name.localizedCaseInsensitiveContains(trimmedText)
+        }.sorted { $0.displayName < $1.displayName }
+    }
+    
+    private func switchToMatchedLayer() {
+        let trimmedInput = layerSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedInput.isEmpty else { return }
+        
+        // 找到匹配的层
+        let matchingLayer = store.layers.first { layer in
+            layer.displayName.localizedCaseInsensitiveContains(trimmedInput) ||
+            layer.name.localizedCaseInsensitiveContains(trimmedInput)
+        }
+        
+        if let layer = matchingLayer {
+            // 切换到匹配的层
+            switchToLayerInMainWindow(layer)
+            print("🔄 切换到层: \(layer.displayName)")
+            // 清空输入框
+            layerSearchText = ""
+            matchedLayers = []
+        } else {
+            print("⚠️ 未找到匹配的层: \(trimmedInput)")
+        }
+    }
     
     private func createNewLayer() {
-        let trimmedInput = newLayerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedInput = layerSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedInput.isEmpty else { return }
         
         // 解析输入：按空格分割
@@ -559,7 +649,7 @@ struct LayerGraphWindowView: View {
         filteredLayerIds.insert(newLayer.id)
         
         // 清空输入框
-        newLayerName = ""
+        layerSearchText = ""
         
         // 更新图谱数据
         updateGraphData()
@@ -613,7 +703,7 @@ struct LayerGraphWindowView: View {
         filteredLayerIds.insert(newCompoundLayer.id)
         
         // 清空输入框
-        newLayerName = ""
+        layerSearchText = ""
         
         // 更新图谱数据
         updateGraphData()
