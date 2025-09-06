@@ -2992,12 +2992,12 @@ struct WordTaggerApp: App {
                 performEmergencySheetCleanup()
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("showCommandPalette"))) { _ in
-                // showCommandPalette 是全局命令，应该在任何活跃窗口中可用
+                // showCommandPalette 现在重定向到层结构图谱（兼容旧代码）
                 guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true, commandName: "showCommandPalette") else {
                     print("🚫 主窗口: 忽略showCommandPalette通知 - 应用无活跃窗口或冷却期")
                     return
                 }
-                print("✅ 主窗口: 处理showCommandPalette通知 - 打开层图谱窗口")
+                print("✅ 主窗口: 处理showCommandPalette通知 - 打开层结构图谱窗口")
                 NotificationCenter.default.post(name: NSNotification.Name("executeOpenWindow"), object: "layerGraph")
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openNewWindow"))) { notification in
@@ -4696,9 +4696,9 @@ struct IndependentWindowModifier: ViewModifier {
                     print("🚫 独立窗口: 忽略showCommandPalette通知 - 应用无活跃窗口或冷却期")
                     return
                 }
-                print("✅ 独立窗口: 处理showCommandPalette通知 - 打开层图谱窗口")
-                // 打开层图谱窗口，而不是显示 sheet
-                NotificationCenter.default.post(name: NSNotification.Name("executeOpenWindow"), object: "layerGraph")
+                print("✅ 独立窗口: 处理showCommandPalette通知 - 打开层结构图谱窗口")
+                // 打开层结构图谱窗口，而不是显示 sheet
+                openWindow(id: "layerGraph")
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("addNewNode"))) { _ in
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
@@ -5108,9 +5108,9 @@ struct GlobalCommands: Commands {
     var body: some Commands {
         CommandGroup(replacing: .appInfo) {}
         CommandMenu("全局快捷键") {
-            Button("层图谱") {
-                // 🔧 修复：发送统一的通知，避免多开问题
-                NotificationCenter.default.post(name: NSNotification.Name("showCommandPalette"), object: nil)
+            Button("层结构图谱") {
+                // 🔧 直接打开层结构图谱窗口
+                NotificationCenter.default.post(name: NSNotification.Name("executeOpenWindow"), object: "layerGraph")
             }
             .keyboardShortcut("k", modifiers: [.command])
             
