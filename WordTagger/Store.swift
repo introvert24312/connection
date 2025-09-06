@@ -668,8 +668,7 @@ public final class NodeStore: ObservableObject {
         // 安全地检查节点名称冲突，避免崩溃
         print("🔍 检查节点名称冲突 - 新节点: '\(node.text)', 现有节点数量: \(nodes.count)")
         
-        do {
-            // 使用安全的方式查找重复节点
+        // 使用安全的方式查找重复节点
             let potentialDuplicates = nodes.filter { existingNode in
                 existingNode.text.lowercased() == node.text.lowercased()
             }
@@ -811,17 +810,6 @@ public final class NodeStore: ObservableObject {
                 
                 return true
             }
-        } catch {
-            // 捕获任何可能的崩溃，提供友好的错误信息
-            print("❌ 节点添加过程中发生错误: \(error)")
-            duplicateNodeAlert = DuplicateNodeAlert(
-                message: "节点添加失败：\(error.localizedDescription)",
-                isDuplicate: false,
-                existingNode: nil,
-                newNode: node
-            )
-            return false
-        }
     }
     
     /// 强制添加节点（用户确认冲突后）

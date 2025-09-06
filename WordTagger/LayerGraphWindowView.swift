@@ -81,7 +81,7 @@ struct LayerGraphWindowView: View {
             Spacer()
             
             // 新建层输入框（居中显示）
-            TextField("新建层...", text: $newLayerName)
+            TextField("新建层... (复合层: \"复合层名 子层1 子层2\")", text: $newLayerName)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 300, height: 32)
                 .controlSize(.large)
@@ -458,9 +458,9 @@ struct LayerGraphWindowView: View {
                 }
                 .padding(.vertical, 16)
             }
-            .frame(maxHeight: 600)
+            .frame(maxHeight: 540)
         }
-        .frame(width: 320, height: 600)
+        .frame(width: 320, height: 540)
     }
     
     // MARK: - 辅助方法
@@ -520,27 +520,42 @@ struct LayerGraphWindowView: View {
     // MARK: - 新建层功能
     
     private func createNewLayer() {
-        let trimmedName = newLayerName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedName.isEmpty else { return }
+        let trimmedInput = newLayerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedInput.isEmpty else { return }
         
+        // 解析输入：按空格分割
+        let components = trimmedInput.components(separatedBy: " ").filter { !$0.isEmpty }
+        
+        if components.count == 1 {
+            // 创建普通层
+            createSimpleLayer(name: components[0])
+        } else {
+            // 创建复合层
+            let compoundName = components[0]
+            let childNames = Array(components[1...])
+            createCompoundLayer(name: compoundName, childNames: childNames)
+        }
+    }
+    
+    private func createSimpleLayer(name: String) {
         // 生成内部名称（小写，下划线替换空格）
-        let internalName = trimmedName.lowercased().replacingOccurrences(of: " ", with: "_")
+        let internalName = name.lowercased().replacingOccurrences(of: " ", with: "_")
         
         // 检查是否重名
         let nameExists = store.layers.contains { layer in
             layer.name.lowercased() == internalName.lowercased() || 
-            layer.displayName.lowercased() == trimmedName.lowercased()
+            layer.displayName.lowercased() == name.lowercased()
         }
         
         if nameExists {
-            print("⚠️ 层名称已存在: \(trimmedName)")
+            print("⚠️ 层名称已存在: \(name)")
             return
         }
         
         // 创建新层
         let newLayer = store.createLayer(
             name: internalName,
-            displayName: trimmedName,
+            displayName: name,
             color: "blue"
         )
         
@@ -553,7 +568,62 @@ struct LayerGraphWindowView: View {
         // 更新图谱数据
         updateGraphData()
         
-        print("✅ 新建层成功: \(trimmedName) (内部名称: \(internalName))")
+        print("✅ 新建普通层成功: \(name) (内部名称: \(internalName))")
+        print("🔄 已自动添加到当前筛选列表，当前筛选层数: \(filteredLayerIds.count)")
+    }
+    
+    private func createCompoundLayer(name: String, childNames: [String]) {
+        // 生成内部名称（小写，下划线替换空格）
+        let internalName = name.lowercased().replacingOccurrences(of: " ", with: "_")
+        
+        // 检查复合层名是否重名
+        let nameExists = store.layers.contains { layer in
+            layer.name.lowercased() == internalName.lowercased() || 
+            layer.displayName.lowercased() == name.lowercased()
+        }
+        
+        if nameExists {
+            print("⚠️ 复合层名称已存在: \(name)")
+            return
+        }
+        
+        // 检查所有子层是否存在
+        var childLayerIds: [UUID] = []
+        for childName in childNames {
+            let childInternalName = childName.lowercased().replacingOccurrences(of: " ", with: "_")
+            
+            // 查找子层（按内部名称或显示名称）
+            if let existingLayer = store.layers.first(where: { layer in
+                layer.name.lowercased() == childInternalName.lowercased() || 
+                layer.displayName.lowercased() == childName.lowercased()
+            }) {
+                childLayerIds.append(existingLayer.id)
+            } else {
+                print("❌ 子层不存在: \(childName)")
+                print("💡 请先创建子层，然后再创建复合层")
+                return
+            }
+        }
+        
+        // 创建复合层
+        let newCompoundLayer = store.createCompoundLayer(
+            name: internalName,
+            displayName: name,
+            childLayerIds: childLayerIds,
+            color: "green"
+        )
+        
+        // 自动添加到当前筛选的层列表中
+        filteredLayerIds.insert(newCompoundLayer.id)
+        
+        // 清空输入框
+        newLayerName = ""
+        
+        // 更新图谱数据
+        updateGraphData()
+        
+        print("✅ 新建复合层成功: \(name) (内部名称: \(internalName))")
+        print("   📦 包含子层: \(childNames.joined(separator: ", "))")
         print("🔄 已自动添加到当前筛选列表，当前筛选层数: \(filteredLayerIds.count)")
     }
 }
@@ -1085,7 +1155,7 @@ struct SimplePresetRow: View {
                 }
                 
                 // 删除按钮
-                if !isDefault, let onDelete = onDelete, isHovered {
+                if !isDefault, onDelete != nil, isHovered {
                     Button {
                         showingDeleteAlert = true
                     } label: {
@@ -1191,7 +1261,7 @@ struct ModernPresetRow: View {
                 }
                 
                 // 删除按钮（仅对用户创建的预设显示）
-                if !isDefault, let onDelete = onDelete, isHovered {
+                if !isDefault, onDelete != nil, isHovered {
                     Button {
                         showingDeleteAlert = true
                     } label: {

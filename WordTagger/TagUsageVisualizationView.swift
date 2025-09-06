@@ -275,7 +275,7 @@ struct EnhancedTagUsageView: View {
                 let affectedTags = groupedUsage[tagType] ?? []
                 let totalNodes = Set(affectedTags.flatMap { $0.nodes }.map { $0.id }).count
                 
-                if let selectedLayerId = selectedLayerId {
+                if selectedLayerId != nil {
                     // 特定层删除
                     Text("确定要从层 '\(selectedLayerName)' 删除标签类型 '\(tagType.displayName)' 吗？\n\n这将删除该层中所有 \(affectedTags.count) 个标签值，影响 \(totalNodes) 个节点。此操作仅影响当前层，不会影响其他层。")
                 } else {

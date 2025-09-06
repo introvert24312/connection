@@ -5,12 +5,21 @@ import Combine
 
 /// 全局标签索引项
 struct GlobalTagItem: Identifiable, Codable {
-    let id = UUID()
+    let id: UUID
     let tagType: String         // 标签类型显示名
     let tagValue: String        // 标签值
     let layerNames: [String]    // 所属层名称列表
     let nodeCount: Int          // 包含此标签的节点数量
     let nodes: [String]         // 节点名称列表（用于显示）
+    
+    init(id: UUID = UUID(), tagType: String, tagValue: String, layerNames: [String], nodeCount: Int, nodes: [String]) {
+        self.id = id
+        self.tagType = tagType
+        self.tagValue = tagValue
+        self.layerNames = layerNames
+        self.nodeCount = nodeCount
+        self.nodes = nodes
+    }
 }
 
 /// 全局标签图谱节点
@@ -191,6 +200,7 @@ class GlobalTagDataManager: ObservableObject {
                 if var existingItem = tagUsageMap[key] {
                     // 更新现有项目
                     existingItem = GlobalTagItem(
+                        id: existingItem.id,
                         tagType: existingItem.tagType,
                         tagValue: existingItem.tagValue,
                         layerNames: Array(Set(existingItem.layerNames + [layerName])),
@@ -216,6 +226,7 @@ class GlobalTagDataManager: ObservableObject {
                 
                 if var existingItem = tagUsageMap[key] {
                     existingItem = GlobalTagItem(
+                        id: existingItem.id,
                         tagType: existingItem.tagType,
                         tagValue: existingItem.tagValue,
                         layerNames: Array(Set(existingItem.layerNames + [layerName])),
