@@ -391,6 +391,17 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                     color: var(--text);
                     border-radius: 7px 7px 0 0;
                     margin-bottom: 16px;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                    user-select: none;
+                }
+                .group-header:hover {
+                    background: rgba(0, 122, 255, 0.1);
+                    color: var(--accent);
+                }
+                .group-header.selected {
+                    background: var(--accent);
+                    color: white;
                 }
                 .group-content .grid {
                     margin-bottom: 0;
@@ -411,6 +422,19 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                     color: var(--accent);
                     font-size: 13px;
                     padding-left: 4px;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                    user-select: none;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                }
+                .type-header:hover {
+                    background: rgba(0, 122, 255, 0.1);
+                    color: white;
+                }
+                .type-header.selected {
+                    background: var(--accent);
+                    color: white;
                 }
                 .layer-selector {
                     border: 1px solid var(--border);
@@ -477,7 +501,7 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
         <body>
             <div class="header">
                 <h1>标签索引看板</h1>
-                <span class="hint">Command+点击多选</span>
+                <span class="hint">点击层级/类型框选择整组 | Command+点击多选</span>
             </div>
             
             <div class="controls">
@@ -514,6 +538,8 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
             let ALL_LAYERS = new Set();
             const selectedItems = new Set();
             const selectedLayers = new Set();
+            const selectedGroupHeaders = new Set();  // 新增：选中的组头部（层级）
+            const selectedTypeHeaders = new Set();   // 新增：选中的标签类型头部
             
             // 数据更新函数
             window.updateData = function(jsonData) {
@@ -682,16 +708,28 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                         typeGroups[item.type].push(item);
                     });
                     
+                    const groupId = 'group_' + groupName;
+                    const isGroupSelected = selectedGroupHeaders.has(groupName);
                     html += `<div class="group-section">
-                        <div class="group-header">${escapeHtml(groupName)} (${groups[groupName].length})</div>
+                        <div class="group-header ${isGroupSelected ? 'selected' : ''}" 
+                             data-group="${escapeHtml(groupName)}" 
+                             onclick="toggleGroupSelection('${escapeHtml(groupName)}', event)">
+                            ${escapeHtml(groupName)} (${groups[groupName].length})
+                        </div>
                         <div class="group-content">`;
                     
                     Object.keys(typeGroups).sort().forEach(typeName => {
                         // 按使用次数排序
                         typeGroups[typeName].sort((a, b) => (b.count || 0) - (a.count || 0));
+                        const typeId = groupName + '_' + typeName;
+                        const isTypeSelected = selectedTypeHeaders.has(typeId);
                         html += `
                             <div class="type-subgroup">
-                                <div class="type-header">${escapeHtml(typeName)}</div>
+                                <div class="type-header ${isTypeSelected ? 'selected' : ''}" 
+                                     data-type="${escapeHtml(typeId)}" 
+                                     onclick="toggleTypeSelection('${escapeHtml(typeId)}', '${escapeHtml(typeName)}', event)">
+                                    ${escapeHtml(typeName)}
+                                </div>
                                 <div class="grid">
                                     ${typeGroups[typeName].map(renderChip).join('')}
                                 </div>
@@ -717,9 +755,14 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                 Object.keys(groups).sort().forEach(groupName => {
                     // 按使用次数排序
                     groups[groupName].sort((a, b) => (b.count || 0) - (a.count || 0));
+                    const isGroupSelected = selectedGroupHeaders.has(groupName);
                     html += `
                         <div class="group-section">
-                            <div class="group-header">${escapeHtml(groupName)} (${groups[groupName].length})</div>
+                            <div class="group-header ${isGroupSelected ? 'selected' : ''}" 
+                                 data-group="${escapeHtml(groupName)}" 
+                                 onclick="toggleGroupSelection('${escapeHtml(groupName)}', event)">
+                                ${escapeHtml(groupName)} (${groups[groupName].length})
+                            </div>
                             <div class="group-content">
                                 <div class="grid">
                                     ${groups[groupName].map(renderChip).join('')}
@@ -760,6 +803,96 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                 renderBoard();
                 notifySelectionChange();
                 console.log("🖱️ [新版] 点击标签 END");
+            }
+            
+            // 新增：切换组（层级）选择
+            function toggleGroupSelection(groupName, event) {
+                console.log("🎯 切换组选择:", groupName);
+                
+                if (event.metaKey || event.ctrlKey) {
+                    // Command/Ctrl+点击: 多选组
+                    if (selectedGroupHeaders.has(groupName)) {
+                        selectedGroupHeaders.delete(groupName);
+                        // 取消选择该组下的所有标签
+                        const groupItems = DATA.filter(item => 
+                            item.layers && item.layers.includes(groupName)
+                        );
+                        groupItems.forEach(item => {
+                            const itemId = item.type + ':' + item.name;
+                            selectedItems.delete(itemId);
+                        });
+                    } else {
+                        selectedGroupHeaders.add(groupName);
+                        // 选择该组下的所有标签
+                        const groupItems = DATA.filter(item => 
+                            item.layers && item.layers.includes(groupName)
+                        );
+                        groupItems.forEach(item => {
+                            const itemId = item.type + ':' + item.name;
+                            selectedItems.add(itemId);
+                        });
+                    }
+                } else {
+                    // 普通点击: 单选组
+                    selectedGroupHeaders.clear();
+                    selectedTypeHeaders.clear();
+                    selectedItems.clear();
+                    
+                    selectedGroupHeaders.add(groupName);
+                    // 选择该组下的所有标签
+                    const groupItems = DATA.filter(item => 
+                        item.layers && item.layers.includes(groupName)
+                    );
+                    groupItems.forEach(item => {
+                        const itemId = item.type + ':' + item.name;
+                        selectedItems.add(itemId);
+                    });
+                }
+                
+                renderBoard();
+                notifySelectionChange();
+            }
+            
+            // 新增：切换类型选择
+            function toggleTypeSelection(typeId, typeName, event) {
+                console.log("🎯 切换类型选择:", typeId, typeName);
+                
+                if (event.metaKey || event.ctrlKey) {
+                    // Command/Ctrl+点击: 多选类型
+                    if (selectedTypeHeaders.has(typeId)) {
+                        selectedTypeHeaders.delete(typeId);
+                        // 取消选择该类型下的所有标签
+                        const typeItems = DATA.filter(item => item.type === typeName);
+                        typeItems.forEach(item => {
+                            const itemId = item.type + ':' + item.name;
+                            selectedItems.delete(itemId);
+                        });
+                    } else {
+                        selectedTypeHeaders.add(typeId);
+                        // 选择该类型下的所有标签
+                        const typeItems = DATA.filter(item => item.type === typeName);
+                        typeItems.forEach(item => {
+                            const itemId = item.type + ':' + item.name;
+                            selectedItems.add(itemId);
+                        });
+                    }
+                } else {
+                    // 普通点击: 单选类型
+                    selectedGroupHeaders.clear();
+                    selectedTypeHeaders.clear();
+                    selectedItems.clear();
+                    
+                    selectedTypeHeaders.add(typeId);
+                    // 选择该类型下的所有标签
+                    const typeItems = DATA.filter(item => item.type === typeName);
+                    typeItems.forEach(item => {
+                        const itemId = item.type + ':' + item.name;
+                        selectedItems.add(itemId);
+                    });
+                }
+                
+                renderBoard();
+                notifySelectionChange();
             }
             
             // 通知选择变化 - 支持层级过滤
@@ -862,6 +995,8 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                 // 清除选择
                 selectedItems.clear();
                 selectedLayers.clear();
+                selectedGroupHeaders.clear();  // 新增：清除组选择
+                selectedTypeHeaders.clear();   // 新增：清除类型选择
                 
                 // 隐藏层级选择器
                 document.getElementById('layerSelectorContainer').style.display = 'none';
