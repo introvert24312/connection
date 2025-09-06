@@ -32,13 +32,9 @@ class TagGraphWindowManager: ObservableObject {
     private init() {
         print("🏗️ TagGraphWindowManager: 初始化共享管理器")
         
-        // 监听旧的通知系统作为向后兼容
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleLegacyTagTypeGraphNotification),
-            name: NSNotification.Name("openTagTypeGraph"),
-            object: nil
-        )
+        // 🔧 修复重复窗口问题：移除重复的通知监听器
+        // 因为 WordTaggerApp 已经在处理 "openTagTypeGraph" 通知
+        // 不再需要在这里重复监听
     }
     
     /// 更新当前标签类型
@@ -80,16 +76,7 @@ class TagGraphWindowManager: ObservableObject {
     }
     
     // MARK: - 向后兼容性
-    
-    @objc private func handleLegacyTagTypeGraphNotification(_ notification: Notification) {
-        guard let tagType = notification.object as? Tag.TagType else {
-            print("❌ TagGraphWindowManager: 接收到无效的openTagTypeGraph通知")
-            return
-        }
-        
-        print("🔄 TagGraphWindowManager: 接收到旧版openTagTypeGraph通知，标签类型: \(tagType.displayName)")
-        updateTagType(tagType)
-    }
+    // 🔧 修复重复窗口问题：已移除重复的通知处理器
     
     deinit {
         NotificationCenter.default.removeObserver(self)

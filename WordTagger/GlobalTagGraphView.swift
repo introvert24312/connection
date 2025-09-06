@@ -6,6 +6,7 @@ struct GlobalTagGraphView: View {
     @EnvironmentObject private var store: NodeStore
     @StateObject private var dataManager = GlobalTagDataManager()  // 🆕 每个视图独立的数据管理器
     @Environment(\.dismiss) private var dismiss
+    @AppStorage("globalTagGraphInitialScale") private var globalTagGraphInitialScale: Double = 1.0
     
     @State private var graphData: (nodes: [GlobalTagGraphNode], edges: [GlobalTagGraphEdge])?
     @State private var isLoading = false
@@ -33,7 +34,8 @@ struct GlobalTagGraphView: View {
                     GlobalTagGraphCanvas(
                         nodes: data.nodes, 
                         edges: data.edges, 
-                        resetTrigger: resetTrigger
+                        resetTrigger: resetTrigger,
+                        initialScale: globalTagGraphInitialScale
                     )
                 } else {
                     emptyStateView
@@ -393,6 +395,7 @@ struct GlobalTagGraphCanvas: View {
     let nodes: [GlobalTagGraphNode]
     let edges: [GlobalTagGraphEdge]
     let resetTrigger: UUID
+    let initialScale: Double
     
     @State private var selectedNode: GlobalTagGraphNode?
     @State private var hoveredNode: GlobalTagGraphNode?
@@ -408,7 +411,7 @@ struct GlobalTagGraphCanvas: View {
                     nodes: nodes,
                     edges: edges,
                     title: "全局标签图谱",
-                    initialScale: 1.0,
+                    initialScale: initialScale,
                     onNodeSelected: { nodeId, commandPressed in
                         handleNodeSelection(nodeId: nodeId, commandPressed: commandPressed)
                     }
