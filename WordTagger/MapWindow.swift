@@ -37,10 +37,12 @@ struct MapWindow: View {
                         print("🎯 MapWindow: 完整源窗口ID = \(sourceId)")
                         sourceWindowId = sourceId
                         // 创建窗口映射关系
-                        WindowFocusManager.shared.createWindowMapping(
-                            childWindowId: windowId.uuidString,
-                            sourceWindowId: sourceId
-                        )
+                        Task { @MainActor in
+                            WindowFocusManager.shared.createWindowMapping(
+                                childWindowId: windowId.uuidString,
+                                sourceWindowId: sourceId
+                            )
+                        }
                         print("✅ MapWindow: 立即设置窗口映射 - 源窗口: \(sourceId.prefix(8))")
                         print("✅ MapWindow: 地图窗口ID = \(windowId.uuidString.prefix(8))")
                     } else {
@@ -106,13 +108,15 @@ struct MapWindow: View {
                     object: nil,
                     queue: .main
                 ) { _ in
-                    // clearTagFilter是全局命令，应该在任何活跃窗口中可用
-                    if !WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "clearTagFilter") {
-                        print("🚫 地图窗口: 忽略clearTagFilter通知 - 应用无活跃窗口")
-                        return
+                    Task { @MainActor in
+                        // clearTagFilter是全局命令，应该在任何活跃窗口中可用
+                        if !WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "clearTagFilter") {
+                            print("🚫 地图窗口: 忽略clearTagFilter通知 - 应用无活跃窗口")
+                            return
+                        }
+                        print("✅ 地图窗口: 处理clearTagFilter通知，清除标签筛选")
+                        store.clearTagFilter()
                     }
-                    print("✅ 地图窗口: 处理clearTagFilter通知，清除标签筛选")
-                    store.clearTagFilter()
                 }
                 
                 // 监听 restorePreviousTagFilterState 通知
@@ -121,13 +125,15 @@ struct MapWindow: View {
                     object: nil,
                     queue: .main
                 ) { _ in
-                    // restorePreviousTagFilterState是全局命令，应该在任何活跃窗口中可用
-                    if !WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "restorePreviousTagFilterState") {
-                        print("🚫 地图窗口: 忽略restorePreviousTagFilterState通知 - 应用无活跃窗口")
-                        return
+                    Task { @MainActor in
+                        // restorePreviousTagFilterState是全局命令，应该在任何活跃窗口中可用
+                        if !WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "restorePreviousTagFilterState") {
+                            print("🚫 地图窗口: 忽略restorePreviousTagFilterState通知 - 应用无活跃窗口")
+                            return
+                        }
+                        print("✅ 地图窗口: 处理restorePreviousTagFilterState通知，恢复标签筛选")
+                        store.restorePreviousTagFilterState()
                     }
-                    print("✅ 地图窗口: 处理restorePreviousTagFilterState通知，恢复标签筛选")
-                    store.restorePreviousTagFilterState()
                 }
                 
                 // 监听 mapWindowSetupMapping 通知，获取源窗口信息并创建映射
@@ -162,10 +168,12 @@ struct MapWindow: View {
                         let oldSourceId = sourceWindowId
                         sourceWindowId = sourceId
                         // 创建窗口映射关系
-                        WindowFocusManager.shared.createWindowMapping(
-                            childWindowId: windowId.uuidString,
-                            sourceWindowId: sourceId
-                        )
+                        Task { @MainActor in
+                            WindowFocusManager.shared.createWindowMapping(
+                                childWindowId: windowId.uuidString,
+                                sourceWindowId: sourceId
+                            )
+                        }
                         print("✅ MapWindow: 设置sourceWindowId = \(sourceId.prefix(8))")
                         print("🔄 MapWindow: sourceWindowId 变更: \(oldSourceId?.prefix(8) ?? "nil") → \(sourceId.prefix(8))")
                         print("🗺️ 地图窗口: 记录源窗口ID并创建映射 - \(sourceId)")
@@ -206,7 +214,9 @@ struct MapWindow: View {
             }
             .onDisappear {
                 // 清理窗口映射
-                WindowFocusManager.shared.removeWindowMapping(for: windowId.uuidString)
+                Task { @MainActor in
+                    WindowFocusManager.shared.removeWindowMapping(for: windowId.uuidString)
+                }
             }
     }
 }

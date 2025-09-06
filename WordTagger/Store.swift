@@ -2779,23 +2779,23 @@ public final class NodeStore: ObservableObject {
             print("📥 Store收到selectNodeFromCommandClick通知")
             print("   - Store实例存在: \(self != nil)")
             
-            guard let self = self else { 
-                print("❌ Store实例为nil")
-                return 
-            }
-            
-            guard let contentNode = notification.object as? Node else {
-                print("❌ 通知对象不是Node类型: \(notification.object ?? "nil")")
-                return
-            }
-            
-            print("⌘ Store开始处理Command+点击选择节点: \(contentNode.text)")
-            print("   - 节点ID: \(contentNode.id)")
-            print("   - 节点层ID: \(contentNode.layerId)")
-            print("   - 当前层数量: \(self.layers.count)")
-            print("   - 当前节点数量: \(self.nodes.count)")
-            
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
+                guard let self = self else { 
+                    print("❌ Store实例为nil")
+                    return 
+                }
+                
+                guard let contentNode = notification.object as? Node else {
+                    print("❌ 通知对象不是Node类型: \(notification.object ?? "nil")")
+                    return
+                }
+                
+                print("⌘ Store开始处理Command+点击选择节点: \(contentNode.text)")
+                print("   - 节点ID: \(contentNode.id)")
+                print("   - 节点层ID: \(contentNode.layerId)")
+                print("   - 当前层数量: \(self.layers.count)")
+                print("   - 当前节点数量: \(self.nodes.count)")
+                
                 // 检查节点所属的层
                 let nodeLayerId = contentNode.layerId
                 let currentLayerId = self.currentLayer?.id

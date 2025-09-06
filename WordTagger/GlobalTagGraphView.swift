@@ -467,6 +467,18 @@ struct GraphPresetManagerView: View {
     @ObservedObject var dataManager: GlobalTagDataManager
     @Environment(\.dismiss) private var dismiss
     
+    @State private var searchText = ""
+    
+    private var filteredPresets: [GraphPreset] {
+        if searchText.isEmpty {
+            return dataManager.graphPresets.sorted(by: { $0.lastUsed > $1.lastUsed })
+        }
+        return dataManager.graphPresets.filter { preset in
+            preset.name.localizedCaseInsensitiveContains(searchText) ||
+            (preset.description?.localizedCaseInsensitiveContains(searchText) ?? false)
+        }.sorted(by: { $0.lastUsed > $1.lastUsed })
+    }
+    
     var body: some View {
         VStack(spacing: 20) {
             HStack {
@@ -482,7 +494,29 @@ struct GraphPresetManagerView: View {
                 .buttonStyle(.borderless)
             }
             
-            if dataManager.graphPresets.isEmpty {
+            // 搜索框
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.secondary)
+                TextField("搜索预设...", text: $searchText)
+                    .textFieldStyle(PlainTextFieldStyle())
+                
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color(NSColor.controlBackgroundColor))
+            .cornerRadius(8)
+            
+            if filteredPresets.isEmpty && searchText.isEmpty {
                 VStack(spacing: 16) {
                     Image(systemName: "bookmark.slash")
                         .font(.system(size: 48))
@@ -498,16 +532,33 @@ struct GraphPresetManagerView: View {
                         .multilineTextAlignment(.center)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if filteredPresets.isEmpty && !searchText.isEmpty {
+                // 搜索无结果状态
+                VStack(spacing: 16) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary)
+                    
+                    Text("未找到匹配的预设")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                    
+                    Text("尝试使用不同的关键词搜索")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
                     LazyVStack(spacing: 12) {
-                        ForEach(dataManager.graphPresets) { preset in
-                            PresetRowView(
+                        ForEach(filteredPresets) { preset in
+                            ModernGraphPresetRow(
                                 preset: preset,
                                 isCurrent: dataManager.currentPreset?.id == preset.id,
                                 onLoad: {
                                     dataManager.loadPreset(preset)
-                                    dismiss()
+                                    // 不再自动关闭窗口，让用户确认预设效果后手动关闭
                                 },
                                 onDelete: {
                                     dataManager.deletePreset(preset)
@@ -524,106 +575,128 @@ struct GraphPresetManagerView: View {
     }
 }
 
-struct PresetRowView: View {
+struct ModernGraphPresetRow: View {
     let preset: GraphPreset
     let isCurrent: Bool
     let onLoad: () -> Void
     let onDelete: () -> Void
     
     @State private var showingDeleteAlert = false
-    @State private var showingButtons = false
+    @State private var isHovered = false
     
     var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text(preset.name)
-                        .font(.headline)
-                        .foregroundColor(.primary)
+        Button(action: onLoad) {
+            HStack(spacing: 12) {
+                // 选中状态指示器
+                ZStack {
+                    Circle()
+                        .fill(isCurrent ? Color.blue : Color.clear)
+                        .frame(width: 20, height: 20)
+                    
+                    Circle()
+                        .stroke(isCurrent ? Color.blue : Color.secondary, lineWidth: 2)
+                        .frame(width: 20, height: 20)
                     
                     if isCurrent {
-                        Text("当前")
-                            .font(.caption)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.blue.opacity(0.2))
-                            .foregroundColor(.blue)
-                            .cornerRadius(4)
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.white)
                     }
                 }
                 
-                if let description = preset.description {
-                    Text(description)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
-                }
-                
-                HStack {
-                    if !preset.filteredLayers.isEmpty {
-                        Label("\(preset.filteredLayers.count) 层级", systemImage: "folder")
+                // 预设信息
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(preset.name)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.primary)
+                        
+                        if isCurrent {
+                            Text("当前")
+                                .font(.system(size: 10))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 1)
+                                .background(Color.blue.opacity(0.2))
+                                .foregroundColor(.blue)
+                                .cornerRadius(8)
+                        }
+                        
+                        Spacer()
                     }
-                    if !preset.filteredTagTypes.isEmpty {
-                        Label("\(preset.filteredTagTypes.count) 类型", systemImage: "tag")
-                    }
-                    if !preset.filteredTagValues.isEmpty {
-                        Label("\(preset.filteredTagValues.count) 标签", systemImage: "bookmark")
-                    }
-                }
-                .font(.caption)
-                .foregroundColor(.secondary)
-                
-                Text("创建于 \(preset.createdAt.formatted(date: .abbreviated, time: .shortened))")
-                    .font(.caption2)
-                    .foregroundColor(Color.secondary.opacity(0.8))
-            }
-            
-            Spacer()
-            
-            if showingButtons {
-                VStack(spacing: 8) {
-                    Button("加载") {
-                        onLoad()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(isCurrent)
                     
-                    Button("删除") {
+                    if let description = preset.description {
+                        Text(description)
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                    }
+                    
+                    HStack(spacing: 12) {
+                        if !preset.filteredLayers.isEmpty {
+                            Label("\(preset.filteredLayers.count) 层级", systemImage: "folder")
+                        }
+                        if !preset.filteredTagTypes.isEmpty {
+                            Label("\(preset.filteredTagTypes.count) 类型", systemImage: "tag")
+                        }
+                        if !preset.filteredTagValues.isEmpty {
+                            Label("\(preset.filteredTagValues.count) 标签", systemImage: "bookmark")
+                        }
+                    }
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    
+                    Text("创建于 \(formatDate(preset.createdAt))")
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary.opacity(0.8))
+                }
+                
+                // 删除按钮（hover时显示）
+                if isHovered {
+                    Button {
                         showingDeleteAlert = true
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 12))
+                            .foregroundColor(.red.opacity(0.8))
                     }
-                    .buttonStyle(.bordered)
-                    .foregroundColor(.red)
+                    .buttonStyle(PlainButtonStyle())
+                    .help("删除预设")
+                    .transition(.opacity)
                 }
             }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isCurrent ? Color.blue.opacity(0.08) : (isHovered ? Color.primary.opacity(0.05) : Color.clear))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isCurrent ? Color.blue.opacity(0.3) : Color.clear, lineWidth: 1)
+            )
         }
-        .padding()
-        .background(Color.secondary.opacity(0.1))
-        .cornerRadius(8)
-        .contentShape(Rectangle())
-        .onTapGesture(count: 2) {
-            // 双击加载预设
-            if !isCurrent {
-                onLoad()
+        .buttonStyle(PlainButtonStyle())
+        .disabled(isCurrent)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isHovered = hovering
             }
         }
-        .simultaneousGesture(
-            TapGesture()
-                .modifiers(.command)
-                .onEnded {
-                    // Command+点击切换按钮显示状态
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        showingButtons.toggle()
-                    }
-                }
-        )
         .alert("删除预设", isPresented: $showingDeleteAlert) {
             Button("删除", role: .destructive) {
                 onDelete()
             }
-            Button("取消", role: .cancel) {}
+            Button("取消", role: .cancel) { }
         } message: {
-            Text("确定要删除预设\"\(preset.name)\"吗？此操作无法撤销。")
+            Text("确定要删除预设 \"\(preset.name)\" 吗？此操作无法撤销。")
         }
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: date, relativeTo: Date())
     }
 }
 
