@@ -2532,23 +2532,46 @@ struct NodeSearchResultRow: View {
     private func getMatchContext(word: Node, searchText: String) -> String? {
         guard !searchText.isEmpty else { return nil }
         
+        // 分割搜索词，支持多个关键词
+        let searchTerms = searchText.components(separatedBy: .whitespaces)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        
         // 优先检查markdown内容是否匹配
-        if !word.markdown.isEmpty && word.markdown.localizedCaseInsensitiveContains(searchText) {
-            // 获取markdown中包含搜索词的部分
-            return getMarkdownContext(markdown: word.markdown, searchText: searchText)
+        if !word.markdown.isEmpty {
+            for term in searchTerms {
+                if word.markdown.localizedCaseInsensitiveContains(term) {
+                    // 获取markdown中包含搜索词的部分
+                    return getMarkdownContext(markdown: word.markdown, searchText: term)
+                }
+            }
         }
         
         // 检查标签是否匹配
         for tag in word.tags {
-            if tag.value.localizedCaseInsensitiveContains(searchText) {
-                return "\(tag.type.displayName): \(tag.value)"
+            for term in searchTerms {
+                // 检查标签值是否匹配
+                if tag.value.localizedCaseInsensitiveContains(term) {
+                    return "🏷️ \(tag.type.displayName): \(tag.value)"
+                }
+                // 检查标签类型的rawValue是否匹配（快捷键）
+                if tag.type.rawValue.localizedCaseInsensitiveContains(term) {
+                    return "🎯 标签快捷键: \(tag.type.rawValue)[\(tag.type.displayName)]"
+                }
+                // 检查标签类型的displayName是否匹配
+                if tag.type.displayName.localizedCaseInsensitiveContains(term) {
+                    return "🎯 标签类型: \(tag.type.displayName) (\(tag.value))"
+                }
             }
         }
         
         // 检查音标是否匹配
-        if let phonetic = word.phonetic,
-           phonetic.localizedCaseInsensitiveContains(searchText) {
-            return "音标: \(phonetic)"
+        if let phonetic = word.phonetic {
+            for term in searchTerms {
+                if phonetic.localizedCaseInsensitiveContains(term) {
+                    return "🔤 音标: \(phonetic)"
+                }
+            }
         }
         
         return nil

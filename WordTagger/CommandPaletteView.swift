@@ -363,7 +363,8 @@ struct CommandPaletteView: View {
             mainContentLayer
             searchDropdownOverlay
         }
-        .frame(minWidth: 750, minHeight: 450)
+        .frame(minWidth: 400, minHeight: 300)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(NSColor.windowBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(radius: 20)
@@ -1038,61 +1039,63 @@ struct LayerStructureGraphViewSimple: View {
     }
     
     private var layerGraph: some View {
-        NodeContextGraphView(
-            nodes: cachedNodes,
-            edges: cachedEdges,
-            title: "层结构图谱",
-            initialScale: layerGraphInitialScale,
-            onNodeSelected: { nodeId, commandPressed in
-                if let selectedGraphNode = cachedNodes.first(where: { $0.id == nodeId }),
-                   let layerId = selectedGraphNode.layerId,
-                   let targetLayer = store.layers.first(where: { $0.id == layerId }) {
-                    
-                    if commandPressed {
-                        // ⌘+点击：切换到该层（只对普通层有效）
-                        if !targetLayer.isCompound {
-                            print("🔄 CommandPalette: ⌘+点击切换到层 '\(targetLayer.displayName)'")
-                            Task {
-                                await store.switchToLayer(targetLayer)
-                                // 切换层后关闭命令面板
-                                await MainActor.run {
-                                    isPresented = false
+        GeometryReader { geometry in
+            NodeContextGraphView(
+                nodes: cachedNodes,
+                edges: cachedEdges,
+                title: "层结构图谱",
+                initialScale: layerGraphInitialScale,
+                onNodeSelected: { nodeId, commandPressed in
+                    if let selectedGraphNode = cachedNodes.first(where: { $0.id == nodeId }),
+                       let layerId = selectedGraphNode.layerId,
+                       let targetLayer = store.layers.first(where: { $0.id == layerId }) {
+                        
+                        if commandPressed {
+                            // ⌘+点击：切换到该层（只对普通层有效）
+                            if !targetLayer.isCompound {
+                                print("🔄 CommandPalette: ⌘+点击切换到层 '\(targetLayer.displayName)'")
+                                Task {
+                                    await store.switchToLayer(targetLayer)
+                                    // 切换层后关闭命令面板
+                                    await MainActor.run {
+                                        isPresented = false
+                                    }
                                 }
+                            } else {
+                                print("⚠️ CommandPalette: 复合层不支持切换，请选择普通层")
                             }
                         } else {
-                            print("⚠️ CommandPalette: 复合层不支持切换，请选择普通层")
+                            // 普通点击：只选中层，不切换
+                            selectedLayerId = layerId
+                            print("🔍 选中层: \(targetLayer.displayName)，按⌘+点击可切换到此层")
                         }
-                    } else {
-                        // 普通点击：只选中层，不切换
-                        selectedLayerId = layerId
-                        print("🔍 选中层: \(targetLayer.displayName)，按⌘+点击可切换到此层")
                     }
+                },
+                onNodeDeselected: {
+                    // 完全移除空白区域点击的任何响应，防止意外关闭
+                    print("🔍 图谱空白区域被点击，完全忽略此事件")
+                    // 不执行任何操作，包括状态变化
                 }
-            },
-            onNodeDeselected: {
-                // 完全移除空白区域点击的任何响应，防止意外关闭
-                print("🔍 图谱空白区域被点击，完全忽略此事件")
-                // 不执行任何操作，包括状态变化
-            }
-        )
-        .environmentObject(store)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.clear)
-        // 移除可能导致事件冒泡的手势处理
-        .allowsHitTesting(true)
-        // 使用最高优先级手势拦截所有点击，防止事件向上传播
-        .simultaneousGesture(
-            TapGesture()
-                .onEnded { _ in
-                    print("🛡️ 图谱区域点击被拦截，防止窗口关闭")
-                    
-                    // 通知父视图禁用背景关闭
-                    NotificationCenter.default.post(
-                        name: NSNotification.Name("disableBackgroundDismiss"),
-                        object: nil
-                    )
-                }
-        )
+            )
+            .environmentObject(store)
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .background(Color.clear)
+            // 移除可能导致事件冒泡的手势处理
+            .allowsHitTesting(true)
+            // 使用最高优先级手势拦截所有点击，防止事件向上传播
+            .simultaneousGesture(
+                TapGesture()
+                    .onEnded { _ in
+                        print("🛡️ 图谱区域点击被拦截，防止窗口关闭")
+                        
+                        // 通知父视图禁用背景关闭
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("disableBackgroundDismiss"),
+                            object: nil
+                        )
+                    }
+            )
+        }
     }
     
     private func toggleLayerFilter(_ layer: Layer) {
