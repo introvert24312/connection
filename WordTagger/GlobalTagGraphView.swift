@@ -60,18 +60,19 @@ struct GlobalTagGraphView: View {
             // 🔧 强制确保初始状态正确
             isLoading = false
             
-            // 只在首次出现或没有数据时才加载
-            if !hasPerformedInitialLoad || graphData == nil {
-                print("🚀 [全局标签图谱] 执行初始数据加载")
-                hasPerformedInitialLoad = true
-                loadGraphData()
-            } else {
-                print("📊 [全局标签图谱] 已有数据，跳过重复加载")
-            }
+            // 🆕 修改：默认不自动加载，让用户手动决定何时加载
+            print("📋 [全局标签图谱] 默认显示未加载状态，等待用户手动加载")
         }
         .onReceive(dataManager.$filteredLayers.combineLatest(dataManager.$filteredTagTypes, dataManager.$filteredTagValues)) { layers, types, values in
             print("🔄 [全局标签图谱] 过滤器变化，准备重新加载数据")
             print("   新的过滤条件: 层级=\(layers.count), 类型=\(types.count), 值=\(values.count)")
+            
+            // 🆕 只有在用户已经进行过初始加载后，过滤器变化才会触发重新加载
+            guard hasPerformedInitialLoad else {
+                print("⏸️ [全局标签图谱] 用户尚未进行初始加载，跳过过滤器触发的重新加载")
+                return
+            }
+            
             // 🔧 防抖动：延迟100ms再执行，避免快速连续更改时的多次调用
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 if !self.isLoading {  // 只有在不加载时才执行
@@ -233,36 +234,33 @@ struct GlobalTagGraphView: View {
     
     private var emptyStateView: some View {
         VStack(spacing: 20) {
-            Image(systemName: "network.slash")
+            Image(systemName: "network")
                 .font(.system(size: 48))
-                .foregroundColor(.secondary)
+                .foregroundColor(.blue)
             
-            Text("无标签数据")
-                .font(.system(size: 20, weight: .medium))
+            Text("全局标签图谱")
+                .font(.system(size: 24, weight: .medium))
                 .foregroundColor(.primary)
             
             VStack(spacing: 8) {
-                Text("可能的原因:")
-                    .font(.headline)
-                    .foregroundColor(.primary)
+                Text("点击按钮开始分析标签关系")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
                 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("• 节点中没有标签")
-                    Text("• 过滤条件过于严格")
-                    Text("• 数据尚未加载完成")
-                }
-                .font(.body)
-                .foregroundColor(.secondary)
+                Text("将会分析所有节点的标签，生成完整的关系图谱")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
             }
             
-            Button("刷新数据") {
-                print("🔄 [全局标签图谱] 手动刷新数据，重置所有状态")
-                isLoading = false  // 强制重置状态
-                graphData = nil
-                hasPerformedInitialLoad = false  // 重置初始加载标记
+            Button("生成标签图谱") {
+                print("🚀 [全局标签图谱] 用户手动触发数据加载")
+                hasPerformedInitialLoad = true
                 loadGraphData()
             }
             .buttonStyle(.borderedProminent)
+            .controlSize(.large)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
