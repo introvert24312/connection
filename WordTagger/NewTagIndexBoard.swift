@@ -857,21 +857,34 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
             function toggleTypeSelection(typeId, typeName, event) {
                 console.log("🎯 切换类型选择:", typeId, typeName);
                 
+                // 🔧 修复：从typeId解析出层级名称
+                // typeId格式为: "groupName_typeName"
+                const [groupName, ...typeNameParts] = typeId.split('_');
+                const actualTypeName = typeNameParts.join('_'); // 重新组合，防止类型名本身包含下划线
+                
+                console.log("🔧 解析出层级:", groupName, "类型:", actualTypeName);
+                
                 if (event.metaKey || event.ctrlKey) {
                     // Command/Ctrl+点击: 多选类型
                     if (selectedTypeHeaders.has(typeId)) {
                         selectedTypeHeaders.delete(typeId);
-                        // 取消选择该类型下的所有标签
-                        const typeItems = DATA.filter(item => item.type === typeName);
-                        typeItems.forEach(item => {
+                        // 🔧 修复：只取消选择该层级中该类型的标签
+                        const typeItemsInGroup = DATA.filter(item => 
+                            item.type === actualTypeName && 
+                            item.layers && item.layers.includes(groupName)
+                        );
+                        typeItemsInGroup.forEach(item => {
                             const itemId = item.type + ':' + item.name;
                             selectedItems.delete(itemId);
                         });
                     } else {
                         selectedTypeHeaders.add(typeId);
-                        // 选择该类型下的所有标签
-                        const typeItems = DATA.filter(item => item.type === typeName);
-                        typeItems.forEach(item => {
+                        // 🔧 修复：只选择该层级中该类型的标签
+                        const typeItemsInGroup = DATA.filter(item => 
+                            item.type === actualTypeName && 
+                            item.layers && item.layers.includes(groupName)
+                        );
+                        typeItemsInGroup.forEach(item => {
                             const itemId = item.type + ':' + item.name;
                             selectedItems.add(itemId);
                         });
@@ -883,13 +896,23 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                     selectedItems.clear();
                     
                     selectedTypeHeaders.add(typeId);
-                    // 选择该类型下的所有标签
-                    const typeItems = DATA.filter(item => item.type === typeName);
-                    typeItems.forEach(item => {
+                    // 🔧 修复：只选择该层级中该类型的标签
+                    const typeItemsInGroup = DATA.filter(item => 
+                        item.type === actualTypeName && 
+                        item.layers && item.layers.includes(groupName)
+                    );
+                    typeItemsInGroup.forEach(item => {
                         const itemId = item.type + ':' + item.name;
                         selectedItems.add(itemId);
                     });
                 }
+                
+                console.log("🔧 选择结果: 该层级该类型的标签数量:", 
+                    DATA.filter(item => 
+                        item.type === actualTypeName && 
+                        item.layers && item.layers.includes(groupName)
+                    ).length
+                );
                 
                 renderBoard();
                 notifySelectionChange();
