@@ -20,6 +20,9 @@ struct LayerGraphWindowView: View {
     @State private var newPresetName = ""
     @State private var showingPresetMenu = false
     
+    // 新建层状态
+    @State private var newLayerName = ""
+    
     
     // 使用设置中的层结构图谱缩放级别
     @AppStorage("layerStructureGraphInitialScale") private var layerGraphInitialScale: Double = 0.9
@@ -71,9 +74,22 @@ struct LayerGraphWindowView: View {
     // MARK: - 顶部工具栏（参考全局标签图谱的设计）
     
     private var toolbar: some View {
-        HStack(alignment: .center, spacing: 8) {
+        HStack(alignment: .center, spacing: 12) {
             // 左侧：过滤状态显示
             filterStatusView
+            
+            Spacer()
+            
+            // 新建层输入框（居中显示）
+            TextField("新建层...", text: $newLayerName)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 300, height: 32)
+                .controlSize(.large)
+                .font(.system(size: 14, weight: .medium))
+                .onSubmit {
+                    createNewLayer()
+                }
+                .keyboardShortcut("r", modifiers: .command)
             
             Spacer()
             
@@ -84,9 +100,8 @@ struct LayerGraphWindowView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .popover(isPresented: $showingPresetMenu) {
+                .popover(isPresented: $showingPresetMenu, arrowEdge: .bottom) {
                     presetMenuView
-                        .frame(width: 320, height: 600)
                 }
                 
                 Button("保存为预设") {
@@ -368,14 +383,84 @@ struct LayerGraphWindowView: View {
     
     // MARK: - 预设菜单视图
     private var presetMenuView: some View {
-        LayerPresetManagerView(
-            presetManager: presetManager,
-            store: store,
-            onPresetSelected: { preset in
-                loadPreset(preset)
-                // 不再自动关闭菜单，让用户确认预设效果后手动关闭
+        VStack(spacing: 0) {
+            // 标题栏（更明显的样式区别）
+            HStack {
+                Text("🔧 层预设菜单")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .foregroundColor(.blue)
+                Spacer()
+                Button {
+                    showingPresetMenu = false
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 18))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .help("关闭")
             }
-        )
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .background(Color.blue.opacity(0.1))
+            
+            Divider()
+            
+            // 预设列表
+            ScrollView {
+                LazyVStack(spacing: 8) {
+                    // 默认预设
+                    let defaultPreset = presetManager.getDefaultPreset(allLayers: store.layers)
+                    SimplePresetRow(
+                        preset: defaultPreset,
+                        isSelected: presetManager.currentPreset?.id == defaultPreset.id,
+                        isDefault: true,
+                        onSelect: { 
+                            loadPreset(defaultPreset)
+                            showingPresetMenu = false
+                        }
+                    )
+                    
+                    if !presetManager.presets.isEmpty {
+                        Divider()
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 4)
+                    }
+                    
+                    // 用户预设
+                    ForEach(presetManager.presets.sorted(by: { $0.lastUsedAt > $1.lastUsedAt })) { preset in
+                        SimplePresetRow(
+                            preset: preset,
+                            isSelected: presetManager.currentPreset?.id == preset.id,
+                            isDefault: false,
+                            onSelect: { 
+                                loadPreset(preset)
+                                showingPresetMenu = false
+                            },
+                            onDelete: { 
+                                presetManager.deletePreset(preset)
+                            }
+                        )
+                    }
+                    
+                    if presetManager.presets.isEmpty {
+                        VStack(spacing: 12) {
+                            Image(systemName: "bookmark.slash")
+                                .font(.system(size: 28))
+                                .foregroundColor(.secondary)
+                            Text("暂无自定义预设")
+                                .font(.body)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.vertical, 32)
+                    }
+                }
+                .padding(.vertical, 16)
+            }
+            .frame(maxHeight: 600)
+        }
+        .frame(width: 320, height: 600)
     }
     
     // MARK: - 辅助方法
@@ -431,6 +516,46 @@ struct LayerGraphWindowView: View {
             return "已选择 \(count)/\(total) 层"
         }
     }
+    
+    // MARK: - 新建层功能
+    
+    private func createNewLayer() {
+        let trimmedName = newLayerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return }
+        
+        // 生成内部名称（小写，下划线替换空格）
+        let internalName = trimmedName.lowercased().replacingOccurrences(of: " ", with: "_")
+        
+        // 检查是否重名
+        let nameExists = store.layers.contains { layer in
+            layer.name.lowercased() == internalName.lowercased() || 
+            layer.displayName.lowercased() == trimmedName.lowercased()
+        }
+        
+        if nameExists {
+            print("⚠️ 层名称已存在: \(trimmedName)")
+            return
+        }
+        
+        // 创建新层
+        let newLayer = store.createLayer(
+            name: internalName,
+            displayName: trimmedName,
+            color: "blue"
+        )
+        
+        // 自动添加到当前筛选的层列表中
+        filteredLayerIds.insert(newLayer.id)
+        
+        // 清空输入框
+        newLayerName = ""
+        
+        // 更新图谱数据
+        updateGraphData()
+        
+        print("✅ 新建层成功: \(trimmedName) (内部名称: \(internalName))")
+        print("🔄 已自动添加到当前筛选列表，当前筛选层数: \(filteredLayerIds.count)")
+    }
 }
 
 
@@ -440,8 +565,13 @@ struct LayerSelectionBoardView: View {
     @Binding var selectedLayerIds: Set<UUID>
     let onClose: () -> Void
     
+    @EnvironmentObject private var store: NodeStore
     @State private var searchText = ""
     @State private var showActiveOnly = false
+    @State private var showingNewLayerDialog = false
+    @State private var newLayerName = ""
+    @State private var newLayerDisplayName = ""
+    @State private var newLayerColor = "blue"
     
     private var filteredLayers: [Layer] {
         let filtered = layers.filter { layer in
@@ -515,6 +645,14 @@ struct LayerSelectionBoardView: View {
                     }
                     .buttonStyle(.bordered)
                     
+                    Button("新建层") {
+                        showingNewLayerDialog = true
+                        newLayerName = ""
+                        newLayerDisplayName = ""
+                        newLayerColor = "blue"
+                    }
+                    .buttonStyle(.borderedProminent)
+                    
                     Spacer()
                     
                     Text("\(selectedLayerIds.count)/\(layers.count) 已选择")
@@ -553,6 +691,132 @@ struct LayerSelectionBoardView: View {
             .background(Color(NSColor.controlBackgroundColor))
         }
         .frame(minWidth: 500, minHeight: 600)
+        .sheet(isPresented: $showingNewLayerDialog) {
+            NewLayerDialogView(
+                newLayerName: $newLayerName,
+                newLayerDisplayName: $newLayerDisplayName,
+                newLayerColor: $newLayerColor,
+                onCancel: { showingNewLayerDialog = false },
+                onConfirm: { createNewLayer() }
+            )
+            .environmentObject(store)
+        }
+    }
+    
+    private func createNewLayer() {
+        let actualName = newLayerName.isEmpty ? 
+            newLayerDisplayName.lowercased().replacingOccurrences(of: " ", with: "_") : 
+            newLayerName
+        let actualDisplayName = newLayerDisplayName.isEmpty ? newLayerName : newLayerDisplayName
+        
+        let newLayer = store.createLayer(
+            name: actualName,
+            displayName: actualDisplayName,
+            color: newLayerColor
+        )
+        
+        // 自动选中新创建的层
+        selectedLayerIds.insert(newLayer.id)
+        
+        // 关闭对话框
+        showingNewLayerDialog = false
+        
+        print("✅ 创建新层: \(actualDisplayName) (\(actualName))")
+    }
+}
+
+// MARK: - 新建层对话框
+struct NewLayerDialogView: View {
+    @Binding var newLayerName: String
+    @Binding var newLayerDisplayName: String
+    @Binding var newLayerColor: String
+    let onCancel: () -> Void
+    let onConfirm: () -> Void
+    
+    let availableColors = [
+        ("blue", Color.blue),
+        ("green", Color.green),
+        ("orange", Color.orange),
+        ("red", Color.red),
+        ("purple", Color.purple),
+        ("pink", Color.pink),
+        ("yellow", Color.yellow),
+        ("teal", Color.teal)
+    ]
+    
+    var isFormValid: Bool {
+        !newLayerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || 
+        !newLayerDisplayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            // 标题
+            Text("创建新层")
+                .font(.title2)
+                .fontWeight(.semibold)
+            
+            // 表单
+            VStack(alignment: .leading, spacing: 16) {
+                // 显示名称
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("显示名称")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                    TextField("输入层的显示名称", text: $newLayerDisplayName)
+                        .textFieldStyle(.roundedBorder)
+                }
+                
+                // 内部名称
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("内部名称（可选）")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                    TextField("留空则自动生成", text: $newLayerName)
+                        .textFieldStyle(.roundedBorder)
+                }
+                
+                // 颜色选择
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("层颜色")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                    
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 8) {
+                        ForEach(availableColors, id: \.0) { colorName, color in
+                            Button {
+                                newLayerColor = colorName
+                            } label: {
+                                Circle()
+                                    .fill(color)
+                                    .frame(width: 30, height: 30)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(newLayerColor == colorName ? Color.primary : Color.clear, lineWidth: 2)
+                                    )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                        }
+                    }
+                }
+            }
+            
+            // 按钮
+            HStack(spacing: 12) {
+                Button("取消") {
+                    onCancel()
+                }
+                .buttonStyle(.bordered)
+                
+                Button("创建") {
+                    onConfirm()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!isFormValid)
+            }
+        }
+        .padding(20)
+        .frame(width: 400)
     }
 }
 
@@ -746,7 +1010,6 @@ struct LayerPresetManagerView: View {
                 }
                 .padding(.horizontal)
             }
-            .frame(maxHeight: 480)
             
             if searchText.isEmpty && presetManager.presets.isEmpty {
                 VStack(spacing: 12) {
@@ -766,9 +1029,101 @@ struct LayerPresetManagerView: View {
                 .padding(.vertical, 24)
             }
         }
-        .frame(width: 320)
-        .frame(maxHeight: 600)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.vertical, 16)
+    }
+}
+
+// MARK: - 简单预设行
+struct SimplePresetRow: View {
+    let preset: LayerGraphPreset
+    let isSelected: Bool
+    let isDefault: Bool
+    let onSelect: () -> Void
+    var onDelete: (() -> Void)? = nil
+    
+    @State private var isHovered = false
+    @State private var showingDeleteAlert = false
+    
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 12) {
+                // 选中状态指示器
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 14))
+                    .foregroundColor(isSelected ? .blue : .secondary)
+                
+                // 预设信息
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(preset.name)
+                            .font(.system(size: 14, weight: isSelected ? .semibold : .medium))
+                            .foregroundColor(isSelected ? .blue : .primary)
+                        
+                        if isDefault {
+                            Text("默认")
+                                .font(.system(size: 10))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.blue.opacity(0.2))
+                                .foregroundColor(.blue)
+                                .cornerRadius(4)
+                        }
+                        
+                        Spacer()
+                        
+                        Text("\(preset.filteredLayerIds.count) 层")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    if !isDefault {
+                        Text("上次使用: \(formatDate(preset.lastUsedAt))")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary.opacity(0.8))
+                    }
+                }
+                
+                // 删除按钮
+                if !isDefault, let onDelete = onDelete, isHovered {
+                    Button {
+                        showingDeleteAlert = true
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.system(size: 12))
+                            .foregroundColor(.red.opacity(0.7))
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .transition(.opacity)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(isSelected ? Color.blue.opacity(0.1) : (isHovered ? Color.primary.opacity(0.05) : Color.clear))
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovered = hovering
+            }
+        }
+        .alert("删除预设", isPresented: $showingDeleteAlert) {
+            Button("删除", role: .destructive) {
+                onDelete?()
+            }
+            Button("取消", role: .cancel) { }
+        } message: {
+            Text("确定要删除预设 \"\(preset.name)\" 吗？此操作无法撤销。")
+        }
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: date, relativeTo: Date())
     }
 }
 
