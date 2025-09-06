@@ -24,6 +24,7 @@ struct LayerGraphWindowView: View {
     @State private var layerSearchText = ""
     @FocusState private var isSearchFieldFocused: Bool
     @State private var matchedLayers: [Layer] = []
+    @State private var showingLayerDropdown = false
     
     
     // 使用设置中的层结构图谱缩放级别
@@ -93,65 +94,23 @@ struct LayerGraphWindowView: View {
             
             Spacer()
             
-            // 层搜索输入框和下拉框（居中显示）
-            ZStack(alignment: .top) {
-                TextField("新建层", text: $layerSearchText)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 300, height: 32)
-                    .controlSize(.large)
-                    .font(.system(size: 14, weight: .medium))
-                    .focused($isSearchFieldFocused)
-                    .onSubmit {
-                        switchToMatchedLayer()
-                    }
-                    .onChange(of: layerSearchText) { _, newValue in
-                        updateMatchedLayers(searchText: newValue)
-                    }
-                
-                // 层匹配下拉框
-                if !matchedLayers.isEmpty && !layerSearchText.isEmpty {
-                    VStack(spacing: 0) {
-                        // 空白区域占位符（让下拉框在输入框下方）
-                        Spacer()
-                            .frame(height: 36)
-                        
-                        // 下拉框内容
-                        VStack(alignment: .leading, spacing: 0) {
-                            ForEach(matchedLayers.prefix(5)) { layer in
-                                LayerDropdownItem(
-                                    layer: layer,
-                                    searchText: layerSearchText,
-                                    onSelect: { selectedLayer in
-                                        selectLayerFromDropdown(selectedLayer)
-                                    }
-                                )
-                            }
-                            
-                            if matchedLayers.count > 5 {
-                                HStack {
-                                    Text("…还有\(matchedLayers.count - 5)个匹配项")
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
-                                    Spacer()
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
-                            }
-                        }
-                        .frame(width: 300)
-                        .background(Color(NSColor.controlBackgroundColor))
-                        .cornerRadius(8)
-                        .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                        )
-                        .zIndex(1000) // 确保下拉框在最上层
-                    }
+            // 层搜索输入框（居中显示）
+            TextField("新建层", text: $layerSearchText)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 300, height: 32)
+                .controlSize(.large)
+                .font(.system(size: 14, weight: .medium))
+                .focused($isSearchFieldFocused)
+                .onSubmit {
+                    switchToMatchedLayer()
                 }
-            }
-            .frame(width: 300)
+                .onChange(of: layerSearchText) { _, newValue in
+                    updateMatchedLayers(searchText: newValue)
+                    showingLayerDropdown = !matchedLayers.isEmpty && !newValue.isEmpty
+                }
+                .popover(isPresented: $showingLayerDropdown, arrowEdge: .bottom) {
+                    layerDropdownView
+                }
             
             Spacer()
             
@@ -282,6 +241,36 @@ struct LayerGraphWindowView: View {
         .frame(width: 300)
     }
     
+    // MARK: - 层下拉框视图
+    
+    private var layerDropdownView: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(matchedLayers.prefix(5)) { layer in
+                LayerDropdownItem(
+                    layer: layer,
+                    searchText: layerSearchText,
+                    onSelect: { selectedLayer in
+                        selectLayerFromDropdown(selectedLayer)
+                        showingLayerDropdown = false
+                    }
+                )
+            }
+            
+            if matchedLayers.count > 5 {
+                HStack {
+                    Text("…还有\(matchedLayers.count - 5)个匹配项")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+            }
+        }
+        .frame(width: 300)
+    }
+    
     // MARK: - 辅助方法
     
     private func setupWindow() {
@@ -294,9 +283,9 @@ struct LayerGraphWindowView: View {
             print("🔗 LayerGraphWindow: 建立窗口映射 - 图谱窗口(\(windowId.uuidString.prefix(8))) <- 主窗口(\(activeWindowId.prefix(8)))")
         }
         
-        // 加载当前预设或默认预设
-        let currentPreset = presetManager.getCurrentPreset(allLayers: store.layers)
-        filteredLayerIds = currentPreset.filteredLayerIds
+        // 默认加载默认预设
+        let defaultPreset = presetManager.getDefaultPreset(allLayers: store.layers)
+        loadPreset(defaultPreset)
         selectedLayerId = store.currentLayer?.id
         
         updateGraphData()
@@ -620,6 +609,7 @@ struct LayerGraphWindowView: View {
         // 清空输入框和匹配结果
         layerSearchText = ""
         matchedLayers = []
+        showingLayerDropdown = false
     }
     
     private func createNewLayer() {

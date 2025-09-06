@@ -1,0 +1,286 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -scheme WordTagger -configuration Debug build
+
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:macOS, arch:arm64, id:00008103-001A39992132001E, name:My Mac }
+{ platform:macOS, arch:x86_64, id:00008103-001A39992132001E, name:My Mac }
+{ platform:macOS, name:Any Mac }
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (1 target)
+    Target 'WordTagger' in project 'WordTagger' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: 0956b1431007bc7c1fef56dddf4b1122
+Build description path: /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/XCBuildData/0956b1431007bc7c1fef56dddf4b1122.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk /Users/Patronum/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx15.5-24F74-8254517eb8b97d462ccbc072ba9094c9.sdkstatcache
+    cd /Users/Patronum/Desktop/WordTagger/WordTagger.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk -o /Users/Patronum/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx15.5-24F74-8254517eb8b97d462ccbc072ba9094c9.sdkstatcache
+
+CreateBuildDirectory /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products
+    cd /Users/Patronum/Desktop/WordTagger/WordTagger.xcodeproj
+    builtin-create-build-directory /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products
+
+CreateBuildDirectory /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex
+    cd /Users/Patronum/Desktop/WordTagger/WordTagger.xcodeproj
+    builtin-create-build-directory /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex
+
+CreateBuildDirectory /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug
+    cd /Users/Patronum/Desktop/WordTagger/WordTagger.xcodeproj
+    builtin-create-build-directory /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug
+
+WriteAuxiliaryFile /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger-e88ed1877dc7ac421072e2aafccbbc94-VFS/all-product-headers.yaml
+    cd /Users/Patronum/Desktop/WordTagger/WordTagger.xcodeproj
+    write-file /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger-e88ed1877dc7ac421072e2aafccbbc94-VFS/all-product-headers.yaml
+
+CreateBuildDirectory /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/EagerLinkingTBDs/Debug
+    cd /Users/Patronum/Desktop/WordTagger/WordTagger.xcodeproj
+    builtin-create-build-directory /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/EagerLinkingTBDs/Debug
+
+WriteAuxiliaryFile /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/empty-Connection.plist (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    write-file /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/empty-Connection.plist
+
+WriteAuxiliaryFile /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTagger_const_extract_protocols.json (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    write-file /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTagger_const_extract_protocols.json
+
+WriteAuxiliaryFile /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Connection.SwiftFileList (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    write-file /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Connection.SwiftFileList
+
+WriteAuxiliaryFile /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTagger-OutputFileMap.json (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    write-file /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTagger-OutputFileMap.json
+
+WriteAuxiliaryFile /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Connection.SwiftConstValuesFileList (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    write-file /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Connection.SwiftConstValuesFileList
+
+WriteAuxiliaryFile /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Connection.LinkFileList (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    write-file /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Connection.LinkFileList
+
+WriteAuxiliaryFile /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/DerivedSources/Entitlements.plist (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    write-file /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/DerivedSources/Entitlements.plist
+
+WriteAuxiliaryFile /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection.hmap (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    write-file /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection.hmap
+
+WriteAuxiliaryFile /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection.DependencyStaticMetadataFileList (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    write-file /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection.DependencyStaticMetadataFileList
+
+WriteAuxiliaryFile /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection.DependencyMetadataFileList (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    write-file /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection.DependencyMetadataFileList
+
+WriteAuxiliaryFile /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection-project-headers.hmap (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    write-file /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection-project-headers.hmap
+
+WriteAuxiliaryFile /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection-own-target-headers.hmap (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    write-file /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection-own-target-headers.hmap
+
+WriteAuxiliaryFile /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection-generated-files.hmap (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    write-file /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection-generated-files.hmap
+
+WriteAuxiliaryFile /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection-all-target-headers.hmap (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    write-file /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection-all-target-headers.hmap
+
+WriteAuxiliaryFile /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection-all-non-framework-target-headers.hmap (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    write-file /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection-all-non-framework-target-headers.hmap
+
+WriteAuxiliaryFile /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection-DebugDylibPath-normal-arm64.txt (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    write-file /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection-DebugDylibPath-normal-arm64.txt
+
+WriteAuxiliaryFile /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection-DebugDylibInstallName-normal-arm64.txt (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    write-file /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection-DebugDylibInstallName-normal-arm64.txt
+
+MkDir /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug/Connection.app/Contents/Resources (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    /bin/mkdir -p /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug/Connection.app/Contents/Resources
+
+MkDir /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug/Connection.app/Contents/MacOS (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    /bin/mkdir -p /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug/Connection.app/Contents/MacOS
+
+MkDir /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug/Connection.app/Contents (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    /bin/mkdir -p /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug/Connection.app/Contents
+
+MkDir /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug/Connection.app (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    /bin/mkdir -p /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug/Connection.app
+
+ProcessProductPackaging /Users/Patronum/Desktop/WordTagger/WordTagger/WordTagger.entitlements /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection.app.xcent (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    
+    Entitlements:
+    
+    {
+    "com.apple.security.files.user-selected.read-write" = 1;
+    "com.apple.security.get-task-allow" = 1;
+    "com.apple.security.network.client" = 1;
+    "com.apple.security.network.server" = 1;
+}
+    
+    builtin-productPackagingUtility /Users/Patronum/Desktop/WordTagger/WordTagger/WordTagger.entitlements -entitlements -format xml -o /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection.app.xcent
+
+ProcessProductPackagingDER /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection.app.xcent /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection.app.xcent.der (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    /usr/bin/derq query -f xml -i /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection.app.xcent -o /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection.app.xcent.der --raw
+
+Ld /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug/Connection.app/Contents/MacOS/__preview.dylib normal (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-macos14.0 -dynamiclib -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk -O0 -L/Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug -F/Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug -install_name @rpath/Connection.debug.dylib -dead_strip -rdynamic -Xlinker -no_deduplicate -Xlinker -dependency_info -Xlinker /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Connection_dependency_info.dat -Xlinker -no_adhoc_codesign -o /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug/Connection.app/Contents/MacOS/__preview.dylib
+
+MkDir /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/assetcatalog_output/thinned (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    /bin/mkdir -p /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/assetcatalog_output/thinned
+
+MkDir /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/assetcatalog_output/unthinned (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    /bin/mkdir -p /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/assetcatalog_output/unthinned
+
+GenerateAssetSymbols /Users/Patronum/Desktop/WordTagger/WordTagger/Assets.xcassets (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    /Applications/Xcode.app/Contents/Developer/usr/bin/actool /Users/Patronum/Desktop/WordTagger/WordTagger/Assets.xcassets --compile /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug/Connection.app/Contents/Resources --output-format human-readable-text --notices --warnings --export-dependency-info /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/assetcatalog_dependencies --output-partial-info-plist /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/assetcatalog_generated_info.plist --app-icon AppIcon --accent-color AccentColor --enable-on-demand-resources NO --development-region en --target-device mac --minimum-deployment-target 14.0 --platform macosx --bundle-identifier com.example.Connection --generate-swift-asset-symbols /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/DerivedSources/GeneratedAssetSymbols.swift --generate-objc-asset-symbols /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/DerivedSources/GeneratedAssetSymbols.h --generate-asset-symbol-index /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/DerivedSources/GeneratedAssetSymbols-Index.plist
+/* com.apple.actool.compilation-results */
+/Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/DerivedSources/GeneratedAssetSymbols-Index.plist
+/Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/DerivedSources/GeneratedAssetSymbols.h
+/Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/DerivedSources/GeneratedAssetSymbols.swift
+
+
+CpResource /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug/Connection.app/Contents/Resources/Resources /Users/Patronum/Desktop/WordTagger/WordTagger/Resources (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks /Users/Patronum/Desktop/WordTagger/WordTagger/Resources /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug/Connection.app/Contents/Resources
+
+CompileAssetCatalogVariant thinned /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug/Connection.app/Contents/Resources /Users/Patronum/Desktop/WordTagger/WordTagger/Assets.xcassets (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    /Applications/Xcode.app/Contents/Developer/usr/bin/actool /Users/Patronum/Desktop/WordTagger/WordTagger/Assets.xcassets --compile /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/assetcatalog_output/thinned --output-format human-readable-text --notices --warnings --export-dependency-info /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/assetcatalog_dependencies_thinned --output-partial-info-plist /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/assetcatalog_generated_info.plist_thinned --app-icon AppIcon --accent-color AccentColor --enable-on-demand-resources NO --development-region en --target-device mac --minimum-deployment-target 14.0 --platform macosx
+2025-09-06 19:36:13.140 ibtoold[65725:13356581] NSFileCoordinator is doing nothing.
+/* com.apple.actool.compilation-results */
+/Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/assetcatalog_generated_info.plist_thinned
+/Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/assetcatalog_output/thinned/AppIcon.icns
+/Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/assetcatalog_output/thinned/Assets.car
+
+
+LinkAssetCatalog /Users/Patronum/Desktop/WordTagger/WordTagger/Assets.xcassets (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    builtin-linkAssetCatalog --thinned /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/assetcatalog_output/thinned --thinned-dependencies /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/assetcatalog_dependencies_thinned --thinned-info-plist-content /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/assetcatalog_generated_info.plist_thinned --unthinned /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/assetcatalog_output/unthinned --unthinned-dependencies /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/assetcatalog_dependencies_unthinned --unthinned-info-plist-content /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/assetcatalog_generated_info.plist_unthinned --output /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug/Connection.app/Contents/Resources --plist-output /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/assetcatalog_generated_info.plist
+note: Emplaced /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug/Connection.app/Contents/Resources/Assets.car (in target 'WordTagger' from project 'WordTagger')
+note: Emplaced /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug/Connection.app/Contents/Resources/AppIcon.icns (in target 'WordTagger' from project 'WordTagger')
+
+ProcessInfoPlistFile /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug/Connection.app/Contents/Info.plist /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/empty-Connection.plist (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    builtin-infoPlistUtility /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/empty-Connection.plist -producttype com.apple.product-type.application -genpkginfo /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug/Connection.app/Contents/PkgInfo -expandbuildsettings -platform macosx -additionalcontentfile /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/assetcatalog_generated_info.plist -o /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug/Connection.app/Contents/Info.plist
+
+SwiftDriver WordTagger normal arm64 com.apple.xcode.tools.swift.compiler (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Connection -Onone -enforce-exclusivity\=checked @/Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Connection.SwiftFileList -DDEBUG -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk -target arm64-apple-macos14.0 -g -module-cache-path /Users/Patronum/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Index.noindex/DataStore -swift-version 5 -I /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug -F /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug -emit-localized-strings -emit-localized-strings-path /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64 -c -j8 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/Patronum/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx15.5-24F74-8254517eb8b97d462ccbc072ba9094c9.sdkstatcache -output-file-map /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTagger-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Connection.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/Patronum/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/WordTagger_const_extract_protocols.json -Xcc -iquote -Xcc /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection-generated-files.hmap -Xcc -I/Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection-own-target-headers.hmap -Xcc -I/Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection-all-target-headers.hmap -Xcc -iquote -Xcc /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Connection-project-headers.hmap -Xcc -I/Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug/include -Xcc -I/Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/DerivedSources-normal/arm64 -Xcc -I/Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/DerivedSources/arm64 -Xcc -I/Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/Objects-normal/arm64/Connection-Swift.h -working-directory /Users/Patronum/Desktop/WordTagger -experimental-emit-module-separately -disable-cmo
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ Connection (in target 'WordTagger' from project 'WordTagger')
+
+EmitSwiftModule normal arm64 (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    
+
+SwiftCompile normal arm64 Compiling\ NodeEditorSheet.swift,\ NodeExtensions.swift,\ NodeContextGraphView.swift,\ WindowFocusManager.swift,\ TagGraphWindowManager.swift /Users/Patronum/Desktop/WordTagger/WordTagger/NodeEditorSheet.swift /Users/Patronum/Desktop/WordTagger/WordTagger/NodeExtensions.swift /Users/Patronum/Desktop/WordTagger/WordTagger/NodeContextGraphView.swift /Users/Patronum/Desktop/WordTagger/WordTagger/WindowFocusManager.swift /Users/Patronum/Desktop/WordTagger/WordTagger/TagGraphWindowManager.swift (in target 'WordTagger' from project 'WordTagger')
+
+SwiftCompile normal arm64 /Users/Patronum/Desktop/WordTagger/WordTagger/NodeEditorSheet.swift (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    
+
+SwiftCompile normal arm64 /Users/Patronum/Desktop/WordTagger/WordTagger/NodeExtensions.swift (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    
+
+SwiftCompile normal arm64 /Users/Patronum/Desktop/WordTagger/WordTagger/NodeContextGraphView.swift (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    
+
+SwiftCompile normal arm64 /Users/Patronum/Desktop/WordTagger/WordTagger/WindowFocusManager.swift (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    
+
+SwiftCompile normal arm64 /Users/Patronum/Desktop/WordTagger/WordTagger/TagGraphWindowManager.swift (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    
+
+SwiftCompile normal arm64 Compiling\ CommandParser.swift,\ GraphView.swift,\ MapContainer.swift,\ CommandPaletteView.swift,\ DetailPanel.swift /Users/Patronum/Desktop/WordTagger/WordTagger/CommandParser.swift /Users/Patronum/Desktop/WordTagger/WordTagger/GraphView.swift /Users/Patronum/Desktop/WordTagger/WordTagger/MapContainer.swift /Users/Patronum/Desktop/WordTagger/WordTagger/CommandPaletteView.swift /Users/Patronum/Desktop/WordTagger/WordTagger/DetailPanel.swift (in target 'WordTagger' from project 'WordTagger')
+SwiftCompile normal arm64 /Users/Patronum/Desktop/WordTagger/WordTagger/CommandParser.swift (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    
+
+SwiftCompile normal arm64 /Users/Patronum/Desktop/WordTagger/WordTagger/GraphView.swift (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    
+
+SwiftCompile normal arm64 /Users/Patronum/Desktop/WordTagger/WordTagger/MapContainer.swift (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    
+
+SwiftCompile normal arm64 /Users/Patronum/Desktop/WordTagger/WordTagger/CommandPaletteView.swift (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    
+
+SwiftCompile normal arm64 /Users/Patronum/Desktop/WordTagger/WordTagger/DetailPanel.swift (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    
+
+SwiftCompile normal arm64 Compiling\ ResourceManager.swift,\ VditorWebView.swift,\ TagTypeGraphView.swift,\ FullscreenTagTypeGraphView.swift,\ GeneratedAssetSymbols.swift /Users/Patronum/Desktop/WordTagger/WordTagger/ResourceManager.swift /Users/Patronum/Desktop/WordTagger/WordTagger/VditorWebView.swift /Users/Patronum/Desktop/WordTagger/WordTagger/TagTypeGraphView.swift /Users/Patronum/Desktop/WordTagger/WordTagger/FullscreenTagTypeGraphView.swift /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/DerivedSources/GeneratedAssetSymbols.swift (in target 'WordTagger' from project 'WordTagger')
+
+SwiftCompile normal arm64 /Users/Patronum/Desktop/WordTagger/WordTagger/ResourceManager.swift (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    
+
+SwiftCompile normal arm64 /Users/Patronum/Desktop/WordTagger/WordTagger/VditorWebView.swift (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    
+
+SwiftCompile normal arm64 /Users/Patronum/Desktop/WordTagger/WordTagger/TagTypeGraphView.swift (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    
+
+SwiftCompile normal arm64 /Users/Patronum/Desktop/WordTagger/WordTagger/FullscreenTagTypeGraphView.swift (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    
+
+SwiftCompile normal arm64 /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Intermediates.noindex/WordTagger.build/Debug/WordTagger.build/DerivedSources/GeneratedAssetSymbols.swift (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    
+
+SwiftCompile normal arm64 Compiling\ ContentView.swift,\ TagUsageVisualizationView.swift,\ GlobalTagGraphSystem.swift,\ GlobalTagGraphView.swift,\ NewTagIndexBoard.swift /Users/Patronum/Desktop/WordTagger/WordTagger/ContentView.swift /Users/Patronum/Desktop/WordTagger/WordTagger/TagUsageVisualizationView.swift /Users/Patronum/Desktop/WordTagger/WordTagger/GlobalTagGraphSystem.swift /Users/Patronum/Desktop/WordTagger/WordTagger/GlobalTagGraphView.swift /Users/Patronum/Desktop/WordTagger/WordTagger/NewTagIndexBoard.swift (in target 'WordTagger' from project 'WordTagger')
+SwiftCompile normal arm64 /Users/Patronum/Desktop/WordTagger/WordTagger/ContentView.swift (in target 'WordTagger' from project 'WordTagger')
+    cd /Users/Patronum/Desktop/WordTagger
+    
