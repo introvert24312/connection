@@ -161,7 +161,7 @@ struct GlobalTagGraphView: View {
                 .controlSize(.small)
                 .disabled(graphData == nil)
                 
-                Button("打开标签索引看板") {
+                Button("索引看板") {
                     showAssociatedTagIndexWindow()
                     print("📋 [全局标签图谱] 打开标签索引看板")
                 }

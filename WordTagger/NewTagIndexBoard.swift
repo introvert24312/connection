@@ -501,7 +501,6 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
         <body>
             <div class="header">
                 <h1>标签索引看板</h1>
-                <span class="hint">点击层级/类型框选择整组 | Command+点击多选</span>
             </div>
             
             <div class="controls">
