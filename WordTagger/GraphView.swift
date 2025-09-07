@@ -1232,14 +1232,15 @@ struct NodeBoardView: View {
     private var filteredNodes: [Node] {
         var nodes = store.nodes
         
-        // 应用节点筛选
+        // 节点看板始终显示所有层的数据，不受外部层级筛选影响
+        // 只应用节点筛选（如果有明确选择的节点）
         if !selectedNodeIds.isEmpty {
             nodes = nodes.filter { selectedNodeIds.contains($0.id) }
         }
         
-        // 应用层级筛选
-        if !selectedLayerIds.isEmpty {
-            nodes = nodes.filter { selectedLayerIds.contains($0.layerId) }
+        // 应用看板内部的层级筛选（用户在看板中选择的层级）
+        if !boardSelectedLayerIds.isEmpty {
+            nodes = nodes.filter { boardSelectedLayerIds.contains($0.layerId) }
         }
         
         // 应用搜索筛选
@@ -1411,7 +1412,9 @@ struct NodeBoardView: View {
         .onAppear {
             // 初始化看板选中状态
             boardSelectedNodeIds = selectedNodeIds
-            boardSelectedLayerIds = selectedLayerIds
+            // 节点看板不应受外部层级筛选限制，始终显示所有层
+            // boardSelectedLayerIds = selectedLayerIds  // 注释掉这行
+            boardSelectedLayerIds.removeAll() // 确保初始状态显示所有层
         }
     }
     
