@@ -1275,6 +1275,20 @@ struct NodeBoardView: View {
         return nodes.sorted { $0.text < $1.text }
     }
     
+    // 按层级分组的节点
+    private var nodesByLayer: [(layer: Layer, nodes: [Node])] {
+        let groupedNodes = Dictionary(grouping: filteredNodes) { node in
+            node.layerId
+        }
+        
+        return store.layers.compactMap { layer in
+            if let nodes = groupedNodes[layer.id], !nodes.isEmpty {
+                return (layer: layer, nodes: nodes.sorted { $0.text < $1.text })
+            }
+            return nil
+        }.sorted { $0.layer.displayName < $1.layer.displayName }
+    }
+    
     var body: some View {
         VStack(spacing: 0) {
             // 标题栏
@@ -1321,14 +1335,28 @@ struct NodeBoardView: View {
             
             Divider()
             
-            // 节点列表
+            // 按层级分组的节点列表
             ScrollView {
-                LazyVStack(spacing: 8) {
-                    ForEach(filteredNodes, id: \.id) { node in
-                        NodeBoardCard(node: node)
+                LazyVStack(alignment: .leading, spacing: 16) {
+                    ForEach(nodesByLayer, id: \.layer.id) { layerGroup in
+                        VStack(alignment: .leading, spacing: 12) {
+                            // 层级标题
+                            LayerSectionHeader(layer: layerGroup.layer, nodeCount: layerGroup.nodes.count)
+                            
+                            // 节点网格
+                            LazyVGrid(columns: [
+                                GridItem(.flexible(), spacing: 12),
+                                GridItem(.flexible(), spacing: 12),
+                                GridItem(.flexible(), spacing: 12)
+                            ], spacing: 12) {
+                                ForEach(layerGroup.nodes, id: \.id) { node in
+                                    CompactNodeCard(node: node, layer: layerGroup.layer)
+                                }
+                            }
+                        }
                     }
                     
-                    if filteredNodes.isEmpty {
+                    if nodesByLayer.isEmpty {
                         VStack(spacing: 16) {
                             Image(systemName: "doc.text")
                                 .font(.largeTitle)
@@ -1337,6 +1365,12 @@ struct NodeBoardView: View {
                             Text("没有找到匹配的节点")
                                 .font(.title3)
                                 .foregroundColor(.secondary)
+                            
+                            if !selectedNodeIds.isEmpty || !selectedLayerIds.isEmpty {
+                                Text("当前筛选条件下没有节点")
+                                    .font(.body)
+                                    .foregroundColor(.secondary)
+                            }
                         }
                         .frame(maxWidth: .infinity, minHeight: 200)
                     }
@@ -1349,71 +1383,124 @@ struct NodeBoardView: View {
     }
 }
 
-struct NodeBoardCard: View {
+// MARK: - 层级分组标题
+struct LayerSectionHeader: View {
+    let layer: Layer
+    let nodeCount: Int
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            // 层级颜色指示器
+            Circle()
+                .fill(Color.from(layer.color))
+                .frame(width: 16, height: 16)
+                .shadow(radius: 1)
+            
+            Text(layer.displayName)
+                .font(.title3)
+                .fontWeight(.semibold)
+                .foregroundColor(.primary)
+            
+            Text("(\(nodeCount))")
+                .font(.body)
+                .foregroundColor(.secondary)
+            
+            if layer.isCompound {
+                Image(systemName: "square.stack.3d.up")
+                    .font(.caption)
+                    .foregroundColor(.blue)
+            }
+            
+            Spacer()
+        }
+        .padding(.horizontal, 4)
+    }
+}
+
+// MARK: - 紧凑节点卡片
+struct CompactNodeCard: View {
     let node: Node
+    let layer: Layer
     @EnvironmentObject private var store: NodeStore
+    
+    @State private var isHovered = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            // 节点名称
+            Text(node.text)
+                .font(.headline)
+                .fontWeight(.medium)
+                .foregroundColor(.primary)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+            
+            // 节点含义
+            if let meaning = node.meaning {
+                Text(meaning)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+            }
+            
+            Spacer()
+            
+            // 标签数量指示器
             HStack {
-                Text(node.text)
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                
-                Spacer()
-                
-                // 层级指示器
-                if let layer = store.layers.first(where: { $0.id == node.layerId }) {
+                if !node.tags.isEmpty {
                     HStack(spacing: 4) {
-                        Circle()
-                            .fill(Color.from(layer.color))
-                            .frame(width: 8, height: 8)
-                        Text(layer.displayName)
+                        Image(systemName: "tag")
+                            .font(.caption2)
+                            .foregroundColor(.blue)
+                        Text("\(node.tags.count)")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
                 }
-            }
-            
-            if let meaning = node.meaning {
-                Text(meaning)
-                    .font(.body)
-                    .foregroundColor(.secondary)
-            }
-            
-            // 标签
-            if !node.tags.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(node.tags.prefix(10), id: \.id) { tag in
-                            Text(tag.value)
-                                .font(.caption)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 2)
-                                .background(Color.blue.opacity(0.1))
-                                .foregroundColor(.blue)
-                                .cornerRadius(4)
-                        }
-                        
-                        if node.tags.count > 10 {
-                            Text("...")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
+                
+                Spacer()
+                
+                // 节点类型指示器
+                if node.isCompound {
+                    Image(systemName: "square.stack.3d.up")
+                        .font(.caption)
+                        .foregroundColor(.purple)
                 }
             }
         }
-        .padding()
+        .padding(12)
+        .frame(minHeight: 100, maxHeight: 120)
         .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(NSColor.controlBackgroundColor))
-                .shadow(radius: 1)
+            RoundedRectangle(cornerRadius: 12)
+                .fill(isHovered ? Color.blue.opacity(0.05) : Color(NSColor.controlBackgroundColor))
+                .stroke(
+                    isHovered ? Color.blue.opacity(0.3) : Color.gray.opacity(0.2),
+                    lineWidth: isHovered ? 1.5 : 1
+                )
         )
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isHovered = hovering
+            }
+        }
         .onTapGesture {
             store.selectNode(node)
             print("📄 选中节点: \(node.text)")
         }
+        .help(buildTooltip())
+    }
+    
+    private func buildTooltip() -> String {
+        var tooltip = node.text
+        if let meaning = node.meaning {
+            tooltip += "\n\n\(meaning)"
+        }
+        tooltip += "\n\n层级: \(layer.displayName)"
+        if !node.tags.isEmpty {
+            tooltip += "\n标签数量: \(node.tags.count)"
+        }
+        return tooltip
     }
 }
 
