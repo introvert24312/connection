@@ -72,7 +72,9 @@
       "Bash(touch:*)",
       "Bash(uuidgen:*)",
       "Bash(/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -parse \"WordTagger/TagGraphWindowManager.swift\")",
-      "Bash(/Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug/Connection.app/Contents/MacOS/Connection)"
+      "Bash(/Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bqhzlwmfphxbxwcobfeszlnokvwo/Build/Products/Debug/Connection.app/Contents/MacOS/Connection)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)"
     ],
     "deny": []
   }

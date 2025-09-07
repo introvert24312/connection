@@ -1087,12 +1087,12 @@ public final class NodeStore: ObservableObject {
         
         selectedTag = tag
         showAllTagTypeNodes = false // 重置为只显示具体标签的节点
-        expandedTagTypes.removeAll() // 清除展开的标签类型
+        // 保持标签类型展开状态，不要清除expandedTagTypes
         
         print("🏷️ Store.setSelectedTag: 标签设置完成")
         print("   - selectedTag 变更为: '\(selectedTag?.value ?? "nil")' (类型: \(selectedTag?.type.displayName ?? "nil"))")
         print("   - showAllTagTypeNodes 重置为: \(showAllTagTypeNodes)")
-        print("   - expandedTagTypes 已清空")
+        print("   - expandedTagTypes 保持为: \(expandedTagTypes.map { $0.displayName })")
     }
     
     @MainActor
