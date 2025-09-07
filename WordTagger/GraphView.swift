@@ -16,6 +16,12 @@ struct GraphView: View {
     @State private var selectedLayerIds: Set<UUID> = [] // 空集表示显示所有层
     @State private var showingLayerSelector = false
     
+    // 预设和看板状态
+    @State private var showingPresetManager = false
+    @State private var showingSavePresetDialog = false
+    @State private var newPresetName = ""
+    @State private var newPresetDescription = ""
+    
     // 生成所有节点的图谱数据 - 统一计算节点和边
     private func calculateGraphData() -> (nodes: [NodeGraphNode], edges: [NodeGraphEdge]) {
         @AppStorage("enableGraphDebug") var enableGraphDebug: Bool = false
@@ -321,16 +327,16 @@ struct GraphView: View {
                 
                 // 图谱预设按钮
                 Button("图谱预设") {
-                    // TODO: 实现图谱预设功能
-                    print("📚 [全局节点图谱] 图谱预设功能待实现")
+                    showingPresetManager = true
+                    print("📚 [全局节点图谱] 打开预设管理")
                 }
                 .buttonStyle(.bordered)
                 .help("管理图谱预设")
                 
                 // 保存为预设按钮
                 Button("保存为预设") {
-                    // TODO: 实现保存预设功能
-                    print("💾 [全局节点图谱] 保存预设功能待实现")
+                    showingSavePresetDialog = true
+                    print("💾 [全局节点图谱] 保存当前状态为预设")
                 }
                 .buttonStyle(.bordered)
                 .help("保存当前状态为预设")
@@ -338,8 +344,8 @@ struct GraphView: View {
                 
                 // 节点看板按钮
                 Button("节点看板") {
-                    // TODO: 实现节点看板功能
-                    print("📋 [全局节点图谱] 节点看板功能待实现")
+                    showNodeBoardWindow()
+                    print("📋 [全局节点图谱] 打开节点看板")
                 }
                 .buttonStyle(.borderedProminent)
                 .help("打开节点看板")
@@ -391,6 +397,34 @@ struct GraphView: View {
                 .environmentObject(store)
                 .frame(width: 600, height: 500)
                 .background(LayerWindowAccessor())
+        }
+        .sheet(isPresented: $showingPresetManager) {
+            NodeGraphPresetManagerView(
+                selectedNodeIds: $selectedNodeIds,
+                selectedLayerIds: $selectedLayerIds
+            )
+            .environmentObject(store)
+            .frame(width: 500, height: 400)
+        }
+        .alert("保存节点图谱预设", isPresented: $showingSavePresetDialog) {
+            TextField("预设名称", text: $newPresetName)
+            TextField("描述（可选）", text: $newPresetDescription)
+            
+            Button("保存") {
+                if !newPresetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    saveCurrentAsPreset()
+                    newPresetName = ""
+                    newPresetDescription = ""
+                }
+            }
+            .disabled(newPresetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            
+            Button("取消", role: .cancel) {
+                newPresetName = ""
+                newPresetDescription = ""
+            }
+        } message: {
+            Text("为当前的节点和层级筛选状态创建一个预设，以便后续快速加载。")
         }
         .onKeyPress(.init("k"), phases: .down) { _ in
             NotificationCenter.default.post(name: Notification.Name("fitGraph"), object: nil)
@@ -455,6 +489,48 @@ struct GraphView: View {
         finalNodes.formUnion(relatedNodes)
         
         displayedNodes = Array(finalNodes).sorted { $0.text < $1.text }
+    }
+    
+    // MARK: - 预设和看板功能
+    
+    private func showNodeBoardWindow() {
+        let nodeBoardView = NodeBoardView(
+            selectedNodeIds: selectedNodeIds,
+            selectedLayerIds: selectedLayerIds
+        )
+        .environmentObject(store)
+        
+        let hostingView = NSHostingView(rootView: nodeBoardView)
+        
+        let newWindow = NSWindow(
+            contentRect: NSRect(x: 200, y: 200, width: 1000, height: 700),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        
+        newWindow.contentView = hostingView
+        newWindow.title = "节点看板"
+        newWindow.setFrameAutosaveName("NodeBoardWindow")
+        newWindow.isReleasedWhenClosed = false
+        newWindow.makeKeyAndOrderFront(nil)
+        
+        print("🪟 [节点看板] 窗口已创建")
+    }
+    
+    private func saveCurrentAsPreset() {
+        let name = newPresetName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let description = newPresetDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard !name.isEmpty else { return }
+        
+        // 这里应该保存预设到某个管理器中
+        print("💾 保存节点图谱预设: \(name)")
+        print("   - 选中节点数: \(selectedNodeIds.count)")
+        print("   - 选中层数: \(selectedLayerIds.count)")
+        print("   - 描述: \(description.isEmpty ? "无" : description)")
+        
+        // TODO: 实现实际的预设保存逻辑
     }
     
     // 递归添加复合节点的子节点结构（类似DetailPanel的逻辑）
@@ -1163,6 +1239,264 @@ struct LayerWindowAccessor: NSViewRepresentable {
             contentView.autoresizingMask = []
         }
     }
+}
+
+// MARK: - 节点看板视图
+
+struct NodeBoardView: View {
+    let selectedNodeIds: Set<UUID>
+    let selectedLayerIds: Set<UUID>
+    @EnvironmentObject private var store: NodeStore
+    @Environment(\.dismiss) private var dismiss
+    
+    @State private var searchText = ""
+    
+    private var filteredNodes: [Node] {
+        var nodes = store.nodes
+        
+        // 应用节点筛选
+        if !selectedNodeIds.isEmpty {
+            nodes = nodes.filter { selectedNodeIds.contains($0.id) }
+        }
+        
+        // 应用层级筛选
+        if !selectedLayerIds.isEmpty {
+            nodes = nodes.filter { selectedLayerIds.contains($0.layerId) }
+        }
+        
+        // 应用搜索筛选
+        if !searchText.isEmpty {
+            nodes = nodes.filter { node in
+                node.text.localizedCaseInsensitiveContains(searchText) ||
+                node.meaning?.localizedCaseInsensitiveContains(searchText) == true
+            }
+        }
+        
+        return nodes.sorted { $0.text < $1.text }
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // 标题栏
+            HStack {
+                Text("节点看板")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+                
+                Text("\(filteredNodes.count) 个节点")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                Button("关闭") {
+                    // Close the current window
+                    if let window = NSApplication.shared.keyWindow {
+                        window.close()
+                    }
+                }
+                .buttonStyle(.bordered)
+            }
+            .padding()
+            .background(Color(NSColor.windowBackgroundColor))
+            
+            Divider()
+            
+            // 搜索栏
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.secondary)
+                TextField("搜索节点...", text: $searchText)
+                    .textFieldStyle(.roundedBorder)
+                
+                if !searchText.isEmpty {
+                    Button("清除") {
+                        searchText = ""
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding()
+            .background(Color(NSColor.windowBackgroundColor))
+            
+            Divider()
+            
+            // 节点列表
+            ScrollView {
+                LazyVStack(spacing: 8) {
+                    ForEach(filteredNodes, id: \.id) { node in
+                        NodeBoardCard(node: node)
+                    }
+                    
+                    if filteredNodes.isEmpty {
+                        VStack(spacing: 16) {
+                            Image(systemName: "doc.text")
+                                .font(.largeTitle)
+                                .foregroundColor(.gray)
+                            
+                            Text("没有找到匹配的节点")
+                                .font(.title3)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 200)
+                    }
+                }
+                .padding()
+            }
+            .background(Color(NSColor.controlBackgroundColor))
+        }
+        .frame(minWidth: 800, minHeight: 600)
+    }
+}
+
+struct NodeBoardCard: View {
+    let node: Node
+    @EnvironmentObject private var store: NodeStore
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(node.text)
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+                
+                // 层级指示器
+                if let layer = store.layers.first(where: { $0.id == node.layerId }) {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(Color.from(layer.color))
+                            .frame(width: 8, height: 8)
+                        Text(layer.displayName)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            
+            if let meaning = node.meaning {
+                Text(meaning)
+                    .font(.body)
+                    .foregroundColor(.secondary)
+            }
+            
+            // 标签
+            if !node.tags.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(node.tags.prefix(10), id: \.id) { tag in
+                            Text(tag.value)
+                                .font(.caption)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .background(Color.blue.opacity(0.1))
+                                .foregroundColor(.blue)
+                                .cornerRadius(4)
+                        }
+                        
+                        if node.tags.count > 10 {
+                            Text("...")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(NSColor.controlBackgroundColor))
+                .shadow(radius: 1)
+        )
+        .onTapGesture {
+            store.selectNode(node)
+            print("📄 选中节点: \(node.text)")
+        }
+    }
+}
+
+// MARK: - 节点图谱预设管理视图
+
+struct NodeGraphPresetManagerView: View {
+    @Binding var selectedNodeIds: Set<UUID>
+    @Binding var selectedLayerIds: Set<UUID>
+    @EnvironmentObject private var store: NodeStore
+    @Environment(\.dismiss) private var dismiss
+    
+    @State private var searchText = ""
+    @State private var savedPresets: [NodeGraphPreset] = []
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            HStack {
+                Text("节点图谱预设管理")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+                
+                Button("关闭") {
+                    dismiss()
+                }
+                .buttonStyle(.borderless)
+            }
+            
+            // 搜索框
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.secondary)
+                TextField("搜索预设...", text: $searchText)
+                    .textFieldStyle(PlainTextFieldStyle())
+                
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color(NSColor.controlBackgroundColor))
+            .cornerRadius(8)
+            
+            // 预设列表占位
+            VStack(spacing: 16) {
+                Image(systemName: "bookmark.slash")
+                    .font(.system(size: 48))
+                    .foregroundColor(.secondary)
+                
+                Text("暂无保存的节点图谱预设")
+                    .font(.headline)
+                    .foregroundColor(.secondary)
+                
+                Text("在全局节点图谱中选择节点和层级后，点击\"保存为预设\"来创建您的第一个预设。")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .padding()
+        .frame(width: 500, height: 400)
+    }
+}
+
+// MARK: - 节点图谱预设数据模型
+
+struct NodeGraphPreset: Identifiable {
+    let id = UUID()
+    let name: String
+    let description: String?
+    let selectedNodeIds: Set<UUID>
+    let selectedLayerIds: Set<UUID>
+    let createdAt: Date
+    var lastUsed: Date
 }
 
 #Preview {
