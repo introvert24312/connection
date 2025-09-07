@@ -3364,7 +3364,12 @@ struct WordTaggerApp: App {
                     return
                 }
                 print("✅ 主窗口: 处理showCommandPalette通知 - 打开层结构图谱窗口")
-                NotificationCenter.default.post(name: NSNotification.Name("executeOpenWindow"), object: "layerGraph")
+                // 🔧 传递源窗口ID以防止重复处理
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("executeOpenWindow"), 
+                    object: "layerGraph",
+                    userInfo: ["sourceWindowId": mainWindowId.uuidString]
+                )
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openNewWindow"))) { notification in
                 // openNewWindow 是全局命令，应该在任何活跃窗口中可用
@@ -3689,12 +3694,10 @@ struct WordTaggerApp: App {
                     print("   - 主窗口的mainWindowId: \(mainWindowId.uuidString.prefix(8))")
                     print("   - WindowFocusManager中主窗口ID: \(WindowFocusManager.shared.getActiveWindowId()?.uuidString.prefix(8) ?? "nil")")
                     
-                    // 检查是否是发给主窗口的（兼容多种ID格式）
-                    let isTargetingMainWindow = sourceWindowId == mainWindowId.uuidString || 
-                                               sourceWindowId == "MAIN_WINDOW" ||
-                                               WindowFocusManager.shared.isMainWindow(sourceWindowId)
+                    // 🔧 精确检查是否是发给这个特定主窗口的（支持多主窗口环境）
+                    let isTargetingThisMainWindow = sourceWindowId == mainWindowId.uuidString
                     
-                    if isTargetingMainWindow {
+                    if isTargetingThisMainWindow {
                         print("🔄 主窗口: 处理来自层图谱的层切换请求 - 切换到层: \(layer.displayName)")
                         Task {
                             await store.switchToLayer(layer)
@@ -3794,6 +3797,10 @@ struct WordTaggerApp: App {
         .commands {
             // 全局命令组 - 使用 FocusedValues
             CommandGroup(replacing: .appInfo) {}
+            
+            // 🔧 移除默认的 Command+N "新建窗口" 菜单项
+            // 我们希望 Command+N 用于清除标签筛选，而不是新建窗口
+            CommandGroup(replacing: .newItem) {}
             
             // 全局命令处理器
             GlobalCommands()
@@ -4863,8 +4870,8 @@ struct IndependentWindowWrapper: View {
             ContentView(windowId: windowId)
                 .environmentObject(store)
                 .onAppear {
-                    // 为独立窗口注册窗口焦点管理
-                    WindowFocusManager.shared.registerWindow(windowId, type: .independent, displayName: "独立窗口")
+                    // 🔧 为独立窗口注册窗口焦点管理 - 注册为主窗口类型，支持层图谱映射
+                    WindowFocusManager.shared.registerWindow(windowId, type: .main, displayName: "独立窗口")
                     WindowFocusManager.shared.setActiveWindow(windowId)
                 }
                 .onDisappear {
@@ -5068,14 +5075,50 @@ struct IndependentWindowModifier: ViewModifier {
                     .zIndex(1000)
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("executeOpenWindow"))) { notification in
+                // 🔧 检查源窗口ID，确保只有一个窗口处理这个通知
+                if let sourceWindowId = notification.userInfo?["sourceWindowId"] as? String {
+                    // 如果指定了源窗口ID，只有匹配的窗口处理
+                    guard sourceWindowId == windowId.uuidString else {
+                        print("🚫 独立窗口: 忽略executeOpenWindow通知 - 源窗口ID不匹配")
+                        return
+                    }
+                } else {
+                    // 如果没有源窗口ID，使用原有的活跃窗口检查
+                    guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: false, commandName: "executeOpenWindow") else {
+                        print("🚫 独立窗口: 忽略executeOpenWindow通知 - 窗口非活跃状态")
+                        return
+                    }
+                }
+                
+                if let windowType = notification.object as? String {
+                    print("✅ 独立窗口: 收到executeOpenWindow通知 - windowType: \(windowType)")
+                    
+                    // 🔧 对于层图谱窗口，使用原子性检查和预留
+                    if windowType == "layerGraph" {
+                        let currentWindowId = windowId.uuidString
+                        if !WindowFocusManager.shared.reserveLayerGraphWindow(for: currentWindowId) {
+                            print("⚠️ 独立窗口: 已有层图谱窗口，忽略重复打开请求")
+                            return
+                        }
+                    }
+                    
+                    openWindow(id: windowType)
+                }
+            }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("showCommandPalette"))) { _ in
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "showCommandPalette") else {
                     print("🚫 独立窗口: 忽略showCommandPalette通知 - 应用无活跃窗口或冷却期")
                     return
                 }
-                print("✅ 独立窗口: 处理showCommandPalette通知 - 打开层结构图谱窗口")
-                // 打开层结构图谱窗口，而不是显示 sheet
-                openWindow(id: "layerGraph")
+                print("✅ 独立窗口: 处理showCommandPalette通知 - 发送executeOpenWindow通知")
+                // 🔧 改为发送executeOpenWindow通知，统一窗口打开逻辑
+                // 🔧 传递源窗口ID以防止重复处理
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("executeOpenWindow"), 
+                    object: "layerGraph",
+                    userInfo: ["sourceWindowId": windowId.uuidString]
+                )
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("addNewNode"))) { _ in
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
@@ -5493,8 +5536,8 @@ struct GlobalCommands: Commands {
         CommandGroup(replacing: .appInfo) {}
         CommandMenu("全局快捷键") {
             Button("层结构图谱") {
-                // 🔧 直接打开层结构图谱窗口
-                NotificationCenter.default.post(name: NSNotification.Name("executeOpenWindow"), object: "layerGraph")
+                // 🔧 通过showCommandPalette发送，由WindowFocusManager统一控制
+                NotificationCenter.default.post(name: NSNotification.Name("showCommandPalette"), object: nil)
             }
             .keyboardShortcut("k", modifiers: [.command])
             
@@ -5543,6 +5586,13 @@ struct GlobalCommands: Commands {
             }
             .keyboardShortcut("e", modifiers: [.command])
             .disabled(toggleSidebar == nil)
+            
+            Button("清除标签筛选") {
+                print("🔑 GlobalCommands: Command+N - 清除标签筛选")
+                clearTagFilter?()
+            }
+            .keyboardShortcut("n", modifiers: [.command])
+            .disabled(clearTagFilter == nil)
             
             Button("恢复标签筛选") {
                 restorePreviousTagFilterState?()

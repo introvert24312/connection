@@ -151,14 +151,34 @@ struct ContentViewModifier: ViewModifier {
                 dataManager: dataManager
             ))
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("executeOpenWindow"))) { notification in
-                // 只让主窗口处理 executeOpenWindow，避免多窗口重复打开
-                guard store.isSharedInstance else {
-                    print("🚫 ContentView: 非主窗口忽略executeOpenWindow通知")
-                    return
+                // 🔧 检查源窗口ID，确保只有一个窗口处理这个通知
+                if let sourceWindowId = notification.userInfo?["sourceWindowId"] as? String {
+                    // 如果指定了源窗口ID，只有匹配的窗口处理
+                    guard sourceWindowId == windowId.uuidString else {
+                        print("🚫 ContentView: 忽略executeOpenWindow通知 - 源窗口ID不匹配")
+                        return
+                    }
+                } else {
+                    // 如果没有源窗口ID，使用原有的活跃窗口检查
+                    guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: false, commandName: "executeOpenWindow") else {
+                        print("🚫 ContentView: 忽略executeOpenWindow通知 - 窗口非活跃状态")
+                        return
+                    }
                 }
-                if let windowId = notification.object as? String {
-                    print("✅ ContentView: (主窗口) 收到executeOpenWindow通知 - windowId: \(windowId)")
-                    openWindow(id: windowId)
+                
+                if let windowType = notification.object as? String {
+                    print("✅ ContentView: 收到executeOpenWindow通知 - windowType: \(windowType)")
+                    
+                    // 🔧 对于层图谱窗口，使用原子性检查和预留
+                    if windowType == "layerGraph" {
+                        let currentWindowId = windowId.uuidString
+                        if !WindowFocusManager.shared.reserveLayerGraphWindow(for: currentWindowId) {
+                            print("⚠️ ContentView: 主窗口已有层图谱窗口，忽略重复打开请求")
+                            return
+                        }
+                    }
+                    
+                    openWindow(id: windowType)
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("restorePreviousTagFilterState"))) { _ in

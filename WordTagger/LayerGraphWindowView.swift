@@ -273,14 +273,55 @@ struct LayerGraphWindowView: View {
     
     // MARK: - 辅助方法
     
+    /// 查找启动层图谱的源主窗口
+    /// 通过窗口激活历史来确定是哪个主窗口打开了这个层图谱
+    private func findSourceMainWindow() -> String? {
+        let windowManager = WindowFocusManager.shared
+        
+        // 获取窗口激活历史
+        let activationHistory = windowManager.getWindowActivationHistory()
+        
+        print("🔍 LayerGraphWindow: 查找源主窗口")
+        print("   - 当前层图谱窗口ID: \(windowId.uuidString.prefix(8))")
+        print("   - 窗口激活历史: [\(activationHistory.map { $0.prefix(8) }.joined(separator: ", "))]")
+        
+        // 🔧 从激活历史中查找最近的主窗口（排除当前层图谱窗口）
+        if let recentMainWindowId = windowManager.getRecentMainWindowFromHistory(excluding: windowId.uuidString) {
+            print("✅ LayerGraphWindow: 从激活历史找到源主窗口 - (\(recentMainWindowId.prefix(8)))")
+            return recentMainWindowId
+        }
+        
+        // 回退到第一个主窗口
+        if let firstMainWindowId = windowManager.getMainWindowId() {
+            print("⚠️ LayerGraphWindow: 回退到第一个主窗口 - (\(firstMainWindowId.prefix(8)))")
+            return firstMainWindowId
+        }
+        
+        print("❌ LayerGraphWindow: 无法找到任何主窗口")
+        return nil
+    }
+    
     private func setupWindow() {
-        // 建立窗口映射关系
-        if let activeWindowId = WindowFocusManager.shared.activeWindowInfo?.id {
+        // 🔧 建立窗口映射关系 - 将当前的层图谱窗口映射到启动它的主窗口
+        // 从激活历史中找到最近的主窗口（在层图谱窗口打开之前的活跃主窗口）
+        let targetMainWindowId = findSourceMainWindow()
+        
+        if let sourceWindowId = targetMainWindowId {
+            // 建立常规窗口映射
             WindowFocusManager.shared.createWindowMapping(
                 childWindowId: windowId.uuidString,
-                sourceWindowId: activeWindowId
+                sourceWindowId: sourceWindowId
             )
-            print("🔗 LayerGraphWindow: 建立窗口映射 - 图谱窗口(\(windowId.uuidString.prefix(8))) <- 主窗口(\(activeWindowId.prefix(8)))")
+            
+            // 🔧 注册层图谱窗口映射（一对一关系）
+            WindowFocusManager.shared.registerLayerGraphWindow(
+                mainWindowId: sourceWindowId,
+                layerGraphWindowId: windowId.uuidString
+            )
+            
+            print("🔗 LayerGraphWindow: 建立窗口映射 - 图谱窗口(\(windowId.uuidString.prefix(8))) <- 启动主窗口(\(sourceWindowId.prefix(8)))")
+        } else {
+            print("⚠️ LayerGraphWindow: 无法找到任何主窗口进行映射")
         }
         
         // 调试当前状态
@@ -329,17 +370,18 @@ struct LayerGraphWindowView: View {
     }
     
     private func switchToLayerInMainWindow(_ layer: Layer) {
-        // 获取对应的主窗口ID
-        let sourceWindowId = WindowFocusManager.shared.getSourceWindowId(for: windowId.uuidString)
+        // 使用窗口映射关系找到对应的主窗口，支持多主窗口环境
+        let targetWindowId = WindowFocusManager.shared.getSourceWindowId(for: windowId.uuidString)
         
         print("🔄 LayerGraphWindow: 切换到层 '\(layer.displayName)'")
-        print("   - 目标主窗口: \(sourceWindowId?.prefix(8) ?? "unknown")")
+        print("   - 当前层图谱窗口ID: \(windowId.uuidString.prefix(8))")
+        print("   - 映射的目标主窗口ID: \(targetWindowId?.prefix(8) ?? "未找到")")
         
-        // 通知对应的主窗口切换层
+        // 通知映射的主窗口切换层
         NotificationCenter.default.post(
             name: NSNotification.Name("switchToLayer"),
             object: layer,
-            userInfo: ["sourceWindowId": sourceWindowId ?? ""]
+            userInfo: ["sourceWindowId": targetWindowId ?? ""]
         )
     }
     

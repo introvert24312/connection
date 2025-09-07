@@ -24,6 +24,9 @@ class WindowFocusManager: ObservableObject {
     // 窗口映射系统 - 记录子窗口与源窗口的关系
     private var windowMappings: [String: String] = [:] // childWindowId -> sourceWindowId
     
+    // 层图谱窗口管理 - 记录每个主窗口的层图谱窗口
+    private var layerGraphWindows: [String: String] = [:] // mainWindowId -> layerGraphWindowId
+    
     // 窗口激活历史 - 用于确定源窗口
     private var windowActivationHistory: [String] = [] // 按时间顺序记录窗口激活
     private let maxHistorySize = 10
@@ -1075,7 +1078,72 @@ extension WindowFocusManager {
         windowMappings.removeValue(forKey: windowId)
         // 如果这个窗口是其他窗口的源窗口，也要清理
         windowMappings = windowMappings.filter { $0.value != windowId }
+        
+        // 🔧 同时清理层图谱窗口映射
+        if let mainWindowId = layerGraphWindows.first(where: { $0.value == windowId })?.key {
+            layerGraphWindows.removeValue(forKey: mainWindowId)
+            print("🧹 WindowFocusManager: 清理层图谱窗口映射 - 主窗口(\(mainWindowId.prefix(8))) -> 层图谱(\(windowId.prefix(8)))")
+        }
+        
+        // 🔧 如果是主窗口关闭，也要清理它的层图谱窗口预留/映射
+        layerGraphWindows.removeValue(forKey: windowId)
+        
         print("🧹 WindowFocusManager: 清理窗口映射 - \\(windowId.prefix(8))")
+    }
+    
+    /// 检查主窗口是否已有层图谱窗口
+    /// - Parameter mainWindowId: 主窗口ID
+    /// - Returns: 如果已有层图谱窗口返回true
+    func hasLayerGraphWindow(for mainWindowId: String) -> Bool {
+        return layerGraphWindows[mainWindowId] != nil
+    }
+    
+    /// 原子性地检查并预留层图谱窗口位置
+    /// - Parameter mainWindowId: 主窗口ID
+    /// - Returns: 如果成功预留返回true，如果已存在返回false
+    func reserveLayerGraphWindow(for mainWindowId: String) -> Bool {
+        if layerGraphWindows[mainWindowId] != nil {
+            print("🚫 WindowFocusManager: 层图谱窗口已存在，拒绝预留 - 主窗口(\(mainWindowId.prefix(8)))")
+            return false
+        }
+        
+        // 预留位置，使用占位符
+        layerGraphWindows[mainWindowId] = "RESERVED"
+        print("🔒 WindowFocusManager: 预留层图谱窗口位置 - 主窗口(\(mainWindowId.prefix(8)))")
+        return true
+    }
+    
+    /// 为主窗口注册层图谱窗口
+    /// - Parameters:
+    ///   - mainWindowId: 主窗口ID
+    ///   - layerGraphWindowId: 层图谱窗口ID
+    func registerLayerGraphWindow(mainWindowId: String, layerGraphWindowId: String) {
+        let previousValue = layerGraphWindows[mainWindowId]
+        layerGraphWindows[mainWindowId] = layerGraphWindowId
+        
+        if previousValue == "RESERVED" {
+            print("🔗 WindowFocusManager: 层图谱窗口注册成功（预留位置） - 主窗口(\(mainWindowId.prefix(8))) -> 层图谱(\(layerGraphWindowId.prefix(8)))")
+        } else {
+            print("🔗 WindowFocusManager: 注册层图谱窗口映射 - 主窗口(\(mainWindowId.prefix(8))) -> 层图谱(\(layerGraphWindowId.prefix(8)))")
+        }
+    }
+    
+    /// 获取主窗口的层图谱窗口ID
+    /// - Parameter mainWindowId: 主窗口ID
+    /// - Returns: 层图谱窗口ID，如果没有则返回nil
+    func getLayerGraphWindow(for mainWindowId: String) -> String? {
+        let value = layerGraphWindows[mainWindowId]
+        // 如果是预留状态，返回nil
+        return value == "RESERVED" ? nil : value
+    }
+    
+    /// 清理预留的层图谱窗口位置（用于窗口创建失败时的清理）
+    /// - Parameter mainWindowId: 主窗口ID
+    func clearReservedLayerGraphWindow(for mainWindowId: String) {
+        if layerGraphWindows[mainWindowId] == "RESERVED" {
+            layerGraphWindows.removeValue(forKey: mainWindowId)
+            print("🧹 WindowFocusManager: 清理预留的层图谱窗口位置 - 主窗口(\(mainWindowId.prefix(8)))")
+        }
     }
     
     /// 处理Command+点击从子窗口切换到主窗口并选中节点
@@ -1134,6 +1202,52 @@ extension WindowFocusManager {
     /// - Returns: 活跃窗口ID字符串，如果没有活跃窗口则返回nil
     func getActiveWindowIdString() -> String? {
         return activeWindowInfo?.id
+    }
+    
+    /// 获取主窗口的ID（返回第一个找到的主窗口）
+    /// - Returns: 主窗口的ID字符串，如果没有主窗口则返回nil
+    func getMainWindowId() -> String? {
+        return windowRegistry.first(where: { $0.value.type == .main })?.key.uuidString
+    }
+    
+    /// 获取当前活跃的主窗口ID（优先返回活跃的主窗口）
+    /// - Returns: 活跃主窗口的ID字符串，如果没有则返回第一个主窗口的ID
+    func getActiveMainWindowId() -> String? {
+        // 优先返回当前活跃的主窗口
+        if let activeWindowId = getActiveWindowId(),
+           let activeWindowInfo = windowRegistry[activeWindowId],
+           activeWindowInfo.type == .main {
+            return activeWindowId.uuidString
+        }
+        
+        // 回退到第一个主窗口
+        return getMainWindowId()
+    }
+    
+    /// 获取窗口激活历史（用于调试和窗口映射）
+    /// - Returns: 窗口激活历史数组，按时间顺序（最新的在前）
+    func getWindowActivationHistory() -> [String] {
+        return windowActivationHistory
+    }
+    
+    /// 从激活历史中查找最近的主窗口
+    /// - Parameter excludeWindowId: 要排除的窗口ID（通常是当前窗口）
+    /// - Returns: 最近的主窗口ID，如果没有找到则返回nil
+    func getRecentMainWindowFromHistory(excluding excludeWindowId: String? = nil) -> String? {
+        for windowIdString in windowActivationHistory {
+            // 跳过要排除的窗口
+            if let exclude = excludeWindowId, windowIdString == exclude {
+                continue
+            }
+            
+            // 检查是否是主窗口
+            if let uuid = UUID(uuidString: windowIdString),
+               let windowInfo = windowRegistry[uuid],
+               windowInfo.type == .main {
+                return windowIdString
+            }
+        }
+        return nil
     }
     
     /// 检查给定的窗口ID是否是主窗口
