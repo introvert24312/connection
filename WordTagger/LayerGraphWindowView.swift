@@ -283,9 +283,18 @@ struct LayerGraphWindowView: View {
             print("🔗 LayerGraphWindow: 建立窗口映射 - 图谱窗口(\(windowId.uuidString.prefix(8))) <- 主窗口(\(activeWindowId.prefix(8)))")
         }
         
+        // 调试当前状态
+        print("🔍 LayerGraphWindow: setupWindow starting")
+        print("   - store.layers.count: \(store.layers.count)")
+        print("   - initial filteredLayerIds.count: \(filteredLayerIds.count)")
+        
         // 默认加载默认预设
         let defaultPreset = presetManager.getDefaultPreset(allLayers: store.layers)
+        print("   - defaultPreset.filteredLayerIds.count: \(defaultPreset.filteredLayerIds.count)")
+        
         loadPreset(defaultPreset)
+        print("   - after loadPreset, filteredLayerIds.count: \(filteredLayerIds.count)")
+        
         selectedLayerId = store.currentLayer?.id
         
         // 调试信息
@@ -400,7 +409,12 @@ struct LayerGraphWindowView: View {
         var nodes: [LayerGraphNode] = []
         var edges: [LayerGraphEdge] = []
         
+        print("🎯 calculateLayerGraphData called")
+        print("   - filteredLayerIds.count: \(filteredLayerIds.count)")
+        print("   - store.layers.count: \(store.layers.count)")
+        
         if filteredLayerIds.isEmpty {
+            print("❌ filteredLayerIds is empty, returning empty graph data")
             return (nodes: nodes, edges: edges)
         }
         
