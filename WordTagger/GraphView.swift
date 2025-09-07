@@ -319,6 +319,31 @@ struct GraphView: View {
                 }
                 .disabled(searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 
+                // 图谱预设按钮
+                Button("图谱预设") {
+                    // TODO: 实现图谱预设功能
+                    print("📚 [全局节点图谱] 图谱预设功能待实现")
+                }
+                .buttonStyle(.bordered)
+                .help("管理图谱预设")
+                
+                // 保存为预设按钮
+                Button("保存为预设") {
+                    // TODO: 实现保存预设功能
+                    print("💾 [全局节点图谱] 保存预设功能待实现")
+                }
+                .buttonStyle(.bordered)
+                .help("保存当前状态为预设")
+                .disabled(selectedNodeIds.isEmpty && selectedLayerIds.isEmpty)
+                
+                // 节点看板按钮
+                Button("节点看板") {
+                    // TODO: 实现节点看板功能
+                    print("📋 [全局节点图谱] 节点看板功能待实现")
+                }
+                .buttonStyle(.borderedProminent)
+                .help("打开节点看板")
+                
                 // 重置按钮
                 if !displayedNodes.isEmpty || !selectedNodeIds.isEmpty || !selectedLayerIds.isEmpty {
                     Button("显示全部") {
