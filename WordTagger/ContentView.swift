@@ -125,7 +125,8 @@ struct ContentViewModifier: ViewModifier {
             .modifier(ContentViewKeyboardModifier(
                 showSidebar: $showSidebar,
                 selectedNode: $selectedNode,
-                showTagManager: $showTagManager
+                showTagManager: $showTagManager,
+                store: store
             ))
             .modifier(ContentViewSheetModifier(
                 showingDataSetup: $showingDataSetup,
@@ -255,6 +256,7 @@ struct ContentViewKeyboardModifier: ViewModifier {
     @Binding var showSidebar: Bool
     @Binding var selectedNode: Node?
     @Binding var showTagManager: Bool
+    let store: NodeStore
     
     func body(content: Content) -> some View {
         content
