@@ -271,7 +271,10 @@ struct ContentViewKeyboardModifier: ViewModifier {
     private func handleCommandTKey(_ keyPress: KeyPress) -> KeyPress.Result {
         if keyPress.modifiers == .command {
             print("🔑 ContentView: Command+T键按下 - 清除所有标签筛选状态")
-            store.clearTagFilter()
+            // 使用异步调用避免在视图更新期间修改Published属性
+            DispatchQueue.main.async {
+                store.clearTagFilter()
+            }
             return .handled
         }
         return .ignored

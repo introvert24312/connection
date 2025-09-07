@@ -1964,13 +1964,16 @@ public final class NodeStore: ObservableObject {
         print("   - expandedTagTypes: \(expandedTagTypes.map { $0.displayName })")
         print("   - showAllTagTypeNodes: \(showAllTagTypeNodes)")
         
-        selectedTag = nil
-        expandedTagTypes.removeAll()
-        showAllTagTypeNodes = false
-        selectedNode = nil
-        
-        // 强制触发UI更新，确保TagSidebarView立即响应状态变化
-        objectWillChange.send()
+        // 使用异步调用确保不在视图更新期间修改Published属性
+        DispatchQueue.main.async { [weak self] in
+            self?.selectedTag = nil
+            self?.expandedTagTypes.removeAll()
+            self?.showAllTagTypeNodes = false
+            self?.selectedNode = nil
+            
+            // 强制触发UI更新，确保TagSidebarView立即响应状态变化
+            self?.objectWillChange.send()
+        }
         
         print("✅ Store.clearTagFilter: 标签筛选状态已彻底清除，回到初始状态")
         print("🔄 已触发UI强制刷新和清除通知")
