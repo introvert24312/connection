@@ -190,23 +190,6 @@ struct TagSidebarView: View {
                 print("🏷️ TagSidebarView: 切换到标签筛选模式")
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("clearTagFilter"))) { _ in
-            print("🧹 TagSidebarView: 收到清除标签筛选通知")
-            
-            // TagSidebarView作为ContentView的子视图，不需要单独检查窗口状态
-            
-            // 清除本地UI状态（Store状态已经在clearTagFilter中清除了）
-            selectedTagTypes.removeAll()
-            expandedGroups.removeAll()
-            tagTypeSearchQuery = ""
-            // 切换到标签筛选模式
-            currentMode = .tagFiltering
-            
-            print("🧹 TagSidebarView: 本地UI状态已清除")
-            print("   - selectedTagTypes: \(selectedTagTypes.count)")
-            print("   - expandedGroups: \(expandedGroups.count)")
-            print("   - currentMode: \(currentMode)")
-        }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("restorePreviousTagFilterState"))) { _ in
             print("🔄 TagSidebarView: 收到恢复标签筛选状态通知")
             
@@ -255,9 +238,15 @@ struct TagSidebarView: View {
             // 同步expandedGroups与store的expandedTagTypes（用于标签搜索模块）
             expandedGroups = newExpandedTypes
             
-            // 🔄 如果有展开的标签类型，也同步到selectedTagTypes（确保搜索模块显示正确）
-            if !newExpandedTypes.isEmpty {
-                // 只添加新的，不清除现有的选择
+            // 🔄 完全同步selectedTagTypes与store的expandedTagTypes状态
+            if newExpandedTypes.isEmpty {
+                // 如果store清空了展开状态，也清空本地选中状态
+                selectedTagTypes.removeAll()
+                tagTypeSearchQuery = ""
+                currentMode = .tagFiltering
+                print("🧹 清空本地UI状态以匹配store的清空状态")
+            } else {
+                // 如果有展开的标签类型，同步到selectedTagTypes
                 for tagType in newExpandedTypes {
                     selectedTagTypes.insert(tagType)
                 }

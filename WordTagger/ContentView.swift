@@ -386,13 +386,6 @@ struct ContentViewFocusedValueModifier: ViewModifier {
             .focusedSceneValue(\.switchToGraphTab, ShowCardAction {
                 NotificationCenter.default.post(name: NSNotification.Name("switchToGraphTab"), object: nil)
             })
-            .focusedSceneValue(\.clearTagFilter, ShowCardAction {
-                NotificationCenter.default.post(name: NSNotification.Name("clearTagFilter"), object: nil)
-            })
-            .focusedSceneValue(\.restorePreviousTagFilterState, ShowCardAction {
-                print("🔑 ContentView: Command+T 恢复标签筛选状态")
-                NotificationCenter.default.post(name: NSNotification.Name("restorePreviousTagFilterState"), object: nil)
-            })
             .focusedSceneValue(\.openTagSearch, ShowCardAction {
                 print("🔑 ContentView: Command+F 被触发")
                 // 如果侧边栏隐藏，先显示侧边栏
