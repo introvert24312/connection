@@ -1964,8 +1964,8 @@ public final class NodeStore: ObservableObject {
         print("   - expandedTagTypes: \(expandedTagTypes.map { $0.displayName })")
         print("   - showAllTagTypeNodes: \(showAllTagTypeNodes)")
         
-        // 使用异步调用确保不在视图更新期间修改Published属性
-        DispatchQueue.main.async { [weak self] in
+        // 使用微小延迟确保完全脱离视图更新周期
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.001) { [weak self] in
             self?.selectedTag = nil
             self?.expandedTagTypes.removeAll()
             self?.showAllTagTypeNodes = false

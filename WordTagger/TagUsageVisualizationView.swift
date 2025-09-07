@@ -296,7 +296,7 @@ struct EnhancedTagUsageView: View {
             let selectedTypes = Array(selectedTagTypesForDeletion)
             let selectedValues = Array(selectedTagValuesForDeletion)
             
-            if let selectedLayerId = selectedLayerId {
+            if selectedLayerId != nil {
                 // 特定层批量删除
                 let typeTags = selectedTypes.flatMap { tagType in
                     groupedUsage[tagType] ?? []

@@ -3687,7 +3687,7 @@ struct WordTaggerApp: App {
                     print("🔍 主窗口: switchToLayer通知窗口ID检查")
                     print("   - 通知中的sourceWindowId: \(sourceWindowId.prefix(8))")
                     print("   - 主窗口的mainWindowId: \(mainWindowId.uuidString.prefix(8))")
-                    print("   - WindowFocusManager中主窗口ID: \(WindowFocusManager.shared.getActiveWindowId()?.prefix(8) ?? "nil")")
+                    print("   - WindowFocusManager中主窗口ID: \(WindowFocusManager.shared.getActiveWindowId()?.uuidString.prefix(8) ?? "nil")")
                     
                     // 检查是否是发给主窗口的（兼容多种ID格式）
                     let isTargetingMainWindow = sourceWindowId == mainWindowId.uuidString || 
@@ -5317,7 +5317,7 @@ struct IndependentWindowModifier: ViewModifier {
                     print("🔍 独立窗口: switchToLayer通知窗口ID检查")
                     print("   - 通知中的sourceWindowId: \(sourceWindowId.prefix(8))")
                     print("   - 独立窗口的windowId: \(windowId.uuidString.prefix(8))")
-                    print("   - WindowFocusManager中活跃窗口ID: \(WindowFocusManager.shared.getActiveWindowId()?.prefix(8) ?? "nil")")
+                    print("   - WindowFocusManager中活跃窗口ID: \(WindowFocusManager.shared.getActiveWindowId()?.uuidString.prefix(8) ?? "nil")")
                     
                     // 检查是否是发给这个独立窗口的
                     if sourceWindowId == windowId.uuidString {

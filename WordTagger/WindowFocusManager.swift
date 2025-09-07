@@ -1130,9 +1130,9 @@ extension WindowFocusManager {
     
     // MARK: - Additional Helper Methods
     
-    /// 获取当前活跃窗口的ID
+    /// 获取当前活跃窗口的ID字符串
     /// - Returns: 活跃窗口ID字符串，如果没有活跃窗口则返回nil
-    func getActiveWindowId() -> String? {
+    func getActiveWindowIdString() -> String? {
         return activeWindowInfo?.id
     }
     
