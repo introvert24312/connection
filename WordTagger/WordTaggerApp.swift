@@ -5075,6 +5075,12 @@ struct IndependentWindowModifier: ViewModifier {
                     .zIndex(1000)
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("clearTagFilterFromKeyboard"))) { _ in
+                print("🔑 独立窗口: 收到键盘清除标签筛选通知")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.001) {
+                    store.clearTagFilter()
+                }
+            }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("executeOpenWindow"))) { notification in
                 // 🔧 检查源窗口ID，确保只有一个窗口处理这个通知
                 if let sourceWindowId = notification.userInfo?["sourceWindowId"] as? String {
@@ -5594,10 +5600,17 @@ struct GlobalCommands: Commands {
             .keyboardShortcut("n", modifiers: [.command])
             .disabled(clearTagFilter == nil)
             
+            Button("清除标签筛选") {
+                print("🔑 GlobalCommands: Command+T - 清除标签筛选（全局菜单触发）")
+                // 直接发送通知，让独立窗口处理
+                NotificationCenter.default.post(name: NSNotification.Name("clearTagFilterFromKeyboard"), object: nil)
+            }
+            .keyboardShortcut("t", modifiers: [.command])
+            
             Button("恢复标签筛选") {
                 restorePreviousTagFilterState?()
             }
-            .keyboardShortcut("t", modifiers: [.command])
+            .keyboardShortcut("t", modifiers: [.command, .shift])
             .disabled(restorePreviousTagFilterState == nil)
             
             // 测试用：手动保存状态

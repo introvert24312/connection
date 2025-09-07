@@ -185,6 +185,12 @@ struct ContentViewModifier: ViewModifier {
                 print("✅ ContentView: 收到restorePreviousTagFilterState通知，调用store方法")
                 store.restorePreviousTagFilterState()
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("clearTagFilterFromKeyboard"))) { _ in
+                print("🔑 主窗口: 收到键盘清除标签筛选通知")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.001) {
+                    store.clearTagFilter()
+                }
+            }
             .toolbar {
                 toolbarContent
             }
