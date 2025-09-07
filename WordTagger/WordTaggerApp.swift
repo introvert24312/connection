@@ -3682,8 +3682,19 @@ struct WordTaggerApp: App {
                 if let userInfo = notification.userInfo,
                    let sourceWindowId = userInfo["sourceWindowId"] as? String,
                    !sourceWindowId.isEmpty {
-                    // 检查是否是发给主窗口的
-                    if sourceWindowId == mainWindowId.uuidString || sourceWindowId == "MAIN_WINDOW" {
+                    
+                    // 🔧 调试：打印窗口ID信息
+                    print("🔍 主窗口: switchToLayer通知窗口ID检查")
+                    print("   - 通知中的sourceWindowId: \(sourceWindowId.prefix(8))")
+                    print("   - 主窗口的mainWindowId: \(mainWindowId.uuidString.prefix(8))")
+                    print("   - WindowFocusManager中主窗口ID: \(WindowFocusManager.shared.getActiveWindowId()?.prefix(8) ?? "nil")")
+                    
+                    // 检查是否是发给主窗口的（兼容多种ID格式）
+                    let isTargetingMainWindow = sourceWindowId == mainWindowId.uuidString || 
+                                               sourceWindowId == "MAIN_WINDOW" ||
+                                               WindowFocusManager.shared.isMainWindow(sourceWindowId)
+                    
+                    if isTargetingMainWindow {
                         print("🔄 主窗口: 处理来自层图谱的层切换请求 - 切换到层: \(layer.displayName)")
                         Task {
                             await store.switchToLayer(layer)
@@ -5301,6 +5312,13 @@ struct IndependentWindowModifier: ViewModifier {
                 if let userInfo = notification.userInfo,
                    let sourceWindowId = userInfo["sourceWindowId"] as? String,
                    !sourceWindowId.isEmpty {
+                    
+                    // 🔧 调试：打印窗口ID信息
+                    print("🔍 独立窗口: switchToLayer通知窗口ID检查")
+                    print("   - 通知中的sourceWindowId: \(sourceWindowId.prefix(8))")
+                    print("   - 独立窗口的windowId: \(windowId.uuidString.prefix(8))")
+                    print("   - WindowFocusManager中活跃窗口ID: \(WindowFocusManager.shared.getActiveWindowId()?.prefix(8) ?? "nil")")
+                    
                     // 检查是否是发给这个独立窗口的
                     if sourceWindowId == windowId.uuidString {
                         print("🔄 独立窗口: 处理来自层图谱的层切换请求 - 切换到层: \(layer.displayName)")

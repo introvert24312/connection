@@ -1127,4 +1127,32 @@ extension WindowFocusManager {
         
         print("✅ WindowFocusManager: 成功切换到主窗口并发送选中节点通知")
     }
+    
+    // MARK: - Additional Helper Methods
+    
+    /// 获取当前活跃窗口的ID
+    /// - Returns: 活跃窗口ID字符串，如果没有活跃窗口则返回nil
+    func getActiveWindowId() -> String? {
+        return activeWindowInfo?.id
+    }
+    
+    /// 检查给定的窗口ID是否是主窗口
+    /// - Parameter windowId: 要检查的窗口ID
+    /// - Returns: 如果是主窗口返回true，否则返回false
+    func isMainWindow(_ windowId: String) -> Bool {
+        // 检查UUID格式的窗口ID
+        if let uuid = UUID(uuidString: windowId),
+           let windowInfo = windowRegistry[uuid] {
+            return windowInfo.type == .main
+        }
+        
+        // 检查windowMappings中是否有这个ID对应主窗口
+        for (registeredUUID, info) in windowRegistry {
+            if info.type == .main && registeredUUID.uuidString == windowId {
+                return true
+            }
+        }
+        
+        return false
+    }
 }
