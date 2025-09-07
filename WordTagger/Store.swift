@@ -1970,9 +1970,7 @@ public final class NodeStore: ObservableObject {
             self?.expandedTagTypes.removeAll()
             self?.showAllTagTypeNodes = false
             self?.selectedNode = nil
-            
-            // 强制触发UI更新，确保TagSidebarView立即响应状态变化
-            self?.objectWillChange.send()
+            // @Published properties automatically trigger objectWillChange.send()
         }
         
         print("✅ Store.clearTagFilter: 标签筛选状态已彻底清除，回到初始状态")
