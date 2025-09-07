@@ -195,13 +195,17 @@ struct TagSidebarView: View {
             
             // TagSidebarView作为ContentView的子视图，不需要单独检查窗口状态
             
-            // 清除UI状态
-            store.setExpandedTagTypes([])
+            // 清除本地UI状态（Store状态已经在clearTagFilter中清除了）
             selectedTagTypes.removeAll()
             expandedGroups.removeAll()
             tagTypeSearchQuery = ""
             // 切换到标签筛选模式
             currentMode = .tagFiltering
+            
+            print("🧹 TagSidebarView: 本地UI状态已清除")
+            print("   - selectedTagTypes: \(selectedTagTypes.count)")
+            print("   - expandedGroups: \(expandedGroups.count)")
+            print("   - currentMode: \(currentMode)")
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("restorePreviousTagFilterState"))) { _ in
             print("🔄 TagSidebarView: 收到恢复标签筛选状态通知")

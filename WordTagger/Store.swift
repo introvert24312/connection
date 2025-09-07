@@ -1969,7 +1969,17 @@ public final class NodeStore: ObservableObject {
         showAllTagTypeNodes = false
         selectedNode = nil
         
+        // 强制触发UI更新，确保TagSidebarView立即响应状态变化
+        objectWillChange.send()
+        
+        // 发送专门的清除标签筛选通知，确保TagSidebarView立即同步本地状态
+        NotificationCenter.default.post(
+            name: NSNotification.Name("clearTagFilter"),
+            object: nil
+        )
+        
         print("✅ Store.clearTagFilter: 标签筛选状态已彻底清除，回到初始状态")
+        print("🔄 已触发UI强制刷新和清除通知")
     }
     
     // MARK: - 标签筛选状态记忆方法
