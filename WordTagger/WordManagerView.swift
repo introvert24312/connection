@@ -829,7 +829,51 @@ struct TagEditCommandView: View {
             }
         }
         .alert("重复检测", isPresented: $showingDuplicateAlert) {
-            Button("确定") { }
+            if let alert = store.duplicateNodeAlert {
+                if alert.isContextConflict {
+                    // 上下文冲突：提供强制添加选项
+                    Button("取消", role: .cancel) { 
+                        store.duplicateNodeAlert = nil
+                    }
+                    Button("忽略冲突，强制添加") {
+                        // 强制添加节点
+                        _ = store.forceAddNode(alert.newNode, ignoreConflicts: true)
+                        store.duplicateNodeAlert = nil
+                    }
+                } else if alert.isDuplicate && alert.existingNode != nil {
+                    // 节点重复，询问是否合并
+                    Button("取消", role: .cancel) { 
+                        store.duplicateNodeAlert = nil
+                    }
+                    Button("合并标签") {
+                        // 执行标签合并
+                        if let existingNode = alert.existingNode {
+                            let newTags = alert.newNode.tags.filter { newTag in
+                                !existingNode.tags.contains { existingTag in
+                                    existingTag.type == newTag.type && existingTag.value.lowercased() == newTag.value.lowercased()
+                                }
+                            }
+                            
+                            for tag in newTags {
+                                store.addTag(to: existingNode.id, tag: tag)
+                            }
+                        }
+                        store.duplicateNodeAlert = nil
+                    }
+                    Button("创建新节点") {
+                        // 强制添加新节点
+                        _ = store.forceAddNode(alert.newNode, ignoreConflicts: true)
+                        store.duplicateNodeAlert = nil
+                    }
+                } else {
+                    // 其他错误或信息
+                    Button("确定") { 
+                        store.duplicateNodeAlert = nil
+                    }
+                }
+            } else {
+                Button("确定") { }
+            }
         } message: {
             if let alert = store.duplicateNodeAlert {
                 Text(alert.message)

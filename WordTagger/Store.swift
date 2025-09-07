@@ -668,9 +668,10 @@ public final class NodeStore: ObservableObject {
         // 安全地检查节点名称冲突，避免崩溃
         print("🔍 检查节点名称冲突 - 新节点: '\(node.text)', 现有节点数量: \(nodes.count)")
         
-        // 使用安全的方式查找重复节点
+        // 使用安全的方式查找重复节点，只在当前层内查找
             let potentialDuplicates = nodes.filter { existingNode in
-                existingNode.text.lowercased() == node.text.lowercased()
+                existingNode.text.lowercased() == node.text.lowercased() && 
+                existingNode.layerId == currentLayer.id
             }
             
             if let existingNode = potentialDuplicates.first {
@@ -745,7 +746,7 @@ public final class NodeStore: ObservableObject {
                     print("❌ 相同节点相同标签，不添加")
                     return false
                 } else {
-                    // 有不同标签，自动合并
+                    // 有不同标签，询问用户是否要合并
                     let newTags = node.tags.filter { newTag in
                         !existingNode.tags.contains { existingTag in
                             existingTag.type == newTag.type && existingTag.value.lowercased() == newTag.value.lowercased()
@@ -753,20 +754,15 @@ public final class NodeStore: ObservableObject {
                     }
                     
                     if !newTags.isEmpty {
-                        // 添加新标签到现有节点
-                        for tag in newTags {
-                            addTag(to: existingNode.id, tag: tag)
-                        }
-                        
                         let tagNames = newTags.map { "\($0.type.displayName)-\($0.value)" }.joined(separator: ", ")
                         duplicateNodeAlert = DuplicateNodeAlert(
-                            message: "已将新标签 \(tagNames) 合并到现有节点 \"\(node.text)\"",
-                            isDuplicate: false,
+                            message: "节点 \"\(node.text)\" 已存在。是否要将新标签 \(tagNames) 合并到现有节点？",
+                            isDuplicate: true,
                             existingNode: existingNode,
                             newNode: node
                         )
-                        print("✅ 节点合并成功，添加了 \(newTags.count) 个新标签")
-                        return true
+                        print("❓ 发现同名节点，需要用户确认是否合并新标签")
+                        return false
                     } else {
                         duplicateNodeAlert = DuplicateNodeAlert(
                             message: "节点 \"\(node.text)\" 已存在，且所有标签都相同",
@@ -1063,11 +1059,13 @@ public final class NodeStore: ObservableObject {
         print("   - 当前selectedTag: '\(selectedTag?.value ?? "nil")' (类型: \(selectedTag?.type.displayName ?? "nil"))")
         print("   - 当前层: '\(currentLayer?.displayName ?? "nil")'")
         
-        // 🔧 在任何节点选择操作时都保存当前标签筛选状态
-        print("💾 Store.setSelectedNode: 准备设置新节点，先保存当前标签筛选状态")
-        print("   - 即将设置的节点: '\(node?.text ?? "nil")'")
-        print("   - 当前选中的节点: '\(selectedNode?.text ?? "nil")'")
-        saveCurrentTagFilterState()
+        // 🔧 只在必要时保存标签筛选状态（避免干扰节点选择的状态同步）
+        if selectedTag != nil || !expandedTagTypes.isEmpty || showAllTagTypeNodes {
+            print("💾 Store.setSelectedNode: 检测到标签筛选状态，保存后清除")
+            print("   - 即将设置的节点: '\(node?.text ?? "nil")'")
+            print("   - 当前选中的节点: '\(selectedNode?.text ?? "nil")'")
+            saveCurrentTagFilterState()
+        }
         
         let oldText = selectedNode?.text ?? "nil"
         selectedNode = node

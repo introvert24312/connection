@@ -451,8 +451,15 @@ struct ContentViewLifecycleModifier: ViewModifier {
     
     private func handleSelectedNodeChange(_ oldValue: Node?, _ newValue: Node?) {
         print("🔄 ContentView: store.selectedNode 发生变化: \(oldValue?.text ?? "nil") -> \(newValue?.text ?? "nil")")
-        selectedNode = newValue
-        print("🔄 ContentView: 强制同步本地selectedNode: \(newValue?.text ?? "nil")")
+        // 使用异步更新避免状态同步时序问题
+        DispatchQueue.main.async {
+            if selectedNode?.id != newValue?.id {
+                selectedNode = newValue
+                print("🔄 ContentView: 异步同步本地selectedNode: \(newValue?.text ?? "nil")")
+            } else {
+                print("🔄 ContentView: 节点ID相同，跳过同步")
+            }
+        }
     }
     
     private func handleNodesChange() {
