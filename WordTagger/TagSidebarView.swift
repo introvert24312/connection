@@ -464,9 +464,9 @@ struct TagSidebarView: View {
             if isExpanded {
                 ForEach(tags, id: \.id) { tag in
                     Button(action: {
-                        // 显示包含这个具体标签的节点
-                        store.setSelectedTag(tag)
-                        print("🏷️ 选择了具体标签: \(tag.type.displayName) - \(tag.value)，只显示包含此标签的节点")
+                        // 显示该标签类型的所有节点，但高亮显示包含这个具体标签的节点
+                        store.selectTagWithFocus(tag)
+                        print("🏷️ 选择了具体标签: \(tag.type.displayName) - \(tag.value)，显示标签类型所有节点但高亮此标签对应的节点")
                     }) {
                         HStack {
                             Text(tag.value)

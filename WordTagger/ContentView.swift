@@ -268,18 +268,9 @@ struct ContentViewKeyboardModifier: ViewModifier {
     
     private func handleCommandTKey(_ keyPress: KeyPress) -> KeyPress.Result {
         if keyPress.modifiers == .command {
-            print("🔑 ContentView: Command+T键按下")
-            if let node = selectedNode {
-                print("🔑 ContentView: 有选中节点，切换详情编辑模式")
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("toggleDetailEditMode"),
-                    object: node
-                )
-                return .handled
-            } else {
-                print("🔑 ContentView: 无选中节点，忽略Command+T")
-                return .ignored
-            }
+            print("🔑 ContentView: Command+T键按下 - 清除所有标签筛选状态")
+            store.clearTagFilter()
+            return .handled
         }
         return .ignored
     }
