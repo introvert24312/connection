@@ -837,6 +837,19 @@ struct QuickAddSheetView: View {
                 }
                 return .ignored
             }
+            .onKeyPress(.init("j"), phases: .down) { keyPress in
+                if keyPress.modifiers.contains(.command) && isInputFocused {
+                    // Command+J: 按复合节点语法处理
+                    print("⌨️ Command+J 被按下，按复合节点语法处理")
+                    guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                        print("⚠️ 输入为空，忽略Command+J")
+                        return .handled
+                    }
+                    processCompoundNodeInput()
+                    return .handled
+                }
+                return .ignored
+            }
     }
     
     @ViewBuilder
@@ -855,17 +868,20 @@ struct QuickAddSheetView: View {
             Image(systemName: "plus.circle.fill")
                 .foregroundColor(.blue)
             
-            TextField("输入: 节点 root 词根内容 memory 记忆内容...", text: $inputText)
-                .textFieldStyle(.plain)
-                .font(.title3)
-                .focused($isInputFocused)
-                .onChange(of: inputText) { _, newValue in 
-                    updateSuggestions(for: newValue) 
-                }
-                .onKeyPress(.upArrow) { handleUpArrow() }
-                .onKeyPress(.downArrow) { handleDownArrow() }
-                .onKeyPress(.tab) { handleTab() }
-                .onKeyPress(.escape) { handleEscape() }
+            VStack(alignment: .leading, spacing: 4) {
+                TextField("输入: 节点 root 词根内容 memory 记忆内容...", text: $inputText)
+                    .textFieldStyle(.plain)
+                    .font(.title3)
+                    .focused($isInputFocused)
+                    .onChange(of: inputText) { _, newValue in 
+                        updateSuggestions(for: newValue) 
+                    }
+                    .onKeyPress(.upArrow) { handleUpArrow() }
+                    .onKeyPress(.downArrow) { handleDownArrow() }
+                    .onKeyPress(.tab) { handleTab() }
+                    .onKeyPress(.escape) { handleEscape() }
+                
+            }
             
             Button(action: openMapForLocationSelection) {
                 Image(systemName: "location.fill")
@@ -966,6 +982,77 @@ struct QuickAddSheetView: View {
         print("✅ QuickAddSheetView: 清理和关闭完成")
     }
     
+    private func processCompoundNodeInput() {
+        print("🔄 开始处理复合节点输入: \(inputText)")
+        
+        let components = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+            .split(separator: " ", omittingEmptySubsequences: true)
+            .map(String.init)
+        
+        guard components.count >= 2 else {
+            store.duplicateNodeAlert = NodeStore.DuplicateNodeAlert(
+                message: "复合节点语法错误：至少需要 '复合节点名 子节点1'",
+                isDuplicate: false,
+                existingNode: nil,
+                newNode: Node(text: "错误命令", layerId: UUID(), tags: [])
+            )
+            return
+        }
+        
+        let compoundNodeName = components[0]
+        let childNodeNames = Array(components[1...])
+        
+        print("🔧 复合节点名: \(compoundNodeName)")
+        print("🔧 子节点列表: \(childNodeNames)")
+        
+        guard let currentLayer = store.currentLayer else {
+            store.duplicateNodeAlert = NodeStore.DuplicateNodeAlert(
+                message: "无法创建复合节点：请先选择一个活跃层",
+                isDuplicate: false,
+                existingNode: nil,
+                newNode: Node(text: compoundNodeName, layerId: UUID(), tags: [])
+            )
+            return
+        }
+        
+        // 检查是否有删除操作（子节点名以"-"开头）
+        let (childNamesToAdd, childNamesToRemove) = separateAddAndRemoveOperations(childNodeNames)
+        
+        // 检查复合节点是否已存在
+        if let existingCompoundNode = store.nodes.first(where: { 
+            $0.text.lowercased() == compoundNodeName.lowercased() && $0.isCompound 
+        }) {
+            // 修改已存在的复合节点
+            if !childNamesToRemove.isEmpty {
+                print("🗑️ 从复合节点删除子节点: \(compoundNodeName)")
+                removeChildrenFromCompoundNode(existingCompoundNode, childNames: childNamesToRemove)
+            }
+            if !childNamesToAdd.isEmpty {
+                print("➕ 向复合节点添加子节点: \(compoundNodeName)")
+                addChildrenToExistingCompoundNode(existingCompoundNode, childNames: childNamesToAdd)
+            }
+        } else if !childNamesToRemove.isEmpty {
+            // 尝试删除子节点但复合节点不存在
+            store.duplicateNodeAlert = NodeStore.DuplicateNodeAlert(
+                message: "错误：复合节点 '\(compoundNodeName)' 不存在，无法删除子节点",
+                isDuplicate: false,
+                existingNode: nil,
+                newNode: Node(text: compoundNodeName, layerId: currentLayer.id, tags: [])
+            )
+            return
+        } else {
+            // 创建新的复合节点
+            print("🏗️ 创建新复合节点: \(compoundNodeName)")
+            createNewCompoundNode(name: compoundNodeName, childNames: childNamesToAdd, layerId: currentLayer.id)
+        }
+        
+        // 成功处理后清空输入并关闭
+        inputText = ""
+        dismiss()
+        
+        print("✅ 复合节点命令处理完成")
+    }
+    
     private func handleDuplicateAlert(_ alert: NodeStore.DuplicateNodeAlert?) {
         if alert != nil {
             showingDuplicateAlert = true
@@ -1027,18 +1114,31 @@ struct QuickAddSheetView: View {
     
     private func updateSuggestions(for input: String) {
         let words = input.split(separator: " ")
-        guard let lastWord = words.last?.lowercased() else { 
+        guard let lastWord = words.last, !lastWord.isEmpty else { 
             suggestions = []
             selectedSuggestionIndex = -1
             return 
         }
         
-        let matchingSuggestions = tagManager.mappingDictionary.keys.filter { key in 
-            key.lowercased().hasPrefix(String(lastWord)) && key.lowercased() != String(lastWord) 
-        }.sorted()
+        let query = String(lastWord)
         
-        suggestions = matchingSuggestions
-        selectedSuggestionIndex = matchingSuggestions.isEmpty ? -1 : 0
+        // 使用模糊搜索获取标签建议
+        let tagResults = fuzzySearchStrings(Array(tagManager.mappingDictionary.keys), query: query, limit: 5)
+        
+        // 手动实现节点模糊搜索
+        let nodeResults = fuzzySearchNodes(query: query, limit: 5)
+        
+        // 合并并按分数排序
+        var allSuggestions: [(String, Double)] = []
+        allSuggestions += tagResults.map { ($0.item, $0.score) }
+        allSuggestions += nodeResults
+        
+        // 去重，保留分数更高的
+        let uniqueSuggestions = Dictionary(allSuggestions, uniquingKeysWith: max)
+        let sortedSuggestions = uniqueSuggestions.sorted { $0.value > $1.value }.map { $0.key }
+        
+        suggestions = Array(sortedSuggestions.prefix(10))
+        selectedSuggestionIndex = suggestions.isEmpty ? -1 : 0
     }
     
     private func selectSuggestion(_ suggestion: String) {
@@ -1778,6 +1878,86 @@ struct QuickAddSheetView: View {
             isInputFocused = true
         }
     }
+    
+    // 手动实现节点模糊搜索
+    private func fuzzySearchNodes(query: String, limit: Int) -> [(String, Double)] {
+        guard !query.isEmpty else { return [] }
+        
+        let results = store.nodes.compactMap { node -> (String, Double)? in
+            let score = fuzzyMatchScore(query: query, target: node.text)
+            return score > 0 && node.text.lowercased() != query.lowercased()
+                ? (node.text, score)
+                : nil
+        }
+        
+        return Array(results.sorted { $0.1 > $1.1 }.prefix(limit))
+    }
+    
+    // 字符串数组模糊搜索
+    private func fuzzySearchStrings(_ strings: [String], query: String, limit: Int) -> [(item: String, score: Double)] {
+        guard !query.isEmpty else { return [] }
+        
+        let results = strings.compactMap { string -> (item: String, score: Double)? in
+            let score = fuzzyMatchScore(query: query, target: string)
+            return score > 0 && string.lowercased() != query.lowercased() 
+                ? (item: string, score: score) 
+                : nil
+        }
+        
+        return Array(results.sorted { $0.score > $1.score }.prefix(limit))
+    }
+    
+    // 模糊匹配算法
+    private func fuzzyMatchScore(query: String, target: String) -> Double {
+        let query = query.lowercased()
+        let target = target.lowercased()
+        let queryChars = Array(query)
+        let targetChars = Array(target)
+        
+        // 完全匹配
+        if target == query {
+            return 1.0
+        }
+        
+        // 前缀匹配给高分
+        if target.hasPrefix(query) {
+            return 0.9
+        }
+        
+        // 包含匹配
+        if target.contains(query) {
+            return 0.7
+        }
+        
+        // 字符序列匹配（不需要连续）
+        var targetIndex = 0
+        var matchedChars = 0
+        
+        for queryChar in queryChars {
+            while targetIndex < targetChars.count {
+                if targetChars[targetIndex] == queryChar {
+                    matchedChars += 1
+                    targetIndex += 1
+                    break
+                }
+                targetIndex += 1
+            }
+        }
+        
+        if matchedChars == queryChars.count {
+            // 根据匹配位置的紧密程度给分
+            let ratio = Double(matchedChars) / Double(targetChars.count)
+            return ratio * 0.6 // 最高0.6分
+        }
+        
+        // 部分字符匹配
+        if matchedChars > 0 {
+            let ratio = Double(matchedChars) / Double(queryChars.count)
+            return ratio * 0.3 // 最高0.3分
+        }
+        
+        return 0.0
+    }
 }
 
 // MARK: - Quick Add Suggestion Row
@@ -1861,8 +2041,10 @@ struct QuickAddView: View {
                         Image(systemName: "plus.circle.fill").foregroundColor(.blue).font(.title2)
                         TextField("输入: 节点 root 词根内容 memory 记忆内容...", text: $inputText)
                             .textFieldStyle(.plain).font(.system(size: 16, weight: .medium))
-                            .onSubmit { processInput() }
                             .onChange(of: inputText) { _, newValue in updateSuggestions(for: newValue) }
+                            .onKeyPress(.tab) { handleTabInQuickAdd() }
+                            .onKeyPress(.upArrow) { handleUpArrowInQuickAdd() }
+                            .onKeyPress(.downArrow) { handleDownArrowInQuickAdd() }
                         
                         Button(action: openMapForLocationSelection) {
                             Image(systemName: "location.fill")
@@ -1991,9 +2173,31 @@ struct QuickAddView: View {
     
     private func updateSuggestions(for input: String) {
         let words = input.split(separator: " ")
-        guard let lastWord = words.last?.lowercased() else { suggestions = []; selectedSuggestionIndex = -1; return }
-        let matchingSuggestions = tagManager.mappingDictionary.keys.filter { key in key.lowercased().hasPrefix(String(lastWord)) && key.lowercased() != String(lastWord) }.sorted()
-        suggestions = matchingSuggestions; selectedSuggestionIndex = matchingSuggestions.isEmpty ? -1 : 0
+        guard let lastWord = words.last, !lastWord.isEmpty else { 
+            suggestions = []
+            selectedSuggestionIndex = -1
+            return 
+        }
+        
+        let query = String(lastWord)
+        
+        // 使用模糊搜索获取标签建议
+        let tagResults = fuzzySearchStrings(Array(tagManager.mappingDictionary.keys), query: query, limit: 5)
+        
+        // 手动实现节点模糊搜索
+        let nodeResults = fuzzySearchNodes(query: query, limit: 5)
+        
+        // 合并并按分数排序
+        var allSuggestions: [(String, Double)] = []
+        allSuggestions += tagResults.map { ($0.item, $0.score) }
+        allSuggestions += nodeResults
+        
+        // 去重，保留分数更高的
+        let uniqueSuggestions = Dictionary(allSuggestions, uniquingKeysWith: max)
+        let sortedSuggestions = uniqueSuggestions.sorted { $0.value > $1.value }.map { $0.key }
+        
+        suggestions = Array(sortedSuggestions.prefix(10))
+        selectedSuggestionIndex = suggestions.isEmpty ? -1 : 0
     }
     
     private func selectSuggestion(_ suggestion: String) {
@@ -2113,6 +2317,109 @@ struct QuickAddView: View {
             onDismiss()
         }
         // 如果不成功，保持窗口打开让用户看到警告
+    }
+    
+    // MARK: - 键盘处理函数
+    
+    private func handleTabInQuickAdd() -> KeyPress.Result {
+        if selectedSuggestionIndex >= 0 && selectedSuggestionIndex < suggestions.count {
+            selectSuggestion(suggestions[selectedSuggestionIndex])
+        }
+        return .handled
+    }
+    
+    private func handleUpArrowInQuickAdd() -> KeyPress.Result {
+        if !suggestions.isEmpty {
+            selectedSuggestionIndex = selectedSuggestionIndex <= 0 ? suggestions.count - 1 : selectedSuggestionIndex - 1
+        }
+        return .handled
+    }
+    
+    private func handleDownArrowInQuickAdd() -> KeyPress.Result {
+        if !suggestions.isEmpty {
+            selectedSuggestionIndex = min(suggestions.count - 1, selectedSuggestionIndex + 1)
+        }
+        return .handled
+    }
+    
+    // 手动实现节点模糊搜索
+    private func fuzzySearchNodes(query: String, limit: Int) -> [(String, Double)] {
+        guard !query.isEmpty else { return [] }
+        
+        let results = store.nodes.compactMap { node -> (String, Double)? in
+            let score = fuzzyMatchScore(query: query, target: node.text)
+            return score > 0 && node.text.lowercased() != query.lowercased()
+                ? (node.text, score)
+                : nil
+        }
+        
+        return Array(results.sorted { $0.1 > $1.1 }.prefix(limit))
+    }
+    
+    // 字符串数组模糊搜索
+    private func fuzzySearchStrings(_ strings: [String], query: String, limit: Int) -> [(item: String, score: Double)] {
+        guard !query.isEmpty else { return [] }
+        
+        let results = strings.compactMap { string -> (item: String, score: Double)? in
+            let score = fuzzyMatchScore(query: query, target: string)
+            return score > 0 && string.lowercased() != query.lowercased() 
+                ? (item: string, score: score) 
+                : nil
+        }
+        
+        return Array(results.sorted { $0.score > $1.score }.prefix(limit))
+    }
+    
+    // 模糊匹配算法
+    private func fuzzyMatchScore(query: String, target: String) -> Double {
+        let query = query.lowercased()
+        let target = target.lowercased()
+        let queryChars = Array(query)
+        let targetChars = Array(target)
+        
+        // 完全匹配
+        if target == query {
+            return 1.0
+        }
+        
+        // 前缀匹配给高分
+        if target.hasPrefix(query) {
+            return 0.9
+        }
+        
+        // 包含匹配
+        if target.contains(query) {
+            return 0.7
+        }
+        
+        // 字符序列匹配（不需要连续）
+        var targetIndex = 0
+        var matchedChars = 0
+        
+        for queryChar in queryChars {
+            while targetIndex < targetChars.count {
+                if targetChars[targetIndex] == queryChar {
+                    matchedChars += 1
+                    targetIndex += 1
+                    break
+                }
+                targetIndex += 1
+            }
+        }
+        
+        if matchedChars == queryChars.count {
+            // 根据匹配位置的紧密程度给分
+            let ratio = Double(matchedChars) / Double(targetChars.count)
+            return ratio * 0.6 // 最高0.6分
+        }
+        
+        // 部分字符匹配
+        if matchedChars > 0 {
+            let ratio = Double(matchedChars) / Double(queryChars.count)
+            return ratio * 0.3 // 最高0.3分
+        }
+        
+        return 0.0
     }
 }
 

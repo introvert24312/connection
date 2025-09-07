@@ -453,6 +453,23 @@ struct GraphView: View {
         .onChange(of: selectedLayerIds) {
             updateGraphData()
         }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("NodeBoardSelectionChanged"))) { notification in
+            if let userInfo = notification.userInfo,
+               let nodeIds = userInfo["selectedNodeIds"] as? [UUID],
+               let layerIds = userInfo["selectedLayerIds"] as? [UUID] {
+                
+                print("🔄 GraphView: 收到节点看板选择变化通知")
+                print("   - 节点: \(nodeIds.count) 个")
+                print("   - 层级: \(layerIds.count) 个")
+                
+                // 更新主界面的选择状态
+                selectedNodeIds = Set(nodeIds)
+                selectedLayerIds = Set(layerIds)
+                
+                // 强制更新图谱数据
+                updateGraphData()
+            }
+        }
     }
     
     private func performSearch() {
@@ -1305,18 +1322,18 @@ struct NodeBoardView: View {
                 HStack(spacing: 12) {
                     if !boardSelectedNodeIds.isEmpty {
                         Text("\(boardSelectedNodeIds.count) 个节点已选中")
-                            .font(.caption)
+                            .font(.system(size: 12))
                             .foregroundColor(.blue)
                     }
                     
                     if !boardSelectedLayerIds.isEmpty {
                         Text("\(boardSelectedLayerIds.count) 个层级已选中")
-                            .font(.caption)
+                            .font(.system(size: 12))
                             .foregroundColor(.green)
                     }
                     
                     Text("\(filteredNodes.count) 个节点")
-                        .font(.caption)
+                        .font(.system(size: 12))
                         .foregroundColor(.secondary)
                 }
                 
@@ -1395,6 +1412,17 @@ struct NodeBoardView: View {
                                 }
                             }
                         }
+                        .padding(16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(NSColor.controlBackgroundColor))
+                                .stroke(
+                                    boardSelectedLayerIds.contains(layerGroup.layer.id) 
+                                        ? Color.blue.opacity(0.5)
+                                        : Color.gray.opacity(0.2), 
+                                    lineWidth: boardSelectedLayerIds.contains(layerGroup.layer.id) ? 2 : 1
+                                )
+                        )
                     }
                     
                     if nodesByLayer.isEmpty {
@@ -1490,15 +1518,20 @@ struct NodeBoardView: View {
         print("   - 选中节点: \(boardSelectedNodeIds.count) 个")
         print("   - 选中层级: \(boardSelectedLayerIds.count) 个")
         
-        // 可以考虑发送通知给主界面
+        // 发送通知给主界面的GraphView更新选择状态
         NotificationCenter.default.post(
             name: Notification.Name("NodeBoardSelectionChanged"),
             object: nil,
             userInfo: [
-                "selectedNodeIds": boardSelectedNodeIds,
-                "selectedLayerIds": boardSelectedLayerIds
+                "selectedNodeIds": Array(boardSelectedNodeIds),
+                "selectedLayerIds": Array(boardSelectedLayerIds)
             ]
         )
+        
+        // 直接更新主界面的显示状态（如果可能）
+        DispatchQueue.main.async {
+            // 这里可以通过更多方式同步状态
+        }
     }
 }
 
@@ -1525,12 +1558,11 @@ struct LayerSectionHeader: View {
                 .shadow(radius: 1)
             
             Text(layer.displayName)
-                .font(.title3)
-                .fontWeight(.semibold)
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(isSelected ? .blue : .primary)
             
             Text("(\(nodeCount))")
-                .font(.body)
+                .font(.system(size: 13))
                 .foregroundColor(.secondary)
             
             if layer.isCompound {
@@ -1544,7 +1576,7 @@ struct LayerSectionHeader: View {
             // 提示文字
             if isHovered {
                 Text("点击选择整个层级 • ⌘+点击多选")
-                    .font(.caption2)
+                    .font(.system(size: 10))
                     .foregroundColor(.secondary)
                     .transition(.opacity)
             }
@@ -1580,12 +1612,11 @@ struct CompactNodeCard: View {
     @State private var isHovered = false
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             // 节点名称和选中状态
             HStack {
                 Text(node.text)
-                    .font(.headline)
-                    .fontWeight(.medium)
+                    .font(.system(size: 16, weight: .medium))  // 增大字体从13到16
                     .foregroundColor(isSelected ? .blue : .primary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
@@ -1595,7 +1626,7 @@ struct CompactNodeCard: View {
                 // 选中状态指示器
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.caption)
+                        .font(.system(size: 14))  // 增大图标
                         .foregroundColor(.blue)
                 }
             }
@@ -1603,23 +1634,53 @@ struct CompactNodeCard: View {
             // 节点含义
             if let meaning = node.meaning {
                 Text(meaning)
-                    .font(.subheadline)
+                    .font(.system(size: 14))  // 增大字体从12到14
                     .foregroundColor(.secondary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
             }
             
+            // 显示主要标签
+            if !node.tags.isEmpty {
+                let displayTags = Array(node.tags.prefix(3))  // 显示前3个标签
+                LazyVGrid(columns: [
+                    GridItem(.flexible()),
+                    GridItem(.flexible())
+                ], spacing: 4) {
+                    ForEach(displayTags.indices, id: \.self) { index in
+                        let tag = displayTags[index]
+                        HStack(spacing: 2) {
+                            Text(tag.type.displayName)
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(.blue)
+                                .lineLimit(1)
+                            Text(tag.value)
+                                .font(.system(size: 11))
+                                .foregroundColor(.primary)
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color.blue.opacity(0.1))
+                        )
+                    }
+                }
+            }
+            
             Spacer()
             
-            // 标签数量指示器
+            // 底部信息栏
             HStack {
+                // 标签总数指示器
                 if !node.tags.isEmpty {
                     HStack(spacing: 4) {
                         Image(systemName: "tag")
-                            .font(.caption2)
+                            .font(.system(size: 12))  // 增大图标
                             .foregroundColor(.blue)
                         Text("\(node.tags.count)")
-                            .font(.caption)
+                            .font(.system(size: 12))  // 增大字体从10到12
                             .foregroundColor(.secondary)
                     }
                 }
@@ -1628,14 +1689,19 @@ struct CompactNodeCard: View {
                 
                 // 节点类型指示器
                 if node.isCompound {
-                    Image(systemName: "square.stack.3d.up")
-                        .font(.caption)
-                        .foregroundColor(.purple)
+                    HStack(spacing: 2) {
+                        Image(systemName: "square.stack.3d.up")
+                            .font(.system(size: 12))  // 增大图标
+                            .foregroundColor(.purple)
+                        Text("复合")
+                            .font(.system(size: 11))
+                            .foregroundColor(.purple)
+                    }
                 }
             }
         }
-        .padding(12)
-        .frame(minHeight: 100, maxHeight: 120)
+        .padding(14)  // 增大内边距
+        .frame(minHeight: 140, maxHeight: 160)  // 增大卡片高度
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(isSelected ? Color.blue.opacity(0.1) : (isHovered ? Color.blue.opacity(0.05) : Color(NSColor.controlBackgroundColor)))
