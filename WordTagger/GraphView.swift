@@ -273,57 +273,7 @@ struct GraphView: View {
         VStack(spacing: 0) {
             // 工具栏
             HStack {
-                Text("全局节点图谱")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                
                 Spacer()
-                
-                // 层级选择器按钮
-                Button(action: {
-                    showingLayerSelector = true
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "layer.fill")
-                        if selectedLayerIds.isEmpty {
-                            Text("所有层")
-                        } else {
-                            Text("筛选层(\(selectedLayerIds.count))")
-                        }
-                    }
-                }
-                .buttonStyle(.bordered)
-                .help("选择要显示的层")
-                
-                // 节点选择器按钮
-                Button(action: {
-                    showingNodeSelector = true
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "checkmark.circle")
-                        Text("选择节点")
-                        if !selectedNodeIds.isEmpty {
-                            Text("(\(selectedNodeIds.count))")
-                                .foregroundColor(.blue)
-                        }
-                    }
-                }
-                .buttonStyle(.bordered)
-                .help("选择要显示的节点")
-                
-                // 搜索框
-                TextField("搜索节点或标签...", text: $searchQuery)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 180)
-                    .onSubmit {
-                        performSearch()
-                    }
-                
-                // 搜索按钮
-                Button("搜索") {
-                    performSearch()
-                }
-                .disabled(searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 
                 // 图谱预设按钮
                 Button("图谱预设") {
@@ -372,7 +322,7 @@ struct GraphView: View {
                 NodeContextGraphView(
                     nodes: cachedNodes,
                     edges: cachedEdges,
-                    title: "全局节点图谱",
+                    title: "",
                     initialScale: globalGraphInitialScale,
                     onNodeSelected: { nodeId, commandPressed in
                         // 当点击节点时，选择对应的节点（只有节点才会触发选择）
