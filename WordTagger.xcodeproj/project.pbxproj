@@ -48,6 +48,7 @@
 		MR8R1RM3FTLQLCAQRR1XGJGF /* NewTagIndexBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = XIGWDDQHBCE8WQO56X0ZQO7Z /* NewTagIndexBoard.swift */; };
 		L001 /* LayerGraphWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = L100 /* LayerGraphWindowView.swift */; };
 		L002 /* LayerGraphPresetManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = L101 /* LayerGraphPresetManager.swift */; };
+		N001 /* NodeGraphPresetManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = N100 /* NodeGraphPresetManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -94,6 +95,7 @@
 		XIGWDDQHBCE8WQO56X0ZQO7Z /* NewTagIndexBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewTagIndexBoard.swift; sourceTree = "<group>"; };
 		L100 /* LayerGraphWindowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayerGraphWindowView.swift; sourceTree = "<group>"; };
 		L101 /* LayerGraphPresetManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayerGraphPresetManager.swift; sourceTree = "<group>"; };
+		N100 /* NodeGraphPresetManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeGraphPresetManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -132,6 +134,7 @@
 				XIGWDDQHBCE8WQO56X0ZQO7Z /* NewTagIndexBoard.swift */,
 				L100 /* LayerGraphWindowView.swift */,
 				L101 /* LayerGraphPresetManager.swift */,
+				N100 /* NodeGraphPresetManager.swift */,
 
 				54831DBC2E64470E00CD4724 /* TagBatchManagementView.swift */,
 				54209B7A2E3F248300388A1B /* ExternalDataManager.swift */,
@@ -250,6 +253,7 @@
 				MR8R1RM3FTLQLCAQRR1XGJGF /* NewTagIndexBoard.swift in Sources */,
 				L001 /* LayerGraphWindowView.swift in Sources */,
 				L002 /* LayerGraphPresetManager.swift in Sources */,
+				N001 /* NodeGraphPresetManager.swift in Sources */,
 
 				A001 /* WordTaggerApp.swift in Sources */,
 				A004 /* Models.swift in Sources */,
