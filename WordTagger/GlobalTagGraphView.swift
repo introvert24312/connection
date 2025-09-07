@@ -163,9 +163,9 @@ struct GlobalTagGraphView: View {
                 .controlSize(.small)
                 .disabled(graphData == nil)
                 
-                Button("索引看板") {
+                Button("标签看板") {
                     showAssociatedTagIndexWindow()
-                    print("📋 [全局标签图谱] 打开标签索引看板")
+                    print("📋 [全局标签图谱] 打开标签看板")
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
@@ -271,12 +271,12 @@ struct GlobalTagGraphView: View {
         )
         
         newWindow.contentView = hostingView
-        newWindow.title = "标签索引看板"
+        newWindow.title = "标签看板"
         newWindow.setFrameAutosaveName("AssociatedTagIndexBoardWindow")
         newWindow.isReleasedWhenClosed = false
         newWindow.makeKeyAndOrderFront(nil)
         
-        print("🪟 [标签索引看板] 窗口已创建")
+        print("🪟 [标签看板] 窗口已创建")
     }
     
     // MARK: - 数据加载
