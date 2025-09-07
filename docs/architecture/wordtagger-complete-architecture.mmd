@@ -1,7 +1,7 @@
 graph TB
     %% WordTagger Complete Architecture Diagram
-    %% Generated: 2025-08-25
-    %% Version: 2.0 - Complete Service Architecture
+    %% Generated: 2025-09-07
+    %% Version: 3.0 - Complete Service Architecture with Multi-Window & Tracing
 
     subgraph "🎯 Core Layer"
         NodeStore["NodeStore<br/>🏪 Central State Management<br/>• Published properties<br/>• Layer/Node management<br/>• Search coordination<br/>• Tag filtering state"]
@@ -11,7 +11,7 @@ graph TB
         ExternalDataManager["ExternalDataManager<br/>🔗 External Storage<br/>• Path management<br/>• Folder structure<br/>• Access permissions"]
     end
 
-    subgraph "⚡ Service Layer"
+    subgraph "⚡ Specialized Services"
         ExternalDataService["ExternalDataService<br/>💾 Persistence Service<br/>• Async save/load<br/>• Backup management<br/>• Data validation<br/>• Corruption recovery"]
         
         SearchService["SearchService<br/>🔍 Advanced Search<br/>• Multi-field search<br/>• Semantic matching<br/>• Location-based search<br/>• Fuzzy matching"]
@@ -19,6 +19,26 @@ graph TB
         GraphService["GraphService<br/>🕸️ Relationship Engine<br/>• Node graph building<br/>• Similarity detection<br/>• Tag relationships<br/>• Cluster analysis"]
         
         GitService["GitService<br/>🔄 Version Control<br/>• Repository management<br/>• Auto-commit<br/>• Credential storage<br/>• Sync operations"]
+        
+        GeocoderService["GeocoderService<br/>🌍 Geographic Processing<br/>• Address resolution<br/>• Coordinate conversion<br/>• Location validation<br/>• Map data integration"]
+    end
+
+    subgraph "🎨 UI Services"
+        CommandPaletteService["CommandPaletteService<br/>⌘ Command Interface<br/>• Fuzzy command search<br/>• Context-aware actions<br/>• Extensible commands<br/>• Keyboard shortcuts"]
+        
+        MapContainerService["MapContainerService<br/>🗺️ Interactive Maps<br/>• Node clustering<br/>• Location tag navigation<br/>• Cached tile management<br/>• Real-time updates"]
+        
+        FullscreenGraphWindowManager["FullscreenGraphWindowManager<br/>📊 Graph Windows<br/>• Fullscreen management<br/>• Window state tracking<br/>• Multi-window coordination"]
+        
+        GlobalTagGraphWindowManager["GlobalTagGraphWindowManager<br/>🕸️ Tag Graph Windows<br/>• Global tag visualization<br/>• Window lifecycle<br/>• State synchronization"]
+    end
+
+    subgraph "🕵️ Observability & Tracing"
+        TracingService["TracingService<br/>🔍 Distributed Tracing<br/>• Span lifecycle management<br/>• Performance metrics<br/>• Error tracking<br/>• Trace tree building"]
+        
+        StructuredLogger["StructuredLogger<br/>📝 Structured Logging<br/>• Context-aware logging<br/>• Log aggregation<br/>• Level-based filtering<br/>• Trace correlation"]
+        
+        ObservabilityDashboard["ObservabilityDashboard<br/>📊 Monitoring UI<br/>• Real-time metrics<br/>• Trace visualization<br/>• Performance analysis<br/>• Health monitoring"]
     end
 
     subgraph "🛠️ Infrastructure Layer"
@@ -26,25 +46,31 @@ graph TB
         
         KeyboardEventManager["KeyboardEventManager<br/>⌨️ Event Management<br/>• Command throttling<br/>• Error recovery<br/>• Focus tracking<br/>• Conflict resolution"]
         
+        WindowFocusManager["WindowFocusManager<br/>🪟 Multi-Window Management<br/>• Focus state tracking<br/>• Notification routing<br/>• Atomic window operations<br/>• Race condition prevention"]
+        
         KeychainManager["KeychainManager<br/>🔐 Security<br/>• Credential storage<br/>• Git token management<br/>• Secure access"]
         
-        MemoryLeakDetection["MemoryLeakDetection<br/>🩺 Monitoring<br/>• Memory tracking<br/>• Leak detection<br/>• Performance metrics"]
+        PerformanceOptimizationService["PerformanceOptimizationService<br/>🩺 Performance Monitoring<br/>• Memory tracking<br/>• Leak detection<br/>• Performance metrics<br/>• Resource optimization"]
+        
+        LocationManager["LocationManager<br/>📍 Location Services<br/>• GPS data access<br/>• Permission management<br/>• Coordinate validation"]
     end
 
     subgraph "🎨 Presentation Layer"
-        ContentView["ContentView<br/>📱 Main Interface<br/>• SwiftUI root view<br/>• Navigation coordination"]
+        ContentView["ContentView<br/>📱 Main Interface<br/>• SwiftUI root view<br/>• Navigation coordination<br/>• Keyboard event handling<br/>• Multi-window support"]
         
-        WordManagerView["WordManagerView<br/>📝 Node Editor<br/>• CRUD operations<br/>• Tag management<br/>• Form validation"]
+        IndependentWindow["IndependentWindow<br/>🪟 Standalone Interface<br/>• Independent NodeStore<br/>• Isolated state management<br/>• Cross-window communication"]
         
-        TagSidebarView["TagSidebarView<br/>🏷️ Tag Browser<br/>• Hierarchical display<br/>• Filter controls<br/>• Selection state"]
+        LayerGraphWindowView["LayerGraphWindowView<br/>📊 Layer Visualization<br/>• Layer relationship graph<br/>• Interactive exploration<br/>• Window focus management"]
         
-        DetailPanel["DetailPanel<br/>📄 Content Display<br/>• Markdown rendering<br/>• Rich text editing<br/>• Media support"]
+        NodeManagerView["NodeManagerView<br/>📝 Node Editor<br/>• CRUD operations<br/>• Tag management<br/>• Form validation<br/>• Batch operations"]
         
-        GraphView["GraphView<br/>🌐 Visualization<br/>• Interactive graph<br/>• Node relationships<br/>• Force-directed layout"]
+        TagSidebarView["TagSidebarView<br/>🏷️ Tag Browser<br/>• Hierarchical display<br/>• Filter controls<br/>• Selection state<br/>• Search integration"]
         
-        MapWindow["MapWindow<br/>🗺️ Geographic View<br/>• Location display<br/>• Pin clustering<br/>• Navigation controls"]
+        DetailPanel["DetailPanel<br/>📄 Content Display<br/>• Markdown rendering<br/>• Rich text editing<br/>• Media support<br/>• Tab navigation"]
         
-        CommandPaletteView["CommandPaletteView<br/>⌘ Quick Access<br/>• Fuzzy command search<br/>• Keyboard shortcuts<br/>• Action dispatch"]
+        UniversalRelationshipGraphView["UniversalRelationshipGraphView<br/>🌐 Graph Visualization<br/>• Interactive relationships<br/>• Force-directed layout<br/>• Real-time updates"]
+        
+        MapContainerView["MapContainerView<br/>🗺️ Geographic View<br/>• Location display<br/>• Pin clustering<br/>• Navigation controls<br/>• Tag-based filtering"]
     end
 
     subgraph "🔧 Utility Layer"
@@ -73,6 +99,7 @@ graph TB
     NodeStore --> ExternalDataService
     NodeStore --> SearchService
     NodeStore --> TagMappingManager
+    NodeStore --> TracingService
     
     ExternalDataService --> ExternalDataManager
     DataManager --> FileSystem
@@ -83,7 +110,26 @@ graph TB
     GitService --> GitRepository
     SearchService --> NodeStore
     GraphService --> NodeStore
+    GeocoderService --> LocationManager
     KeychainManager --> MacOSKeychain
+    
+    %% Multi-Window Management
+    WindowFocusManager --> NotificationCenter
+    WindowFocusManager --> ContentView
+    WindowFocusManager --> IndependentWindow
+    WindowFocusManager --> LayerGraphWindowView
+    
+    %% UI Services Integration
+    CommandPaletteService --> KeyboardEventManager
+    MapContainerService --> GeocoderService
+    FullscreenGraphWindowManager --> WindowFocusManager
+    GlobalTagGraphWindowManager --> WindowFocusManager
+    
+    %% Tracing and Observability
+    TracingService --> StructuredLogger
+    TracingService --> ObservabilityDashboard
+    StructuredLogger --> NotificationCenter
+    ObservabilityDashboard --> TracingService
     
     %% Infrastructure Support
     TagMappingManager --> NotificationCenter
@@ -92,42 +138,51 @@ graph TB
     
     %% Presentation to Services
     ContentView --> NodeStore
-    WordManagerView --> NodeStore
+    ContentView --> WindowFocusManager
+    IndependentWindow --> NodeStore
+    NodeManagerView --> NodeStore
     TagSidebarView --> NodeStore
+    LayerGraphWindowView --> NodeStore
     DetailPanel --> VditorWebView
-    GraphView --> GraphService
-    MapWindow --> Geocoder
-    MapWindow --> CoreLocation
-    CommandPaletteView --> KeyboardEventManager
+    UniversalRelationshipGraphView --> GraphService
+    MapContainerView --> MapContainerService
     
     %% Utility Integration
     VditorWebView --> ResourceManager
-    Geocoder --> CoreLocation
+    GeocoderService --> CoreLocation
+    LocationManager --> CoreLocation
     
-    %% Notification Flow
+    %% Notification Flow (Event-Driven Architecture)
     NotificationCenter -.-> NodeStore
     NotificationCenter -.-> ExternalDataService
     NotificationCenter -.-> GitService
     NotificationCenter -.-> TagMappingManager
+    NotificationCenter -.-> WindowFocusManager
+    NotificationCenter -.-> KeyboardEventManager
     
-    %% Memory Management
-    MemoryLeakDetection -.-> NodeStore
-    MemoryLeakDetection -.-> ExternalDataService
-    MemoryLeakDetection -.-> GraphService
+    %% Performance Monitoring
+    PerformanceOptimizationService -.-> NodeStore
+    PerformanceOptimizationService -.-> ExternalDataService
+    PerformanceOptimizationService -.-> GraphService
+    PerformanceOptimizationService -.-> TracingService
 
     %% Styling
     classDef coreLayer fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#000
-    classDef serviceLayer fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
-    classDef infraLayer fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#000
-    classDef presentationLayer fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#000
-    classDef utilityLayer fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#000
-    classDef communicationLayer fill:#f1f8e9,stroke:#689f38,stroke-width:2px,color:#000
+    classDef specializedServices fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
+    classDef uiServices fill:#fff8e1,stroke:#f57c00,stroke-width:2px,color:#000
+    classDef tracingLayer fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#000
+    classDef infraLayer fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#000
+    classDef presentationLayer fill:#fff3e0,stroke:#ff9800,stroke-width:2px,color:#000
+    classDef utilityLayer fill:#f1f8e9,stroke:#689f38,stroke-width:2px,color:#000
+    classDef communicationLayer fill:#e0f2f1,stroke:#00796b,stroke-width:2px,color:#000
     classDef externalLayer fill:#ffebee,stroke:#d32f2f,stroke-width:2px,color:#000
 
     class NodeStore,DataManager,ExternalDataManager coreLayer
-    class ExternalDataService,SearchService,GraphService,GitService serviceLayer
-    class TagMappingManager,KeyboardEventManager,KeychainManager,MemoryLeakDetection infraLayer
-    class ContentView,WordManagerView,TagSidebarView,DetailPanel,GraphView,MapWindow,CommandPaletteView presentationLayer
+    class ExternalDataService,SearchService,GraphService,GitService,GeocoderService specializedServices
+    class CommandPaletteService,MapContainerService,FullscreenGraphWindowManager,GlobalTagGraphWindowManager uiServices
+    class TracingService,StructuredLogger,ObservabilityDashboard tracingLayer
+    class TagMappingManager,KeyboardEventManager,WindowFocusManager,KeychainManager,PerformanceOptimizationService,LocationManager infraLayer
+    class ContentView,IndependentWindow,LayerGraphWindowView,NodeManagerView,TagSidebarView,DetailPanel,UniversalRelationshipGraphView,MapContainerView presentationLayer
     class ResourceManager,Geocoder,VditorWebView utilityLayer
     class NotificationCenter communicationLayer
     class FileSystem,GitRepository,MacOSKeychain,CoreLocation externalLayer

@@ -4,73 +4,87 @@ This document provides a comprehensive overview of the WordTagger service catalo
 
 ## 📊 Service Inventory Summary
 
-WordTagger consists of **16 services** organized into 4 categories:
+WordTagger consists of **20 services** organized into 5 categories:
 
 ### Core Services (3)
 - **node-store** - Central data management and state synchronization
 - **data-manager** - Data import/export and validation  
 - **external-data-manager** - External storage path management
 
-### Specialized Services (6)
+### Specialized Services (5)
 - **search-service** - Advanced search with fuzzy matching and filters
 - **graph-service** - Graph visualization and relationship management
 - **git-service** - Git integration with automated commits
 - **external-data-service** - Data persistence and backup management
-- **geocoder-service** - Geographic data processing
-- **tag-mapping-manager** - Tag type definitions and mappings
+- **geocoder-service** - Geographic data processing and coordinate conversion
 
-### Infrastructure Services (4)
+### Infrastructure Services (6)
+- **tag-mapping-manager** - Tag type definitions and mappings
 - **keychain-manager** - Secure credential storage
 - **keyboard-event-manager** - Global keyboard event handling
+- **window-focus-manager** - Multi-window focus management and coordination
 - **performance-optimization-service** - Performance monitoring and optimization
 - **location-manager** - Geographic location services
 
-### UI Services (3)
+### UI Services (4)
 - **command-palette-service** - Keyboard-driven command interface
 - **map-container-service** - Interactive map visualization
 - **fullscreen-graph-window-manager** - Graph window management
+- **global-tag-graph-window-manager** - Global tag visualization windows
+
+### Observability & Tracing Services (3)
+- **tracing-service** - Distributed tracing with span lifecycle management
+- **structured-logger** - Context-aware structured logging
+- **observability-dashboard** - Real-time monitoring and trace visualization
 
 ## 🏗️ Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        UI Services                               │
-│  ┌─────────────┐  ┌─────────────────┐  ┌────────────────────┐   │
-│  │ CommandPal  │  │ MapContainer    │  │ FullscreenGraph    │   │
-│  │ etteService │  │ Service         │  │ WindowManager      │   │
-│  └─────────────┘  └─────────────────┘  └────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-                            │
-┌─────────────────────────────────────────────────────────────────┐
-│                   Specialized Services                           │
-│  ┌──────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐ │
-│  │ Search   │  │ Graph       │  │ Git         │  │ External    │ │
-│  │ Service  │  │ Service     │  │ Service     │  │ DataService │ │
-│  └──────────┘  └─────────────┘  └─────────────┘  └─────────────┘ │
-│  ┌──────────┐  ┌─────────────┐                                   │
-│  │ Geocoder │  │ TagMapping  │                                   │
-│  │ Service  │  │ Manager     │                                   │
-│  └──────────┘  └─────────────┘                                   │
-└─────────────────────────────────────────────────────────────────┘
-                            │
-┌─────────────────────────────────────────────────────────────────┐
-│                    Core Services                                 │
-│  ┌──────────┐  ┌─────────────┐  ┌─────────────────────────────┐  │
-│  │ NodeStore│  │ DataManager │  │ ExternalDataManager         │  │
-│  └──────────┘  └─────────────┘  └─────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
-                            │
-┌─────────────────────────────────────────────────────────────────┐
-│                 Infrastructure Services                          │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐   │
-│  │ Keychain    │  │ Keyboard    │  │ PerformanceOptimization │   │
-│  │ Manager     │  │ EventMgr    │  │ Service                 │   │
-│  └─────────────┘  └─────────────┘  └─────────────────────────┘   │
-│  ┌─────────────┐                                                 │
-│  │ Location    │                                                 │
-│  │ Manager     │                                                 │
-│  └─────────────┘                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                   Observability & Tracing Services                   │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────────┐   │
+│  │ Tracing     │  │ Structured  │  │ Observability               │   │
+│  │ Service     │  │ Logger      │  │ Dashboard                   │   │
+│  └─────────────┘  └─────────────┘  └─────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+┌─────────────────────────────────────────────────────────────────────┐
+│                            UI Services                               │
+│  ┌─────────────┐  ┌─────────────┐  ┌──────────────┐  ┌─────────────┐ │
+│  │ CommandPal  │  │ MapContainer│  │ FullscreenGr │  │ GlobalTag   │ │
+│  │ etteService │  │ Service     │  │ aphWinMgr    │  │ GraphWinMgr │ │
+│  └─────────────┘  └─────────────┘  └──────────────┘  └─────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+┌─────────────────────────────────────────────────────────────────────┐
+│                       Specialized Services                           │
+│  ┌──────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐ │
+│  │ Search   │  │ Graph       │  │ Git         │  │ External        │ │
+│  │ Service  │  │ Service     │  │ Service     │  │ DataService     │ │
+│  └──────────┘  └─────────────┘  └─────────────┘  └─────────────────┘ │
+│  ┌──────────────────────────────────────────┐                       │
+│  │            Geocoder Service              │                       │
+│  └──────────────────────────────────────────┘                       │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+┌─────────────────────────────────────────────────────────────────────┐
+│                        Core Services                                 │
+│  ┌──────────┐  ┌─────────────┐  ┌─────────────────────────────────┐  │
+│  │ NodeStore│  │ DataManager │  │ ExternalDataManager             │  │
+│  └──────────┘  └─────────────┘  └─────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+                                    │
+┌─────────────────────────────────────────────────────────────────────┐
+│                     Infrastructure Services                          │
+│  ┌─────────────┐  ┌─────────────┐  ┌──────────────┐  ┌─────────────┐ │
+│  │ TagMapping  │  │ Keychain    │  │ Keyboard     │  │ WindowFocus │ │
+│  │ Manager     │  │ Manager     │  │ EventMgr     │  │ Manager     │ │
+│  └─────────────┘  └─────────────┘  └──────────────┘  └─────────────┘ │
+│  ┌─────────────────────────────┐  ┌─────────────────────────────────┐ │
+│  │ PerformanceOptimization     │  │ Location Manager                │ │
+│  │ Service                     │  │                                 │ │
+│  └─────────────────────────────┘  └─────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ## 🔍 Service Details
@@ -78,11 +92,11 @@ WordTagger consists of **16 services** organized into 4 categories:
 ### Core Services
 
 #### NodeStore
-- **Version**: 1.9.0
+- **Version**: 2.0.0
 - **Purpose**: Central data store managing nodes, layers, tags and application state
-- **Key Features**: Real-time sync, duplicate detection, auto-backup, corruption repair
+- **Key Features**: Real-time sync, duplicate detection, auto-backup, corruption repair, multi-window support
 - **Performance**: High memory usage, medium CPU usage, high I/O operations
-- **Health Metrics**: node_count, layer_count, search_operations_per_second
+- **Health Metrics**: node_count, layer_count, search_operations_per_second, tag_filter_operations
 
 #### DataManager  
 - **Version**: 1.9.0
@@ -122,6 +136,21 @@ WordTagger consists of **16 services** organized into 4 categories:
 
 ### Infrastructure Services
 
+#### WindowFocusManager
+- **Version**: 2.0.0
+- **Purpose**: Multi-window focus management and coordination
+- **Key Features**: Window state tracking, notification routing, atomic operations, race condition prevention
+- **Performance**: Low memory usage, minimal CPU impact, sub-millisecond response times
+- **Health Metrics**: active_window_count, notification_routing_accuracy, race_condition_prevention_success
+- **Race Condition Fixes**: Layer graph window duplication prevention, Command+T keyboard event routing
+
+#### KeyboardEventManager
+- **Version**: 2.0.0
+- **Purpose**: Global keyboard event handling with multi-window support
+- **Key Features**: Command throttling, error recovery, focus tracking, conflict resolution, cross-window coordination
+- **Performance**: Real-time response, command cooldown period 0.5s
+- **Health Metrics**: command_execution_rate, error_recovery_success, window_focus_accuracy
+
 #### KeychainManager
 - **Version**: 1.9.0
 - **Purpose**: Secure credential storage using macOS Keychain Services
@@ -136,21 +165,68 @@ WordTagger consists of **16 services** organized into 4 categories:
 - **Monitoring**: Memory usage, CPU usage, UI responsiveness, operation execution times
 - **Alerts**: memory_usage_critical, cpu_usage_sustained_high
 
+#### LocationManager
+- **Version**: 1.9.0
+- **Purpose**: Geographic location services and coordinate management
+- **Key Features**: GPS data access, permission management, coordinate validation
+- **Security**: Location permission handling, privacy-compliant data usage
+- **Health Metrics**: location_accuracy, permission_status, coordinate_validation_rate
+
 ### UI Services
 
 #### CommandPaletteService
-- **Version**: 1.9.0
+- **Version**: 2.0.0
 - **Purpose**: Keyboard-driven command interface with fuzzy search
-- **Key Features**: Fuzzy command search, context-aware commands, extensible command system
-- **Performance**: <50ms response time target, command history
-- **Dependencies**: node-store, search-service, keyboard-event-manager
+- **Key Features**: Fuzzy command search, context-aware commands, extensible command system, multi-window support
+- **Performance**: <50ms response time target, command history, window-aware command routing
+- **Dependencies**: node-store, search-service, keyboard-event-manager, window-focus-manager
 
 #### MapContainerService
-- **Version**: 1.9.0
+- **Version**: 2.0.0
 - **Purpose**: Geographic visualization with interactive maps
-- **Key Features**: Interactive visualization, node clustering, location tag navigation
-- **Performance**: Supports 1000 concurrent nodes, cached tile support
-- **Dependencies**: node-store, geocoder-service
+- **Key Features**: Interactive visualization, node clustering, location tag navigation, cached tile management
+- **Performance**: Supports 1000 concurrent nodes, cached tile support, real-time updates
+- **Dependencies**: node-store, geocoder-service, location-manager
+
+#### FullscreenGraphWindowManager
+- **Version**: 2.0.0
+- **Purpose**: Graph window management with multi-window coordination
+- **Key Features**: Fullscreen management, window state tracking, multi-window coordination
+- **Performance**: Low memory footprint, efficient window lifecycle management
+- **Dependencies**: window-focus-manager, graph-service
+
+#### GlobalTagGraphWindowManager
+- **Version**: 2.0.0
+- **Purpose**: Global tag visualization window management
+- **Key Features**: Global tag visualization, window lifecycle management, state synchronization
+- **Performance**: Real-time tag graph updates, efficient memory usage
+- **Dependencies**: window-focus-manager, tag-mapping-manager
+
+### Observability & Tracing Services
+
+#### TracingService
+- **Version**: 2.0.0
+- **Purpose**: Distributed tracing with span lifecycle management
+- **Key Features**: Span creation and management, performance metrics collection, error tracking, trace tree building
+- **Performance**: Low overhead tracing, sub-microsecond span creation, efficient metric aggregation
+- **Health Metrics**: active_spans, completed_spans, trace_throughput, error_rate
+- **Trace Format**: 16-char hex traceId, 8-char hex spanId, hierarchical span relationships
+
+#### StructuredLogger
+- **Version**: 2.0.0
+- **Purpose**: Context-aware structured logging with trace correlation
+- **Key Features**: Structured log formatting, trace context injection, log aggregation, level-based filtering
+- **Performance**: Async logging queue, 1000 recent logs buffer, minimal performance impact
+- **Log Levels**: TRACE, DEBUG, INFO, WARN, ERROR
+- **Output**: Console with structured format, trace correlation via traceId/spanId
+
+#### ObservabilityDashboard
+- **Version**: 2.0.0
+- **Purpose**: Real-time monitoring and trace visualization UI
+- **Key Features**: Real-time metrics visualization, trace timeline view, performance analysis, health monitoring
+- **Performance**: Live dashboard updates, efficient chart rendering, interactive trace exploration
+- **Dependencies**: tracing-service, structured-logger
+- **Metrics Displayed**: Service health, response times, error rates, memory usage, trace flows
 
 ## 🚀 Integration Guide
 
