@@ -461,9 +461,10 @@ struct GraphView: View {
     // MARK: - 预设和看板功能
     
     private func showNodeBoardWindow() {
+        // 节点看板永远显示所有数据，不受任何筛选限制
         let nodeBoardView = NodeBoardView(
-            selectedNodeIds: selectedNodeIds,
-            selectedLayerIds: selectedLayerIds
+            selectedNodeIds: Set<UUID>(), // 清空节点筛选
+            selectedLayerIds: Set<UUID>() // 清空层级筛选
         )
         .environmentObject(store)
         
@@ -1232,24 +1233,21 @@ struct NodeBoardView: View {
     private var filteredNodes: [Node] {
         var nodes = store.nodes
         
-        // 节点看板始终显示所有层的数据，不受外部层级筛选影响
-        // 只应用节点筛选（如果有明确选择的节点）
-        if !selectedNodeIds.isEmpty {
-            nodes = nodes.filter { selectedNodeIds.contains($0.id) }
-        }
-        
-        // 应用看板内部的层级筛选（用户在看板中选择的层级）
+        // 节点看板永远显示所有数据，只应用以下筛选：
+        // 1. 看板内部的层级筛选（用户在看板中主动选择的层级）
         if !boardSelectedLayerIds.isEmpty {
             nodes = nodes.filter { boardSelectedLayerIds.contains($0.layerId) }
         }
         
-        // 应用搜索筛选
+        // 2. 搜索筛选
         if !searchText.isEmpty {
             nodes = nodes.filter { node in
                 node.text.localizedCaseInsensitiveContains(searchText) ||
                 node.meaning?.localizedCaseInsensitiveContains(searchText) == true
             }
         }
+        
+        // 不应用任何外部传入的筛选条件，确保看板永远有完整数据
         
         return nodes.sorted { $0.text < $1.text }
     }
@@ -1410,11 +1408,10 @@ struct NodeBoardView: View {
         }
         .frame(minWidth: 800, minHeight: 600)
         .onAppear {
-            // 初始化看板选中状态
-            boardSelectedNodeIds = selectedNodeIds
-            // 节点看板不应受外部层级筛选限制，始终显示所有层
-            // boardSelectedLayerIds = selectedLayerIds  // 注释掉这行
-            boardSelectedLayerIds.removeAll() // 确保初始状态显示所有层
+            // 节点看板永远显示所有数据，清空所有筛选状态
+            boardSelectedNodeIds.removeAll() // 不应用任何节点筛选
+            boardSelectedLayerIds.removeAll() // 不应用任何层级筛选
+            searchText = "" // 清空搜索
         }
     }
     
@@ -1811,7 +1808,7 @@ struct NodeGraphPresetManagerView: View {
             }
         }
         .padding()
-        .frame(width: 650, height: 500)
+        .frame(width: 800, height: 600)
         .alert("删除预设", isPresented: $showingDeleteAlert, presenting: presetToDelete) { preset in
             Button("删除", role: .destructive) {
                 presetManager.deletePreset(preset)
