@@ -3819,6 +3819,7 @@ struct WordTaggerApp: App {
                 .environmentObject(store)
         }
         .defaultSize(width: 1200, height: 800)
+        .windowToolbarStyle(.unified)
         
         // 节点管理窗口 - 使用单例窗口管理器
         Window("节点管理", id: "nodeManager") {

@@ -273,6 +273,9 @@ struct GraphView: View {
         VStack(spacing: 0) {
             // 工具栏
             HStack {
+                // 左侧：过滤信息显示
+                buildFilterInfoView()
+                
                 Spacer()
                 
                 // 图谱预设按钮
@@ -322,7 +325,7 @@ struct GraphView: View {
                 NodeContextGraphView(
                     nodes: cachedNodes,
                     edges: cachedEdges,
-                    title: "",
+                    title: "全局节点图谱",
                     initialScale: globalGraphInitialScale,
                     onNodeSelected: { nodeId, commandPressed in
                         // 当点击节点时，选择对应的节点（只有节点才会触发选择）
@@ -420,6 +423,7 @@ struct GraphView: View {
                 updateGraphData()
             }
         }
+        .navigationTitle("全局节点图谱")
     }
     
     private func performSearch() {
@@ -456,6 +460,54 @@ struct GraphView: View {
         finalNodes.formUnion(relatedNodes)
         
         displayedNodes = Array(finalNodes).sorted { $0.text < $1.text }
+    }
+    
+    // MARK: - 过滤信息显示
+    
+    @ViewBuilder
+    private func buildFilterInfoView() -> some View {
+        if !selectedNodeIds.isEmpty || !selectedLayerIds.isEmpty || !displayedNodes.isEmpty {
+            HStack(spacing: 8) {
+                Image(systemName: "line.3.horizontal.decrease.circle")
+                    .foregroundColor(.secondary)
+                    .font(.caption)
+                
+                Text(buildFilterText())
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        } else {
+            HStack(spacing: 8) {
+                Image(systemName: "circle.hexagonpath")
+                    .foregroundColor(.secondary)
+                    .font(.caption)
+                
+                Text("节点: \(store.nodes.count) | 层级: \(store.layers.count)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+    
+    private func buildFilterText() -> String {
+        var parts: [String] = []
+        
+        if !selectedLayerIds.isEmpty {
+            let layerNames = store.layers
+                .filter { selectedLayerIds.contains($0.id) }
+                .map { $0.displayName }
+            parts.append("层级: \(layerNames.joined(separator: ", "))")
+        }
+        
+        if !selectedNodeIds.isEmpty {
+            parts.append("节点: \(selectedNodeIds.count)个")
+        }
+        
+        if !displayedNodes.isEmpty {
+            parts.append("搜索结果: \(displayedNodes.count)个")
+        }
+        
+        return parts.joined(separator: " | ")
     }
     
     // MARK: - 预设和看板功能
