@@ -13,11 +13,24 @@ struct GlobalTagGraphView: View {
     @State private var resetTrigger = UUID()
     @State private var hasPerformedInitialLoad = false
     
+    // 🔒 图谱锁定状态 - 锁定后不再接收数据更新
+    @State private var isLocked = false
+    @State private var lockedGraphData: (nodes: [GlobalTagGraphNode], edges: [GlobalTagGraphEdge])?
+    
     // 🆕 图谱预设管理状态
     @State private var showingPresetSheet = false
     @State private var showingSavePresetDialog = false
     @State private var newPresetName = ""
     @State private var newPresetDescription = ""
+    
+    // 🔒 计算属性：根据锁定状态决定显示哪个数据
+    private var displayGraphData: (nodes: [GlobalTagGraphNode], edges: [GlobalTagGraphEdge])? {
+        if isLocked {
+            return lockedGraphData
+        } else {
+            return graphData
+        }
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -30,7 +43,7 @@ struct GlobalTagGraphView: View {
             Group {
                 if isLoading {
                     loadingView
-                } else if let data = graphData, !data.nodes.isEmpty {
+                } else if let data = displayGraphData, !data.nodes.isEmpty {
                     GlobalTagGraphCanvas(
                         nodes: data.nodes, 
                         edges: data.edges, 
@@ -72,6 +85,12 @@ struct GlobalTagGraphView: View {
         .onReceive(dataManager.$filteredLayers.combineLatest(dataManager.$filteredTagTypes, dataManager.$filteredTagValues)) { layers, types, values in
             print("🔄 [全局标签图谱] 过滤器变化，准备重新加载数据")
             print("   新的过滤条件: 层级=\(layers.count), 类型=\(types.count), 值=\(values.count)")
+            
+            // 🔒 如果图谱被锁定，忽略所有数据更新
+            guard !isLocked else {
+                print("🔒 [全局标签图谱] 图谱已锁定，忽略过滤器变化")
+                return
+            }
             
             // 🆕 只有在用户已经进行过初始加载后，过滤器变化才会触发重新加载
             guard hasPerformedInitialLoad else {
@@ -153,6 +172,22 @@ struct GlobalTagGraphView: View {
                 Divider()
                     .frame(height: 20)
                 
+                // 🔒 锁定/解锁按钮
+                Button(isLocked ? "🔓 解锁" : "🔒 锁定") {
+                    toggleLockState()
+                }
+                .buttonStyle(.plain)
+                .controlSize(.small)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(isLocked ? Color.orange.opacity(0.2) : Color.blue.opacity(0.1))
+                .foregroundColor(isLocked ? .orange : .blue)
+                .cornerRadius(6)
+                .help(isLocked ? "解锁图谱以接收数据更新" : "锁定图谱以固定当前显示内容")
+                
+                Divider()
+                    .frame(height: 20)
+                
                 Button("重置视图") { 
                     withAnimation(.easeInOut(duration: 0.5)) {
                         resetTrigger = UUID()
@@ -185,7 +220,15 @@ struct GlobalTagGraphView: View {
     
     private var filterStatusView: some View {
         HStack(spacing: 8) {
-            if !dataManager.filteredLayers.isEmpty || !dataManager.filteredTagTypes.isEmpty || !dataManager.filteredTagValues.isEmpty {
+            // 🔒 锁定状态指示
+            if isLocked {
+                Image(systemName: "lock.fill")
+                    .foregroundColor(.orange)
+                Text("图谱已锁定")
+                    .font(.caption)
+                    .foregroundColor(.orange)
+                    .fontWeight(.medium)
+            } else if !dataManager.filteredLayers.isEmpty || !dataManager.filteredTagTypes.isEmpty || !dataManager.filteredTagValues.isEmpty {
                 Image(systemName: "line.horizontal.3.decrease.circle")
                     .foregroundColor(.blue)
                 
@@ -285,6 +328,12 @@ struct GlobalTagGraphView: View {
     private func loadCurrentLayerGraphData() {
         print("🔄 [全局标签图谱] loadCurrentLayerGraphData开始，当前isLoading: \(isLoading)")
         
+        // 🔒 如果图谱被锁定，忽略加载请求
+        guard !isLocked else {
+            print("🔒 [全局标签图谱] 图谱已锁定，忽略当前层加载请求")
+            return
+        }
+        
         guard !isLoading else {
             print("⏸️ [全局标签图谱] 已在加载中，跳过当前层加载请求")
             return
@@ -302,8 +351,41 @@ struct GlobalTagGraphView: View {
         }
     }
     
+    // 🔒 锁定/解锁切换函数
+    private func toggleLockState() {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            if isLocked {
+                // 解锁：清除锁定的数据，恢复正常数据流
+                print("🔓 [全局标签图谱] 解锁图谱，恢复数据更新")
+                isLocked = false
+                lockedGraphData = nil
+                
+                // 解锁后立即重新加载当前数据
+                if !isLoading {
+                    loadGraphData()
+                }
+            } else {
+                // 锁定：保存当前数据状态
+                print("🔒 [全局标签图谱] 锁定图谱，冻结当前显示内容")
+                isLocked = true
+                lockedGraphData = graphData
+                
+                // 打印锁定的数据信息
+                if let data = lockedGraphData {
+                    print("🔒 锁定数据: \(data.nodes.count)个节点, \(data.edges.count)条边")
+                }
+            }
+        }
+    }
+    
     private func loadGraphData() {
         print("🔄 [全局标签图谱] loadGraphData开始，当前isLoading: \(isLoading)")
+        
+        // 🔒 如果图谱被锁定，忽略加载请求
+        guard !isLocked else {
+            print("🔒 [全局标签图谱] 图谱已锁定，忽略数据加载请求")
+            return
+        }
         
         // 添加强制重置机制：如果连续多次调用都被跳过，强制重置状态
         if isLoading {
