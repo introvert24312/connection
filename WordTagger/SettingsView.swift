@@ -419,13 +419,13 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
     
     private func startPeriodicSync() {
         periodicSyncTimer?.invalidate()
-        periodicSyncTimer = Timer.scheduledTimer(withTimeInterval: 60.0, repeats: true) { [weak self] _ in
-            print("⏰ GitAutoSyncManager: 定时同步触发 (60秒)")
+        periodicSyncTimer = Timer.scheduledTimer(withTimeInterval: 300.0, repeats: true) { [weak self] _ in
+            print("⏰ GitAutoSyncManager: 定时同步触发 (5分钟)")
             Task { @MainActor in
                 self?.scheduleAutoSync(reason: "定时同步")
             }
         }
-        print("🔄 GitAutoSyncManager: 定时同步计时器已启动 (每60秒)")
+        print("🔄 GitAutoSyncManager: 定时同步计时器已启动 (每5分钟)")
     }
     
     private func checkConfigurationChanges() {
@@ -1383,13 +1383,13 @@ struct GitSyncStatusIndicator: View {
             return .red
         }
         
-        // 检查5分钟规则 - 简化逻辑，正常显示绿色，不正常显示红色
+        // 检查12分钟规则 - 简化逻辑，正常显示绿色，不正常显示红色
         if let lastSync = statusManager.lastSyncTime {
             let timeSinceLastSync = Date().timeIntervalSince(lastSync)
-            if timeSinceLastSync <= 300 { // 5分钟内有同步，显示绿色
+            if timeSinceLastSync <= 720 { // 12分钟内有同步，显示绿色
                 return .green
             } else {
-                return .red    // 超过5分钟，显示红色
+                return .red    // 超过12分钟，显示红色
             }
         }
         
