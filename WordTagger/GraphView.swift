@@ -1310,11 +1310,10 @@ struct NodeBoardView: View {
             node.layerId
         }
         
-        return store.layers.compactMap { layer in
-            if let nodes = groupedNodes[layer.id], !nodes.isEmpty {
-                return (layer: layer, nodes: nodes.sorted { $0.text < $1.text })
-            }
-            return nil
+        // 🔧 修复：显示所有层，即使某些层因过滤而没有节点
+        return store.layers.map { layer in
+            let nodes = groupedNodes[layer.id] ?? []
+            return (layer: layer, nodes: nodes.sorted { $0.text < $1.text })
         }.sorted { $0.layer.displayName < $1.layer.displayName }
     }
     
