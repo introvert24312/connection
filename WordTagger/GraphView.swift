@@ -1282,16 +1282,21 @@ struct NodeBoardView: View {
     @State private var boardSelectedNodeIds: Set<UUID> = []  // 看板内部的选中状态
     @State private var boardSelectedLayerIds: Set<UUID> = [] // 看板内部的选中层级
     
+    // 🔒 看板锁定状态 - 锁定后不再接收数据更新
+    @State private var isLocked = false
+    @State private var lockedNodes: [Node]? // 锁定时保存的节点数据
+    
     private var filteredNodes: [Node] {
-        var nodes = store.nodes
-        
-        // 节点看板永远显示所有数据，只应用以下筛选：
-        // 1. 看板内部的层级筛选（用户在看板中主动选择的层级）
-        if !boardSelectedLayerIds.isEmpty {
-            nodes = nodes.filter { boardSelectedLayerIds.contains($0.layerId) }
+        // 🔒 根据锁定状态选择数据源
+        var nodes: [Node]
+        if isLocked, let lockedData = lockedNodes {
+            nodes = lockedData
+        } else {
+            nodes = store.nodes
         }
         
-        // 2. 搜索筛选
+        // 节点看板永远显示所有数据，只应用搜索筛选
+        // 层级选择仅用于标记状态，不影响节点显示
         if !searchText.isEmpty {
             nodes = nodes.filter { node in
                 node.text.localizedCaseInsensitiveContains(searchText) ||
@@ -1299,7 +1304,7 @@ struct NodeBoardView: View {
             }
         }
         
-        // 不应用任何外部传入的筛选条件，确保看板永远有完整数据
+        // 不应用任何层级筛选或外部筛选条件，确保所有节点始终可见
         
         return nodes.sorted { $0.text < $1.text }
     }
@@ -1329,6 +1334,18 @@ struct NodeBoardView: View {
                 
                 // 选中状态显示
                 HStack(spacing: 12) {
+                    // 🔒 锁定状态指示
+                    if isLocked {
+                        HStack(spacing: 4) {
+                            Image(systemName: "lock.fill")
+                                .foregroundColor(.orange)
+                            Text("已锁定")
+                                .font(.system(size: 12))
+                                .foregroundColor(.orange)
+                                .fontWeight(.medium)
+                        }
+                    }
+                    
                     if !boardSelectedNodeIds.isEmpty {
                         Text("\(boardSelectedNodeIds.count) 个节点已选中")
                             .font(.system(size: 12))
@@ -1355,6 +1372,19 @@ struct NodeBoardView: View {
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                 }
+                
+                // 🔒 锁定/解锁按钮
+                Button(isLocked ? "🔓 解锁" : "🔒 锁定") {
+                    toggleLockState()
+                }
+                .buttonStyle(.plain)
+                .controlSize(.small)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(isLocked ? Color.orange.opacity(0.2) : Color.blue.opacity(0.1))
+                .foregroundColor(isLocked ? .orange : .blue)
+                .cornerRadius(6)
+                .help(isLocked ? "解锁看板以接收数据更新" : "锁定看板以固定当前显示内容")
                 
                 Button("关闭") {
                     // Close the current window
@@ -1541,6 +1571,26 @@ struct NodeBoardView: View {
         // 直接更新主界面的显示状态（如果可能）
         DispatchQueue.main.async {
             // 这里可以通过更多方式同步状态
+        }
+    }
+    
+    // 🔒 锁定/解锁切换函数
+    private func toggleLockState() {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            if isLocked {
+                // 解锁：清除锁定的数据，恢复正常数据流
+                print("🔓 [节点看板] 解锁看板，恢复数据更新")
+                isLocked = false
+                lockedNodes = nil
+            } else {
+                // 锁定：保存当前数据状态
+                print("🔒 [节点看板] 锁定看板，冻结当前显示内容")
+                isLocked = true
+                lockedNodes = store.nodes
+                
+                // 打印锁定的数据信息
+                print("🔒 锁定数据: \(lockedNodes?.count ?? 0)个节点")
+            }
         }
     }
 }
