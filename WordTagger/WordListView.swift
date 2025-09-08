@@ -416,15 +416,41 @@ struct NodeListView: View {
     }
     
     private func sortNodes(_ nodes: [Node]) -> [Node] {
-        switch sortOption {
-        case .tagCount:
-            // 按标签数量降序排列，标签多的在前面
-            let sorted = nodes.sorted { $0.tags.count > $1.tags.count }
-            print("📊 按标签数量排序: \(nodes.count) 个节点")
-            for (index, node) in sorted.prefix(5).enumerated() {
-                print("  排序结果[\(index)]: '\(node.text)' - 标签数: \(node.tags.count)")
+        // 如果有选中的标签并且是焦点模式，优先排序焦点节点
+        if let selectedTag = store.selectedTag, store.showAllTagTypeNodes {
+            print("🎯 应用焦点排序 - 标签: \(selectedTag.type.displayName) - '\(selectedTag.value)'")
+            
+            let sorted = nodes.sorted { node1, node2 in
+                let node1HasFocusTag = node1.hasTag(selectedTag)
+                let node2HasFocusTag = node2.hasTag(selectedTag)
+                
+                // 首先按是否包含焦点标签排序
+                if node1HasFocusTag && !node2HasFocusTag {
+                    return true  // node1 排在前面
+                } else if !node1HasFocusTag && node2HasFocusTag {
+                    return false // node2 排在前面
+                } else {
+                    // 如果都包含或都不包含焦点标签，按标签数量排序
+                    return node1.tags.count > node2.tags.count
+                }
             }
+            
+            // 统计焦点节点数量
+            let focusNodesCount = sorted.filter { $0.hasTag(selectedTag) }.count
+            print("🎯 焦点排序完成: \(focusNodesCount) 个焦点节点排在最顶上")
+            
             return sorted
+        } else {
+            // 普通排序：按标签数量降序排列
+            switch sortOption {
+            case .tagCount:
+                let sorted = nodes.sorted { $0.tags.count > $1.tags.count }
+                print("📊 按标签数量排序: \(nodes.count) 个节点")
+                for (index, node) in sorted.prefix(5).enumerated() {
+                    print("  排序结果[\(index)]: '\(node.text)' - 标签数: \(node.tags.count)")
+                }
+                return sorted
+            }
         }
     }
     
@@ -669,21 +695,55 @@ struct NodeRowView: View {
     }
     
     private func backgroundColorForNode(isSelected: Bool) -> Color {
+        // 检查是否是焦点节点（包含当前选中的标签）
+        let isFocusNode = isFocusedNode()
+        
         if node.isCompound {
             let compoundColor = getCompoundColor()
-            return isSelected ? compoundColor.opacity(0.25) : compoundColor.opacity(0.08)
+            if isFocusNode {
+                // 焦点复合节点：更亮的高亮
+                return isSelected ? compoundColor.opacity(0.4) : compoundColor.opacity(0.2)
+            } else {
+                return isSelected ? compoundColor.opacity(0.25) : compoundColor.opacity(0.08)
+            }
         } else {
-            return isSelected ? Color.blue.opacity(0.15) : Color.clear
+            if isFocusNode {
+                // 焦点普通节点：金色高亮
+                return isSelected ? Color.yellow.opacity(0.3) : Color.yellow.opacity(0.15)
+            } else {
+                return isSelected ? Color.blue.opacity(0.15) : Color.clear
+            }
         }
     }
     
     private func borderColorForNode(isSelected: Bool) -> Color {
+        let isFocusNode = isFocusedNode()
+        
         if node.isCompound {
             let compoundColor = getCompoundColor()
-            return isSelected ? compoundColor.opacity(0.6) : compoundColor.opacity(0.3)
+            if isFocusNode {
+                // 焦点复合节点：更明显的边框
+                return isSelected ? compoundColor.opacity(0.8) : compoundColor.opacity(0.5)
+            } else {
+                return isSelected ? compoundColor.opacity(0.6) : compoundColor.opacity(0.3)
+            }
         } else {
-            return isSelected ? Color.blue.opacity(0.3) : Color.clear
+            if isFocusNode {
+                // 焦点普通节点：金色边框
+                return isSelected ? Color.yellow.opacity(0.6) : Color.yellow.opacity(0.4)
+            } else {
+                return isSelected ? Color.blue.opacity(0.3) : Color.clear
+            }
         }
+    }
+    
+    /// 检查当前节点是否是焦点节点
+    private func isFocusedNode() -> Bool {
+        // 只有在有选中标签且是焦点模式时才检查
+        guard let selectedTag = store.selectedTag, store.showAllTagTypeNodes else {
+            return false
+        }
+        return node.hasTag(selectedTag)
     }
     
     private func getCompoundColor() -> Color {

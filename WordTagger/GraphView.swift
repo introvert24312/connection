@@ -354,7 +354,7 @@ struct GraphView: View {
                 selectedLayerIds: $selectedLayerIds
             )
             .environmentObject(store)
-            .frame(width: 500, height: 400)
+            .frame(width: 800, height: 600)
         }
         .alert("保存节点图谱预设", isPresented: $showingSavePresetDialog) {
             TextField("预设名称", text: $newPresetName)
@@ -1972,6 +1972,10 @@ struct PresetRowView: View {
             withAnimation(.easeInOut(duration: 0.2)) {
                 isHovered = hovering
             }
+        }
+        .onTapGesture(count: 2) {
+            // 双击加载预设
+            onLoad()
         }
     }
     
