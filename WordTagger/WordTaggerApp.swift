@@ -915,7 +915,7 @@ struct QuickAddSheetView: View {
                 .foregroundColor(.blue)
             
             VStack(alignment: .leading, spacing: 4) {
-                TextField("输入: 节点 root 词根内容 memory 记忆内容...", text: $inputText)
+                TextField("输入: 节点 root 词根内容 memory 记忆内容... 试试用Command+J建立复合节点", text: $inputText)
                     .textFieldStyle(.plain)
                     .font(.title3)
                     .focused($isInputFocused)
@@ -1229,14 +1229,6 @@ struct QuickAddSheetView: View {
             return 
         }
         
-        // 🔧 检查是否是复合节点命令 (以"c"开头)
-        if components[0] == "c" {
-            handleCompoundNodeCommand(components: components)
-            // 清空输入并关闭窗口
-            inputText = ""
-            dismiss()
-            return
-        }
         
         let nodeText = components[0]
         var tags: [Tag] = []
@@ -1574,82 +1566,6 @@ struct QuickAddSheetView: View {
         }
     }
     
-    // 处理复合节点命令 (c 复合节点名 节点1 节点2 ...)
-    private func handleCompoundNodeCommand(components: [String]) {
-        print("🔧 处理复合节点命令: \(components)")
-        
-        // 🔧 添加安全检查，避免数组越界
-        guard components.count >= 3 else {
-            // 触发错误警告
-            store.duplicateNodeAlert = NodeStore.DuplicateNodeAlert(
-                message: "复合节点命令格式错误：至少需要 'c 复合节点名 子节点1'",
-                isDuplicate: false,
-                existingNode: nil,
-                newNode: Node(text: "错误命令", layerId: UUID(), tags: [])
-            )
-            return
-        }
-        
-        // 🔧 安全地获取节点名称和子节点列表
-        guard components.count >= 2 else {
-            store.duplicateNodeAlert = NodeStore.DuplicateNodeAlert(
-                message: "复合节点命令参数不足",
-                isDuplicate: false,
-                existingNode: nil,
-                newNode: Node(text: "错误命令", layerId: UUID(), tags: [])
-            )
-            return
-        }
-        
-        let compoundNodeName = components[1]
-        let childNodeNames = Array(components[2...])
-        
-        print("🔧 复合节点名: \(compoundNodeName)")
-        print("🔧 子节点列表: \(childNodeNames)")
-        
-        guard let currentLayer = store.currentLayer else {
-            store.duplicateNodeAlert = NodeStore.DuplicateNodeAlert(
-                message: "无法创建复合节点：请先选择一个活跃层",
-                isDuplicate: false,
-                existingNode: nil,
-                newNode: Node(text: compoundNodeName, layerId: UUID(), tags: [])
-            )
-            return
-        }
-        
-        // 检查是否有删除操作（子节点名以"-"开头）
-        let (childNamesToAdd, childNamesToRemove) = separateAddAndRemoveOperations(childNodeNames)
-        
-        // 检查复合节点是否已存在
-        if let existingCompoundNode = store.nodes.first(where: { 
-            $0.text.lowercased() == compoundNodeName.lowercased() && $0.isCompound 
-        }) {
-            // 修改已存在的复合节点
-            if !childNamesToRemove.isEmpty {
-                print("🗑️ 从复合节点删除子节点: \(compoundNodeName)")
-                removeChildrenFromCompoundNode(existingCompoundNode, childNames: childNamesToRemove)
-            }
-            if !childNamesToAdd.isEmpty {
-                print("🔄 向已存在的复合节点添加子节点: \(compoundNodeName)")
-                addChildrenToExistingCompoundNode(existingCompoundNode, childNames: childNamesToAdd)
-            }
-        } else {
-            // 创建新的复合节点
-            if !childNamesToRemove.isEmpty {
-                store.duplicateNodeAlert = NodeStore.DuplicateNodeAlert(
-                    message: "无法从不存在的复合节点中删除子节点",
-                    isDuplicate: false,
-                    existingNode: nil,
-                    newNode: Node(text: compoundNodeName, layerId: currentLayer.id, tags: [])
-                )
-                return
-            }
-            print("🏗️ 创建新复合节点: \(compoundNodeName)")
-            createNewCompoundNode(name: compoundNodeName, childNames: childNamesToAdd, layerId: currentLayer.id)
-        }
-        
-        print("✅ 复合节点命令处理完成")
-    }
     
     // 分离添加和删除操作
     private func separateAddAndRemoveOperations(_ childNames: [String]) -> ([String], [String]) {
@@ -2085,7 +2001,7 @@ struct QuickAddView: View {
                 VStack(spacing: 12) {
                     HStack {
                         Image(systemName: "plus.circle.fill").foregroundColor(.blue).font(.title2)
-                        TextField("输入: 节点 root 词根内容 memory 记忆内容...", text: $inputText)
+                        TextField("输入: 节点 root 词根内容 memory 记忆内容... 试试用Command+J建立复合节点", text: $inputText)
                             .textFieldStyle(.plain).font(.system(size: 16, weight: .medium))
                             .onChange(of: inputText) { _, newValue in updateSuggestions(for: newValue) }
                             .onKeyPress(.tab) { handleTabInQuickAdd() }

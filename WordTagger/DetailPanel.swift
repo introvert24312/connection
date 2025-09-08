@@ -1512,7 +1512,7 @@ struct NodeGraphView: View {
                 NodeContextGraphView(
                     nodes: graphData.nodes,
                     edges: graphData.edges,
-                    title: "节点详情图谱",
+                    title: "(* ¯ ︶ ¯ *)ノ ❤ ヽ( ^ ^ )",
                     initialScale: detailGraphInitialScale,
                     onNodeSelected: { nodeId, commandPressed in
                         // 当点击节点时，选择对应的节点（只有节点才会触发选择）
