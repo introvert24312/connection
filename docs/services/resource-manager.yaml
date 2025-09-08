@@ -1,0 +1,66 @@
+name: resource-manager
+display_name: Resource Manager
+version: 1.9.0
+description: System resource monitoring and management service
+category: infrastructure
+
+purpose: |
+  Monitors system resources including memory, CPU, and storage usage.
+  Provides resource allocation recommendations and cleanup strategies.
+
+key_features:
+  - Real-time resource monitoring
+  - Memory usage tracking
+  - CPU utilization analysis
+  - Storage space monitoring
+  - Resource cleanup coordination
+
+performance:
+  memory_usage: low
+  cpu_usage: minimal
+  monitoring_interval: 5s
+  alert_threshold_memory: 80%
+  alert_threshold_cpu: 70%
+
+capabilities:
+  - System resource monitoring
+  - Resource usage analytics
+  - Memory leak detection assistance
+  - Performance bottleneck identification
+  - Resource cleanup recommendations
+
+dependencies:
+  - memory-leak-detection
+
+consumers:
+  - performance-optimization-service
+  - service-registry
+
+communication:
+  protocols:
+    - notification_center
+    - direct_method_calls
+  notifications_sent:
+    - resource_usage_alert
+    - cleanup_recommended
+  notifications_received:
+    - resource_cleanup_requested
+
+health_checks:
+  - system_resource_availability
+  - monitoring_service_health
+
+metrics:
+  - current_memory_usage_mb
+  - current_cpu_usage_percent
+  - available_storage_gb
+  - resource_alerts_triggered
+
+error_handling:
+  - Resource monitoring failures
+  - Alert system recovery
+  - Performance degradation handling
+
+security:
+  - System access validation
+  - Resource usage privacy

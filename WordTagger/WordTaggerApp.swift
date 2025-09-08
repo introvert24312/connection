@@ -3248,7 +3248,7 @@ struct WordTaggerApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("节点标签管理器") {
+        WindowGroup {
             ZStack {
                 ContentView(windowId: mainWindowId)
                     .environmentObject(store)

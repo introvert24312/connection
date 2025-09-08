@@ -1,0 +1,68 @@
+name: window-focus-manager
+display_name: Window Focus Manager
+version: 2.0.0
+description: Multi-window focus management and coordination service with race condition prevention
+category: infrastructure
+
+purpose: |
+  Manages window focus states across multiple application windows, coordinates inter-window
+  communication, and prevents race conditions in multi-window operations.
+
+key_features:
+  - Window state tracking and management
+  - Multi-window focus coordination  
+  - Race condition prevention
+  - Atomic window operations
+  - Window lifecycle management
+
+performance:
+  memory_usage: low
+  cpu_usage: minimal
+  response_time_target: sub-millisecond
+  concurrent_windows_supported: 50
+
+capabilities:
+  - Window focus state tracking
+  - Cross-window event coordination
+  - Window lifecycle management
+  - Focus change notifications
+  - Window state synchronization
+
+dependencies: []
+
+consumers:
+  - command-palette-service
+  - fullscreen-graph-window-manager
+  - global-tag-graph-window-manager
+  - keyboard-event-manager
+
+communication:
+  protocols:
+    - notification_center
+    - direct_method_calls
+  notifications_sent:
+    - window_focus_changed
+    - window_activated
+    - window_deactivated
+  notifications_received: []
+
+health_checks:
+  - window_count_validation
+  - focus_state_consistency
+  - memory_leak_detection
+
+metrics:
+  - active_window_count
+  - focus_transitions_per_minute
+  - race_condition_prevention_count
+  - window_lifecycle_events
+
+error_handling:
+  - Focus state recovery
+  - Window handle validation
+  - Memory cleanup on window close
+  - Race condition detection and mitigation
+
+security:
+  - Window access validation
+  - Focus permission checking

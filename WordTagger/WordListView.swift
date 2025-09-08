@@ -186,7 +186,6 @@ struct NodeListView: View {
                 }
             }
         }
-        .navigationTitle("节点")
         .onAppear {
             setupView()
         }

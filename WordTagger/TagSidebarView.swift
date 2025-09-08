@@ -120,7 +120,6 @@ struct TagSidebarView: View {
                 tagSearchModule()
             }
         }
-        .navigationTitle("标签")
         .focusable(false)
         // 添加窗口级快捷键处理
         .onKeyPress(.init("1"), phases: .down, action: { keyPress in

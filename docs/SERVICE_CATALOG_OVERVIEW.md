@@ -4,7 +4,7 @@ This document provides a comprehensive overview of the WordTagger service catalo
 
 ## 📊 Service Inventory Summary
 
-WordTagger consists of **20 services** organized into 5 categories:
+WordTagger consists of **23 services** organized into 5 categories:
 
 ### Core Services (3)
 - **node-store** - Central data management and state synchronization
@@ -18,13 +18,16 @@ WordTagger consists of **20 services** organized into 5 categories:
 - **external-data-service** - Data persistence and backup management
 - **geocoder-service** - Geographic data processing and coordinate conversion
 
-### Infrastructure Services (6)
-- **tag-mapping-manager** - Tag type definitions and mappings
+### Infrastructure Services (9)
+- **tag-mapping-manager** - Tag type definitions and mappings  
 - **keychain-manager** - Secure credential storage
 - **keyboard-event-manager** - Global keyboard event handling
 - **window-focus-manager** - Multi-window focus management and coordination
 - **performance-optimization-service** - Performance monitoring and optimization
 - **location-manager** - Geographic location services
+- **resource-manager** - System resource monitoring and management
+- **memory-leak-detection** - Memory usage monitoring and leak prevention
+- **service-registry** - Central service registration and health monitoring
 
 ### UI Services (4)
 - **command-palette-service** - Keyboard-driven command interface

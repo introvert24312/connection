@@ -1,0 +1,67 @@
+name: memory-leak-detection
+display_name: Memory Leak Detection
+version: 1.9.0
+description: Memory usage monitoring and leak prevention service
+category: infrastructure
+
+purpose: |
+  Monitors application memory usage patterns, detects potential memory leaks,
+  and provides diagnostic information for performance optimization.
+
+key_features:
+  - Real-time memory monitoring
+  - Leak detection algorithms
+  - Memory usage pattern analysis
+  - Automatic cleanup suggestions
+  - Performance impact assessment
+
+performance:
+  memory_usage: low
+  cpu_usage: minimal
+  scan_interval: 30s
+  leak_detection_threshold: 50MB
+  monitoring_overhead: < 1%
+
+capabilities:
+  - Memory allocation tracking
+  - Retain cycle detection
+  - Memory usage trend analysis
+  - Leak pattern identification
+  - Performance impact measurement
+
+dependencies: []
+
+consumers:
+  - resource-manager
+  - performance-optimization-service
+  - service-registry
+
+communication:
+  protocols:
+    - notification_center
+    - direct_method_calls
+  notifications_sent:
+    - memory_leak_detected
+    - memory_usage_warning
+    - cleanup_completed
+  notifications_received:
+    - memory_scan_requested
+
+health_checks:
+  - detector_functionality
+  - memory_monitoring_accuracy
+
+metrics:
+  - current_memory_footprint_mb
+  - detected_leaks_count
+  - memory_growth_rate_mb_per_hour
+  - cleanup_operations_completed
+
+error_handling:
+  - Detection system failures
+  - Memory monitoring interruptions
+  - False positive reduction
+
+security:
+  - Memory access validation
+  - Sensitive data protection during monitoring

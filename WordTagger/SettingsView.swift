@@ -2712,9 +2712,9 @@ struct AboutView: View {
                     .font(.system(size: 60))
                     .foregroundColor(.blue)
                 
-                Text("Connection")
-                    .font(.title)
-                    .fontWeight(.bold)
+                // Text("Connection")
+                //     .font(.title)
+                //     .fontWeight(.bold)
                 
                 Text("版本 1.0.0")
                     .font(.subheadline)
