@@ -3825,7 +3825,7 @@ struct WordTaggerApp: App {
         .defaultSize(width: 900, height: 650)
         
         // 独立窗口 - 完全分离的数据和状态
-        WindowGroup("独立窗口", id: "layerView") {
+        WindowGroup(WINDOW_TITLE, id: "layerView") {
             IndependentWindowWrapper()
         }
         .defaultSize(width: 1200, height: 800)

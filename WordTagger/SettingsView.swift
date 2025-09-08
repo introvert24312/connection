@@ -1439,10 +1439,10 @@ struct GitSyncStatusIndicator: View {
             
             statusInfo += "• 上次同步: \(minutes > 0 ? "\(minutes)分" : "")\(seconds)秒前\n"
             
-            if timeSinceLastSync <= 120 {
-                return statusInfo + "• 状态: ✅ 正常\n\n最近2分钟内有Git提交活动"
+            if timeSinceLastSync <= 720 {
+                return statusInfo + "• 状态: ✅ 正常\n\n最近12分钟内有Git提交活动"
             } else {
-                return statusInfo + "• 状态: ⚠️ 警告\n\n超过2分钟无Git提交活动\n可能需要手动同步"
+                return statusInfo + "• 状态: ⚠️ 警告\n\n超过12分钟无Git提交活动\n可能需要手动同步"
             }
         }
         
@@ -1541,9 +1541,9 @@ struct GitSyncStatusPopover: View {
                 
                 if let lastSync = statusManager.lastSyncTime {
                     let timeSinceLastSync = Date().timeIntervalSince(lastSync)
-                    if timeSinceLastSync > 120 {
+                    if timeSinceLastSync > 720 {
                         let minutes = Int(timeSinceLastSync / 60)
-                        Text("已超过2分钟无提交活动 (\(minutes)分钟前)")
+                        Text("已超过12分钟无提交活动 (\(minutes)分钟前)")
                             .font(.caption)
                             .foregroundColor(.red)
                     } else {
