@@ -4,6 +4,18 @@ import CoreLocation
 import Combine
 import AppKit
 
+// MARK: - Constants 哈哈哈哈哈哈哈
+private let WINDOW_TITLE: String = {
+    // 笑脸版本 - 使用向上的弧形
+    let macron = "¯"           // U+00AF MACRON  
+    let happy = "︶"           // U+FE36 向上的弧形（笑脸）哈哈哈哈哈哈哈哈哈
+
+    let result = "(* \(macron) \(happy) \(macron) *)ノ ❤ ヽ( ^ ^ )"
+    print("🎯 Window title will be: '\(result)'")
+    
+    return result
+}()
+
 // MARK: - Tag Mapping Manager
 
 class TagMappingManager: ObservableObject {
@@ -3246,9 +3258,10 @@ struct WordTaggerApp: App {
             GitAutoSyncManager.shared.startMonitoring()
         }
     }
+    // 哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(WINDOW_TITLE) {
             ZStack {
                 ContentView(windowId: mainWindowId)
                     .environmentObject(store)

@@ -2712,9 +2712,6 @@ struct AboutView: View {
                     .font(.system(size: 60))
                     .foregroundColor(.blue)
                 
-                // Text("Connection")
-                //     .font(.title)
-                //     .fontWeight(.bold)
                 
                 Text("版本 1.0.0")
                     .font(.subheadline)
@@ -2741,7 +2738,7 @@ struct AboutView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                 
-                Text("© 2024 Connection. All rights reserved.")
+                Text("© 2024 All rights reserved.")
                     .font(.caption2)
                     .foregroundColor(Color.secondary)
             }
@@ -2923,7 +2920,7 @@ struct DataFolderSetupView: View {
                     .font(.title)
                     .fontWeight(.bold)
                 
-                Text("选择一个文件夹来存储Connection的数据")
+                Text("选择一个文件夹来存储应用数据")
                     .font(.body)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
