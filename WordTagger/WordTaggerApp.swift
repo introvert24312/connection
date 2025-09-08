@@ -3227,6 +3227,9 @@ struct WordTaggerApp: App {
     
     
     init() {
+        // 禁用自动标签页功能
+        NSWindow.allowsAutomaticWindowTabbing = false
+        
         // 设置环境变量以抑制SQLite系统数据库访问警告
         setenv("SQLITE_ENABLE_FTS4", "0", 1)
         setenv("SQLITE_ENABLE_FTS5", "0", 1)
@@ -5554,7 +5557,7 @@ struct GlobalCommands: Commands {
     
     var body: some Commands {
         CommandGroup(replacing: .appInfo) {}
-        CommandMenu("全局快捷键") {
+        CommandMenu("shortcut") {
             Button("层结构图谱") {
                 // 🔧 通过showCommandPalette发送，由WindowFocusManager统一控制
                 NotificationCenter.default.post(name: NSNotification.Name("showCommandPalette"), object: nil)
@@ -5607,12 +5610,6 @@ struct GlobalCommands: Commands {
             .keyboardShortcut("e", modifiers: [.command])
             .disabled(toggleSidebar == nil)
             
-            Button("清除标签筛选") {
-                print("🔑 GlobalCommands: Command+N - 清除标签筛选")
-                clearTagFilter?()
-            }
-            .keyboardShortcut("n", modifiers: [.command])
-            .disabled(clearTagFilter == nil)
             
             Button("清除标签筛选") {
                 print("🔑 GlobalCommands: Command+T - 清除标签筛选（全局菜单触发）")
