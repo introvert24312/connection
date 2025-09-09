@@ -1547,12 +1547,8 @@ struct GitSyncStatusPopover: View {
                             .font(.caption)
                             .foregroundColor(.red)
                     } else {
-                        let minutes = Int(timeSinceLastSync / 60)
-                        let seconds = Int(timeSinceLastSync) % 60
-                        let timeText = minutes > 0 ? "\(minutes)分\(seconds)秒前" : "\(seconds)秒前"
-                        Text("最近12分钟内有提交活动 (\(timeText))")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        // 12分钟内正常状态，不显示额外文本
+                        EmptyView()
                     }
                     
                     Text("上次提交: \(formatTime(lastSync))")
