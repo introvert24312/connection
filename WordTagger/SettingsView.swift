@@ -1512,7 +1512,7 @@ struct GitSyncStatusPopover: View {
             // 简化的状态显示 - 只显示警告状态
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    let shouldShowWarning = statusManager.isEnabled && (statusManager.lastSyncTime == nil || Date().timeIntervalSince(statusManager.lastSyncTime!) > 120)
+                    let shouldShowWarning = statusManager.isEnabled && (statusManager.lastSyncTime == nil || Date().timeIntervalSince(statusManager.lastSyncTime!) > 720)
                     
                     if shouldShowWarning {
                         Circle()
@@ -1547,7 +1547,10 @@ struct GitSyncStatusPopover: View {
                             .font(.caption)
                             .foregroundColor(.red)
                     } else {
-                        Text("最近2分钟内有提交活动")
+                        let minutes = Int(timeSinceLastSync / 60)
+                        let seconds = Int(timeSinceLastSync) % 60
+                        let timeText = minutes > 0 ? "\(minutes)分\(seconds)秒前" : "\(seconds)秒前"
+                        Text("最近12分钟内有提交活动 (\(timeText))")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
