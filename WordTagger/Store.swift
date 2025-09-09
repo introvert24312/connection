@@ -1256,6 +1256,14 @@ public final class NodeStore: ObservableObject {
         objectWillChange.send()
         
         print("✅ 层删除完成，剩余 \(layers.count) 个层，\(nodes.count) 个节点")
+        
+        // 自动保存到外部存储
+        if !isLoadingFromExternal {
+            Task {
+                await forceSaveToExternalStorage()
+                print("💾 层删除后已自动保存到外部存储")
+            }
+        }
     }
     
     // MARK: - 复合层管理

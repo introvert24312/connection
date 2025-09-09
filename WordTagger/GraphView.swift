@@ -2198,8 +2198,8 @@ struct PresetRowView: View {
                 isHovered = hovering
             }
         }
-        .onTapGesture(count: 2) {
-            // 双击加载预设
+        .onTapGesture {
+            // 单击加载预设
             onLoad()
         }
     }
