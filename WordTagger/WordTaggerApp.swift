@@ -4,6 +4,18 @@ import CoreLocation
 import Combine
 import AppKit
 
+// MARK: - Constants 哈哈哈哈哈哈哈
+private let WINDOW_TITLE: String = {
+    // 笑脸版本 - 使用向上的弧形
+    let macron = "¯"           // U+00AF MACRON
+    let happy = "︶"           // U+FE36 向上的弧形（笑脸）哈哈哈哈哈哈哈哈哈
+    
+    let result = "(* \(macron) \(happy) \(macron) *)ノ ❤ ヽ( ^ ^ )"
+    print("🎯 Window title will be: '\(result)'")
+    
+    return result
+}()
+
 // MARK: - Tag Mapping Manager
 
 class TagMappingManager: ObservableObject {
@@ -3168,7 +3180,7 @@ struct WordTaggerApp: App {
     // 哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈
 
     var body: some Scene {
-        WindowGroup("(*¯︶¯*)ノ❤ヽ(^^)") {
+        WindowGroup(WINDOW_TITLE) {
             ZStack {
                 ContentView(windowId: mainWindowId)
                     .environmentObject(store)
@@ -3726,38 +3738,41 @@ struct WordTaggerApp: App {
             GlobalCommands()
         }
         
-        // 地图窗口 - 使用通用WindowGroup，通过sourceWindowId进行智能路由
-        WindowGroup("(*¯︶¯*)ノ❤ヽ(^^)", id: "map") {
+        // 🗺️ 地图窗口 - 显示节点的地理位置和地点标签
+        // 使用通用WindowGroup，通过sourceWindowId进行智能路由
+        WindowGroup(WINDOW_TITLE, id: "map") {
             MapWindow()
                 .environmentObject(store) // 默认使用主store，具体路由由MapContainer中间层处理
         }
         .defaultSize(width: 1000, height: 700)
         
-        // 图谱窗口
-        WindowGroup("(*¯︶¯*)ノ❤ヽ(^^)", id: "graph") {
+        // 📊 全局节点图谱窗口 - 显示节点关系的可视化图谱
+        WindowGroup(WINDOW_TITLE, id: "graph") {
             GraphView()
                 .environmentObject(store)
         }
         .defaultSize(width: 1200, height: 800)
         .windowToolbarStyle(.unified)
         
-        // 节点管理窗口 - 使用单例窗口管理器
-        Window("(*¯︶¯*)ノ❤ヽ(^^)", id: "nodeManager") {
+        // ⚙️ 节点管理窗口 - 批量管理和编辑节点
+        // 使用单例窗口管理器
+        Window(WINDOW_TITLE, id: "nodeManager") {
             NodeManagerView(nodeToEdit: $nodeToEditInManager)
                 .environmentObject(store)
         }
         .defaultSize(width: 1000, height: 700)
         
-        // 全屏图谱窗口 - SwiftUI原生方式
-        WindowGroup("(*¯︶¯*)ノ❤ヽ(^^)", id: "fullscreenGraph") {
+        // 🖼️ 全屏图谱窗口 - 大尺寸的节点关系图谱视图
+        // SwiftUI原生方式
+        WindowGroup(WINDOW_TITLE, id: "fullscreenGraph") {
             FullscreenGraphView()
                 .environmentObject(store)
         }
         .defaultSize(width: 1200, height: 800)
         .windowToolbarStyle(.unified)
         
-        // 标签图谱窗口
-        WindowGroup("(*¯︶¯*)ノ❤ヽ(^^)", id: "tagTypeGraph") {
+        // 🏷️ 特定标签类型图谱窗口 - 显示单个标签类型的关系图
+        WindowGroup(WINDOW_TITLE, id: "tagTypeGraph") {
             // 优先使用WindowManager中的标签类型，然后回退到tagTypeForGraph
             if let tagType = TagGraphWindowManager.shared.currentTagType ?? tagTypeForGraph {
                 FullscreenTagTypeGraphView(tagType: tagType)
@@ -3797,28 +3812,28 @@ struct WordTaggerApp: App {
         .defaultSize(width: 1200, height: 800)
         .windowToolbarStyle(.unified)
         
-        // 🆕 全局标签图谱窗口
-        WindowGroup("(*¯︶¯*)ノ❤ヽ(^^)", id: "globalTagGraph") {
+        // 🌐 全局标签图谱窗口 - 显示所有标签类型的整体关系图谱
+        WindowGroup(WINDOW_TITLE, id: "globalTagGraph") {
             GlobalTagGraphView()
                 .environmentObject(store)
         }
         .defaultSize(width: 1200, height: 800)
         .windowToolbarStyle(.unified)
         
-        // 🆕 层图谱窗口
-        WindowGroup("(*¯︶¯*)ノ❤ヽ(^^)", id: "layerGraph") {
+        // 📊 层图谱窗口 - 显示层级之间的关系和层级内的节点分布
+        WindowGroup(WINDOW_TITLE, id: "layerGraph") {
             LayerGraphWindowView()
                 .environmentObject(store)
         }
         .defaultSize(width: 900, height: 650)
         
-        // 独立窗口 - 完全分离的数据和状态
-        WindowGroup("(*¯︶¯*)ノ❤ヽ(^^)", id: "layerView") {
+        // 🔄 独立层视图窗口 - 完全分离的数据状态，用于独立编辑和查看
+        WindowGroup(WINDOW_TITLE, id: "layerView") {
             IndependentWindowWrapper()
         }
         .defaultSize(width: 1200, height: 800)
         
-        // 设置窗口
+        // ⚙️ 应用设置窗口 - 管理应用全局配置和偏好设置
         Settings {
             SettingsView()
                 .environmentObject(store)
