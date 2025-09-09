@@ -958,28 +958,45 @@ struct TagEditCommandView: View {
             return false 
         }
         
-        // 第一个token应该是节点名，跳过
-        let nodeText = tokens[0]
-        guard nodeText == node.text else { 
-            print("❌ 节点名不匹配: \(nodeText) vs \(node.text)")
-            return false 
+        // 第一个token是新的节点名（可以重命名）
+        let newNodeName = tokens[0]
+        let needsRename = newNodeName != node.text
+        
+        if needsRename {
+            print("🔄 检测到重命名: '\(node.text)' -> '\(newNodeName)'")
+        } else {
+            print("✅ 节点名保持不变: \(newNodeName)")
         }
         
-        print("✅ 节点名匹配: \(nodeText)")
-        
-        // 如果只有节点名（1个token），表示清空所有标签
+        // 如果只有节点名（1个token）
         if tokens.count == 1 {
-            print("🧹 只有节点名，清空所有标签")
             await MainActor.run {
-                let currentNode = store.nodes.first { $0.id == node.id }
-                if let existingNode = currentNode {
-                    print("🗑️ 清空现有的 \(existingNode.tags.count) 个标签")
-                    for tag in existingNode.tags {
-                        store.removeTag(from: node.id, tagId: tag.id)
+                if needsRename {
+                    print("🔄 只重命名，保持标签不变: '\(node.text)' -> '\(newNodeName)'")
+                    store.updateNode(node.id, text: newNodeName, phonetic: nil, meaning: nil)
+                    DispatchQueue.main.async {
+                        store.objectWillChange.send()
                     }
-                    print("✅ 所有标签已清空")
+                    // 延迟强制刷新，确保所有UI组件都收到更新
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        store.forceRefreshUI()
+                        // 发送通知强制刷新NodeListView
+                        NotificationCenter.default.post(name: NSNotification.Name("forceRefreshNodeList"), object: nil)
+                        print("🔄 强制UI刷新完成（重命名）")
+                    }
+                    print("✅ 节点重命名完成")
                 } else {
-                    print("❌ 未找到对应节点")
+                    print("🧹 只有节点名且名称相同，清空所有标签")
+                    let currentNode = store.nodes.first { $0.id == node.id }
+                    if let existingNode = currentNode {
+                        print("🗑️ 清空现有的 \(existingNode.tags.count) 个标签")
+                        for tag in existingNode.tags {
+                            store.removeTag(from: node.id, tagId: tag.id)
+                        }
+                        print("✅ 所有标签已清空")
+                    } else {
+                        print("❌ 未找到对应节点")
+                    }
                 }
             }
             return true
@@ -1360,10 +1377,44 @@ struct TagEditCommandView: View {
                 }
             }
             print("✅ 标签替换完成")
+            
+            // 处理重命名
+            if needsRename {
+                print("🔄 执行节点重命名: '\(node.text)' -> '\(newNodeName)'")
+                store.updateNode(node.id, text: newNodeName, phonetic: nil, meaning: nil)
+                DispatchQueue.main.async {
+                    store.objectWillChange.send()
+                }
+                // 延迟强制刷新，确保所有UI组件都收到更新
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    store.forceRefreshUI()
+                    print("🔄 强制UI刷新完成（重命名）")
+                }
+                print("✅ 节点重命名完成")
+            }
+            
             return true
         } else {
-            print("❌ 没有解析出任何标签，保持原有标签不变")
-            return false
+            print("❌ 没有解析出任何标签")
+            // 即使没有标签变化，也要处理重命名
+            await MainActor.run {
+                if needsRename {
+                    print("🔄 只有重命名操作: '\(node.text)' -> '\(newNodeName)'")
+                    store.updateNode(node.id, text: newNodeName, phonetic: nil, meaning: nil)
+                    DispatchQueue.main.async {
+                        store.objectWillChange.send()
+                    }
+                    // 延迟强制刷新，确保所有UI组件都收到更新
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        store.forceRefreshUI()
+                        // 发送通知强制刷新NodeListView
+                        NotificationCenter.default.post(name: NSNotification.Name("forceRefreshNodeList"), object: nil)
+                        print("🔄 强制UI刷新完成（重命名）")
+                    }
+                    print("✅ 节点重命名完成")
+                }
+            }
+            return needsRename // 如果有重命名则返回true，否则返回false
         }
     }
     

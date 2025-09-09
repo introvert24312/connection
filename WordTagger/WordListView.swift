@@ -12,14 +12,7 @@ struct NodeListView: View {
     @FocusState private var isSearchFieldFocused: Bool
     @State private var localSearchQuery: String = ""
     
-    // 缓存机制，避免列表频繁重新渲染
-    @State private var cachedDisplayNodes: [Node] = []
-    @State private var lastSearchQuery: String = ""
-    @State private var lastSelectedTag: Tag? = nil
-    @State private var lastCurrentLayer: UUID? = nil
-    @State private var lastSortOption: SortOption = .tagCount
-    @State private var updateTask: Task<Void, Never>?
-    @State private var isUpdating: Bool = false
+    // 简化状态管理，直接使用store数据
     
     // 命令行编辑器状态
     @State private var showingCommandEditor = false
@@ -189,169 +182,38 @@ struct NodeListView: View {
         .onAppear {
             setupView()
         }
-        .onChange(of: store.searchQuery) { _, newValue in
-            handleStoreSearchQueryChange(newValue)
-        }
-        .onChange(of: store.searchResults) { _, newValue in
-            handleSearchResultsChange(newValue)
-        }
-        .onChange(of: store.selectedTag?.id) { _, newValue in
-            handleSelectedTagChange(newValue)
-        }
-        .onChange(of: store.currentLayer?.id) { _, newValue in
-            handleCurrentLayerChange(newValue)
-        }
-        .onChange(of: sortOption) { _, newValue in
-            handleSortOptionChange(newValue)
-        }
-        .onChange(of: store.nodes) { _, newNodes in
-            print("📊 NodeListView: store.nodes changed, 节点数量: \(newNodes.count)")
-            // 详细输出每个节点的标签信息
-            for (index, node) in newNodes.enumerated() {
-                print("  节点[\(index)]: '\(node.text)' - 标签数: \(node.tags.count)")
-                for (tagIndex, tag) in node.tags.enumerated() {
-                    print("    标签[\(tagIndex)]: \(tag.type.displayName) - '\(tag.value)'")
-                }
-            }
-            // 强制立即更新缓存，不使用防抖
-            print("🔄 强制立即更新缓存显示")
-            updateCachedDisplayNodes()
-        }
+        // 删除复杂的onChange处理器，现在通过.id()直接响应数据变化
+        .id(store.nodes.count) // 当节点数量变化时强制重新渲染整个视图
         // 节点编辑现在通过节点管理窗口处理
     }
     
     private var displayNodes: [Node] {
-        return cachedDisplayNodes
-    }
-    
-    
-    private func scheduleUpdate() {
-        print("⏰ NodeListView.scheduleUpdate called")
-        
-        // 取消之前的更新任务
-        updateTask?.cancel()
-        
-        // 检查是否有实际变化
-        let hasSearchQueryChange = lastSearchQuery != store.searchQuery
-        let hasSelectedTagChange = lastSelectedTag?.id != store.selectedTag?.id
-        let hasCurrentLayerChange = lastCurrentLayer != store.currentLayer?.id
-        let hasSortOptionChange = lastSortOption != sortOption
-        
-        print("🔄 Changes detected - searchQuery: \(hasSearchQueryChange), selectedTag: \(hasSelectedTagChange), currentLayer: \(hasCurrentLayerChange), sortOption: \(hasSortOptionChange)")
-        print("🔄 Current state - searchQuery: '\(store.searchQuery)', lastSearchQuery: '\(lastSearchQuery)'")
-        
-        // 如果没有任何变化，不需要更新
-        guard hasSearchQueryChange || hasSelectedTagChange || hasCurrentLayerChange || hasSortOptionChange else {
-            print("⏭️ No changes detected, skipping update")
-            return
-        }
-        
-        // 立即更新，因为Store已经处理了防抖
-        print("🔧 Executing immediate updateCachedDisplayNodes")
-        updateCachedDisplayNodes()
-    }
-    
-    private func updateCachedDisplayNodes() {
-        // 防止重复更新
-        guard !isUpdating else {
-            print("⏭️ Update already in progress, skipping")
-            return
-        }
-        
-        isUpdating = true
-        print("🔄 updateCachedDisplayNodes started")
-        print("📊 Current store state - searchQuery: '\(store.searchQuery)', searchResults count: \(store.searchResults.count)")
-        
+        // 直接从store获取并过滤，不使用缓存
         let filteredNodes: [Node]
         
         if !store.searchQuery.isEmpty {
-            // 搜索时优先显示搜索结果，忽略标签过滤
             filteredNodes = store.searchResults
-            print("🔍 Using search results: \(filteredNodes.count) nodes (tag filter ignored during search)")
         } else if let selectedTag = store.selectedTag {
             if store.showAllTagTypeNodes {
-                // 检查是否有多个展开的标签类型
                 if store.expandedTagTypes.count > 1 {
-                    // 多类型模式：显示所有展开标签类型的节点
                     filteredNodes = store.nodesInCurrentLayer(withTagTypes: store.expandedTagTypes)
-                    print("🏷️ Using MULTI-TAG-TYPE filter: \(filteredNodes.count) nodes")
-                    print("🏷️ Expanded tag types: \(store.expandedTagTypes.map { $0.displayName }.joined(separator: ", "))")
-                    
-                    // 详细调试：列出所有多类型标签的节点
-                    for (index, node) in filteredNodes.enumerated() {
-                        let relevantTags = node.tags.filter { store.expandedTagTypes.contains($0.type) }
-                        let tagTypeValues = relevantTags.map { "\($0.type.displayName):\($0.value)" }.joined(separator: ", ")
-                        print("  多类型过滤结果[\(index)]: '\(node.text)' - 标签: [\(tagTypeValues)]")
-                    }
                 } else {
-                    // 单类型模式：显示同标签类型的所有节点
                     filteredNodes = store.nodesInCurrentLayer(withTagType: selectedTag.type)
-                    print("🏷️ Using tag TYPE filter (SINGLE MODE): \(filteredNodes.count) nodes")
-                    print("🏷️ Selected tag: \(selectedTag.type.displayName) - showing all nodes with this tag type")
-                    print("🏷️ Focus tag value: '\(selectedTag.value)'")
-                    
-                    // 详细调试：列出所有同类型标签的节点
-                    for (index, node) in filteredNodes.enumerated() {
-                        let relevantTags = node.tags.filter { $0.type == selectedTag.type }
-                        let tagValues = relevantTags.map { $0.value }.joined(separator: ", ")
-                        let isFocusNode = node.hasTag(selectedTag) // 是否是焦点节点
-                        print("  类型过滤结果[\(index)]: '\(node.text)' - 标签值: [\(tagValues)] \(isFocusNode ? "⭐️(焦点)" : "")")
-                    }
                 }
             } else {
-                // 原有模式：只显示包含具体标签的节点
                 filteredNodes = store.nodesInCurrentLayer(withTag: selectedTag)
-                print("🏷️ Using tag filter (ORIGINAL MODE): \(filteredNodes.count) nodes")
-                print("🏷️ Selected tag: \(selectedTag.type.displayName) - '\(selectedTag.value)'")
-                
-                // 详细调试：检查每个节点是否包含该标签
-                for (index, node) in filteredNodes.enumerated() {
-                    let hasTag = node.hasTag(selectedTag)
-                    print("  过滤结果[\(index)]: '\(node.text)' - hasTag: \(hasTag), 标签数: \(node.tags.count)")
-                    if hasTag {
-                        let matchingTags = node.tags.filter { $0.type == selectedTag.type && $0.value == selectedTag.value }
-                        print("    匹配标签: \(matchingTags.count)个")
-                    }
-                }
             }
         } else {
-            // 没有搜索也没有选中标签时，显示当前层的节点
             filteredNodes = store.getNodesInCurrentLayer()
-            print("📋 Using current layer nodes: \(filteredNodes.count) nodes")
         }
         
-        // 应用排序并更新缓存
-        let oldCount = cachedDisplayNodes.count
-        let newNodes = sortNodes(filteredNodes)
-        
-        // 使用动画更新缓存，减少视觉闪烁
-        withAnimation(.easeInOut(duration: 0.2)) {
-            cachedDisplayNodes = newNodes
-        }
-        
-        let newCount = cachedDisplayNodes.count
-        print("✅ Cache updated: \(oldCount) → \(newCount) nodes")
-        
-        // 详细输出缓存中每个节点的标签信息
-        for (index, node) in cachedDisplayNodes.enumerated() {
-            print("  缓存节点[\(index)]: '\(node.text)' - 标签数: \(node.tags.count)")
-            if !node.tags.isEmpty {
-                let tagSummary = node.tags.map { "\($0.type.displayName):\($0.value)" }.joined(separator: ", ")
-                print("    标签: \(tagSummary)")
-            }
-        }
-        
-        // 更新缓存状态
-        lastSearchQuery = store.searchQuery
-        lastSelectedTag = store.selectedTag
-        lastCurrentLayer = store.currentLayer?.id
-        lastSortOption = sortOption
-        
-        print("💾 Cache state updated - lastSearchQuery: '\(lastSearchQuery)'")
-        
-        // 重置更新标记
-        isUpdating = false
+        return sortNodes(filteredNodes)
     }
+    
+    
+    // 删除复杂的缓存更新逻辑，现在直接使用store数据
+    
+    // 删除缓存更新方法，现在直接使用store数据
     
     private func handleSearchQueryChange(_ newValue: String) {
         // 直接更新store，让Store的debounce处理
@@ -368,9 +230,6 @@ struct NodeListView: View {
         // 初始化时同步搜索查询和设置焦点
         localSearchQuery = store.searchQuery
         
-        // 初始化时更新显示
-        updateCachedDisplayNodes()
-        
         // 延迟设置焦点，确保TextField已经渲染完成
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             print("🎯 setupView delayed: setting isSearchFieldFocused = true")
@@ -378,41 +237,7 @@ struct NodeListView: View {
         }
     }
     
-    private func handleStoreSearchQueryChange(_ newValue: String) {
-        print("🔍 NodeListView: searchQuery changed to '\(newValue)'")
-        
-        // 如果是清空搜索，立即更新显示；否则等搜索结果完成后再更新
-        if newValue.isEmpty {
-            print("🧹 NodeListView: Search cleared, updating display immediately")
-            scheduleUpdate()
-        }
-        
-        // 不要同步回localSearchQuery，避免循环更新
-        // localSearchQuery由用户直接输入控制
-    }
-    
-    private func handleSearchResultsChange(_ newValue: [Node]) {
-        print("📊 NodeListView: searchResults changed to \(newValue.count) items")
-        // 搜索结果变化时总是更新显示
-        scheduleUpdate()
-    }
-    
-    private func handleSelectedTagChange(_ newValue: UUID?) {
-        let newStr = newValue?.uuidString ?? "nil"
-        print("🏷️ NodeListView: selectedTag changed to '\(newStr)'")
-        scheduleUpdate()
-    }
-    
-    private func handleCurrentLayerChange(_ newValue: UUID?) {
-        let newStr = newValue?.uuidString ?? "nil"
-        print("🔄 NodeListView: currentLayer changed to '\(newStr)'")
-        scheduleUpdate()
-    }
-    
-    private func handleSortOptionChange(_ newValue: SortOption) {
-        print("📊 NodeListView: sortOption changed to '\(newValue)'")
-        scheduleUpdate()
-    }
+    // 删除复杂的状态处理方法，现在直接使用store数据
     
     private func sortNodes(_ nodes: [Node]) -> [Node] {
         // 如果有选中的标签并且是焦点模式，优先排序焦点节点
@@ -569,8 +394,7 @@ struct NodeListView: View {
             selectedNode = nil
         }
         
-        // 4. 强制刷新显示
-        updateCachedDisplayNodes()
+        // 4. 删除的节点会自动从store.nodes中移除，视图会自动更新
         
         print("✅ 节点删除完成，共删除了 \(tagsToDelete.count) 个标签")
     }

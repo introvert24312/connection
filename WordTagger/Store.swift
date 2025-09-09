@@ -901,7 +901,11 @@ public final class NodeStore: ObservableObject {
             if let phonetic = phonetic { updatedNode.phonetic = phonetic }
             if let meaning = meaning { updatedNode.meaning = meaning }
             updatedNode.updatedAt = Date()
-            nodes[index] = updatedNode
+            
+            // 强制重新创建数组以触发SwiftUI更新
+            var newNodes = nodes
+            newNodes[index] = updatedNode
+            nodes = newNodes
             
             // 🔧 如果节点名称发生了变化，需要刷新引用该节点的复合节点
             if let newText = text, newText != oldNode.text {
@@ -1346,7 +1350,17 @@ public final class NodeStore: ObservableObject {
     public func replaceAllData(layers: [Layer], nodes: [Node]) async {
         print("🔄 替换所有数据: \(layers.count) 个层, \(nodes.count) 个节点")
         
-        // 替换数据
+        // 先清空数组，然后重新赋值，确保@Published能正确检测到变化
+        self.layers.removeAll()
+        self.nodes.removeAll()
+        
+        // 强制第一次UI更新（清空状态）
+        objectWillChange.send()
+        
+        // 等待一个短暂的时间确保清空状态被处理
+        try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+        
+        // 重新赋值数据
         self.layers = layers
         self.nodes = nodes
         
@@ -1362,8 +1376,14 @@ public final class NodeStore: ObservableObject {
             }
         }
         
-        // 强制触发UI更新
+        // 强制第二次UI更新（新数据状态）
         objectWillChange.send()
+        
+        // 延迟强制刷新，确保所有UI组件都收到更新
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.objectWillChange.send()
+            print("🔄 数据替换后延迟UI刷新完成")
+        }
         
         print("✅ 数据替换完成")
     }
