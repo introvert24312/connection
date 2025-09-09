@@ -5600,7 +5600,7 @@ struct GlobalCommands: Commands {
             Button("新建独立窗口") {
                 openNewWindow?()
             }
-            .keyboardShortcut("b", modifiers: [.command])
+            .keyboardShortcut("n", modifiers: [.command])
             .disabled(openNewWindow == nil)
         }
     }
