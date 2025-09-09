@@ -93,7 +93,7 @@ public final class CommandParser: ObservableObject {
     
     public func getDefaultCommands(context: CommandContext? = nil) async -> [Command] {
         // 命令面板现在专门用于层管理，不显示任何默认命令
-        // 用户通过搜索层名 + ⌘J/⌘⇧J 来管理层过滤器
+        // 用户通过搜索层名 + ⌘L/⌘⇧L 来管理层过滤器
         return []
     }
     
@@ -131,7 +131,7 @@ public final class CommandParser: ObservableObject {
     
     private func findMatchingCommands(for input: String, context: CommandContext) async -> [Command] {
         // 命令面板现在专门用于层管理，不显示搜索结果
-        // 用户通过输入层名 + ⌘J/⌘⇧J 来操作层过滤器
+        // 用户通过输入层名 + ⌘L/⌘⇧L 来操作层过滤器
         return []
     }
     

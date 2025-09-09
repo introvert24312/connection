@@ -124,33 +124,15 @@ struct CommandPaletteView: View {
                     return .handled
                 }
             }
-            .onKeyPress(.init("j"), phases: .down) { keyPress in
-                if keyPress.modifiers.contains(.command) {
-                    if keyPress.modifiers.contains(.shift) {
-                        handleRemoveLayerFromFilter()
-                    } else {
-                        handleAddLayerToFilter()
-                    }
-                    return .handled
-                }
-                return .ignored
-            }
-            .onKeyPress(.init("J"), phases: .down) { keyPress in
-                if keyPress.modifiers.contains(.command) {
-                    handleRemoveLayerFromFilter()
-                    return .handled
-                }
-                return .ignored
-            }
             .onKeyPress(.init("r"), phases: .down) { keyPress in
-                if keyPress.modifiers.contains(.command) {
+                if keyPress.modifiers.contains(.command) && !keyPress.modifiers.contains(.shift) {
                     handleCreateNewLayer()
                     return .handled
                 }
                 return .ignored
             }
             .onKeyPress(.init("R"), phases: .down) { keyPress in
-                if keyPress.modifiers.contains(.command) {
+                if keyPress.modifiers.contains(.command) && !keyPress.modifiers.contains(.shift) {
                     handleCreateNewLayer()
                     return .handled
                 }
@@ -571,7 +553,7 @@ struct CommandPaletteView: View {
         }
     }
     
-    // 处理⌘J: 添加层到过滤器
+    // 处理⌘L: 添加层到过滤器
     private func handleAddLayerToFilter() {
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !trimmedQuery.isEmpty else {
@@ -1458,7 +1440,7 @@ struct SearchDropdownItem: View {
                 }
                 
                 // 快捷键提示
-                Text("⌘J")
+                Text("⌘L")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

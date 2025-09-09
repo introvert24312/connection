@@ -883,19 +883,20 @@ struct QuickAddSheetView: View {
                 }
                 return .ignored
             }
-            .onKeyPress(.init("j"), phases: .down) { keyPress in
-                if keyPress.modifiers.contains(.command) && isInputFocused {
-                    // Command+J: 按复合节点语法处理
-                    print("⌨️ Command+J 被按下，按复合节点语法处理")
+            .background(
+                // 使用隐藏按钮来捕获快捷键
+                Button("") {
+                    print("⌨️ Command+Shift+R 通过按钮触发")
+                    print("📝 当前输入文本: '\(inputText)'")
                     guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                        print("⚠️ 输入为空，忽略Command+J")
-                        return .handled
+                        print("⚠️ 输入为空，忽略Command+Shift+R")
+                        return
                     }
                     processCompoundNodeInput()
-                    return .handled
                 }
-                return .ignored
-            }
+                .keyboardShortcut("r", modifiers: [.command, .shift])
+                .hidden()
+            )
     }
     
     @ViewBuilder
@@ -915,7 +916,7 @@ struct QuickAddSheetView: View {
                 .foregroundColor(.blue)
             
             VStack(alignment: .leading, spacing: 4) {
-                TextField("输入: 节点 root 词根内容 memory 记忆内容... 试试用Command+J建立复合节点", text: $inputText)
+                TextField("输入: 节点 root 词根内容 memory 记忆内容... 试试用Command+Shift+R建立复合节点", text: $inputText)
                     .textFieldStyle(.plain)
                     .font(.title3)
                     .focused($isInputFocused)
@@ -2001,7 +2002,7 @@ struct QuickAddView: View {
                 VStack(spacing: 12) {
                     HStack {
                         Image(systemName: "plus.circle.fill").foregroundColor(.blue).font(.title2)
-                        TextField("输入: 节点 root 词根内容 memory 记忆内容... 试试用Command+J建立复合节点", text: $inputText)
+                        TextField("输入: 节点 root 词根内容 memory 记忆内容... 试试用Command+Shift+R建立复合节点", text: $inputText)
                             .textFieldStyle(.plain).font(.system(size: 16, weight: .medium))
                             .onChange(of: inputText) { _, newValue in updateSuggestions(for: newValue) }
                             .onKeyPress(.tab) { handleTabInQuickAdd() }
@@ -4424,7 +4425,6 @@ struct CompoundNodeAddSheetView: View {
                     processInput()
                 }
                 .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                .keyboardShortcut("r", modifiers: [.command, .shift])
             }
         }
         .alert("错误", isPresented: $showingErrorAlert) {

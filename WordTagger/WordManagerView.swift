@@ -789,7 +789,7 @@ struct TagEditCommandView: View {
             updateAvailableCommands()
         }
         .onKeyPress(.init("r"), phases: .down) { _ in
-            if NSEvent.modifierFlags.contains(.command) {
+            if NSEvent.modifierFlags.contains(.command) && !NSEvent.modifierFlags.contains(.shift) {
                 executeCommand()
                 return .handled
             }
