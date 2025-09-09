@@ -1379,11 +1379,24 @@ struct NodeBoardView: View {
             node.layerId
         }
         
-        // 🔧 修复：显示所有层，即使某些层因过滤而没有节点
-        return store.layers.map { layer in
-            let nodes = groupedNodes[layer.id] ?? []
-            return (layer: layer, nodes: nodes.sorted { $0.text < $1.text })
-        }.sorted { $0.layer.displayName < $1.layer.displayName }
+        // 🔍 智能显示逻辑：根据搜索状态决定显示哪些层级
+        if layerSearchText.isEmpty && searchText.isEmpty {
+            // 无搜索：显示所有层（包括空层）
+            return store.layers.map { layer in
+                let nodes = groupedNodes[layer.id] ?? []
+                return (layer: layer, nodes: nodes.sorted { $0.text < $1.text })
+            }.sorted { $0.layer.displayName < $1.layer.displayName }
+        } else {
+            // 有搜索：只显示有内容的层级
+            return store.layers.compactMap { layer in
+                let nodes = groupedNodes[layer.id] ?? []
+                // 只有当层级有节点时才显示
+                if !nodes.isEmpty {
+                    return (layer: layer, nodes: nodes.sorted { $0.text < $1.text })
+                }
+                return nil
+            }.sorted { $0.layer.displayName < $1.layer.displayName }
+        }
     }
     
     var body: some View {
