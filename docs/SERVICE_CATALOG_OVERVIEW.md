@@ -1,6 +1,23 @@
 # WordTagger Service Catalog Overview
 
-This document provides a comprehensive overview of the WordTagger service catalog, including service inventory, architecture overview, and integration instructions.
+This document provides a comprehensive overview of the WordTagger service catalog, including service inventory, architecture overview, integration instructions, and lessons learned from enterprise-level development challenges.
+
+## 🎓 项目发展历程与技术挑战
+
+### 关键里程碑
+- **2024年10月**: 基础架构和多窗口管理实现
+- **2024年11月**: 完善服务契约系统，解决WebView稳定性危机  
+- **2024年12月**: 基础分布式追踪系统实现
+- **2025年1月**: 完整分布式追踪系统升级到20个服务
+- **2025年9月**: 企业级工程治理框架完成，解决多窗口架构复杂性
+
+### 核心技术突破
+1. **多窗口架构**: 通过WindowFocusManager原子性预留机制解决竞态条件
+2. **WebView现代化**: 完全移除废弃API，重新设计安全策略
+3. **分布式追踪**: 从零构建企业级TraceID传播系统
+4. **状态管理**: 跨Store实例数据传递的ID化解决方案
+5. **错误恢复**: KeyboardEventManager的智能错误恢复机制
+6. **快捷键优化**: 解决Command+B与系统冲突，优化为Command+N新建窗口
 
 ## 📊 Service Inventory Summary
 

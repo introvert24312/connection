@@ -16,7 +16,7 @@
 | ⌘⇧F | 快速搜索 | `openQuickSearch` | 全局菜单 → 通知 |
 | ⌘M | 地图窗口 | `openMapWindow` | 全局菜单 → 通知 |
 | ⌘G | 全局节点图谱 | `openGraphWindow` | 全局菜单 → 通知 |
-| ⌘B | 新建独立窗口 | `openNewWindow` | 全局菜单 → 直接调用 |
+| ⌘N (新) | 新建独立窗口 | `openNewWindow` | 全局菜单 → 直接调用 |
 
 ## 📡 NotificationCenter 通知契约
 
@@ -268,6 +268,11 @@ func testKeyboardEventContract() {
 5. **状态同步**: 标签筛选状态的跨窗口同步
 
 ## 📝 变更日志
+
+### v2.0.1 (2025-09-09)
+- ✅ **快捷键优化**: 新建窗口从Command+B改为Command+N
+- ✅ 解决Command+B与系统书签快捷键冲突
+- ✅ 更新键盘事件契约文档
 
 ### v2.0.0 (2025-09-07)
 - ✅ 修复主窗口Command+T不响应问题
