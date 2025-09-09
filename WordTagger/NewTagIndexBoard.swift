@@ -626,21 +626,25 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
             function renderBoard() {
                 const board = document.getElementById('board');
                 const searchTerm = document.getElementById('search').value.toLowerCase();
+                const layerSearchTerm = document.getElementById('layerSearch').value.toLowerCase();
                 const groupBy = document.getElementById('groupBy').value;
                 
                 // 过滤数据
                 let filtered = DATA.filter(item => {
-                    // 搜索过滤
+                    // 标签搜索过滤
                     const matchesSearch = !searchTerm || 
                         item.name.toLowerCase().includes(searchTerm) || 
-                        item.type.toLowerCase().includes(searchTerm) ||
-                        (item.layers && item.layers.some(layer => layer.toLowerCase().includes(searchTerm)));
+                        item.type.toLowerCase().includes(searchTerm);
                     
-                    // 层级过滤
+                    // 层级搜索过滤（新增）
+                    const matchesLayerSearch = !layerSearchTerm ||
+                        (item.layers && item.layers.some(layer => layer.toLowerCase().includes(layerSearchTerm)));
+                    
+                    // 层级选择过滤
                     const matchesLayers = selectedLayers.size === 0 || 
                         (item.layers && item.layers.some(layer => selectedLayers.has(layer)));
                     
-                    return matchesSearch && matchesLayers;
+                    return matchesSearch && matchesLayerSearch && matchesLayers;
                 });
                 
                 if (filtered.length === 0) {
@@ -698,11 +702,23 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                     }
                 });
                 
+                // 🔍 层级搜索过滤：如果有层级搜索，只显示匹配的层级
+                const layerSearchTerm = document.getElementById('layerSearch').value.toLowerCase();
+                let filteredGroups = groups;
+                if (layerSearchTerm) {
+                    filteredGroups = {};
+                    Object.keys(groups).forEach(groupName => {
+                        if (groupName.toLowerCase().includes(layerSearchTerm)) {
+                            filteredGroups[groupName] = groups[groupName];
+                        }
+                    });
+                }
+                
                 let html = '';
-                Object.keys(groups).sort().forEach(groupName => {
+                Object.keys(filteredGroups).sort().forEach(groupName => {
                     // 在每个层级内按标签类型分组
                     const typeGroups = {};
-                    groups[groupName].forEach(item => {
+                    filteredGroups[groupName].forEach(item => {
                         if (!typeGroups[item.type]) typeGroups[item.type] = [];
                         typeGroups[item.type].push(item);
                     });
@@ -713,7 +729,7 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                         <div class="group-header ${isGroupSelected ? 'selected' : ''}" 
                              data-group="${escapeHtml(groupName)}" 
                              onclick="toggleGroupSelection('${escapeHtml(groupName)}', event)">
-                            ${escapeHtml(groupName)} (${groups[groupName].length})
+                            ${escapeHtml(groupName)} (${filteredGroups[groupName].length})
                         </div>
                         <div class="group-content">`;
                     
@@ -1031,6 +1047,7 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
             
             // 事件监听
             document.getElementById('search').addEventListener('input', renderBoard);
+            document.getElementById('layerSearch').addEventListener('input', renderBoard);  // 🆕 添加层级搜索监听
             document.getElementById('groupBy').addEventListener('change', renderBoard);
             document.getElementById('clearFilters').addEventListener('click', clearAllFilters);
             
