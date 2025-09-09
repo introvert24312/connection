@@ -6,25 +6,25 @@ This directory contains comprehensive architecture documentation for the WordTag
 
 ## 🎯 架构演进历程
 
-### 第一阶段：基础架构 (2024年10月)
-- 建立MVVM + Service Layer基础架构
-- 实现NotificationCenter事件系统
-- 解决多窗口状态同步基础问题
+### 第一阶段：项目启动与基础架构 (2025年7-8月)
+- 2025年7月28日项目启动，建立MVVM + Service Layer基础架构
+- 实现NotificationCenter事件系统和多窗口基础框架
+- 完成基本的节点管理和数据持久化功能
 
-### 第二阶段：稳定性危机处理 (2024年11月)  
+### 第二阶段：稳定性危机处理 (2025年8月中下旬)  
 - **挑战**: WebView废弃API导致应用崩溃
 - **解决**: 完全重构WebView安全策略，移除`allowUniversalAccessFromFileURLs`等废弃API
 - **收获**: 建立了现代化的WebView最佳实践
 
-### 第三阶段：企业级可观测性 (2024年12月-2025年1月)
-- **挑战**: 复杂服务交互难以调试和监控
-- **解决**: 构建完整的分布式追踪系统，实现TraceID传播
-- **收获**: 20个服务的全链路可观测性
+### 第三阶段：企业级架构完善 (2025年9月)
+- **挑战**: 复杂服务交互难以调试和监控，多窗口竞态条件
+- **解决**: 构建分布式追踪系统，实现WindowFocusManager原子性管理
+- **收获**: 23个服务的完整微服务架构和全链路可观测性
 
-### 第四阶段：多窗口架构复杂性 (2025年9月)
-- **挑战**: 窗口焦点管理竞态条件，快捷键冲突
-- **解决**: WindowFocusManager原子性预留，KeyboardEventManager错误恢复
-- **收获**: 企业级多窗口协调机制
+### 第四阶段：用户体验优化 (2025年9月9日)
+- **挑战**: 快捷键冲突影响用户体验
+- **解决**: Command+B改为Command+N，解决与系统快捷键冲突
+- **收获**: 完善的键盘交互体验和文档总结
 
 ## Documentation Files
 
