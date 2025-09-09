@@ -1342,15 +1342,25 @@ struct NodeBoardView: View {
     @EnvironmentObject private var store: NodeStore
     @Environment(\.dismiss) private var dismiss
     
-    @State private var searchText = ""
+    @State private var searchText = ""           // 节点搜索
+    @State private var layerSearchText = ""      // 层级搜索
     @State private var boardSelectedNodeIds: Set<UUID> = []  // 看板内部的选中状态
     @State private var boardSelectedLayerIds: Set<UUID> = [] // 看板内部的选中层级
     
     private var filteredNodes: [Node] {
         var nodes = store.nodes
         
-        // 节点看板永远显示所有数据，只应用搜索筛选
-        // 层级选择仅用于标记状态，不影响节点显示
+        // 1. 先应用层级搜索筛选
+        if !layerSearchText.isEmpty {
+            let matchingLayers = store.layers.filter { layer in
+                layer.displayName.localizedCaseInsensitiveContains(layerSearchText) ||
+                layer.name.localizedCaseInsensitiveContains(layerSearchText)
+            }
+            let matchingLayerIds = Set(matchingLayers.map { $0.id })
+            nodes = nodes.filter { matchingLayerIds.contains($0.layerId) }
+        }
+        
+        // 2. 再应用节点搜索筛选
         if !searchText.isEmpty {
             nodes = nodes.filter { node in
                 node.text.localizedCaseInsensitiveContains(searchText) ||
@@ -1358,7 +1368,7 @@ struct NodeBoardView: View {
             }
         }
         
-        // 不应用任何层级筛选或外部筛选条件，确保所有节点始终可见
+        // 层级选择仅用于标记状态，不影响节点显示
         
         return nodes.sorted { $0.text < $1.text }
     }
@@ -1428,18 +1438,98 @@ struct NodeBoardView: View {
             
             Divider()
             
-            // 搜索栏
-            HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.secondary)
-                TextField("搜索节点...", text: $searchText)
-                    .textFieldStyle(.roundedBorder)
-                
-                if !searchText.isEmpty {
-                    Button("清除") {
-                        searchText = ""
+            // 双搜索栏
+            VStack(spacing: 12) {
+                // 层级搜索栏
+                HStack {
+                    Image(systemName: "folder")
+                        .foregroundColor(.blue)
+                        .font(.system(size: 16))
+                    
+                    TextField("搜索层级...", text: $layerSearchText)
+                        .textFieldStyle(.roundedBorder)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(layerSearchText.isEmpty ? Color.clear : Color.blue.opacity(0.5), lineWidth: 1)
+                        )
+                    
+                    if !layerSearchText.isEmpty {
+                        Button("清除") {
+                            layerSearchText = ""
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundColor(.blue)
+                        .font(.system(size: 12))
                     }
-                    .buttonStyle(.plain)
+                }
+                
+                // 节点搜索栏  
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.green)
+                        .font(.system(size: 16))
+                    
+                    TextField("搜索节点...", text: $searchText)
+                        .textFieldStyle(.roundedBorder)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(searchText.isEmpty ? Color.clear : Color.green.opacity(0.5), lineWidth: 1)
+                        )
+                    
+                    if !searchText.isEmpty {
+                        Button("清除") {
+                            searchText = ""
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundColor(.green)
+                        .font(.system(size: 12))
+                    }
+                }
+                
+                // 搜索状态显示
+                if !layerSearchText.isEmpty || !searchText.isEmpty {
+                    HStack(spacing: 12) {
+                        if !layerSearchText.isEmpty {
+                            HStack(spacing: 4) {
+                                Image(systemName: "folder.fill")
+                                    .foregroundColor(.blue)
+                                    .font(.system(size: 10))
+                                Text("层级: \(layerSearchText)")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.blue)
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.blue.opacity(0.1))
+                            .cornerRadius(4)
+                        }
+                        
+                        if !searchText.isEmpty {
+                            HStack(spacing: 4) {
+                                Image(systemName: "doc.text.fill")
+                                    .foregroundColor(.green)
+                                    .font(.system(size: 10))
+                                Text("节点: \(searchText)")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.green)
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.green.opacity(0.1))
+                            .cornerRadius(4)
+                        }
+                        
+                        Spacer()
+                        
+                        // 清除所有按钮
+                        Button("清除全部") {
+                            layerSearchText = ""
+                            searchText = ""
+                        }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                    }
                 }
             }
             .padding()
@@ -1521,7 +1611,8 @@ struct NodeBoardView: View {
             // 节点看板永远显示所有数据，清空所有筛选状态
             boardSelectedNodeIds.removeAll() // 不应用任何节点筛选
             boardSelectedLayerIds.removeAll() // 不应用任何层级筛选
-            searchText = "" // 清空搜索
+            searchText = "" // 清空节点搜索
+            layerSearchText = "" // 清空层级搜索
         }
     }
     
