@@ -1438,63 +1438,83 @@ struct NodeBoardView: View {
             
             Divider()
             
-            // 双搜索栏
-            VStack(spacing: 12) {
-                // 层级搜索栏
-                HStack {
-                    Image(systemName: "folder")
-                        .foregroundColor(.blue)
-                        .font(.system(size: 16))
-                    
-                    TextField("搜索层级...", text: $layerSearchText)
-                        .textFieldStyle(.roundedBorder)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6)
-                                .stroke(layerSearchText.isEmpty ? Color.clear : Color.blue.opacity(0.5), lineWidth: 1)
-                        )
-                    
-                    if !layerSearchText.isEmpty {
-                        Button("清除") {
-                            layerSearchText = ""
+            // 双搜索栏 - 一行布局
+            VStack(spacing: 8) {
+                // 搜索框一行排列
+                HStack(spacing: 12) {
+                    // 层级搜索栏
+                    HStack(spacing: 6) {
+                        Image(systemName: "folder")
+                            .foregroundColor(.blue)
+                            .font(.system(size: 14))
+                        
+                        TextField("搜索层级...", text: $layerSearchText)
+                            .textFieldStyle(.roundedBorder)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(layerSearchText.isEmpty ? Color.clear : Color.blue.opacity(0.5), lineWidth: 1)
+                            )
+                        
+                        if !layerSearchText.isEmpty {
+                            Button("×") {
+                                layerSearchText = ""
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundColor(.blue)
+                            .font(.system(size: 14, weight: .medium))
                         }
-                        .buttonStyle(.plain)
-                        .foregroundColor(.blue)
-                        .font(.system(size: 12))
                     }
-                }
-                
-                // 节点搜索栏  
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.green)
-                        .font(.system(size: 16))
+                    .frame(maxWidth: .infinity)
                     
-                    TextField("搜索节点...", text: $searchText)
-                        .textFieldStyle(.roundedBorder)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6)
-                                .stroke(searchText.isEmpty ? Color.clear : Color.green.opacity(0.5), lineWidth: 1)
-                        )
+                    // 分隔线
+                    Divider()
+                        .frame(height: 20)
                     
-                    if !searchText.isEmpty {
-                        Button("清除") {
+                    // 节点搜索栏  
+                    HStack(spacing: 6) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.green)
+                            .font(.system(size: 14))
+                        
+                        TextField("搜索节点...", text: $searchText)
+                            .textFieldStyle(.roundedBorder)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(searchText.isEmpty ? Color.clear : Color.green.opacity(0.5), lineWidth: 1)
+                            )
+                        
+                        if !searchText.isEmpty {
+                            Button("×") {
+                                searchText = ""
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundColor(.green)
+                            .font(.system(size: 14, weight: .medium))
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    
+                    // 清除所有按钮
+                    if !layerSearchText.isEmpty || !searchText.isEmpty {
+                        Button("全部清除") {
+                            layerSearchText = ""
                             searchText = ""
                         }
                         .buttonStyle(.plain)
-                        .foregroundColor(.green)
                         .font(.system(size: 12))
+                        .foregroundColor(.secondary)
                     }
                 }
                 
                 // 搜索状态显示
                 if !layerSearchText.isEmpty || !searchText.isEmpty {
-                    HStack(spacing: 12) {
+                    HStack(spacing: 8) {
                         if !layerSearchText.isEmpty {
                             HStack(spacing: 4) {
                                 Image(systemName: "folder.fill")
                                     .foregroundColor(.blue)
                                     .font(.system(size: 10))
-                                Text("层级: \(layerSearchText)")
+                                Text("\(layerSearchText)")
                                     .font(.system(size: 11))
                                     .foregroundColor(.blue)
                             }
@@ -1509,7 +1529,7 @@ struct NodeBoardView: View {
                                 Image(systemName: "doc.text.fill")
                                     .foregroundColor(.green)
                                     .font(.system(size: 10))
-                                Text("节点: \(searchText)")
+                                Text("\(searchText)")
                                     .font(.system(size: 11))
                                     .foregroundColor(.green)
                             }
@@ -1520,15 +1540,6 @@ struct NodeBoardView: View {
                         }
                         
                         Spacer()
-                        
-                        // 清除所有按钮
-                        Button("清除全部") {
-                            layerSearchText = ""
-                            searchText = ""
-                        }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
                     }
                 }
             }
