@@ -3168,7 +3168,7 @@ struct WordTaggerApp: App {
     // 哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈
 
     var body: some Scene {
-        WindowGroup("WordTagger") {
+        WindowGroup("(*¯︶¯*)ノ❤ヽ(^^)") {
             ZStack {
                 ContentView(windowId: mainWindowId)
                     .environmentObject(store)
@@ -3727,14 +3727,14 @@ struct WordTaggerApp: App {
         }
         
         // 地图窗口 - 使用通用WindowGroup，通过sourceWindowId进行智能路由
-        WindowGroup("地图窗口", id: "map") {
+        WindowGroup("(*¯︶¯*)ノ❤ヽ(^^)", id: "map") {
             MapWindow()
                 .environmentObject(store) // 默认使用主store，具体路由由MapContainer中间层处理
         }
         .defaultSize(width: 1000, height: 700)
         
         // 图谱窗口
-        WindowGroup("全局节点图谱", id: "graph") {
+        WindowGroup("(*¯︶¯*)ノ❤ヽ(^^)", id: "graph") {
             GraphView()
                 .environmentObject(store)
         }
@@ -3742,14 +3742,14 @@ struct WordTaggerApp: App {
         .windowToolbarStyle(.unified)
         
         // 节点管理窗口 - 使用单例窗口管理器
-        Window("节点管理", id: "nodeManager") {
+        Window("(*¯︶¯*)ノ❤ヽ(^^)", id: "nodeManager") {
             NodeManagerView(nodeToEdit: $nodeToEditInManager)
                 .environmentObject(store)
         }
         .defaultSize(width: 1000, height: 700)
         
         // 全屏图谱窗口 - SwiftUI原生方式
-        WindowGroup("全屏图谱", id: "fullscreenGraph") {
+        WindowGroup("(*¯︶¯*)ノ❤ヽ(^^)", id: "fullscreenGraph") {
             FullscreenGraphView()
                 .environmentObject(store)
         }
@@ -3757,7 +3757,7 @@ struct WordTaggerApp: App {
         .windowToolbarStyle(.unified)
         
         // 标签图谱窗口
-        WindowGroup("标签图谱", id: "tagTypeGraph") {
+        WindowGroup("(*¯︶¯*)ノ❤ヽ(^^)", id: "tagTypeGraph") {
             // 优先使用WindowManager中的标签类型，然后回退到tagTypeForGraph
             if let tagType = TagGraphWindowManager.shared.currentTagType ?? tagTypeForGraph {
                 FullscreenTagTypeGraphView(tagType: tagType)
@@ -3798,7 +3798,7 @@ struct WordTaggerApp: App {
         .windowToolbarStyle(.unified)
         
         // 🆕 全局标签图谱窗口
-        WindowGroup("全局标签图谱", id: "globalTagGraph") {
+        WindowGroup("(*¯︶¯*)ノ❤ヽ(^^)", id: "globalTagGraph") {
             GlobalTagGraphView()
                 .environmentObject(store)
         }
@@ -3806,14 +3806,14 @@ struct WordTaggerApp: App {
         .windowToolbarStyle(.unified)
         
         // 🆕 层图谱窗口
-        WindowGroup("层结构图谱", id: "layerGraph") {
+        WindowGroup("(*¯︶¯*)ノ❤ヽ(^^)", id: "layerGraph") {
             LayerGraphWindowView()
                 .environmentObject(store)
         }
         .defaultSize(width: 900, height: 650)
         
         // 独立窗口 - 完全分离的数据和状态
-        WindowGroup("层级视图", id: "layerView") {
+        WindowGroup("(*¯︶¯*)ノ❤ヽ(^^)", id: "layerView") {
             IndependentWindowWrapper()
         }
         .defaultSize(width: 1200, height: 800)
