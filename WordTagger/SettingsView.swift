@@ -2636,25 +2636,45 @@ struct DataManagementView: View {
     }
     
     private func openImagesFolder() {
-        guard let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
-        let imagesURL = documentsURL.appendingPathComponent("WordTagger/Images")
+        // 🔧 使用ExternalDataManager获取正确的图片路径
+        guard let imagesURL = ExternalDataManager.shared.getImagesURL() else {
+            print("❌ 图片文件夹路径未设置，请先选择数据存储文件夹")
+            return
+        }
+        
+        // 确保外部数据管理器有访问权限
+        guard ExternalDataManager.shared.ensureAccess() else {
+            print("❌ 无法访问数据存储路径，请重新选择")
+            return
+        }
         
         // 确保目录存在
         try? FileManager.default.createDirectory(at: imagesURL, withIntermediateDirectories: true, attributes: nil)
         
         // 打开文件夹
         NSWorkspace.shared.open(imagesURL)
+        print("📂 已打开图片文件夹: \(imagesURL.path)")
     }
     
     private func showInFinder() {
-        guard let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
-        let imagesURL = documentsURL.appendingPathComponent("WordTagger/Images")
+        // 🔧 使用ExternalDataManager获取正确的图片路径
+        guard let imagesURL = ExternalDataManager.shared.getImagesURL() else {
+            print("❌ 图片文件夹路径未设置，请先选择数据存储文件夹")
+            return
+        }
+        
+        // 确保外部数据管理器有访问权限
+        guard ExternalDataManager.shared.ensureAccess() else {
+            print("❌ 无法访问数据存储路径，请重新选择")
+            return
+        }
         
         // 确保目录存在
         try? FileManager.default.createDirectory(at: imagesURL, withIntermediateDirectories: true, attributes: nil)
         
         // 在 Finder 中显示
         NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: imagesURL.path)
+        print("📂 在 Finder 中显示图片文件夹: \(imagesURL.path)")
     }
 }
 
@@ -4963,25 +4983,45 @@ struct ImageManagementSection: View {
     }
     
     private func openImagesFolder() {
-        guard let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
-        let imagesURL = documentsURL.appendingPathComponent("WordTagger/Images")
+        // 🔧 使用ExternalDataManager获取正确的图片路径
+        guard let imagesURL = ExternalDataManager.shared.getImagesURL() else {
+            print("❌ 图片文件夹路径未设置，请先选择数据存储文件夹")
+            return
+        }
+        
+        // 确保外部数据管理器有访问权限
+        guard ExternalDataManager.shared.ensureAccess() else {
+            print("❌ 无法访问数据存储路径，请重新选择")
+            return
+        }
         
         // 确保目录存在
         try? FileManager.default.createDirectory(at: imagesURL, withIntermediateDirectories: true, attributes: nil)
         
         // 打开文件夹
         NSWorkspace.shared.open(imagesURL)
+        print("📂 已打开图片文件夹: \(imagesURL.path)")
     }
     
     private func showInFinder() {
-        guard let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
-        let imagesURL = documentsURL.appendingPathComponent("WordTagger/Images")
+        // 🔧 使用ExternalDataManager获取正确的图片路径
+        guard let imagesURL = ExternalDataManager.shared.getImagesURL() else {
+            print("❌ 图片文件夹路径未设置，请先选择数据存储文件夹")
+            return
+        }
+        
+        // 确保外部数据管理器有访问权限
+        guard ExternalDataManager.shared.ensureAccess() else {
+            print("❌ 无法访问数据存储路径，请重新选择")
+            return
+        }
         
         // 确保目录存在
         try? FileManager.default.createDirectory(at: imagesURL, withIntermediateDirectories: true, attributes: nil)
         
         // 在 Finder 中显示
         NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: imagesURL.path)
+        print("📂 在 Finder 中显示图片文件夹: \(imagesURL.path)")
     }
 }
 
