@@ -52,13 +52,30 @@ struct GraphView: View {
             layerFilteredNodes = sourceNodes.filter { selectedLayerIds.contains($0.layerId) }
         }
         
-        // 根据选择的节点ID来确定要显示的节点
+        // 根据选择的节点ID和标签筛选来确定要显示的节点
         let nodesToShow: [Node]
         if !selectedNodeIds.isEmpty {
             nodesToShow = layerFilteredNodes.filter { selectedNodeIds.contains($0.id) }
         } else if !displayedNodes.isEmpty {
             // 搜索结果也需要应用层级筛选
             nodesToShow = displayedNodes.filter { selectedLayerIds.isEmpty || selectedLayerIds.contains($0.layerId) }
+        } else if let selectedTag = store.selectedTag {
+            // 🏷️ 标签筛选逻辑
+            if store.showAllTagTypeNodes {
+                // 显示该标签类型下的所有节点
+                if store.expandedTagTypes.count > 1 {
+                    nodesToShow = layerFilteredNodes.filter { node in
+                        node.tags.contains { tag in store.expandedTagTypes.contains(tag.type) }
+                    }
+                } else {
+                    nodesToShow = layerFilteredNodes.filter { node in
+                        node.tags.contains { $0.type == selectedTag.type }
+                    }
+                }
+            } else {
+                // 显示该具体标签的节点
+                nodesToShow = layerFilteredNodes.filter { $0.hasTag(selectedTag) }
+            }
         } else {
             nodesToShow = layerFilteredNodes
         }
@@ -429,6 +446,15 @@ struct GraphView: View {
             saveSelectedNodeIds()
         }
         .onChange(of: selectedLayerIds) {
+            updateGraphData()
+        }
+        .onChange(of: store.selectedTag) {
+            updateGraphData()
+        }
+        .onChange(of: store.showAllTagTypeNodes) {
+            updateGraphData()
+        }
+        .onChange(of: store.expandedTagTypes) {
             updateGraphData()
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("NodeBoardSelectionChanged"))) { notification in
