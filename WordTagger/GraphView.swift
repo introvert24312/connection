@@ -1688,7 +1688,6 @@ struct NodeBoardView: View {
             }
             .background(Color(NSColor.controlBackgroundColor))
         }
-        .frame(minWidth: 800, minHeight: 600)
         .onAppear {
             // 节点看板永远显示所有数据，清空所有筛选状态
             boardSelectedNodeIds.removeAll() // 不应用任何节点筛选

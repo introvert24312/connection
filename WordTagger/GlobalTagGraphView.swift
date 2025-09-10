@@ -67,7 +67,6 @@ struct GlobalTagGraphView: View {
                 }
             }
         }
-        .frame(minWidth: 1000, minHeight: 700)
         .navigationTitle("全局标签图谱")
         .onAppear {
             print("🌍 [全局标签图谱] 视图出现，当前isLoading: \(isLoading), hasPerformedInitialLoad: \(hasPerformedInitialLoad)")
