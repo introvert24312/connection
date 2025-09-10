@@ -326,17 +326,21 @@ struct GlobalTagGraphView: View {
     }
     
     private var emptyStateView: some View {
-        VStack(spacing: 30) {
+        VStack(spacing: 20) {
             Image(systemName: "network")
-                .font(.system(size: 64))
-                .foregroundColor(.blue)
+                .font(.system(size: 60))
+                .foregroundColor(.gray)
             
-            Text("全局标签图谱")
-                .font(.system(size: 28, weight: .medium))
-                .foregroundColor(.primary)
+            Text("暂无图谱数据")
+                .font(.title2)
+                .foregroundColor(.secondary)
+            
+            Text("选择标签筛选条件来生成全局标签图谱")
+                .font(.body)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
     }
     
     // MARK: - 关联功能
