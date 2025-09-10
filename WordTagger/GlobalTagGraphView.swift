@@ -107,10 +107,13 @@ struct GlobalTagGraphView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("tagTypeSelected"))) { notification in
             print("📨 [全局标签图谱] 收到主窗口标签类型选择通知")
+            print("📨 [全局标签图谱] 通知详情: \(notification)")
+            print("📨 [全局标签图谱] userInfo: \(notification.userInfo ?? [:])")
             
             if let userInfo = notification.userInfo,
                let tagType = userInfo["tagType"] as? Tag.TagType {
                 print("🏷️ [全局标签图谱] 同步标签类型选择: \(tagType.displayName)")
+                print("🏷️ [全局标签图谱] 标签类型rawValue: \(tagType.rawValue)")
                 
                 // 🔒 如果图谱被锁定，忽略通知
                 guard !isLocked else {
@@ -118,8 +121,15 @@ struct GlobalTagGraphView: View {
                     return
                 }
                 
+                print("🔄 [全局标签图谱] 开始更新过滤器")
+                
                 // 更新过滤器以显示选中的标签类型
                 DispatchQueue.main.async {
+                    print("🧹 [全局标签图谱] 清除现有过滤器")
+                    print("   - 清除前 filteredLayers: \(dataManager.filteredLayers)")
+                    print("   - 清除前 filteredTagValues: \(dataManager.filteredTagValues)")
+                    print("   - 清除前 filteredTagTypes: \(dataManager.filteredTagTypes.map { $0.displayName })")
+                    
                     // 清除所有过滤器
                     dataManager.filteredLayers.removeAll()
                     dataManager.filteredTagValues.removeAll()
@@ -127,7 +137,19 @@ struct GlobalTagGraphView: View {
                     // 设置选中的标签类型过滤器
                     dataManager.filteredTagTypes = Set([tagType])
                     
+                    print("✅ [全局标签图谱] 过滤器更新完成")
+                    print("   - 新的 filteredLayers: \(dataManager.filteredLayers)")
+                    print("   - 新的 filteredTagValues: \(dataManager.filteredTagValues)")
+                    print("   - 新的 filteredTagTypes: \(dataManager.filteredTagTypes.map { $0.displayName })")
                     print("✅ [全局标签图谱] 已同步更新过滤器，显示标签类型: \(tagType.displayName)")
+                }
+            } else {
+                print("❌ [全局标签图谱] 无法解析通知内容")
+                if let userInfo = notification.userInfo {
+                    print("   - userInfo keys: \(userInfo.keys)")
+                    for (key, value) in userInfo {
+                        print("   - \(key): \(value) (type: \(type(of: value)))")
+                    }
                 }
             }
         }

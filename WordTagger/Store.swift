@@ -1889,13 +1889,21 @@ public final class NodeStore: ObservableObject {
         if let tag = representativeTag {
             setSelectedTagWithTypeMode(tag)
             print("🏷️ Store.selectTagType: 选择标签类型 \(tagType.displayName)，显示该类型下的所有节点")
+            print("🏷️ Store.selectTagType: 代表性标签 - 类型: \(tag.type.displayName), 值: \(tag.value)")
             
             // 发送标签类型选择通知给其他窗口（如全局标签图谱窗口）
+            print("📤 Store.selectTagType: 准备发送 tagTypeSelected 通知")
+            let userInfo: [String: Any] = ["tagType": tagType, "representativeTag": tag]
+            print("📤 Store.selectTagType: 通知内容 - \(userInfo)")
+            
             NotificationCenter.default.post(
                 name: Notification.Name("tagTypeSelected"),
                 object: nil,
-                userInfo: ["tagType": tagType, "representativeTag": tag]
+                userInfo: userInfo
             )
+            print("✅ Store.selectTagType: tagTypeSelected 通知已发送")
+        } else {
+            print("❌ Store.selectTagType: 未找到标签类型 \(tagType.displayName) 的代表性标签")
         }
     }
     
