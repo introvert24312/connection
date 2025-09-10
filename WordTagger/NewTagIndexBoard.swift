@@ -82,18 +82,9 @@ struct NewTagIndexBoardView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // 顶部工具栏
+            // 顶部工具栏 - 只保留关闭按钮
             HStack {
-                // 刷新按钮
-                Button("刷新数据") {
-                    refreshData()
-                }
-                .buttonStyle(.bordered)
-                
-                // 数据状态显示
-                Text("节点: \(store.nodes.count)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                Spacer()
                 
                 // 关闭按钮
                 Button(action: {
@@ -506,6 +497,7 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                     <option value="none">不分组</option>
                 </select>
                 <button id="clearFilters">清除筛选</button>
+                <button id="refreshData">刷新数据</button>
             </div>
             
             <div id="layerSelectorContainer" style="display: none;" class="layer-selector">
@@ -1088,6 +1080,27 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
             document.getElementById('layerSearch').addEventListener('input', renderBoard);  // 🆕 添加层级搜索监听
             document.getElementById('groupBy').addEventListener('change', renderBoard);
             document.getElementById('clearFilters').addEventListener('click', clearAllFilters);
+            document.getElementById('refreshData').addEventListener('click', refreshDataFromWebView);
+            
+            // 🆕 刷新数据功能
+            function refreshDataFromWebView() {
+                console.log("🔄 从WebView触发刷新数据");
+                
+                // 通过消息处理器通知Swift端刷新数据
+                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.tagIndexBoard) {
+                    try {
+                        const message = {
+                            action: 'refreshData'
+                        };
+                        window.webkit.messageHandlers.tagIndexBoard.postMessage(message);
+                        console.log("✅ 刷新数据消息发送成功");
+                    } catch (e) {
+                        console.error("❌ 发送刷新数据消息异常:", e);
+                    }
+                } else {
+                    console.error("❌ messageHandler 不可用，无法刷新数据");
+                }
+            }
             
             // 初始化层级搜索功能
             setupLayerSearch();
@@ -1151,8 +1164,23 @@ extension NewTagIndexWebViewModel: WKScriptMessageHandler {
             handleSelectionChanged(messageBody)
         case "tagTypeSelected":
             handleTagTypeSelected(messageBody)
+        case "refreshData":
+            handleRefreshData()
         default:
             print("⚠️ [新标签索引] 未知消息动作: \(action)")
+        }
+    }
+    
+    @MainActor
+    private func handleRefreshData() {
+        print("🔄 [标签索引-\(instanceId)] 处理刷新数据请求")
+        
+        // 通过NodeStore刷新数据
+        if let nodeStore = NodeStore.shared as NodeStore? {
+            loadTagData(from: nodeStore)
+            print("✅ [标签索引-\(instanceId)] 数据刷新完成")
+        } else {
+            print("❌ [标签索引-\(instanceId)] 无法获取NodeStore实例")
         }
     }
     
