@@ -84,12 +84,6 @@ struct NewTagIndexBoardView: View {
         VStack(spacing: 0) {
             // 顶部工具栏
             HStack {
-                Text("标签索引看板")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                
-                Spacer()
-                
                 // 刷新按钮
                 Button("刷新数据") {
                     refreshData()
