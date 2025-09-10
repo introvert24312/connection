@@ -626,7 +626,7 @@ public struct Node: Identifiable, Hashable, Codable {
                     }
                 }
                 
-            case .noConflict(let existingMapping):
+            case .noConflict(_):
                 // 无冲突，映射已存在且相同
                 print("✅ 标签映射已存在且相同: \(normalizedKey) = \(displayName)")
                 

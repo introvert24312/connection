@@ -702,6 +702,10 @@ struct TagEditCommandView: View {
                     .onChange(of: commandText) { _, _ in
                         updateAvailableCommands()
                     }
+                    .onKeyPress(.tab) {
+                        handleTabCompletion()
+                        return .handled
+                    }
                 
                 Text("当前命令: \(commandText)")
                     .font(.caption)
@@ -898,6 +902,53 @@ struct TagEditCommandView: View {
         }
     }
     
+    private func handleTabCompletion() {
+        print("🔍 Tab补全触发")
+        
+        // 获取光标位置和当前单词
+        let words = commandText.split(separator: " ", omittingEmptySubsequences: false).map(String.init)
+        guard !words.isEmpty else { return }
+        
+        let currentWord = words.last ?? ""
+        print("🔍 当前单词: '\(currentWord)'")
+        
+        // 检查是否是@节点引用格式
+        if currentWord.hasPrefix("@") {
+            let partialNodeName = String(currentWord.dropFirst())
+            print("🔗 检测到节点引用补全: '\(partialNodeName)'")
+            
+            // 查找匹配的节点名
+            let matchingNodes = store.nodes.filter { node in
+                node.text.lowercased().contains(partialNodeName.lowercased())
+            }.map { $0.text }
+            
+            if let firstMatch = matchingNodes.first {
+                // 替换当前单词
+                var newWords = words.dropLast()
+                newWords.append("@\(firstMatch)")
+                commandText = newWords.joined(separator: " ")
+                print("✅ 节点名补全完成: @\(firstMatch)")
+            } else {
+                print("❌ 未找到匹配的节点名")
+            }
+        } else {
+            // 标签补全（保持原有逻辑）
+            let mappings = TagMappingManager.shared.tagMappings
+            let matchingKeys = mappings.filter { mapping in
+                mapping.key.lowercased().hasPrefix(currentWord.lowercased())
+            }
+            
+            if let firstMatch = matchingKeys.first {
+                var newWords = words.dropLast()
+                newWords.append(firstMatch.key)
+                commandText = newWords.joined(separator: " ")
+                print("✅ 标签补全完成: \(firstMatch.key)")
+            } else {
+                print("❌ 未找到匹配的标签")
+            }
+        }
+    }
+    
     private func executeCommand() {
         print("🚀 executeCommand() 被调用")
         print("🚀 当前命令文本: '\(commandText)'")
@@ -1011,6 +1062,33 @@ struct TagEditCommandView: View {
         while i < tokens.count {
             let token = tokens[i]
             print("🔧 [主循环] 处理token [\(i)]: '\(token)'，总token数: \(tokens.count)")
+            
+            // 检查是否是节点引用（@节点名格式）
+            if token.hasPrefix("@") {
+                let referencedNodeName = String(token.dropFirst()) // 去掉@前缀
+                print("🔗 检测到节点引用: '\(referencedNodeName)'")
+                
+                // 查找被引用的节点
+                if let referencedNode = store.nodes.first(where: { $0.text == referencedNodeName }) {
+                    print("✅ 找到引用节点: '\(referencedNodeName)', 标签数: \(referencedNode.tags.count)")
+                    
+                    // 添加子节点标签
+                    let childTag = Tag(type: .custom("child"), value: referencedNodeName)
+                    newTags.append(childTag)
+                    print("🏷️ 添加子节点标签: child = '\(referencedNodeName)'")
+                    
+                    // 复制被引用节点的所有标签（动态聚合将在显示时处理）
+                    for refTag in referencedNode.tags {
+                        newTags.append(refTag)
+                        print("🔗 聚合引用节点标签: \(refTag.type.displayName) = '\(refTag.value)'")
+                    }
+                } else {
+                    print("❌ 未找到引用节点: '\(referencedNodeName)'")
+                }
+                
+                i += 1
+                continue
+            }
             
             // 检查是否是标签类型关键词
             if let tagType = mapTokenToTagType(token) {
@@ -1360,6 +1438,20 @@ struct TagEditCommandView: View {
         // 只有当成功解析出标签时才替换节点的所有标签
         if !newTags.isEmpty {
             print("✅ 开始替换节点标签")
+            
+            // 检查是否有子节点引用，如果有则添加compound标签
+            let hasChildReferences = newTags.contains { tag in
+                if case .custom(let key) = tag.type, key == "child" {
+                    return true
+                }
+                return false
+            }
+            if hasChildReferences {
+                let compoundTag = Tag(type: .custom("compound"), value: "1级复合节点")
+                newTags.append(compoundTag)
+                print("🔗 检测到子节点引用，添加复合节点标签")
+            }
+            
             await MainActor.run {
                 // 先删除所有现有标签
                 let currentNode = store.nodes.first { $0.id == node.id }

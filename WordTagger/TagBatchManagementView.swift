@@ -71,7 +71,7 @@ struct TagBatchManagementView: View {
         .onAppear {
             loadTagSelections()
         }
-        .onChange(of: mode) { _ in
+        .onChange(of: mode) { _, _ in
             loadTagSelections()
         }
         .sheet(isPresented: $showingPreview) {
