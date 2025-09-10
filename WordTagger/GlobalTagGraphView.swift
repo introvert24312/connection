@@ -105,6 +105,32 @@ struct GlobalTagGraphView: View {
                 }
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("tagTypeSelected"))) { notification in
+            print("📨 [全局标签图谱] 收到主窗口标签类型选择通知")
+            
+            if let userInfo = notification.userInfo,
+               let tagType = userInfo["tagType"] as? Tag.TagType {
+                print("🏷️ [全局标签图谱] 同步标签类型选择: \(tagType.displayName)")
+                
+                // 🔒 如果图谱被锁定，忽略通知
+                guard !isLocked else {
+                    print("🔒 [全局标签图谱] 图谱已锁定，忽略标签类型选择通知")
+                    return
+                }
+                
+                // 更新过滤器以显示选中的标签类型
+                DispatchQueue.main.async {
+                    // 清除所有过滤器
+                    dataManager.filteredLayers.removeAll()
+                    dataManager.filteredTagValues.removeAll()
+                    
+                    // 设置选中的标签类型过滤器
+                    dataManager.filteredTagTypes = Set([tagType])
+                    
+                    print("✅ [全局标签图谱] 已同步更新过滤器，显示标签类型: \(tagType.displayName)")
+                }
+            }
+        }
         .onKeyPress(.escape) {
             print("🔙 [全局标签图谱] ESC键按下，关闭窗口")
             dismiss()
