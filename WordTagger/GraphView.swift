@@ -429,11 +429,14 @@ struct GraphView: View {
             // 加载持久化的选择状态
             loadSelectedNodeIds()
             
-            // 初始显示所有节点
-            if displayedNodes.isEmpty && selectedNodeIds.isEmpty && !store.nodes.isEmpty {
-                displayedNodes = Array(store.nodes.prefix(20)) // 限制初始显示数量
+            // 🔄 不再自动显示节点，保持空白状态直到用户手动选择
+            print("📋 [全局节点图谱] 默认保持空白状态，等待用户手动选择节点")
+            // 只有当有持久化的选择状态时才显示
+            if !selectedNodeIds.isEmpty {
+                let selectedNodes = store.nodes.filter { selectedNodeIds.contains($0.id) }
+                displayedNodes = selectedNodes
+                updateGraphData()
             }
-            updateGraphData()
         }
         .onChange(of: store.nodes) {
             updateGraphData()

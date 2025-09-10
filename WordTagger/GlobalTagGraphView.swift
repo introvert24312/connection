@@ -75,12 +75,8 @@ struct GlobalTagGraphView: View {
             // 🔧 强制确保初始状态正确
             isLoading = false
             
-            // 🔄 默认自动加载当前层的标签图谱
-            if !hasPerformedInitialLoad {
-                print("📋 [全局标签图谱] 自动开始加载当前层的标签图谱")
-                hasPerformedInitialLoad = true
-                loadCurrentLayerGraphData()
-            }
+            // 🔄 不再自动加载，保持空白状态直到用户手动加载
+            print("📋 [全局标签图谱] 默认保持空白状态，等待用户手动加载")
         }
         .onReceive(dataManager.$filteredLayers.combineLatest(dataManager.$filteredTagTypes, dataManager.$filteredTagValues)) { layers, types, values in
             print("🔄 [全局标签图谱] 过滤器变化，准备重新加载数据")
