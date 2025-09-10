@@ -220,6 +220,42 @@ struct ContentViewModifier: ViewModifier {
                     store.clearTagFilter()
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("tagIndexSelectionChanged"))) { notification in
+                print("📋 ContentView: 收到标签索引选择变化通知")
+                print("📋 ContentView: userInfo: \(notification.userInfo ?? [:])")
+                
+                guard let userInfo = notification.userInfo else {
+                    print("❌ ContentView: userInfo为空")
+                    return
+                }
+                
+                let selectedTagTypes = userInfo["selectedTagTypes"] as? Set<Tag.TagType> ?? Set<Tag.TagType>()
+                let selectedTagValues = userInfo["selectedTagValues"] as? Set<String> ?? Set<String>()
+                
+                print("📋 ContentView: 解析选择数据 - 标签类型: \(selectedTagTypes.map { $0.displayName }), 标签值: \(selectedTagValues)")
+                
+                DispatchQueue.main.async {
+                    // 优先处理标签类型选择
+                    if !selectedTagTypes.isEmpty {
+                        // 选择了标签类型，显示该类型下的所有节点
+                        if let firstTagType = selectedTagTypes.first {
+                            print("🏷️ ContentView: 选择标签类型 - \(firstTagType.displayName)")
+                            store.selectTagType(firstTagType)
+                        }
+                    } else if !selectedTagValues.isEmpty {
+                        // 选择了标签值，查找对应的标签并设置
+                        if let firstTagValue = selectedTagValues.first,
+                           let tag = store.allTags.first(where: { $0.value == firstTagValue }) {
+                            print("🏷️ ContentView: 选择标签值 - \(firstTagValue)")
+                            store.setSelectedTag(tag)
+                        }
+                    } else {
+                        // 没有选择，清除过滤
+                        print("🏷️ ContentView: 清除标签过滤")
+                        store.clearTagFilter()
+                    }
+                }
+            }
             .toolbar {
                 toolbarContent
             }

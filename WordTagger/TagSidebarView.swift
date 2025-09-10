@@ -394,6 +394,9 @@ struct TagSidebarView: View {
         VStack(spacing: 0) {
             // 标签类型头部
             Button(action: {
+                print("🖱️ TagSidebarView: 标签类型按钮被点击 - \(tagType.displayName)")
+                print("🖱️ TagSidebarView: 当前展开状态: \(isExpanded)")
+                
                 // 选择标签类型，显示该类型下的所有节点
                 store.selectTagType(tagType)
                 
