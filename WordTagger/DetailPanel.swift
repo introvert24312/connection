@@ -1494,6 +1494,7 @@ struct NodeGraphView: View {
     @AppStorage("detailGraphInitialScale") private var detailGraphInitialScale: Double = 1.0
     @StateObject private var graphCache = NodeGraphDataCache.shared
     @State private var showingFullscreenGraph = false
+    @State private var refreshTrigger = UUID() // 用于强制UI重绘
     
     // 从store中获取最新的节点数据
     private var currentNode: Node {
@@ -1532,6 +1533,7 @@ struct NodeGraphView: View {
                 }
             }
         }
+        .id(refreshTrigger) // 通过ID变化强制重绘整个View
         .focusable(false)
         .onKeyPress(.init("d"), phases: .down) { keyPress in
             if keyPress.modifiers == .command {
@@ -1577,6 +1579,19 @@ struct NodeGraphView: View {
                         name: NSNotification.Name("requestOpenFullscreenGraph"),
                         object: nil
                     )
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("manualRefreshCompoundNode"))) { notification in
+            if let userInfo = notification.userInfo,
+               let nodeId = userInfo["nodeId"] as? UUID,
+               currentNode.id == nodeId {
+                print("🔄 [手动刷新] 收到复合节点手动刷新通知，刷新图谱...")
+                // 清除缓存并强制重绘
+                graphCache.invalidateCache(for: currentNode.id)
+                DispatchQueue.main.async {
+                    refreshTrigger = UUID()
+                    print("✅ [手动刷新] 图谱缓存已清除，UI已重绘")
                 }
             }
         }

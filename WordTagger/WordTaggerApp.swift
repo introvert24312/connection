@@ -883,20 +883,7 @@ struct QuickAddSheetView: View {
                 }
                 return .ignored
             }
-            .background(
-                // 使用隐藏按钮来捕获快捷键
-                Button("") {
-                    print("⌨️ Command+Shift+R 通过按钮触发")
-                    print("📝 当前输入文本: '\(inputText)'")
-                    guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                        print("⚠️ 输入为空，忽略Command+Shift+R")
-                        return
-                    }
-                    processCompoundNodeInput()
-                }
-                .keyboardShortcut("r", modifiers: [.command, .shift])
-                .hidden()
-            )
+            // Command+Shift+R 功能已废除，改用统一的 Command+R
     }
     
     @ViewBuilder
@@ -1100,6 +1087,288 @@ struct QuickAddSheetView: View {
         print("✅ 复合节点命令处理完成")
     }
     
+    // 🆕 处理混合语法：复合节点引用 + 普通标签
+    private func processMixedCompoundNodeInput(_ components: [String]) throws {
+        print("🔄 开始处理混合复合节点语法: \(components)")
+        
+        guard !components.isEmpty else { return }
+        
+        let nodeText = components[0]
+        var childNodeNames: [String] = []
+        var normalTags: [Tag] = []
+        var i = 1
+        
+        // 第一遍：提取所有 @节点引用
+        while i < components.count {
+            if components[i].hasPrefix("@") {
+                let childName = String(components[i].dropFirst()) // 去掉@前缀
+                childNodeNames.append(childName)
+                print("🔗 发现子节点引用: @\(childName)")
+                i += 1
+            } else {
+                break // 遇到非@开头的，停止提取子节点
+            }
+        }
+        
+        // 第二遍：解析剩余的普通标签
+        while i < components.count {
+            let tagKey = components[i]
+            
+            // 检查是否是标签重命名语法: tagtype[newName]
+            if tagKey.contains("[") && tagKey.contains("]") {
+                if let startBracket = tagKey.firstIndex(of: "["),
+                   let endBracket = tagKey.firstIndex(of: "]"),
+                   startBracket < endBracket {
+                    
+                    let actualTagKey = String(tagKey[..<startBracket])
+                    let newTypeName = String(tagKey[tagKey.index(after: startBracket)..<endBracket])
+                    
+                    // 处理标签重命名（复用现有逻辑）
+                    if let existingMapping = tagManager.tagMappings.first(where: { $0.key == actualTagKey }) {
+                        let oldTypeName = existingMapping.typeName
+                        if oldTypeName != newTypeName {
+                            let updatedMapping = TagMapping(
+                                id: existingMapping.id,
+                                key: actualTagKey,
+                                typeName: newTypeName
+                            )
+                            tagManager.saveMapping(updatedMapping)
+                        }
+                    } else {
+                        let newMapping = TagMapping(key: actualTagKey, typeName: newTypeName)
+                        tagManager.addMapping(newMapping)
+                    }
+                    
+                    // 使用实际的tagKey创建标签
+                    if let tagType = tagManager.parseTokenToTagTypeWithStore(actualTagKey, store: store) {
+                        if i + 1 < components.count {
+                            let content = components[i + 1]
+                            let tag = Tag(type: tagType, value: content, isShortcutType: true)
+                            normalTags.append(tag)
+                            print("🏷️ 创建重命名标签: \(actualTagKey)[\(newTypeName)] = \(content)")
+                            i += 2
+                        } else {
+                            i += 1
+                        }
+                    } else {
+                        i += 1
+                    }
+                    continue
+                }
+            }
+            
+            // 普通标签处理
+            if let tagType = tagManager.parseTokenToTagTypeWithStore(tagKey, store: store) {
+                if i + 1 < components.count {
+                    let content = components[i + 1]
+                    
+                    // 检查是否是地图标签
+                    if tagManager.isLocationTagKey(tagKey) {
+                        // 地图标签处理逻辑（复用现有逻辑）
+                        var locationName: String = ""
+                        var lat: Double = 0
+                        var lng: Double = 0
+                        var parsed = false
+                        
+                        if content.contains("@") && !content.hasPrefix("@") {
+                            let components = content.split(separator: "@", maxSplits: 1)
+                            if components.count == 2 {
+                                locationName = String(components[0])
+                                let coordString = String(components[1])
+                                let coords = coordString.split(separator: ",")
+                                
+                                if coords.count == 2,
+                                   let latitude = Double(coords[0]),
+                                   let longitude = Double(coords[1]) {
+                                    lat = latitude
+                                    lng = longitude
+                                    parsed = true
+                                }
+                            }
+                        }
+                        
+                        if parsed && !locationName.isEmpty {
+                            let tag = store.createTag(type: tagType, value: locationName, latitude: lat, longitude: lng)
+                            normalTags.append(tag)
+                        } else {
+                            let tag = Tag(type: tagType, value: content)
+                            normalTags.append(tag)
+                        }
+                    } else {
+                        // 普通标签
+                        let tag = Tag(type: tagType, value: content, isShortcutType: true)
+                        normalTags.append(tag)
+                        print("🏷️ 创建普通标签: \(tagKey) = \(content)")
+                    }
+                    i += 2
+                } else {
+                    i += 1
+                }
+            } else {
+                i += 1
+            }
+        }
+        
+        // 检查层级可用性
+        guard let layerId = store.currentLayer?.id ?? store.layers.first?.id else {
+            store.duplicateNodeAlert = NodeStore.DuplicateNodeAlert(
+                message: "无法添加节点：请先创建至少一个层",
+                isDuplicate: false,
+                existingNode: nil,
+                newNode: Node(text: nodeText, layerId: UUID(), tags: [])
+            )
+            return
+        }
+        
+        // 如果有子节点引用，创建/更新复合节点
+        if !childNodeNames.isEmpty {
+            print("🏗️ 创建/更新复合节点: \(nodeText)，子节点数: \(childNodeNames.count)，普通标签数: \(normalTags.count)")
+            
+            // 检查复合节点是否已存在
+            if let existingCompoundNode = store.nodes.first(where: { 
+                $0.text.lowercased() == nodeText.lowercased() && $0.isCompound 
+            }) {
+                // 更新已存在的复合节点
+                print("🔄 更新已存在的复合节点")
+                updateExistingCompoundNode(existingCompoundNode, childNames: childNodeNames, additionalTags: normalTags)
+            } else {
+                // 创建新的复合节点
+                print("🆕 创建新复合节点")
+                createNewMixedCompoundNode(name: nodeText, childNames: childNodeNames, additionalTags: normalTags, layerId: layerId)
+            }
+        } else {
+            // 没有子节点引用，按普通节点处理
+            print("📝 没有子节点引用，按普通节点处理")
+            let newNode = Node(text: nodeText, layerId: layerId, tags: normalTags)
+            let success = store.addNode(newNode)
+            if success {
+                inputText = ""
+                dismiss()
+            }
+        }
+    }
+    
+    // 🆕 更新已存在的复合节点，添加新的子节点和标签
+    private func updateExistingCompoundNode(_ compoundNode: Node, childNames: [String], additionalTags: [Tag]) {
+        var allTags = compoundNode.tags
+        
+        // 添加新的子节点引用
+        for childName in childNames {
+            let childReferenceTag = Tag(
+                type: .custom("child"),
+                value: childName
+            )
+            allTags.append(childReferenceTag)
+        }
+        
+        // 添加普通标签
+        allTags.append(contentsOf: additionalTags)
+        
+        // 计算更新后的层级
+        let existingChildCount = compoundNode.tags.compactMap { tag in
+            if case .custom(let key) = tag.type, key == "child" {
+                return tag.value
+            }
+            return nil
+        }.count
+        
+        _ = existingChildCount + childNames.count // 保持代码完整性，实际未使用
+        let childDepth = calculateMaxChildDepth(childNames: childNames)
+        let currentDepth = max(compoundNode.getCompoundDepth(allNodes: store.nodes), childDepth + 1)
+        
+        // 更新复合节点标签（简化的层级显示）
+        let updatedTags = allTags.map { tag in
+            if case .custom(let key) = tag.type, key == "compound" {
+                return Tag(type: .custom("compound"), value: "\(currentDepth)级复合节点")
+            }
+            return tag
+        }
+        
+        store.updateNodeTags(compoundNode.id, tags: updatedTags)
+        store.updateNode(compoundNode.id, text: nil, phonetic: nil, meaning: "\(currentDepth)级复合节点")
+        
+        // 确保子节点存在
+        ensureChildNodesExist(childNames: childNames, layerId: compoundNode.layerId)
+        
+        // 成功后关闭
+        inputText = ""
+        dismiss()
+        
+        print("✅ 复合节点更新完成: \(compoundNode.text)")
+    }
+    
+    // 🆕 创建新的混合复合节点（包含子节点引用和普通标签）
+    private func createNewMixedCompoundNode(name: String, childNames: [String], additionalTags: [Tag], layerId: UUID) {
+        var compoundTags: [Tag] = []
+        
+        // 计算复合节点层级
+        let childDepth = calculateMaxChildDepth(childNames: childNames)
+        let currentDepth = childDepth + 1
+        
+        // 主复合节点标签（简化显示）
+        let compoundTag = Tag(
+            type: .custom("compound"),
+            value: "\(currentDepth)级复合节点"
+        )
+        compoundTags.append(compoundTag)
+        
+        // 为每个子节点创建引用标签
+        for childName in childNames {
+            let childReferenceTag = Tag(
+                type: .custom("child"),
+                value: childName
+            )
+            compoundTags.append(childReferenceTag)
+            print("🔗 为复合节点添加子节点引用: \(childName)")
+        }
+        
+        // 添加普通标签
+        compoundTags.append(contentsOf: additionalTags)
+        
+        print("🏗️ 创建混合复合节点: \(name), 子节点: \(childNames.count), 普通标签: \(additionalTags.count)")
+        
+        // 创建复合节点（简化的meaning显示）
+        let compoundNode = Node(
+            text: name,
+            phonetic: nil,
+            meaning: "\(currentDepth)级复合节点",
+            layerId: layerId,
+            tags: compoundTags,
+            isCompound: true
+        )
+        
+        // 确保子节点存在
+        ensureChildNodesExist(childNames: childNames, layerId: layerId)
+        
+        // 添加复合节点到store
+        let success = store.addNode(compoundNode)
+        if success {
+            inputText = ""
+            dismiss()
+        }
+        
+        print("✅ 混合复合节点创建完成: \(name)")
+    }
+    
+    // 🆕 确保子节点存在的辅助函数
+    private func ensureChildNodesExist(childNames: [String], layerId: UUID) {
+        for childName in childNames {
+            if let existingNode = store.nodes.first(where: { $0.text.lowercased() == childName.lowercased() }) {
+                print("🔍 子节点已存在: \(existingNode.text)")
+            } else {
+                let childNode = Node(
+                    text: childName,
+                    phonetic: nil,
+                    meaning: nil,
+                    layerId: layerId,
+                    tags: []
+                )
+                _ = store.addNode(childNode)
+                print("🆕 创建新子节点: \(childName)")
+            }
+        }
+    }
+    
     private func handleDuplicateAlert(_ alert: NodeStore.DuplicateNodeAlert?) {
         if alert != nil {
             showingDuplicateAlert = true
@@ -1123,7 +1392,8 @@ struct QuickAddSheetView: View {
                 print("🔄 [QuickAdd] 标签[\(index)]: type=\(tag.type), rawValue='\(tag.type.rawValue)', displayName='\(tag.type.displayName)', value='\(tag.value)'")
             }
             
-            inputText = node.commandRepresentationWithDisplayNames
+            // 使用动态版本，传入所有节点以获得实时的子节点信息
+            inputText = node.dynamicCommandRepresentationWithDisplayNames(allNodes: store.nodes)
             print("🔄 [QuickAdd] 编辑模式：预填充命令完成 - '\(inputText)'")
         }
     }
@@ -1157,6 +1427,29 @@ struct QuickAddSheetView: View {
                 insertLocationIntoInput("location \(locationName)")
             }
         }
+        
+        // 监听复合节点刷新通知
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("compoundNodeRefreshed"),
+            object: nil,
+            queue: .main
+        ) { notification in
+            // 检查是否是当前编辑的节点需要刷新
+            if let node = prefilledNode,
+               let compoundNodeId = notification.userInfo?["compoundNodeId"] as? UUID,
+               compoundNodeId == node.id {
+                print("🔄 [QuickAdd] 收到复合节点刷新通知，正在更新编辑内容...")
+                
+                // 使用MainActor.run确保线程安全
+                Task { @MainActor in
+                    // 重新生成输入文本
+                    let updatedNode = store.nodes.first { $0.id == node.id } ?? node
+                    inputText = updatedNode.dynamicCommandRepresentationWithDisplayNames(allNodes: store.nodes)
+                    
+                    print("✅ [QuickAdd] 复合节点编辑内容已刷新: '\(inputText)'")
+                }
+            }
+        }
     }
     
     private func updateSuggestions(for input: String) {
@@ -1169,22 +1462,41 @@ struct QuickAddSheetView: View {
         
         let query = String(lastWord)
         
-        // 使用模糊搜索获取标签建议
-        let tagResults = fuzzySearchStrings(Array(tagManager.mappingDictionary.keys), query: query, limit: 5)
+        // 检查是否是节点引用格式（@节点名）
+        if query.hasPrefix("@") {
+            let nodeQuery = String(query.dropFirst()) // 去掉@前缀
+            print("🔗 检测到节点引用查询: '\(nodeQuery)'")
+            
+            // 只从节点名搜索
+            let nodeResults = fuzzySearchNodes(query: nodeQuery, limit: 10)
+            
+            // 为结果添加@前缀
+            let nodesSuggestions = nodeResults.map { ("@\($0.0)", $0.1) }
+            
+            let sortedSuggestions = nodesSuggestions.sorted { $0.1 > $1.1 }.map { $0.0 }
+            suggestions = Array(sortedSuggestions.prefix(10))
+            print("🔗 节点引用建议: \(suggestions)")
+        } else {
+            // 普通查询：混合搜索标签类型和节点名
+            
+            // 使用模糊搜索获取标签建议
+            let tagResults = fuzzySearchStrings(Array(tagManager.mappingDictionary.keys), query: query, limit: 5)
+            
+            // 手动实现节点模糊搜索
+            let nodeResults = fuzzySearchNodes(query: query, limit: 5)
+            
+            // 合并并按分数排序
+            var allSuggestions: [(String, Double)] = []
+            allSuggestions += tagResults.map { ($0.item, $0.score) }
+            allSuggestions += nodeResults
+            
+            // 去重，保留分数更高的
+            let uniqueSuggestions = Dictionary(allSuggestions, uniquingKeysWith: max)
+            let sortedSuggestions = uniqueSuggestions.sorted { $0.value > $1.value }.map { $0.key }
+            
+            suggestions = Array(sortedSuggestions.prefix(10))
+        }
         
-        // 手动实现节点模糊搜索
-        let nodeResults = fuzzySearchNodes(query: query, limit: 5)
-        
-        // 合并并按分数排序
-        var allSuggestions: [(String, Double)] = []
-        allSuggestions += tagResults.map { ($0.item, $0.score) }
-        allSuggestions += nodeResults
-        
-        // 去重，保留分数更高的
-        let uniqueSuggestions = Dictionary(allSuggestions, uniquingKeysWith: max)
-        let sortedSuggestions = uniqueSuggestions.sorted { $0.value > $1.value }.map { $0.key }
-        
-        suggestions = Array(sortedSuggestions.prefix(10))
         selectedSuggestionIndex = suggestions.isEmpty ? -1 : 0
     }
     
@@ -1228,6 +1540,14 @@ struct QuickAddSheetView: View {
         
         guard !components.isEmpty else { 
             return 
+        }
+        
+        // 🔧 检测是否包含节点引用（@节点名），如果有则进行混合处理
+        let hasNodeReferences = components.contains { $0.hasPrefix("@") }
+        if hasNodeReferences {
+            print("🔄 检测到包含节点引用的混合语法，进行复合节点+普通标签处理")
+            try processMixedCompoundNodeInput(components)
+            return
         }
         
         
@@ -1632,7 +1952,9 @@ struct QuickAddSheetView: View {
         }
         
         let remainingChildCount = existingChildReferences.count - childNamesToRemove.count
-        let updatedMeaning = "复合节点：包含 \(remainingChildCount) 个子节点"
+        // 计算更新后的层级深度
+        let updatedDepth = compoundNode.getCompoundDepth(allNodes: store.nodes)
+        let updatedMeaning = "\(updatedDepth)级复合节点"
         
         // 更新复合节点
         store.updateNodeTags(compoundNode.id, tags: updatedTags)
@@ -1685,7 +2007,9 @@ struct QuickAddSheetView: View {
         
         // 更新复合节点的标签（添加新的子节点引用）
         let updatedTags = compoundNode.tags + newChildTags
-        let updatedMeaning = "复合节点：包含 \(existingChildReferences.count + newChildNames.count) 个子节点"
+        // 计算更新后的层级深度
+        let updatedDepth = compoundNode.getCompoundDepth(allNodes: store.nodes)
+        let updatedMeaning = "\(updatedDepth)级复合节点"
         
         store.updateNodeTags(compoundNode.id, tags: updatedTags)
         store.updateNode(compoundNode.id, text: nil, phonetic: nil, meaning: updatedMeaning)
@@ -1747,12 +2071,15 @@ struct QuickAddSheetView: View {
         
         // 为每个子节点创建标签，记录子节点的名称
         for childName in childNames {
+            // 处理 @节点名 格式，去掉 @ 前缀
+            let actualChildName = childName.hasPrefix("@") ? String(childName.dropFirst()) : childName
+            
             let childReferenceTag = Tag(
                 type: .custom("child"),
-                value: childName
+                value: actualChildName
             )
             compoundTags.append(childReferenceTag)
-            print("🔗 为复合节点添加子节点引用标签: \(childName)")
+            print("🔗 为复合节点添加子节点引用标签: \(actualChildName)")
         }
         
         print("🏗️ 创建复合节点: \(name), 标签数: \(compoundTags.count)")
@@ -1761,7 +2088,7 @@ struct QuickAddSheetView: View {
         let compoundNode = Node(
             text: name,
             phonetic: nil,
-            meaning: "复合节点：包含 \(childNames.count) 个子节点",
+            meaning: "\(childDepth + 1)级复合节点",
             layerId: layerId,
             tags: compoundTags,
             isCompound: true
@@ -1769,20 +2096,23 @@ struct QuickAddSheetView: View {
         
         // 创建或确保子节点存在
         for childName in childNames {
+            // 处理 @节点名 格式，去掉 @ 前缀
+            let actualChildName = childName.hasPrefix("@") ? String(childName.dropFirst()) : childName
+            
             // 检查是否已存在
-            if let existingNode = store.nodes.first(where: { $0.text.lowercased() == childName.lowercased() }) {
+            if let existingNode = store.nodes.first(where: { $0.text.lowercased() == actualChildName.lowercased() }) {
                 print("🔍 找到已存在的子节点: \(existingNode.text)")
             } else {
                 // 创建新的子节点
                 let childNode = Node(
-                    text: childName,
+                    text: actualChildName,
                     phonetic: nil,
                     meaning: nil,
                     layerId: layerId,
                     tags: []
                 )
                 _ = store.addNode(childNode)
-                print("🆕 创建新子节点: \(childName)")
+                print("🆕 创建新子节点: \(actualChildName)")
             }
         }
         
@@ -2169,22 +2499,41 @@ struct QuickAddView: View {
         
         let query = String(lastWord)
         
-        // 使用模糊搜索获取标签建议
-        let tagResults = fuzzySearchStrings(Array(tagManager.mappingDictionary.keys), query: query, limit: 5)
+        // 检查是否是节点引用格式（@节点名）
+        if query.hasPrefix("@") {
+            let nodeQuery = String(query.dropFirst()) // 去掉@前缀
+            print("🔗 检测到节点引用查询: '\(nodeQuery)'")
+            
+            // 只从节点名搜索
+            let nodeResults = fuzzySearchNodes(query: nodeQuery, limit: 10)
+            
+            // 为结果添加@前缀
+            let nodesSuggestions = nodeResults.map { ("@\($0.0)", $0.1) }
+            
+            let sortedSuggestions = nodesSuggestions.sorted { $0.1 > $1.1 }.map { $0.0 }
+            suggestions = Array(sortedSuggestions.prefix(10))
+            print("🔗 节点引用建议: \(suggestions)")
+        } else {
+            // 普通查询：混合搜索标签类型和节点名
+            
+            // 使用模糊搜索获取标签建议
+            let tagResults = fuzzySearchStrings(Array(tagManager.mappingDictionary.keys), query: query, limit: 5)
+            
+            // 手动实现节点模糊搜索
+            let nodeResults = fuzzySearchNodes(query: query, limit: 5)
+            
+            // 合并并按分数排序
+            var allSuggestions: [(String, Double)] = []
+            allSuggestions += tagResults.map { ($0.item, $0.score) }
+            allSuggestions += nodeResults
+            
+            // 去重，保留分数更高的
+            let uniqueSuggestions = Dictionary(allSuggestions, uniquingKeysWith: max)
+            let sortedSuggestions = uniqueSuggestions.sorted { $0.value > $1.value }.map { $0.key }
+            
+            suggestions = Array(sortedSuggestions.prefix(10))
+        }
         
-        // 手动实现节点模糊搜索
-        let nodeResults = fuzzySearchNodes(query: query, limit: 5)
-        
-        // 合并并按分数排序
-        var allSuggestions: [(String, Double)] = []
-        allSuggestions += tagResults.map { ($0.item, $0.score) }
-        allSuggestions += nodeResults
-        
-        // 去重，保留分数更高的
-        let uniqueSuggestions = Dictionary(allSuggestions, uniquingKeysWith: max)
-        let sortedSuggestions = uniqueSuggestions.sorted { $0.value > $1.value }.map { $0.key }
-        
-        suggestions = Array(sortedSuggestions.prefix(10))
         selectedSuggestionIndex = suggestions.isEmpty ? -1 : 0
     }
     
@@ -4550,7 +4899,9 @@ struct CompoundNodeAddSheetView: View {
         }
         
         let remainingChildCount = existingChildReferences.count - childNamesToRemove.count
-        let updatedMeaning = "复合节点：包含 \(remainingChildCount) 个子节点"
+        // 计算更新后的层级深度
+        let updatedDepth = compoundNode.getCompoundDepth(allNodes: store.nodes)
+        let updatedMeaning = "\(updatedDepth)级复合节点"
         
         // 更新复合节点
         store.updateNodeTags(compoundNode.id, tags: updatedTags)
@@ -4616,7 +4967,9 @@ struct CompoundNodeAddSheetView: View {
         
         // 更新复合节点的标签（添加新的子节点引用）
         let updatedTags = compoundNode.tags + newChildTags
-        let updatedMeaning = "复合节点：包含 \(existingChildReferences.count + newChildNames.count) 个子节点"
+        // 计算更新后的层级深度
+        let updatedDepth = compoundNode.getCompoundDepth(allNodes: store.nodes)
+        let updatedMeaning = "\(updatedDepth)级复合节点"
         
         store.updateNodeTags(compoundNode.id, tags: updatedTags)
         store.updateNode(compoundNode.id, text: nil, phonetic: nil, meaning: updatedMeaning)
@@ -4704,12 +5057,15 @@ struct CompoundNodeAddSheetView: View {
         
         // 为每个子节点创建标签，记录子节点的名称
         for childName in childNames {
+            // 处理 @节点名 格式，去掉 @ 前缀
+            let actualChildName = childName.hasPrefix("@") ? String(childName.dropFirst()) : childName
+            
             let childReferenceTag = Tag(
                 type: .custom("child"),
-                value: childName
+                value: actualChildName
             )
             compoundTags.append(childReferenceTag)
-            print("🔗 为复合节点添加子节点引用标签: \(childName)")
+            print("🔗 为复合节点添加子节点引用标签: \(actualChildName)")
         }
         
         print("🏗️ 创建复合节点: \(name), 标签数: \(compoundTags.count)")

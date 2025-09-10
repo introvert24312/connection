@@ -13,6 +13,7 @@ struct CommandLineEditorSheet: View {
     @State private var includeDisplayNames: Bool = false
     
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var store: NodeStore
     
     var body: some View {
         VStack(spacing: 0) {
@@ -114,7 +115,7 @@ struct CommandLineEditorSheet: View {
                                 .font(.system(.body, design: .monospaced))
                                 .lineLimit(3...10)
                                 .onChange(of: commandLineText) {
-                                    hasUnsavedChanges = commandLineText != node.commandRepresentationWithDisplayNames
+                                    hasUnsavedChanges = commandLineText != node.dynamicCommandRepresentationWithDisplayNames(allNodes: store.nodes)
                                 }
                             
                             if !commandLineText.isEmpty {
@@ -236,8 +237,8 @@ struct CommandLineEditorSheet: View {
     }
     
     private func updateCommandText() {
-        // 始终使用带显示名的表示，确保方括号内容不丢失
-        commandLineText = node.commandRepresentationWithDisplayNames
+        // 始终使用动态版本，包含实时的子节点信息
+        commandLineText = node.dynamicCommandRepresentationWithDisplayNames(allNodes: store.nodes)
     }
     
     private func handleSave() {

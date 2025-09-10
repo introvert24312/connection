@@ -1121,6 +1121,20 @@ public final class NodeStore: ObservableObject {
             expandedTagTypes.removeAll()
         } else {
             print("✅ 选择节点但保持标签筛选状态")
+            
+            // 🔄 如果选择的是复合节点，手动刷新图谱缓存
+            if let selectedNode = node, selectedNode.isCompound {
+                print("🔄 [手动刷新] 检测到选择复合节点: \(selectedNode.text)")
+                DispatchQueue.main.async {
+                    // 发送手动刷新通知，清除该复合节点的图谱缓存
+                    NotificationCenter.default.post(
+                        name: Notification.Name("manualRefreshCompoundNode"),
+                        object: nil,
+                        userInfo: ["nodeId": selectedNode.id]
+                    )
+                    print("✅ [手动刷新] 已发送复合节点手动刷新通知")
+                }
+            }
         }
         
         setSelectedNode(node)
@@ -1653,6 +1667,7 @@ public final class NodeStore: ObservableObject {
             print("📊 当前节点标签数: \(updatedNode.tags.count)")
             
             // 🔧 触发依赖该节点的复合节点刷新
+            print("🔄 [标签添加] 触发复合节点刷新检查，节点名: '\(updatedNode.text)'")
             refreshCompoundNodesReferencingNode(updatedNode.text)
             
             // 手动触发objectWillChange以确保UI更新
@@ -2110,6 +2125,7 @@ public final class NodeStore: ObservableObject {
             nodes[index] = updatedNode
             
             // 🔧 触发依赖该节点的复合节点刷新
+            print("🔄 [标签删除] 触发复合节点刷新检查，节点名: '\(updatedNode.text)'")
             refreshCompoundNodesReferencingNode(updatedNode.text)
             
             // 手动触发objectWillChange以确保UI更新
@@ -2686,9 +2702,26 @@ public final class NodeStore: ObservableObject {
     /// 当子节点发生变化时，刷新所有引用该子节点的复合节点
     @MainActor
     private func refreshCompoundNodesReferencingNode(_ childNodeName: String) {
-        print("🔄 [复合节点刷新] 开始刷新引用子节点 '\(childNodeName)' 的复合节点")
+        print("🔄 [复合节点刷新] 开始递归刷新引用子节点 '\(childNodeName)' 的所有复合节点")
         
-        // 查找所有引用该子节点的复合节点
+        // 使用递归方法刷新所有级别的复合节点
+        var processedNodes = Set<String>() // 防止循环引用
+        refreshCompoundNodesRecursively(childNodeName, processedNodes: &processedNodes)
+        
+        print("✅ [复合节点刷新] 完成递归刷新所有引用子节点 '\(childNodeName)' 的复合节点")
+    }
+    
+    private func refreshCompoundNodesRecursively(_ childNodeName: String, processedNodes: inout Set<String>) {
+        // 防止循环引用和重复处理
+        if processedNodes.contains(childNodeName) {
+            print("⚠️ [复合节点刷新] 跳过已处理的节点: \(childNodeName)")
+            return
+        }
+        processedNodes.insert(childNodeName)
+        
+        print("🔄 [复合节点刷新] 查找直接引用 '\(childNodeName)' 的复合节点...")
+        
+        // 查找所有直接引用该子节点的复合节点
         let referencingCompoundNodes = nodes.filter { node in
             guard node.isCompound else { return false }
             
@@ -2702,11 +2735,11 @@ public final class NodeStore: ObservableObject {
         }
         
         if referencingCompoundNodes.isEmpty {
-            print("🔄 [复合节点刷新] 没有找到引用子节点 '\(childNodeName)' 的复合节点")
+            print("🔄 [复合节点刷新] 没有找到直接引用 '\(childNodeName)' 的复合节点")
             return
         }
         
-        print("🔄 [复合节点刷新] 找到 \(referencingCompoundNodes.count) 个引用复合节点：")
+        print("🔄 [复合节点刷新] 找到 \(referencingCompoundNodes.count) 个直接引用 '\(childNodeName)' 的复合节点：")
         for compoundNode in referencingCompoundNodes {
             print("   - \(compoundNode.text)")
         }
@@ -2721,6 +2754,11 @@ public final class NodeStore: ObservableObject {
                 print("🔄 [复合节点刷新] 已刷新复合节点: \(updatedCompoundNode.text)")
                 
                 // 发送复合节点更新通知
+                print("📡 [通知发送] 正在发送复合节点刷新通知...")
+                print("   - 复合节点ID: \(updatedCompoundNode.id)")
+                print("   - 复合节点名: \(updatedCompoundNode.text)")
+                print("   - 子节点名: \(childNodeName)")
+                
                 NotificationCenter.default.post(
                     name: Notification.Name("compoundNodeRefreshed"),
                     object: nil,
@@ -2730,10 +2768,15 @@ public final class NodeStore: ObservableObject {
                         "childNodeName": childNodeName
                     ]
                 )
+                print("✅ [通知发送] 复合节点刷新通知已发送")
+                
+                // 🔄 递归：该复合节点被更新后，继续查找引用它的更上级复合节点
+                print("🔄 [递归刷新] 检查是否有复合节点引用 '\(updatedCompoundNode.text)'...")
+                refreshCompoundNodesRecursively(updatedCompoundNode.text, processedNodes: &processedNodes)
             }
         }
         
-        print("✅ [复合节点刷新] 完成刷新 \(referencingCompoundNodes.count) 个复合节点")
+        print("✅ [复合节点刷新] 完成刷新引用 '\(childNodeName)' 的 \(referencingCompoundNodes.count) 个复合节点")
     }
     
     // MARK: - 手动保存功能

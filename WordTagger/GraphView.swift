@@ -448,6 +448,29 @@ struct GraphView: View {
                 updateGraphData()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("compoundNodeRefreshed"))) { notification in
+            print("📨 [GraphView] 收到复合节点刷新通知！")
+            
+            if let userInfo = notification.userInfo {
+                print("   - 通知数据: \(userInfo)")
+                if let compoundNodeId = userInfo["compoundNodeId"] as? UUID,
+                   let compoundNodeName = userInfo["compoundNodeName"] as? String,
+                   let childNodeName = userInfo["childNodeName"] as? String {
+                    print("   - 复合节点: \(compoundNodeName) (ID: \(compoundNodeId))")
+                    print("   - 子节点: \(childNodeName)")
+                }
+            }
+            
+            // 如果图谱被锁定，不进行更新
+            if !isLocked {
+                print("🔄 GraphView: 开始更新图谱数据...")
+                // 强制更新图谱数据以反映复合节点的最新状态
+                updateGraphData()
+                print("✅ GraphView: 图谱已更新以反映复合节点变化")
+            } else {
+                print("🔒 GraphView: 图谱已锁定，跳过更新")
+            }
+        }
         .navigationTitle("全局节点图谱")
     }
     

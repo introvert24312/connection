@@ -304,10 +304,21 @@ public struct Node: Identifiable, Hashable, Codable {
         return value
     }
     
-    /// 生成带展示名的命令行表示（用于显式改名）
-    /// 格式：节点名 标签类型1[展示名1] 标签值1 标签类型2[展示名2] 标签值2 ...
+    /// 生成带展示名的命令行表示（用于显式改名）- 静态版本（向后兼容）
+    /// 格式：节点名 @节点1 @节点2 标签类型1[展示名1] 标签值1 标签类型2[展示名2] 标签值2 ...
+    /// 特殊处理：child 标签显示为 @节点名 格式，紧跟在节点名称之后
     public var commandRepresentationWithDisplayNames: String {
+        // 调用动态版本，但不传递节点信息（保持向后兼容）
+        return dynamicCommandRepresentationWithDisplayNames(allNodes: [])
+    }
+    
+    /// 生成带展示名的命令行表示（动态版本）- 与静态版本功能相同，保持API一致性
+    /// 格式：节点名 @节点1 @节点2 标签类型1[展示名1] 标签值1 标签类型2[展示名2] 标签值2 ...
+    /// 特殊处理：child 标签显示为 @节点名 格式，紧跟在节点名称之后
+    public func dynamicCommandRepresentationWithDisplayNames(allNodes: [Node]) -> String {
         var components = [text]
+        var childComponents: [String] = []  // 收集所有 child 标签
+        var regularComponents: [String] = [] // 收集普通标签
         
         // 按标签类型分组
         let groupedTags = Dictionary(grouping: tags) { $0.type }
@@ -318,21 +329,38 @@ public struct Node: Identifiable, Hashable, Codable {
         for tagType in sortedTagTypes {
             let tagsOfType = groupedTags[tagType] ?? []
             for tag in tagsOfType.sorted(by: { $0.value < $1.value }) {
+                
+                // 特殊处理：child 标签转换为 @节点名 格式（保持简洁）
+                if case .custom(let key) = tag.type, key == "child" {
+                    childComponents.append("@\(tag.value)")
+                    continue
+                }
+                
+                // 跳过 compound 标签，不在命令行中显示
+                if case .custom(let key) = tag.type, key == "compound" {
+                    continue
+                }
+                
                 let tagCode = tagType.rawValue
                 let displayName = tagType.displayName
                 
                 // 检查是否为带坐标的地理标签
                 if tag.hasCoordinates, let lat = tag.latitude, let lng = tag.longitude {
                     // 地理标签格式：tagCode @latitude,longitude[displayName]
-                    components.append("\(tagCode)")
-                    components.append("@\(lat),\(lng)[\(tag.value)]")
+                    regularComponents.append("\(tagCode)")
+                    regularComponents.append("@\(lat),\(lng)[\(tag.value)]")
                 } else {
                     // 普通标签格式：tagCode[displayName] value
-                    components.append("\(tagCode)[\(displayName)]")
-                    components.append(quoteValueIfNeeded(tag.value))
+                    regularComponents.append("\(tagCode)[\(displayName)]")
+                    regularComponents.append(quoteValueIfNeeded(tag.value))
                 }
             }
         }
+        
+        // 组装最终结果：节点名 + @子节点引用 + 普通标签
+        // 格式：复合节点1 @节点1 @节点2 jxr[鸡胸肉] 肌里脊
+        components.append(contentsOf: childComponents)  // @节点引用紧跟在节点名后
+        components.append(contentsOf: regularComponents) // 普通标签在最后
         
         return components.joined(separator: " ")
     }

@@ -643,6 +643,7 @@ struct TagEditCommandView: View {
     @State private var showingDuplicateAlert = false
     @State private var showingMappingConflictAlert = false
     @State private var mappingConflictMessage = ""
+    @State private var refreshTrigger = false  // 用于强制刷新UI
     
     // 从store获取最新的节点数据
     private var currentNode: Node {
@@ -653,9 +654,12 @@ struct TagEditCommandView: View {
         // 使用最新的节点数据和带展示名的命令表示
         let currentNodeData = currentNode
         
-        // 🔧 使用 commandRepresentationWithDisplayNames 方法显示标签展示名
-        // 格式：节点名 标签类型1[展示名1] 标签值1 标签类型2[展示名2] 标签值2 ...
-        return currentNodeData.commandRepresentationWithDisplayNames
+        // 使用refreshTrigger来强制重新计算（当复合节点需要刷新时）
+        _ = refreshTrigger
+        
+        // 🔧 使用动态版本显示标签展示名，包含实时的子节点信息  
+        // 格式：节点名 @节点1 @节点2 标签类型1[展示名1] 标签值1 标签类型2[展示名2] 标签值2 ...
+        return currentNodeData.dynamicCommandRepresentationWithDisplayNames(allNodes: store.nodes)
     }
     
     @State private var availableCommands: [Command] = []
@@ -791,6 +795,9 @@ struct TagEditCommandView: View {
             print("📝 生成的初始命令: '\(initialCommand)'")
             commandText = initialCommand
             updateAvailableCommands()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("compoundNodeRefreshed"))) { notification in
+            handleCompoundNodeRefreshed(notification)
         }
         .onKeyPress(.init("r"), phases: .down) { _ in
             if NSEvent.modifierFlags.contains(.command) && !NSEvent.modifierFlags.contains(.shift) {
@@ -1067,6 +1074,7 @@ struct TagEditCommandView: View {
             if token.hasPrefix("@") {
                 let referencedNodeName = String(token.dropFirst()) // 去掉@前缀
                 print("🔗 检测到节点引用: '\(referencedNodeName)'")
+                print("🔍 当前所有节点名: \(store.nodes.map { $0.text })")
                 
                 // 查找被引用的节点
                 if let referencedNode = store.nodes.first(where: { $0.text == referencedNodeName }) {
@@ -1077,13 +1085,11 @@ struct TagEditCommandView: View {
                     newTags.append(childTag)
                     print("🏷️ 添加子节点标签: child = '\(referencedNodeName)'")
                     
-                    // 复制被引用节点的所有标签（动态聚合将在显示时处理）
-                    for refTag in referencedNode.tags {
-                        newTags.append(refTag)
-                        print("🔗 聚合引用节点标签: \(refTag.type.displayName) = '\(refTag.value)'")
-                    }
+                    // 不再聚合引用节点的标签，保持命令行简洁
                 } else {
                     print("❌ 未找到引用节点: '\(referencedNodeName)'")
+                    print("❌ 跳过创建child标签，因为引用的节点不存在")
+                    // 不创建任何标签，直接跳过这个token
                 }
                 
                 i += 1
@@ -1439,18 +1445,7 @@ struct TagEditCommandView: View {
         if !newTags.isEmpty {
             print("✅ 开始替换节点标签")
             
-            // 检查是否有子节点引用，如果有则添加compound标签
-            let hasChildReferences = newTags.contains { tag in
-                if case .custom(let key) = tag.type, key == "child" {
-                    return true
-                }
-                return false
-            }
-            if hasChildReferences {
-                let compoundTag = Tag(type: .custom("compound"), value: "1级复合节点")
-                newTags.append(compoundTag)
-                print("🔗 检测到子节点引用，添加复合节点标签")
-            }
+            // 不再自动添加 compound 标签，保持命令行简洁
             
             await MainActor.run {
                 // 先删除所有现有标签
@@ -1648,6 +1643,56 @@ struct TagEditCommandView: View {
                     }
                 }
             }
+        }
+    }
+    
+    private func handleCompoundNodeRefreshed(_ notification: Notification) {
+        // 检查是否需要刷新当前节点的UI
+        let shouldRefresh: Bool
+        
+        if let compoundNodeId = notification.userInfo?["compoundNodeId"] as? UUID {
+            // 情况1：当前查看的就是被更新的复合节点
+            if compoundNodeId == node.id {
+                shouldRefresh = true
+                print("🔄 [图谱刷新] 当前节点就是被更新的复合节点")
+            }
+            // 情况2：当前查看的是子节点，有复合节点引用了它
+            else if let childNodeName = notification.userInfo?["childNodeName"] as? String,
+                    childNodeName == node.text {
+                shouldRefresh = true
+                print("🔄 [图谱刷新] 当前节点是被引用的子节点: \(childNodeName)")
+            }
+            // 情况3：当前节点是复合节点，需要检查是否引用了变化的子节点
+            else if node.isCompound,
+                    let childNodeName = notification.userInfo?["childNodeName"] as? String {
+                // 从 child 标签中提取引用的节点名称
+                let referencedNodes = node.tags.compactMap { tag -> String? in
+                    if case .custom(let key) = tag.type, key == "child" {
+                        return tag.value
+                    }
+                    return nil
+                }
+                shouldRefresh = referencedNodes.contains(childNodeName)
+                if shouldRefresh {
+                    print("🔄 [图谱刷新] 当前复合节点引用了变化的子节点: \(childNodeName)")
+                }
+            } else {
+                shouldRefresh = false
+            }
+        } else {
+            shouldRefresh = false
+        }
+        
+        if shouldRefresh {
+            print("🔄 收到复合节点刷新通知，正在更新UI...")
+            
+            // 触发UI刷新
+            refreshTrigger.toggle()
+            
+            // 重新生成命令文本
+            commandText = initialCommand
+            
+            print("✅ 复合节点UI已刷新")
         }
     }
 }
