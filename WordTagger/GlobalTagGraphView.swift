@@ -88,11 +88,15 @@ struct GlobalTagGraphView: View {
                 return
             }
             
-            // 🆕 只有在用户已经进行过初始加载后，过滤器变化才会触发重新加载
-            guard hasPerformedInitialLoad else {
-                print("⏸️ [全局标签图谱] 用户尚未进行初始加载，跳过过滤器触发的重新加载")
+            // 🔧 如果有有效的过滤条件，则触发加载
+            let hasValidFilters = !layers.isEmpty || !types.isEmpty || !values.isEmpty
+            guard hasValidFilters else {
+                print("⏸️ [全局标签图谱] 没有有效的过滤条件，跳过加载")
                 return
             }
+            
+            // 标记已执行初始加载（由过滤器触发）
+            hasPerformedInitialLoad = true
             
             // 🔧 防抖动：延迟100ms再执行，避免快速连续更改时的多次调用
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {

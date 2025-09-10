@@ -293,6 +293,12 @@ struct GraphView: View {
     
     // 更新缓存的图数据
     private func updateGraphData() {
+        // 🔒 如果图谱被锁定，不更新数据
+        guard !isLocked else {
+            print("🔒 [全局节点图谱] 图谱已锁定，跳过数据更新")
+            return
+        }
+        
         let data = calculateGraphData()
         cachedNodes = data.nodes
         cachedEdges = data.edges
