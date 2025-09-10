@@ -901,7 +901,7 @@ struct QuickAddSheetView: View {
                 .foregroundColor(.blue)
             
             VStack(alignment: .leading, spacing: 4) {
-                TextField("@引用复合节点", text: $inputText)
+                TextField("输入：@引用节点1 @ 引用节点2 节点 shortcut[标签类型] 标签值", text: $inputText)
                     .textFieldStyle(.plain)
                     .font(.title3)
                     .focused($isInputFocused)
@@ -2332,7 +2332,7 @@ struct QuickAddView: View {
                 VStack(spacing: 12) {
                     HStack {
                         Image(systemName: "plus.circle.fill").foregroundColor(.blue).font(.title2)
-                        TextField("@引用复合节点", text: $inputText)
+                        TextField("输入：@引用节点1 @ 引用节点2 节点 shortcut[标签类型] 标签值", text: $inputText)
                             .textFieldStyle(.plain).font(.system(size: 16, weight: .medium))
                             .onChange(of: inputText) { _, newValue in updateSuggestions(for: newValue) }
                             .onKeyPress(.tab) { handleTabInQuickAdd() }
