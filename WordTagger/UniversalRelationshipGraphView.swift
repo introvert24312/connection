@@ -1030,6 +1030,120 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         """
     }
     
+    // MARK: - 拓扑层级分析算法
+    
+    /// 分析图谱的拓扑结构，计算每个节点的层级距离
+    private func calculateTopologyLayers<T: UniversalGraphNode, E: UniversalGraphEdge>(
+        nodes: [T], 
+        edges: [E]
+    ) -> [Int: Int] {
+        var nodeToLayer: [Int: Int] = [:]
+        var inDegree: [Int: Int] = [:]
+        var outDegree: [Int: Int] = [:]
+        
+        // 初始化所有节点的入度和出度
+        for node in nodes {
+            inDegree[node.id] = 0
+            outDegree[node.id] = 0
+        }
+        
+        // 计算入度和出度
+        for edge in edges {
+            inDegree[edge.toId] = (inDegree[edge.toId] ?? 0) + 1
+            outDegree[edge.fromId] = (outDegree[edge.fromId] ?? 0) + 1
+        }
+        
+        // 找出所有中心节点（入度为0，即没有箭头指向它们）
+        var centerNodes: [Int] = []
+        for nodeId in inDegree.keys {
+            if inDegree[nodeId] == 0 {
+                centerNodes.append(nodeId)
+            }
+        }
+        
+        // 如果没有找到中心节点，选择出度最大的节点作为中心
+        if centerNodes.isEmpty {
+            if let maxOutDegreeNode = outDegree.max(by: { $0.value < $1.value })?.key {
+                centerNodes.append(maxOutDegreeNode)
+            }
+        }
+        
+        // 使用BFS从中心节点开始分层
+        var queue: [(nodeId: Int, layer: Int)] = []
+        var visited: Set<Int> = Set()
+        
+        // 所有中心节点都是第0层
+        for centerNodeId in centerNodes {
+            nodeToLayer[centerNodeId] = 0
+            queue.append((centerNodeId, 0))
+            visited.insert(centerNodeId)
+        }
+        
+        // BFS遍历计算其他节点的层级
+        while !queue.isEmpty {
+            let (currentNodeId, currentLayer) = queue.removeFirst()
+            
+            // 找到所有从当前节点出发的边
+            for edge in edges where edge.fromId == currentNodeId {
+                let targetNodeId = edge.toId
+                
+                if !visited.contains(targetNodeId) {
+                    let nextLayer = currentLayer + 1
+                    nodeToLayer[targetNodeId] = nextLayer
+                    queue.append((targetNodeId, nextLayer))
+                    visited.insert(targetNodeId)
+                }
+            }
+        }
+        
+        // 处理孤立节点（没有连接的节点）
+        for node in nodes {
+            if nodeToLayer[node.id] == nil {
+                nodeToLayer[node.id] = -1 // 孤立节点用特殊层级标记
+            }
+        }
+        
+        return nodeToLayer
+    }
+    
+    /// 根据层级获取颜色
+    private func getColorForLayer(_ layer: Int, maxLayer: Int) -> String {
+        // 孤立节点使用灰色
+        if layer == -1 {
+            return "#95A5A6" // 中性灰色
+        }
+        
+        // 中心节点（第0层）使用黄色
+        if layer == 0 {
+            return "#F1C40F" // 明亮黄色
+        }
+        
+        // 根据层级深度计算颜色
+        if maxLayer <= 1 {
+            // 只有两层的情况
+            return layer == 1 ? "#1ABC9C" : "#F1C40F" // 最外层用青色
+        }
+        
+        // 多层情况：从黄色渐变到青色
+        let normalizedLayer = Double(layer) / Double(maxLayer)
+        
+        // 定义颜色层级（黄色→橙色→红色→紫色→蓝色→青色）
+        let colorSteps = [
+            "#F1C40F", // 黄色 - 中心
+            "#E67E22", // 橙色 - 第1层
+            "#E74C3C", // 红色 - 第2层  
+            "#9B59B6", // 紫色 - 第3层
+            "#3498DB", // 蓝色 - 第4层
+            "#1ABC9C"  // 青色 - 边缘层
+        ]
+        
+        // 根据层级选择颜色
+        let stepCount = colorSteps.count - 1
+        let stepIndex = min(Int(normalizedLayer * Double(stepCount)), stepCount)
+        
+        return colorSteps[stepIndex]
+    }
+
     private func getNodeColor<T: UniversalGraphNode>(for node: T) -> String {
         // 检查是否是LayerGraphNode（层图谱节点）
         if let layerNode = node as? LayerGraphNode {
@@ -1057,75 +1171,55 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
         
         // 🎨 检查是否是GlobalTagGraphNode（全局标签图谱节点）
         if let globalTagNode = node as? GlobalTagGraphNode {
+            // 对于全局标签图谱，可以选择使用拓扑层级或保持原有颜色逻辑
+            // 这里先使用拓扑层级系统
+            let layerMapping = calculateTopologyLayers(nodes: nodes, edges: edges)
+            let nodeLayer = layerMapping[node.id] ?? -1
+            let maxLayer = layerMapping.values.max() ?? 0
+            
             switch globalTagNode.nodeType {
             case .root:
-                return "#9B59B6" // 紫色表示根节点（已废弃）
+                // 根节点通常是中心节点，使用拓扑层级颜色
+                return getColorForLayer(nodeLayer, maxLayer: maxLayer)
                 
             case .tagType(_):
-                return "#E74C3C" // 🏷️ 红色表示标签类型（中心节点）- 醒目易识别
+                // 标签类型节点：如果是中心节点用黄色，否则用拓扑层级颜色
+                return getColorForLayer(nodeLayer, maxLayer: maxLayer)
                 
-            case .tagValue(_, let count):
-                // 🔖 根据标签值使用频率分配渐变色系
-                if count > 10 {
-                    return "#3498DB" // 深蓝色表示高频标签值
-                } else if count > 5 {
-                    return "#5DADE2" // 中蓝色表示中频标签值
-                } else {
-                    return "#85C1E9" // 浅蓝色表示低频标签值
-                }
+            case .tagValue(_, _):
+                // 标签值节点：使用拓扑层级颜色
+                return getColorForLayer(nodeLayer, maxLayer: maxLayer)
                 
             case .contentNode(_):
-                return "#2ECC71" // 📄 绿色表示内容节点（叶子节点）
+                // 内容节点：通常是边缘节点，使用拓扑层级颜色
+                return getColorForLayer(nodeLayer, maxLayer: maxLayer)
             }
         }
         
         // 检查是否是TagTypeGraphNode（其他标签图谱节点）
-        if let tagTypeNode = node as? TagTypeGraphNode {
-            switch tagTypeNode.nodeType {
-            case .tagType(_):
-                return "#FF6B6B" // 红色表示标签类型中心节点
-            case .tagValue(_, let count):
-                // 根据使用频率分配颜色深度
-                if count > 10 {
-                    return "#4ECDC4" // 青色表示高频标签值
-                } else if count > 5 {
-                    return "#45B7D1" // 蓝色表示中频标签值
-                } else {
-                    return "#96CEB4" // 绿色表示低频标签值
-                }
-            case .contentNode(_):
-                return "#FECA57" // 黄色表示内容节点
-            }
+        if node is TagTypeGraphNode {
+            // 同样使用拓扑层级颜色系统
+            let layerMapping = calculateTopologyLayers(nodes: nodes, edges: edges)
+            let nodeLayer = layerMapping[node.id] ?? -1
+            let maxLayer = layerMapping.values.max() ?? 0
+            
+            return getColorForLayer(nodeLayer, maxLayer: maxLayer)
         }
         
-        // 检查是否是NodeGraphNode，如果是的话根据节点类型分配颜色
+        // 🎨 新的拓扑层级颜色系统：检查是否是NodeGraphNode，使用层级分析
         if let wordNode = node as? NodeGraphNode {
+            // 计算当前图谱的拓扑层级
+            let layerMapping = calculateTopologyLayers(nodes: nodes, edges: edges)
+            let nodeLayer = layerMapping[node.id] ?? -1
+            let maxLayer = layerMapping.values.max() ?? 0
+            
             switch wordNode.nodeType {
             case .node:
-                if wordNode.isCenter {
-                    return "#FFD700" // 金色表示中心节点
-                } else if let actualNode = wordNode.node, actualNode.isCompound {
-                    // 根据复合节点的嵌套深度返回不同颜色
-                    // Extract actual Node objects from the nodes parameter
-                    let allNodes = nodes.compactMap { graphNode in
-                        if let nodeGraphNode = graphNode as? NodeGraphNode {
-                            return nodeGraphNode.node
-                        }
-                        return nil
-                    }
-                    let depth = actualNode.getCompoundDepth(allNodes: allNodes)
-                    switch depth {
-                    case 1: return "#8B4A9C" // 1级复合节点 - 深紫色
-                    case 2: return "#FF8C00" // 2级复合节点 - 橙色
-                    case 3: return "#32CD32" // 3级复合节点 - 绿色  
-                    case 4: return "#DC143C" // 4级复合节点 - 深红色
-                    default: return "#4B0082" // 5级及以上 - 靛蓝色
-                    }
-                } else {
-                    return "#4A90E2" // 蓝色表示普通节点
-                }
+                // 🎨 使用拓扑层级颜色替代原有的中心节点逻辑
+                return getColorForLayer(nodeLayer, maxLayer: maxLayer)
+                
             case .tag(let tagType):
-                // 使用自动颜色管理器为标签分配颜色
+                // 标签节点继续使用自动颜色管理器
                 let tagKey: String
                 switch tagType {
                 case .location:
