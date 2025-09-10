@@ -103,6 +103,9 @@ class GlobalTagDataManager: ObservableObject {
     @Published var graphPresets: [GraphPreset] = []
     @Published var currentPreset: GraphPreset?
     
+    // 🆕 持久化保存上次使用的预设
+    private static let lastUsedPresetKey = "GlobalTagGraph_LastUsedPresetId"
+    
     // 持久化存储文件路径 - 使用外部数据存储系统
     private static let presetsFileName = "GlobalTagGraph_Presets.json"
     
@@ -122,6 +125,7 @@ class GlobalTagDataManager: ObservableObject {
         print("🔍 [调试-\(instanceId)] 初始化后的状态:")
         print("   - 预设数量: \(graphPresets.count)")
         setupNotifications()
+        loadLastUsedPreset()   // 🆕 加载上次使用的预设
     }
     
     private func setupNotifications() {
@@ -510,6 +514,9 @@ class GlobalTagDataManager: ObservableObject {
         // 更新当前预设
         currentPreset = preset
         
+        // 🆕 保存为上次使用的预设
+        saveAsLastUsedPreset(preset)
+        
         // 清除缓存以触发重新计算
         cachedGraphData = nil
         
@@ -600,6 +607,55 @@ class GlobalTagDataManager: ObservableObject {
         } catch {
             print("❌ [全局标签管理器-\(instanceId)] 保存预设失败: \(error)")
         }
+    }
+    
+    // MARK: - 🆕 上次使用预设管理
+    
+    /// 保存预设为上次使用的预设
+    private func saveAsLastUsedPreset(_ preset: GraphPreset) {
+        UserDefaults.standard.set(preset.id, forKey: Self.lastUsedPresetKey)
+        print("💾 [全局标签管理器-\(instanceId)] 保存上次使用的预设: \(preset.name) (ID: \(preset.id))")
+    }
+    
+    /// 加载上次使用的预设
+    private func loadLastUsedPreset() {
+        guard let lastUsedPresetId = UserDefaults.standard.string(forKey: Self.lastUsedPresetKey) else {
+            print("ℹ️ [全局标签管理器-\(instanceId)] 没有找到上次使用的预设")
+            return
+        }
+        
+        guard let lastUsedPreset = graphPresets.first(where: { $0.id == lastUsedPresetId }) else {
+            print("⚠️ [全局标签管理器-\(instanceId)] 上次使用的预设不存在: \(lastUsedPresetId)")
+            // 清除无效的引用
+            UserDefaults.standard.removeObject(forKey: Self.lastUsedPresetKey)
+            return
+        }
+        
+        print("🔄 [全局标签管理器-\(instanceId)] 恢复上次使用的预设: \(lastUsedPreset.name)")
+        
+        // 静默加载预设，不触发保存操作
+        filteredLayers = Set(lastUsedPreset.filteredLayers)
+        filteredTagValues = Set(lastUsedPreset.filteredTagValues)
+        
+        // 恢复标签类型
+        var restoredTypes: Set<Tag.TagType> = []
+        for typeString in lastUsedPreset.filteredTagTypes {
+            if let tagType = parseTagTypeFromString(typeString) {
+                restoredTypes.insert(tagType)
+            }
+        }
+        filteredTagTypes = restoredTypes
+        
+        // 设置为当前预设（但不再次保存）
+        currentPreset = lastUsedPreset
+        
+        // 清除缓存以触发重新计算
+        cachedGraphData = nil
+        
+        print("✅ [全局标签管理器-\(instanceId)] 上次使用的预设已恢复")
+        print("   - 层级: \(filteredLayers.count) 个")
+        print("   - 标签类型: \(filteredTagTypes.count) 个")  
+        print("   - 标签值: \(filteredTagValues.count) 个")
     }
 }
 

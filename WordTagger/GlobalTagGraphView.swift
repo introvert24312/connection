@@ -74,8 +74,20 @@ struct GlobalTagGraphView: View {
             // 🔧 强制确保初始状态正确
             isLoading = false
             
-            // 🔄 不再自动加载，保持空白状态直到用户手动加载
-            print("📋 [全局标签图谱] 默认保持空白状态，等待用户手动加载")
+            // 🆕 检查是否有恢复的上次使用预设，如果有则自动加载数据
+            if dataManager.currentPreset != nil {
+                let hasValidFilters = !dataManager.filteredLayers.isEmpty || 
+                                    !dataManager.filteredTagTypes.isEmpty || 
+                                    !dataManager.filteredTagValues.isEmpty
+                if hasValidFilters {
+                    print("🔄 [全局标签图谱] 检测到已恢复的预设，自动加载图谱数据")
+                    loadGraphData()
+                } else {
+                    print("📋 [全局标签图谱] 已恢复预设但过滤条件为空，保持空白状态")
+                }
+            } else {
+                print("📋 [全局标签图谱] 没有上次使用的预设，保持空白状态")
+            }
         }
         .onReceive(dataManager.$filteredLayers.combineLatest(dataManager.$filteredTagTypes, dataManager.$filteredTagValues)) { layers, types, values in
             print("🔄 [全局标签图谱] 过滤器变化，准备重新加载数据")
