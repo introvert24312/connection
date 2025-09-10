@@ -316,6 +316,7 @@ public struct Node: Identifiable, Hashable, Codable {
     /// 格式：节点名 @节点1 @节点2 标签类型1[展示名1] 标签值1 标签类型2[展示名2] 标签值2 ...
     /// 特殊处理：child 标签显示为 @节点名 格式，紧跟在节点名称之后
     public func dynamicCommandRepresentationWithDisplayNames(allNodes: [Node]) -> String {
+        print("🔍 [dynamicCommandRepresentation] 开始处理节点: \(text), 标签数量: \(tags.count)")
         var components = [text]
         var childComponents: [String] = []  // 收集所有 child 标签
         var regularComponents: [String] = [] // 收集普通标签
@@ -332,6 +333,7 @@ public struct Node: Identifiable, Hashable, Codable {
                 
                 // 特殊处理：child 标签转换为 @节点名 格式（保持简洁）
                 if case .custom(let key) = tag.type, key == "child" {
+                    print("🔍 [dynamicCommandRepresentation] 找到child标签，转换为@格式: tag.type=\(tag.type), key=\(key), value=\(tag.value)")
                     childComponents.append("@\(tag.value)")
                     continue
                 }
@@ -362,7 +364,11 @@ public struct Node: Identifiable, Hashable, Codable {
         components.append(contentsOf: childComponents)  // @节点引用紧跟在节点名后
         components.append(contentsOf: regularComponents) // 普通标签在最后
         
-        return components.joined(separator: " ")
+        let result = components.joined(separator: " ")
+        print("🔍 [dynamicCommandRepresentation] 最终结果: '\(result)'")
+        print("🔍 [dynamicCommandRepresentation] - childComponents: \(childComponents)")
+        print("🔍 [dynamicCommandRepresentation] - regularComponents: \(regularComponents)")
+        return result
     }
     
     /// 从命令行字符串创建或更新节点
