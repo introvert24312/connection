@@ -394,10 +394,15 @@ struct TagSidebarView: View {
         VStack(spacing: 0) {
             // 标签类型头部
             Button(action: {
-                // 只切换展开/折叠状态，不触发节点显示
-                store.toggleExpandedTagType(tagType)
+                // 选择标签类型，显示该类型下的所有节点
+                store.selectTagType(tagType)
                 
-                print("🏷️ 切换标签类型展开状态: \(tagType.displayName) - \(isExpanded ? "折叠" : "展开")")
+                // 自动展开该标签类型
+                if !isExpanded {
+                    store.toggleExpandedTagType(tagType)
+                }
+                
+                print("🏷️ 选择标签类型: \(tagType.displayName)，显示该类型下的所有节点")
             }) {
                 HStack {
                     Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
