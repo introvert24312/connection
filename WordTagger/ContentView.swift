@@ -10,6 +10,8 @@ struct ContentView: View {
     @State private var showingDataSetup = false
     @State private var wordListWidth: CGFloat = 280 // 收窄WordList默认宽度
     @State private var isDraggingDivider = false // 是否正在拖动分割线
+    @State private var sidebarWidth: CGFloat = 220 // 标签看板宽度，将在onAppear时检查最小值
+    @State private var isDraggingSidebarDivider = false // 是否正在拖动侧边栏分割线
     @Environment(\.openWindow) private var openWindow
     
     // 窗口ID，可以从外部传入
@@ -27,6 +29,15 @@ struct ContentView: View {
     
     // 集中的防重复执行机制
     @State private var commandCooldowns: [String: Date] = [:]
+    
+    // 屏幕尺寸计算
+    private var screenWidth: CGFloat {
+        NSScreen.main?.frame.width ?? 1920
+    }
+    
+    private var sidebarMinWidth: CGFloat {
+        screenWidth / 5 // 屏幕宽度的1/5
+    }
     private let cooldownPeriod: TimeInterval = 0.5
     
     private func shouldExecuteCommand(_ commandName: String) -> Bool {
@@ -46,6 +57,16 @@ struct ContentView: View {
 
     var body: some View {
         mainContentView
+            .onAppear {
+                // 确保侧边栏宽度不小于最小值（屏幕宽度的1/5）
+                let minWidth = (NSScreen.main?.frame.width ?? 1920) / 5
+                if sidebarWidth < minWidth {
+                    DispatchQueue.main.async {
+                        self.sidebarWidth = max(minWidth, 220)
+                        print("🔧 侧边栏宽度调整为最小值: \(self.sidebarWidth)")
+                    }
+                }
+            }
             .modifier(ContentViewModifier(
                 showSidebar: $showSidebar,
                 selectedNode: $selectedNode,
@@ -69,8 +90,16 @@ struct ContentView: View {
             // 左侧：标签和搜索
             if showSidebar {
                 TagSidebarView(selectedNode: $selectedNode)
-                    .frame(width: 220)
+                    .frame(width: sidebarWidth)
                     .transition(.move(edge: .leading).combined(with: .opacity))
+                
+                // 侧边栏拖动分割线
+                ResizableDivider(
+                    width: $sidebarWidth,
+                    isDragging: $isDraggingSidebarDivider,
+                    minWidth: sidebarMinWidth,
+                    maxWidth: 400
+                )
             }
             
             // 中间：单词列表 - 可拖动调节宽度

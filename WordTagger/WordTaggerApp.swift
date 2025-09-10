@@ -763,7 +763,6 @@ struct QuickAddSheetView: View {
                     if alert.isContextConflict {
                         // 上下文冲突：提供强制添加选项
                         Button("取消", role: .cancel) { 
-                            store.duplicateNodeAlert = nil
                             showingDuplicateAlert = false
                             cleanupAndDismiss()
                         }
@@ -786,7 +785,6 @@ struct QuickAddSheetView: View {
                     } else if alert.isDuplicate && alert.existingNode != nil {
                         // 节点重复，询问是否合并
                         Button("取消", role: .cancel) { 
-                            store.duplicateNodeAlert = nil
                             showingDuplicateAlert = false
                             cleanupAndDismiss()
                         }
@@ -1006,9 +1004,11 @@ struct QuickAddSheetView: View {
         showingTagModificationAlert = false
         isWaitingForLocationSelection = false
         
-        // 清理Store中可能遗留的alert状态
-        store.duplicateNodeAlert = nil
-        store.tagTypeModificationAlert = nil
+        // 使用异步方式清理Store状态，避免在view更新期间修改状态
+        DispatchQueue.main.async {
+            self.store.duplicateNodeAlert = nil
+            self.store.tagTypeModificationAlert = nil
+        }
         
         // 立即调用dismiss，不使用延迟
         dismiss()
