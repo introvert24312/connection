@@ -2182,7 +2182,9 @@ class NodeImageManager: ObservableObject {
     }
     
     func generateImageMarkdown(fileName: String, description: String = "图片") -> String {
-        return "![\(description)](NodeImages/\(fileName))"
+        // 🎯 方案3：新创建的图片链接直接使用相对路径格式
+        // fileName 已经是从 NodeFolderManager.saveImageToNodeFolder 返回的相对路径
+        return "![\(description)](\(fileName))"
     }
 }
 
