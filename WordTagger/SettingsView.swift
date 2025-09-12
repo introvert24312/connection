@@ -1634,10 +1634,6 @@ struct GitSyncStatusPopover: View {
 
 struct SettingsView: View {
     @EnvironmentObject private var store: NodeStore
-    @AppStorage("searchThreshold") private var searchThreshold: Double = 0.3
-    @AppStorage("enableDebugMode") private var enableDebugMode: Bool = false
-    @AppStorage("maxSearchResults") private var maxSearchResults: Int = 50
-    @AppStorage("autoSaveInterval") private var autoSaveInterval: Double = 30.0
     
     var body: some View {
         TabView {
@@ -1646,15 +1642,6 @@ struct SettingsView: View {
                 .tabItem {
                     Label("常规", systemImage: "gear")
                 }
-            
-            // 搜索设置
-            SearchSettingsView(
-                searchThreshold: $searchThreshold,
-                maxSearchResults: $maxSearchResults
-            )
-            .tabItem {
-                Label("搜索", systemImage: "magnifyingglass")
-            }
             
             // 层管理
             LayerManagementView()
@@ -1785,41 +1772,9 @@ struct GeneralSettingsView: View {
                     .padding(12)
                 }
                 
-                // 性能设置
-                GroupBox("性能设置") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        SettingRow(
-                            title: "自动保存间隔",
-                            description: "自动保存数据的时间间隔（秒）"
-                        ) {
-                            HStack(spacing: 8) {
-                                Text("\(Int(autoSaveInterval))秒")
-                                    .foregroundColor(.secondary)
-                                    .frame(width: 50, alignment: .trailing)
-                                
-                                Stepper("", 
-                                       value: $autoSaveInterval, 
-                                       in: 10...300, 
-                                       step: 10)
-                            }
-                        }
-                    }
-                    .padding(12)
-                }
-                
                 // 开发设置
                 GroupBox("开发选项") {
                     VStack(alignment: .leading, spacing: 12) {
-                        SettingRow(
-                            title: "调试模式",
-                            description: "显示调试信息和性能指标"
-                        ) {
-                            Toggle("", isOn: $enableDebugMode)
-                                .toggleStyle(SwitchToggleStyle())
-                        }
-                        
-                        Divider()
-                        
                         SettingRow(
                             title: "图谱调试信息",
                             description: "在WebView中显示图谱数据验证信息"
@@ -1833,116 +1788,6 @@ struct GeneralSettingsView: View {
                                 .font(.caption2)
                                 .foregroundColor(.orange)
                                 .padding(.top, 4)
-                        }
-                    }
-                    .padding(12)
-                }
-                
-                Spacer()
-            }
-            .padding()
-        }
-    }
-}
-
-// MARK: - 搜索设置
-
-struct SearchSettingsView: View {
-    @Binding var searchThreshold: Double
-    @Binding var maxSearchResults: Int
-    @AppStorage("enableFuzzySearch") private var enableFuzzySearch: Bool = true
-    @AppStorage("searchInPhonetic") private var searchInPhonetic: Bool = true
-    @AppStorage("searchInMeaning") private var searchInMeaning: Bool = true
-    @AppStorage("searchInTags") private var searchInTags: Bool = true
-    
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                // 搜索范围
-                GroupBox("搜索范围") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        SettingRow(
-                            title: "搜索音标",
-                            description: "在音标字段中搜索匹配内容"
-                        ) {
-                            Toggle("", isOn: $searchInPhonetic)
-                                .toggleStyle(SwitchToggleStyle())
-                        }
-                        
-                        Divider()
-                        
-                        SettingRow(
-                            title: "搜索含义",
-                            description: "在节点含义中搜索匹配内容"
-                        ) {
-                            Toggle("", isOn: $searchInMeaning)
-                                .toggleStyle(SwitchToggleStyle())
-                        }
-                        
-                        Divider()
-                        
-                        SettingRow(
-                            title: "搜索标签",
-                            description: "在标签内容中搜索匹配内容"
-                        ) {
-                            Toggle("", isOn: $searchInTags)
-                                .toggleStyle(SwitchToggleStyle())
-                        }
-                    }
-                    .padding(12)
-                }
-                
-                // 搜索算法
-                GroupBox("搜索算法") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        SettingRow(
-                            title: "模糊搜索",
-                            description: "允许拼写错误和近似匹配"
-                        ) {
-                            Toggle("", isOn: $enableFuzzySearch)
-                                .toggleStyle(SwitchToggleStyle())
-                        }
-                        
-                        if enableFuzzySearch {
-                            Divider()
-                            
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack {
-                                    Text("匹配阈值")
-                                        .fontWeight(.medium)
-                                    Spacer()
-                                    Text(String(format: "%.1f", searchThreshold))
-                                        .foregroundColor(.secondary)
-                                }
-                                
-                                Slider(value: $searchThreshold, in: 0.1...0.9, step: 0.1)
-                                
-                                Text("较低的值需要更精确的匹配")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                    }
-                    .padding(12)
-                }
-                
-                // 结果限制
-                GroupBox("结果设置") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        SettingRow(
-                            title: "最大搜索结果",
-                            description: "限制单次搜索返回的最大结果数量"
-                        ) {
-                            HStack(spacing: 8) {
-                                Text("\(maxSearchResults)")
-                                    .foregroundColor(.secondary)
-                                    .frame(width: 40, alignment: .trailing)
-                                
-                                Stepper("", 
-                                       value: $maxSearchResults, 
-                                       in: 10...200, 
-                                       step: 10)
-                            }
                         }
                     }
                     .padding(12)
@@ -2798,11 +2643,13 @@ struct AboutView: View {
                     .font(.headline)
                 
                 VStack(alignment: .leading, spacing: 4) {
-                    FeatureRow(icon: "tag.fill", text: "智能标签系统")
-                    FeatureRow(icon: "magnifyingglass", text: "模糊搜索功能")
+                    FeatureRow(icon: "network", text: "标签图谱")
+                    FeatureRow(icon: "circle.hexagonpath", text: "节点图谱")
+                    FeatureRow(icon: "rectangle.grid.3x2", text: "看板快选")
                     FeatureRow(icon: "map", text: "地图可视化")
                     FeatureRow(icon: "command", text: "命令面板快捷操作")
-                    FeatureRow(icon: "icloud", text: "数据导入导出")
+                    FeatureRow(icon: "doc.text", text: "Markdown支持")
+                    FeatureRow(icon: "arrow.triangle.branch", text: "Git支持")
                 }
             }
             
@@ -2813,9 +2660,9 @@ struct AboutView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                 
-                Text("© 2024 All rights reserved.")
-                    .font(.caption2)
-                    .foregroundColor(Color.secondary)
+                Text("© 2025 Connection")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
         .padding()
@@ -3138,6 +2985,7 @@ struct GitSyncSettingsView: View {
     @State private var showingSetupAlert = false
     @State private var showingConfirmDialog = false
     @State private var isGitEnabled: Bool = false
+    @State private var showingInstructions: Bool = false  // 新增：控制使用说明显示
     @State private var syncStatus: String = "未配置"
     @State private var isWorking: Bool = false
     @State private var lastSyncTime: Date?
@@ -3501,79 +3349,101 @@ struct GitSyncSettingsView: View {
                     }
                 }
                 
-                // 使用说明
-                GroupBox("使用说明") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("🎯 功能说明")
+                // 使用说明按钮
+                HStack {
+                    Button(action: {
+                        showingInstructions.toggle()
+                    }) {
+                        HStack {
+                            Image(systemName: showingInstructions ? "chevron.down" : "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                            Text("使用说明")
                                 .font(.subheadline)
-                                .fontWeight(.semibold)
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("• 将你的学习数据（节点、标签、层等）自动同步到GitHub")
-                                Text("• 支持多设备间的数据同步")
-                                Text("• 自动定时同步，保持数据最新")
-                                Text("• 可以从其他设备拉取最新数据")
-                            }
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        }
-                        
-                        Divider()
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("⚠️ 系统要求")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.orange)
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("• 需要安装Git命令行工具")
-                                Text("• 如果出现权限错误，请在终端运行：")
-                                Text("  xcode-select --install")
-                                    .font(.system(.caption, design: .monospaced))
-                                    .foregroundColor(.blue)
-                                Text("• 或下载完整版Xcode以获得命令行工具")
-                            }
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        }
-                        
-                        Divider()
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("📝 设置步骤")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("1. 在GitHub上创建一个新的私有仓库（推荐）")
-                                Text("2. 复制仓库的HTTPS地址")
-                                Text("3. 在上方填入仓库URL并点击\"设置GitHub同步\"")
-                                Text("4. 系统会自动初始化Git并连接到你的仓库")
-                            }
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        }
-                        
-                        Divider()
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("🔄 未来使用")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("• 在新设备上：clone你的GitHub仓库到本地文件夹")
-                                Text("• 在WordTagger设置中选择该文件夹作为数据存储位置")
-                                Text("• 系统会自动识别Git配置并启用同步功能")
-                                Text("• 你的所有学习数据就能在多设备间同步了！")
-                            }
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                                .foregroundColor(.blue)
                         }
                     }
-                    .padding(12)
+                    .buttonStyle(.plain)
+                    
+                    Spacer()
+                }
+                .padding(.horizontal, 12)
+                
+                // 使用说明内容（条件显示）
+                if showingInstructions {
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 12) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("🎯 功能说明")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("• 将你的学习数据（节点、标签、层等）自动同步到GitHub")
+                                    Text("• 支持多设备间的数据同步")
+                                    Text("• 自动定时同步，保持数据最新")
+                                    Text("• 可以从其他设备拉取最新数据")
+                                }
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            }
+                            
+                            Divider()
+                            
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("⚠️ 系统要求")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.orange)
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("• 需要安装Git命令行工具")
+                                    Text("• 如果出现权限错误，请在终端运行：")
+                                    Text("  xcode-select --install")
+                                        .font(.system(.caption, design: .monospaced))
+                                        .foregroundColor(.blue)
+                                    Text("• 或下载完整版Xcode以获得命令行工具")
+                                }
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            }
+                            
+                            Divider()
+                            
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("📝 设置步骤")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("1. 在GitHub上创建一个新的私有仓库（推荐）")
+                                    Text("2. 复制仓库的HTTPS地址")
+                                    Text("3. 在上方填入仓库URL并点击\"设置GitHub同步\"")
+                                    Text("4. 系统会自动初始化Git并连接到你的仓库")
+                                }
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            }
+                            
+                            Divider()
+                            
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("🔄 未来使用")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("• 在新设备上：clone你的GitHub仓库到本地文件夹")
+                                    Text("• 在WordTagger设置中选择该文件夹作为数据存储位置")
+                                    Text("• 系统会自动识别Git配置并启用同步功能")
+                                    Text("• 你的所有学习数据就能在多设备间同步了！")
+                                }
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            }
+                        }
+                        .padding(12)
+                    }
                 }
                 
                 Spacer()
@@ -5254,13 +5124,6 @@ struct DangerousOperationsSection: View {
                 Text("此操作将删除所有节点和标签数据，且无法撤销")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                
-                if dataManager.isDataPathSelected {
-                    Text("⚠️ 同时会清除外部存储文件中的所有数据")
-                        .font(.caption2)
-                        .foregroundColor(.orange)
-                        .padding(.top, 2)
-                }
                 
                 HStack(spacing: 8) {
                     Button("清除所有数据") {
