@@ -1114,6 +1114,63 @@ struct QuickAddSheetView: View {
         while i < components.count {
             let tagKey = components[i]
             
+            // 🔧 特殊处理：如果是"loc"且后面跟坐标格式，直接处理整个坐标表达式
+            if tagKey.lowercased() == "loc" && i + 1 < components.count {
+                let nextComponent = components[i + 1]
+                // 检查是否是坐标格式：@纬度,经度[名称] 或类似格式
+                if nextComponent.hasPrefix("@") && (nextComponent.contains(",") || nextComponent.contains("[")) {
+                    print("🗺️ 检测到loc坐标语法: \(tagKey) \(nextComponent)")
+                    
+                    // 解析坐标
+                    var locationName: String = ""
+                    var lat: Double = 0
+                    var lng: Double = 0
+                    var parsed = false
+                    
+                    let coordContent = nextComponent
+                    
+                    // 格式: @纬度,经度[名称]
+                    if coordContent.hasPrefix("@") && coordContent.contains("[") && coordContent.contains("]") {
+                        if let atIndex = coordContent.firstIndex(of: "@"),
+                           let bracketIndex = coordContent.firstIndex(of: "["),
+                           atIndex < bracketIndex && coordContent.index(after: atIndex) <= bracketIndex {
+                            let coordString = String(coordContent[coordContent.index(after: atIndex)..<bracketIndex])
+                            let coords = coordString.split(separator: ",")
+                            
+                            if coords.count == 2,
+                               let latitude = Double(coords[0]),
+                               let longitude = Double(coords[1]) {
+                                lat = latitude
+                                lng = longitude
+                                
+                                if let startBracket = coordContent.firstIndex(of: "["),
+                                   let endBracket = coordContent.firstIndex(of: "]"),
+                                   startBracket < endBracket && coordContent.index(after: startBracket) <= endBracket {
+                                    locationName = String(coordContent[coordContent.index(after: startBracket)..<endBracket])
+                                    parsed = true
+                                }
+                            }
+                        }
+                    }
+                    
+                    if parsed && !locationName.isEmpty {
+                        let locationType = Tag.TagType.custom("loc")
+                        let tag = store.createTag(type: locationType, value: locationName, latitude: lat, longitude: lng)
+                        normalTags.append(tag)
+                        print("🗺️ 创建坐标标签成功: \(locationName) (\(lat), \(lng))")
+                    } else {
+                        // 解析失败，作为普通标签处理
+                        let locationType = Tag.TagType.custom("loc")
+                        let tag = Tag(type: locationType, value: nextComponent)
+                        normalTags.append(tag)
+                        print("⚠️ 坐标解析失败，创建普通loc标签: \(nextComponent)")
+                    }
+                    
+                    i += 2 // 跳过 loc 和坐标部分
+                    continue
+                }
+            }
+            
             // 检查是否是标签重命名语法: tagtype[newName]
             if tagKey.contains("[") && tagKey.contains("]") {
                 if let startBracket = tagKey.firstIndex(of: "["),
@@ -1558,6 +1615,63 @@ struct QuickAddSheetView: View {
         
         while i < components.count {
             let tagKey = components[i]
+            
+            // 🔧 特殊处理：如果是"loc"且后面跟坐标格式，直接处理整个坐标表达式
+            if tagKey.lowercased() == "loc" && i + 1 < components.count {
+                let nextComponent = components[i + 1]
+                // 检查是否是坐标格式：@纬度,经度[名称] 或类似格式
+                if nextComponent.hasPrefix("@") && (nextComponent.contains(",") || nextComponent.contains("[")) {
+                    print("🗺️ 检测到loc坐标语法: \(tagKey) \(nextComponent)")
+                    
+                    // 解析坐标
+                    var locationName: String = ""
+                    var lat: Double = 0
+                    var lng: Double = 0
+                    var parsed = false
+                    
+                    let coordContent = nextComponent
+                    
+                    // 格式: @纬度,经度[名称]
+                    if coordContent.hasPrefix("@") && coordContent.contains("[") && coordContent.contains("]") {
+                        if let atIndex = coordContent.firstIndex(of: "@"),
+                           let bracketIndex = coordContent.firstIndex(of: "["),
+                           atIndex < bracketIndex && coordContent.index(after: atIndex) <= bracketIndex {
+                            let coordString = String(coordContent[coordContent.index(after: atIndex)..<bracketIndex])
+                            let coords = coordString.split(separator: ",")
+                            
+                            if coords.count == 2,
+                               let latitude = Double(coords[0]),
+                               let longitude = Double(coords[1]) {
+                                lat = latitude
+                                lng = longitude
+                                
+                                if let startBracket = coordContent.firstIndex(of: "["),
+                                   let endBracket = coordContent.firstIndex(of: "]"),
+                                   startBracket < endBracket && coordContent.index(after: startBracket) <= endBracket {
+                                    locationName = String(coordContent[coordContent.index(after: startBracket)..<endBracket])
+                                    parsed = true
+                                }
+                            }
+                        }
+                    }
+                    
+                    if parsed && !locationName.isEmpty {
+                        let locationType = Tag.TagType.custom("loc")
+                        let tag = store.createTag(type: locationType, value: locationName, latitude: lat, longitude: lng)
+                        tags.append(tag)
+                        print("🗺️ 创建坐标标签成功: \(locationName) (\(lat), \(lng))")
+                    } else {
+                        // 解析失败，作为普通标签处理
+                        let locationType = Tag.TagType.custom("loc")
+                        let tag = Tag(type: locationType, value: nextComponent)
+                        tags.append(tag)
+                        print("⚠️ 坐标解析失败，创建普通loc标签: \(nextComponent)")
+                    }
+                    
+                    i += 2 // 跳过 loc 和坐标部分
+                    continue
+                }
+            }
             
             // 检查是否是标签重命名语法: tagtype[newName]
             if tagKey.contains("[") && tagKey.contains("]") {
