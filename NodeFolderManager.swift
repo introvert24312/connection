@@ -144,7 +144,7 @@ public class NodeFolderManager: ObservableObject {
                 let markdownContent = try String(contentsOf: oldMarkdownFile, encoding: .utf8)
                 
                 // 更新图片链接：从绝对路径转换为相对路径
-                let updatedContent = updateImageLinksToRelativePaths(content: markdownContent, oldFolderName: oldFolderName)
+                let updatedContent = updateImageLinksToRelativePaths(content: markdownContent, oldFolderName: oldFolderName, oldNode: oldNode, newNode: newNode)
                 
                 // 先写入更新后的内容到旧文件
                 try updatedContent.write(to: oldMarkdownFile, atomically: true, encoding: .utf8)
@@ -329,7 +329,7 @@ public class NodeFolderManager: ObservableObject {
     }
     
     /// 将MD文档中的图片链接从绝对路径转换为相对路径
-    private func updateImageLinksToRelativePaths(content: String, oldFolderName: String) -> String {
+    private func updateImageLinksToRelativePaths(content: String, oldFolderName: String, oldNode: Node, newNode: Node) -> String {
         // 正则表达式匹配markdown图片语法：![描述](路径)
         let pattern = #"!\[(.*?)\]\((.*?)\)"#
         
@@ -358,13 +358,16 @@ public class NodeFolderManager: ObservableObject {
                             // 提取文件名（路径的最后一部分）
                             let fileName = URL(fileURLWithPath: originalPath).lastPathComponent
                             
-                            // 创建相对路径链接（直接引用同文件夹内的文件）
-                            let newLink = "![\(description)](\(fileName))"
+                            // 🎯 方案3修正：生成相对于外部数据路径根目录的相对路径
+                            // 使用新的文件夹名称
+                            let newFolderName = oldFolderName.replacingOccurrences(of: sanitizeFolderName(oldNode.text), with: sanitizeFolderName(newNode.text))
+                            let newRelativePath = "NodeFolders/\(newFolderName)/\(fileName)"
+                            let newLink = "![\(description)](\(newRelativePath))"
                             
                             // 替换原有链接
                             updatedContent = updatedContent.replacingCharacters(in: fullMatch, with: newLink)
                             
-                            print("🔄 更新图片链接: \(originalPath) → \(fileName)")
+                            print("🔄 更新图片链接: \(originalPath) → \(newRelativePath)")
                         }
                     }
                 }
@@ -423,10 +426,12 @@ public class NodeFolderManager: ObservableObject {
         try data.write(to: imageFile)
         print("🖼️ 图片已保存到节点文件夹根目录: \(imageFile.path)")
         
-        // 🎯 方案3：新创建的图片链接直接使用相对路径格式
-        // 返回文件名作为相对路径（相对于MD文档所在的节点文件夹）
-        print("🖼️ 生成相对路径: \(fileName)")
-        return fileName
+        // 🎯 方案3修正：生成相对于外部数据路径根目录的相对路径
+        // 格式：NodeFolders/{nodeId_nodeName}/{fileName}
+        let folderName = "\(node.id.uuidString.prefix(8))_\(sanitizeFolderName(node.text))"
+        let relativePath = "NodeFolders/\(folderName)/\(fileName)"
+        print("🖼️ 生成相对路径（相对于外部数据根目录）: \(relativePath)")
+        return relativePath
     }
     
     /// 在节点文件夹中保存markdown文件
