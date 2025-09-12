@@ -3526,6 +3526,16 @@ struct WordTaggerApp: App {
             GitAutoSyncManager.shared.debugStatus()
             GitAutoSyncManager.shared.startMonitoring()
         }
+        
+        // 延迟执行启动时Git自动提交推送，确保数据加载完成
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            print("🚀🚀🚀 WordTaggerApp: 准备启动Git启动时自动提交推送 - \(Date())")
+            Task { @MainActor in
+                print("🚀🚀🚀 WordTaggerApp: 开始执行GitStartupAutoCommitManager.performStartupCommitAndPush()")
+                await GitStartupAutoCommitManager.shared.performStartupCommitAndPush()
+                print("🚀🚀🚀 WordTaggerApp: GitStartupAutoCommitManager.performStartupCommitAndPush() 执行完成")
+            }
+        }
     }
     // 哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈
 

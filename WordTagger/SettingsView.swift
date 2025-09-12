@@ -62,6 +62,62 @@ struct PendingGitOperation {
     let timestamp: Date
 }
 
+// MARK: - Git启动自动提交推送管理器
+
+@MainActor 
+public final class GitStartupAutoCommitManager: ObservableObject {
+    
+    public static let shared = GitStartupAutoCommitManager()
+    
+    private init() {}
+    
+    // MARK: - 启动时自动提交推送
+    
+    public func performStartupCommitAndPush() async {
+        print("🚀 GitStartupAutoCommitManager: 开始应用启动时自动git提交推送")
+        
+        // 检查是否启用了启动时自动提交
+        let userDefaults = UserDefaults.standard
+        // 默认启用启动时自动提交，除非用户明确禁用
+        let isStartupCommitEnabled = userDefaults.object(forKey: "WordTagger_StartupAutoCommitEnabled") as? Bool ?? true
+        
+        guard isStartupCommitEnabled else {
+            print("ℹ️ GitStartupAutoCommitManager: 启动时自动提交未启用，跳过")
+            return
+        }
+        
+        // 检查基本git配置
+        guard isGitConfigurationComplete() else {
+            print("❌ GitStartupAutoCommitManager: Git配置不完整，跳过启动时提交")
+            return
+        }
+        
+        // 检查外部数据路径
+        guard ExternalDataManager.shared.currentDataPath != nil else {
+            print("❌ GitStartupAutoCommitManager: 外部数据路径未设置，跳过启动时提交")
+            return
+        }
+        
+        // 直接调用现有的git同步系统，而不是重新实现
+        print("🔄 GitStartupAutoCommitManager: 调用现有的git同步系统")
+        GitAutoSyncManager.shared.scheduleAutoSync(reason: "应用启动时自动提交")
+        
+        print("✅ GitStartupAutoCommitManager: 已触发现有git同步系统")
+    }
+    
+    // MARK: - 私有辅助方法
+    
+    private func isGitConfigurationComplete() -> Bool {
+        let userDefaults = UserDefaults.standard
+        let isGitEnabled = userDefaults.bool(forKey: "WordTagger_GitEnabled")
+        let gitRemoteURL = userDefaults.string(forKey: "WordTagger_GitRemoteURL") ?? ""
+        let gitUsername = userDefaults.string(forKey: "WordTagger_GitUsername") ?? ""
+        let gitToken = userDefaults.string(forKey: "WordTagger_GitToken") ?? ""
+        
+        return isGitEnabled && !gitRemoteURL.isEmpty && !gitUsername.isEmpty && !gitToken.isEmpty
+    }
+}
+
 // MARK: - Git自动同步管理器
 
 @MainActor
@@ -505,7 +561,7 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
         print("🔧 GitAutoSyncManager: 已停止Git自动同步监听和定时同步 [\(Date())]")
     }
     
-    private func scheduleAutoSync(reason: String = "未知原因") {
+    public func scheduleAutoSync(reason: String = "未知原因") {
         let timestamp = Date()
         print("📝 GitAutoSyncManager.scheduleAutoSync() 被调用 - 原因: \(reason) [\(timestamp)]")
         
@@ -2838,8 +2894,11 @@ struct ExternalDataStoragePanel: View {
                     }
                 }
                 
-                // 错误提示
-                if let error = dataManager.lastError {
+                // 错误提示 - 只显示真正重要的错误
+                if let error = dataManager.lastError, 
+                   !error.contains("需要重新选择") && 
+                   !error.contains("获取访问权限") && 
+                   !error.contains("没有文件夹访问权限") {
                     HStack {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundColor(.orange)

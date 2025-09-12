@@ -182,13 +182,37 @@ public class ExternalDataManager: ObservableObject {
             }
         }
         
-        // 如果bookmark不可用，尝试使用保存的路径（仅用于显示，可能没有访问权限）
+        // 如果bookmark不可用，尝试使用保存的路径并测试实际权限
         if let savedPath = userDefaults.string(forKey: dataPathKey) {
             let url = URL(fileURLWithPath: savedPath)
             if fileManager.fileExists(atPath: url.path) {
                 currentDataPath = url
                 isDataPathSelected = true
-                lastError = "需要重新选择数据文件夹以获取访问权限"
+                
+                // 测试实际的写入权限，只有无法访问时才提示
+                if !testWritePermission(at: url) {
+                    lastError = "需要重新选择数据文件夹以获取访问权限"
+                    print("⚠️ 数据文件夹存在但无写入权限: \(url.path)")
+                } else {
+                    // 有权限但bookmark过期，尝试重新创建bookmark
+                    print("✅ 数据文件夹可访问，尝试重新创建bookmark")
+                    // 清除之前的权限相关错误
+                    if let error = lastError, error.contains("需要重新选择") || error.contains("没有文件夹访问权限") {
+                        lastError = nil
+                    }
+                    do {
+                        let bookmarkData = try url.bookmarkData(
+                            options: .withSecurityScope,
+                            includingResourceValuesForKeys: nil,
+                            relativeTo: nil
+                        )
+                        setCachedBookmarkData(bookmarkData)
+                        print("✅ 成功重新创建bookmark")
+                    } catch {
+                        print("⚠️ 重新创建bookmark失败: \(error.localizedDescription)")
+                        // 不设置错误，因为实际上可以访问文件夹
+                    }
+                }
             } else {
                 // 路径不存在，清除保存的设置
                 userDefaults.removeObject(forKey: dataPathKey)
@@ -343,12 +367,19 @@ public class ExternalDataManager: ObservableObject {
         
         // 如果bookmark不可用，测试当前路径
         if testWritePermission(at: url) {
+            // 清除之前的权限相关错误
+            if let error = lastError, error.contains("需要重新选择") || error.contains("没有文件夹访问权限") {
+                lastError = nil
+            }
             return true
         }
         
         // 没有权限，需要重新选择
         print("❌ 所有访问方式均失败")
-        lastError = "没有文件夹访问权限，请重新选择数据文件夹"
+        // 只有在确实需要时才更新错误消息，避免覆盖其他重要错误信息
+        if lastError == nil || !lastError!.contains("需要重新选择") {
+            lastError = "没有文件夹访问权限，请重新选择数据文件夹"
+        }
         return false
     }
     
@@ -408,6 +439,14 @@ public class ExternalDataManager: ObservableObject {
     }
     
     // MARK: - 清理和重置
+    
+    public func clearPermissionErrors() {
+        if let error = lastError, 
+           (error.contains("需要重新选择") || error.contains("没有文件夹访问权限") || error.contains("获取访问权限")) {
+            lastError = nil
+            print("🗑️ 手动清除权限错误提示")
+        }
+    }
     
     public func clearDataPath() {
         currentDataPath = nil
