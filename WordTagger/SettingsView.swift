@@ -2645,7 +2645,7 @@ struct AboutView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     FeatureRow(icon: "network", text: "标签图谱")
                     FeatureRow(icon: "circle.hexagonpath", text: "节点图谱")
-                    FeatureRow(icon: "rectangle.grid.3x2", text: "888 看板快选")
+                    FeatureRow(icon: "rectangle.grid.3x2", text: "看板快选")
                     FeatureRow(icon: "map", text: "地图可视化")
                     FeatureRow(icon: "command", text: "命令面板快捷操作")
                     FeatureRow(icon: "doc.text", text: "Markdown 支持")
