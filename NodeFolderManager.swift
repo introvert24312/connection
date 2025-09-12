@@ -353,21 +353,22 @@ public class NodeFolderManager: ObservableObject {
                         let description = String(content[descRange])
                         let originalPath = String(content[pathRng])
                         
-                        // 检查是否是绝对路径并包含旧文件夹名称
-                        if originalPath.contains("NodeFolders/\(oldFolderName)/") {
+                        // 检查是否需要更新路径（包含旧文件夹名称的路径都需要更新）
+                        if originalPath.contains(oldFolderName) || originalPath.contains("NodeFolders") {
                             // 提取文件名（路径的最后一部分）
                             let fileName = URL(fileURLWithPath: originalPath).lastPathComponent
                             
-                            // 🎯 方案3修正：生成相对于外部数据路径根目录的相对路径
-                            // 使用新的文件夹名称
-                            let newFolderName = oldFolderName.replacingOccurrences(of: sanitizeFolderName(oldNode.text), with: sanitizeFolderName(newNode.text))
-                            let newRelativePath = "NodeFolders/\(newFolderName)/\(fileName)"
-                            let newLink = "![\(description)](\(newRelativePath))"
-                            
-                            // 替换原有链接
-                            updatedContent = updatedContent.replacingCharacters(in: fullMatch, with: newLink)
-                            
-                            print("🔄 更新图片链接: \(originalPath) → \(newRelativePath)")
+                            // 🎯 新方案：生成新的绝对文件URL
+                            if let newNodeFolderPath = getFolderPath(for: newNode) {
+                                let newImageFile = newNodeFolderPath.appendingPathComponent(fileName)
+                                let newAbsoluteFileURL = newImageFile.absoluteString
+                                let newLink = "![\(description)](\(newAbsoluteFileURL))"
+                                
+                                // 替换原有链接
+                                updatedContent = updatedContent.replacingCharacters(in: fullMatch, with: newLink)
+                                
+                                print("🔄 更新图片链接: \(originalPath) → \(newAbsoluteFileURL)")
+                            }
                         }
                     }
                 }
@@ -426,12 +427,10 @@ public class NodeFolderManager: ObservableObject {
         try data.write(to: imageFile)
         print("🖼️ 图片已保存到节点文件夹根目录: \(imageFile.path)")
         
-        // 🎯 方案3修正：生成相对于外部数据路径根目录的相对路径
-        // 格式：NodeFolders/{nodeId_nodeName}/{fileName}
-        let folderName = "\(node.id.uuidString.prefix(8))_\(sanitizeFolderName(node.text))"
-        let relativePath = "NodeFolders/\(folderName)/\(fileName)"
-        print("🖼️ 生成相对路径（相对于外部数据根目录）: \(relativePath)")
-        return relativePath
+        // 🎯 新方案：使用绝对文件URL，确保WebView能访问
+        let absoluteFileURL = imageFile.absoluteString
+        print("🖼️ 生成绝对文件URL: \(absoluteFileURL)")
+        return absoluteFileURL
     }
     
     /// 在节点文件夹中保存markdown文件
