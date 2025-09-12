@@ -3705,8 +3705,8 @@ struct WordTaggerApp: App {
                 showQuickAdd = true
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openNodeManagerForEdit"))) { notification in
-                // openNodeManagerForEdit 不是全局命令，只有key窗口处理
-                guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: false, commandName: "openNodeManagerForEdit") else {
+                // openNodeManagerForEdit 现在是全局命令，可以从任何窗口触发
+                guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true, commandName: "openNodeManagerForEdit") else {
                     print("🚫 主窗口: 忽略openNodeManagerForEdit通知 - 窗口非活跃状态")
                     return
                 }
@@ -5437,7 +5437,7 @@ struct IndependentWindowModifier: ViewModifier {
                 showQuickAdd = true
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openNodeManagerForEdit"))) { notification in
-                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: false, commandName: "openNodeManagerForEdit") else {
+                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "openNodeManagerForEdit") else {
                     print("🚫 独立窗口: 忽略openNodeManagerForEdit通知 - 窗口非活跃状态")
                     return
                 }

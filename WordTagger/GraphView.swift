@@ -382,8 +382,7 @@ struct GraphView: View {
                             if let selectedGraphNode = cachedNodes.first(where: { $0.id == nodeId }),
                                let selectedNode = selectedGraphNode.node {
                                 // 打开节点文件夹
-                                // TODO: 需要将NodeFolderManager.swift添加到Xcode项目中
-                                // NodeFolderManager.shared.openNodeFolderInFinder(selectedNode)
+                                NodeFolderManager.shared.openNodeFolderInFinder(selectedNode)
                             }
                             return
                         }

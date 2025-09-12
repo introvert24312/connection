@@ -2497,7 +2497,7 @@ struct DataManagementView: View {
                 clearAllData()
             }
         } message: {
-            Text("此操作将删除所有节点和标签数据，且无法撤销。")
+            Text("此操作将删除所有节点和标签数据，包括节点文件夹中的Markdown文件和图片，且无法撤销。")
         }
         .alert(isSuccess ? "成功" : "错误", isPresented: $showingResultAlert) {
             Button("确定") { }
@@ -2517,7 +2517,7 @@ struct DataManagementView: View {
                     // 使用新的清理方法，彻底删除所有外部数据文件
                     try await dataService.clearAllExternalData()
                     await MainActor.run {
-                        resultMessage = "所有数据已完全清除（包括外部存储和标签设置）"
+                        resultMessage = "所有数据已完全清除（包括外部存储、节点文件夹、图片和标签设置）"
                         isSuccess = true
                         showingResultAlert = true
                     }
@@ -5121,7 +5121,7 @@ struct DangerousOperationsSection: View {
                     Spacer()
                 }
                 
-                Text("此操作将删除所有节点和标签数据，且无法撤销")
+                Text("此操作将删除所有节点和标签数据，包括节点文件夹中的Markdown文件和图片，且无法撤销")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 
@@ -5152,7 +5152,7 @@ struct DangerousOperationsSection: View {
                 clearAllData()
             }
         } message: {
-            Text("此操作将删除所有节点和标签数据，且无法撤销。")
+            Text("此操作将删除所有节点和标签数据，包括节点文件夹中的Markdown文件和图片，且无法撤销。")
         }
         .alert(isSuccess ? "成功" : "错误", isPresented: $showingResultAlert) {
             Button("确定") { }
@@ -5172,7 +5172,7 @@ struct DangerousOperationsSection: View {
                     // 使用新的清理方法，彻底删除所有外部数据文件
                     try await dataService.clearAllExternalData()
                     await MainActor.run {
-                        resultMessage = "所有数据已完全清除（包括外部存储和标签设置）"
+                        resultMessage = "所有数据已完全清除（包括外部存储、节点文件夹、图片和标签设置）"
                         isSuccess = true
                         showingResultAlert = true
                     }

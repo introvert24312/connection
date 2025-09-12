@@ -480,113 +480,59 @@ struct NodeDetailView: View {
         print("🚨🚨🚨 SAVING MARKDOWN FILE...")
         print("🚨🚨🚨 为节点保存: \(node.text) (\(node.id))")
         
-        // 强制使用外部数据管理器获取Markdown路径
-        guard let markdownURL = await MainActor.run(body: { ExternalDataManager.shared.getMarkdownURL() }) else {
-            print("❌ 必须先设置外部数据存储路径才能保存Markdown文件")
-            return
-        }
+        var saveSuccessful = false
         
-        // 确保外部数据管理器有访问权限
-        guard await MainActor.run(body: { ExternalDataManager.shared.ensureAccess() }) else {
-            print("❌ 无法访问外部数据存储路径")
-            return
-        }
-        
+        // 🎯 优先尝试使用节点文件夹功能保存Markdown文件
         do {
-            try FileManager.default.createDirectory(at: markdownURL, withIntermediateDirectories: true)
-            
-            // 创建安全的文件名（移除特殊字符）
-            let safeFileName = node.text
-                .replacingOccurrences(of: "/", with: "_")
-                .replacingOccurrences(of: ":", with: "_")
-                .replacingOccurrences(of: "?", with: "_")
-                .replacingOccurrences(of: "*", with: "_")
-                .replacingOccurrences(of: "\"", with: "_")
-                .replacingOccurrences(of: "<", with: "_")
-                .replacingOccurrences(of: ">", with: "_")
-                .replacingOccurrences(of: "|", with: "_")
-            
-            let fileURL = markdownURL.appendingPathComponent("\(safeFileName).md")
-            
-            try content.write(to: fileURL, atomically: true, encoding: .utf8)
-            
-            print("✅ Markdown文件已保存: \(fileURL.path)")
-            
+            let savedURL = try await MainActor.run {
+                try NodeFolderManager.shared.saveMarkdownToNodeFolder(node, content: content)
+            }
+            print("✅ Markdown文件已保存到节点文件夹: \(savedURL.path)")
+            saveSuccessful = true
         } catch {
-            print("❌ 保存Markdown文件失败: \(error)")
+            print("⚠️ 节点文件夹保存Markdown失败，回退到全局Markdown文件夹: \(error)")
+        }
+        
+        // 如果节点文件夹保存失败，直接报错，不再使用全局Markdown文件夹
+        if !saveSuccessful {
+            print("❌ 节点文件夹保存Markdown失败，请检查节点文件夹权限或创建节点")
+            // 不再创建全局Markdown文件夹作为后备
         }
     }
     
     private func loadMarkdownFromFile() async {
         print("🚨🚨🚨 LOADING MARKDOWN FILE...")
         
-        // 强制使用外部数据管理器获取Markdown路径
-        var markdownURL: URL?
-        var hasAccess: Bool = false
+        var loadedContent: String?
         
+        // 🎯 优先尝试从节点文件夹加载Markdown文件
         await MainActor.run {
-            markdownURL = ExternalDataManager.shared.getMarkdownURL()
-            hasAccess = ExternalDataManager.shared.ensureAccess()
+            if let content = NodeFolderManager.shared.loadMarkdownFromNodeFolder(currentNode) {
+                loadedContent = content
+                print("✅ 从节点文件夹加载Markdown内容: \(content.count)字符")
+            } else {
+                print("📄 节点文件夹中没有Markdown文件，尝试全局文件夹")
+            }
         }
         
-        guard let markdownURL = markdownURL else {
-            print("❌ 必须先设置外部数据存储路径才能加载Markdown文件")
-            // 使用默认内容
-            let defaultContent = currentNode.markdown
-            markdownText = defaultContent
-            DispatchQueue.main.async {
-                self.vditorCoordinator?.setMarkdown(defaultContent, forceUpdate: true)
-            }
-            return
+        // 不再从全局Markdown文件夹加载，只使用节点文件夹
+        if loadedContent == nil {
+            print("📄 节点文件夹中没有Markdown文件，将使用节点的默认markdown内容")
         }
         
-        // 确保外部数据管理器有访问权限
-        guard hasAccess else {
-            print("❌ 无法访问外部数据存储路径")
-            // 使用默认内容
-            let defaultContent = currentNode.markdown
-            markdownText = defaultContent
-            DispatchQueue.main.async {
-                self.vditorCoordinator?.setMarkdown(defaultContent, forceUpdate: true)
-            }
-            return
-        }
+        // 设置内容到UI
+        let finalContent = loadedContent ?? currentNode.markdown
+        markdownText = finalContent
         
-        // 创建安全的文件名
-        let safeFileName = currentNode.text
-            .replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: ":", with: "_")
-            .replacingOccurrences(of: "?", with: "_")
-            .replacingOccurrences(of: "*", with: "_")
-            .replacingOccurrences(of: "\"", with: "_")
-            .replacingOccurrences(of: "<", with: "_")
-            .replacingOccurrences(of: ">", with: "_")
-            .replacingOccurrences(of: "|", with: "_")
-        
-        let fileURL = markdownURL.appendingPathComponent("\(safeFileName).md")
-        
-        do {
-            let content = try String(contentsOf: fileURL, encoding: .utf8)
-            markdownText = content
-            print("✅ 从文件加载Markdown内容: \(content.count)字符")
-            
-            // 确保编辑器也更新内容
-            // 延迟到下一个运行循环，避免在视图更新期间修改状态
-            DispatchQueue.main.async {
-                print("📝 loadMarkdownFromFile: 设置编辑器内容")
-                self.vditorCoordinator?.setMarkdown(content, forceUpdate: true)
-            }
-        } catch {
-            print("📄 文件不存在或无法读取，使用默认内容: \(error)")
-            // 文件不存在时使用Node的默认markdown内容
-            let defaultContent = currentNode.markdown
-            markdownText = defaultContent
-            
-            // 确保编辑器也更新默认内容
-            DispatchQueue.main.async {
+        // 确保编辑器也更新内容
+        // 延迟到下一个运行循环，避免在视图更新期间修改状态
+        DispatchQueue.main.async {
+            if loadedContent != nil {
+                print("📝 loadMarkdownFromFile: 设置加载的文件内容到编辑器")
+            } else {
                 print("📝 loadMarkdownFromFile: 设置默认内容到编辑器")
-                self.vditorCoordinator?.setMarkdown(defaultContent, forceUpdate: true)
             }
+            self.vditorCoordinator?.setMarkdown(finalContent, forceUpdate: true)
         }
     }
     
@@ -1523,8 +1469,7 @@ struct NodeGraphView: View {
                             if let selectedNode = graphData.nodes.first(where: { $0.id == nodeId }),
                                let selectedTargetNode = selectedNode.node {
                                 // 打开节点文件夹
-                                // TODO: 需要将NodeFolderManager.swift添加到Xcode项目中
-                                // NodeFolderManager.shared.openNodeFolderInFinder(selectedTargetNode)
+                                NodeFolderManager.shared.openNodeFolderInFinder(selectedTargetNode)
                             }
                             return
                         }
@@ -1798,8 +1743,7 @@ struct FullscreenGraphView: View {
                             if let selectedNode = graphData.nodes.first(where: { $0.id == nodeId }),
                                let selectedTargetNode = selectedNode.node {
                                 // 打开节点文件夹
-                                // TODO: 需要将NodeFolderManager.swift添加到Xcode项目中
-                                // NodeFolderManager.shared.openNodeFolderInFinder(selectedTargetNode)
+                                NodeFolderManager.shared.openNodeFolderInFinder(selectedTargetNode)
                             }
                             return
                         }

@@ -996,6 +996,15 @@ public final class NodeStore: ObservableObject {
     public func deleteNode(_ node: Node) {
         print("🗑️ Store.deleteNode: 删除节点 '\(node.text)'")
         
+        // 删除对应的节点文件夹
+        do {
+            try NodeFolderManager.shared.deleteFolder(for: node, moveToTrash: true)
+            print("📁 Store.deleteNode: 成功删除节点文件夹")
+        } catch {
+            print("⚠️ Store.deleteNode: 删除节点文件夹失败: \(error)")
+            // 即使文件夹删除失败，也继续删除节点数据
+        }
+        
         nodes.removeAll { $0.id == node.id }
         if selectedNode?.id == node.id {
             selectedNode = nil
@@ -1022,12 +1031,21 @@ public final class NodeStore: ObservableObject {
     
     @MainActor
     public func deleteNode(_ nodeId: UUID) {
-        // 在删除前获取节点信息用于通知
+        // 在删除前获取节点信息用于通知和文件夹删除
         let nodeToDelete = nodes.first { $0.id == nodeId }
         
         print("🗑️ Store.deleteNode(UUID): 删除节点ID \(nodeId)")
         if let node = nodeToDelete {
             print("🗑️ Store.deleteNode(UUID): 找到节点 '\(node.text)'")
+            
+            // 删除对应的节点文件夹
+            do {
+                try NodeFolderManager.shared.deleteFolder(for: node, moveToTrash: true)
+                print("📁 Store.deleteNode(UUID): 成功删除节点文件夹")
+            } catch {
+                print("⚠️ Store.deleteNode(UUID): 删除节点文件夹失败: \(error)")
+                // 即使文件夹删除失败，也继续删除节点数据
+            }
         }
         
         nodes.removeAll { $0.id == nodeId }

@@ -232,13 +232,26 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <title>标签索引看板</title>
             <style>
+                /* Light theme (default) */
                 :root {
-                    --bg: #1e1e1e; 
-                    --card: #2a2a2a; 
-                    --text: #ffffff; 
-                    --muted: #a0a0a0;
+                    --bg: #ffffff; 
+                    --card: #f8f9fa; 
+                    --text: #1d1d1f; 
+                    --muted: #6e6e73;
                     --accent: #007aff; 
-                    --border: #3c3c3c;
+                    --border: #e1e5e9;
+                }
+                
+                /* Dark theme */
+                @media (prefers-color-scheme: dark) {
+                    :root {
+                        --bg: #1e1e1e; 
+                        --card: #2a2a2a; 
+                        --text: #ffffff; 
+                        --muted: #a0a0a0;
+                        --accent: #007aff; 
+                        --border: #3c3c3c;
+                    }
                 }
                 * { box-sizing: border-box; }
                 body {
@@ -363,9 +376,9 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                     margin-bottom: 20px;
                     border: 1px solid var(--border);
                     border-radius: 8px;
-                    background: rgba(42, 42, 42, 0.3);
+                    background: var(--card);
                     padding: 16px;
-                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
                 }
                 .group-header {
                     font-size: 16px;
@@ -395,7 +408,7 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                     margin-bottom: 16px;
                     padding: 8px;
                     border-radius: 6px;
-                    background: rgba(60, 60, 60, 0.2);
+                    background: var(--border);
                     border-left: 3px solid var(--accent);
                 }
                 .type-subgroup:last-child {
@@ -427,7 +440,7 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                     background: var(--card);
                     padding: 16px;
                     margin-bottom: 16px;
-                    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
                 }
                 .layer-selector-header {
                     display: flex;

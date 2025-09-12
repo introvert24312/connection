@@ -447,6 +447,7 @@ class WindowFocusManager: ObservableObject {
             "toggleSidebar",       // Command+E - 切换侧边栏应该在任何活跃窗口中可用
             "openNewWindow",       // Command+B - 新建窗口是全局功能
             "openNodeManager",     // Command+Shift+W - 节点管理器
+            "openNodeManagerForEdit", // Command+点击节点 - 编辑节点应该在任何窗口都可用
             "openTagManager",      // Command+Shift+I - 标签管理器
             "openMapWindow",       // Command+M - 地图窗口
             "openGraphWindow",     // Command+G - 图谱窗口

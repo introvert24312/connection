@@ -90,8 +90,8 @@ public class NodeFolderManager: ObservableObject {
         try fileManager.createDirectory(at: folderPath, withIntermediateDirectories: true)
         print("📁 创建节点文件夹: \(folderPath.lastPathComponent)")
         
-        // 创建一个简单的说明文件
-        createReadmeFile(in: folderPath, for: node)
+        // 注释掉自动创建说明文件
+        // createReadmeFile(in: folderPath, for: node)
         
         return folderPath
     }
@@ -130,8 +130,8 @@ public class NodeFolderManager: ObservableObject {
             try fileManager.moveItem(at: oldPath, to: newPath)
             print("📁 重命名节点文件夹: \(oldFolderName) → \(newFolderName)")
             
-            // 更新说明文件
-            updateReadmeFile(in: newPath, for: newNode, wasRenamed: true)
+            // 注释掉自动更新说明文件
+            // updateReadmeFile(in: newPath, for: newNode, wasRenamed: true)
             
         } catch {
             print("❌ 重命名节点文件夹失败: \(error)")
@@ -327,62 +327,67 @@ public class NodeFolderManager: ObservableObject {
     
     /// 在节点文件夹中保存图片文件
     public func saveImageToNodeFolder(_ node: Node, fileName: String, data: Data) throws -> String {
-        // 确保节点文件夹和Images子目录存在
-        try createNodeSubdirectories(for: node)
+        // 确保节点文件夹存在（不需要创建Images子目录）
+        let _ = try createFolderForNode(node)
         
-        guard let imagesPath = getImagesPath(for: node) else {
+        guard let nodeFolderPath = getFolderPath(for: node) else {
             throw NodeFolderError.invalidBasePath
         }
         
-        let imageFile = imagesPath.appendingPathComponent(fileName)
+        // 直接保存到节点文件夹根目录
+        let imageFile = nodeFolderPath.appendingPathComponent(fileName)
         try data.write(to: imageFile)
-        print("🖼️ 图片已保存到节点文件夹: \(imageFile.path)")
+        print("🖼️ 图片已保存到节点文件夹根目录: \(imageFile.path)")
         
-        // 返回节点相对路径格式，便于markdown引用
-        return "Images/\(fileName)"
+        // 返回从外部数据路径到图片文件的相对路径
+        // 格式：NodeFolders/{nodeId_nodeName}/{fileName}
+        let folderName = "\(node.id.uuidString.prefix(8))_\(sanitizeFolderName(node.text))"
+        let relativePath = "NodeFolders/\(folderName)/\(fileName)"
+        print("🖼️ 生成相对路径: \(relativePath)")
+        return relativePath
     }
     
     /// 在节点文件夹中保存markdown文件
     public func saveMarkdownToNodeFolder(_ node: Node, content: String) throws -> URL {
-        // 确保节点文件夹和Markdown子目录存在
-        try createNodeSubdirectories(for: node)
+        // 确保节点文件夹存在（不需要创建Markdown子目录）
+        let _ = try createFolderForNode(node)
         
-        guard let markdownPath = getMarkdownPath(for: node) else {
+        guard let nodeFolderPath = getFolderPath(for: node) else {
             throw NodeFolderError.invalidBasePath
         }
         
         let fileName = "\(sanitizeFolderName(node.text)).md"
-        let markdownFile = markdownPath.appendingPathComponent(fileName)
+        let markdownFile = nodeFolderPath.appendingPathComponent(fileName)
         
         try content.write(to: markdownFile, atomically: true, encoding: .utf8)
-        print("📝 Markdown文件已保存到节点文件夹: \(markdownFile.path)")
+        print("📝 Markdown文件已保存到节点文件夹根目录: \(markdownFile.path)")
         
         return markdownFile
     }
     
     /// 从节点文件夹中读取markdown文件
     public func loadMarkdownFromNodeFolder(_ node: Node) -> String? {
-        guard let markdownPath = getMarkdownPath(for: node) else { return nil }
+        guard let nodeFolderPath = getFolderPath(for: node) else { return nil }
         
         let fileName = "\(sanitizeFolderName(node.text)).md"
-        let markdownFile = markdownPath.appendingPathComponent(fileName)
+        let markdownFile = nodeFolderPath.appendingPathComponent(fileName)
         
         do {
             let content = try String(contentsOf: markdownFile, encoding: .utf8)
-            print("📖 从节点文件夹加载Markdown: \(markdownFile.path)")
+            print("📖 从节点文件夹根目录加载Markdown: \(markdownFile.path)")
             return content
         } catch {
-            print("⚠️ 从节点文件夹加载Markdown失败: \(error)")
+            print("⚠️ 从节点文件夹根目录加载Markdown失败: \(error)")
             return nil
         }
     }
     
     /// 检查节点是否有markdown文件  
     public func hasMarkdownFile(for node: Node) -> Bool {
-        guard let markdownPath = getMarkdownPath(for: node) else { return false }
+        guard let nodeFolderPath = getFolderPath(for: node) else { return false }
         
         let fileName = "\(sanitizeFolderName(node.text)).md"
-        let markdownFile = markdownPath.appendingPathComponent(fileName)
+        let markdownFile = nodeFolderPath.appendingPathComponent(fileName)
         
         return fileManager.fileExists(atPath: markdownFile.path)
     }

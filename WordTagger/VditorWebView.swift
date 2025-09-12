@@ -50,7 +50,7 @@ struct VditorWebView: NSViewRepresentable {
         webView.appearance = NSAppearance(named: isDark ? .darkAqua : .aqua)
 
         // 强制使用外部数据管理器的路径，不提供后备选项
-        guard let baseURL = ExternalDataManager.shared.currentDataPath else {
+        guard let dataPath = ExternalDataManager.shared.currentDataPath else {
             // 如果没有设置外部路径，加载一个提示页面
             let errorHTML = Self.generateErrorHTML()
             webView.loadHTMLString(errorHTML, baseURL: nil)
@@ -67,12 +67,15 @@ struct VditorWebView: NSViewRepresentable {
         // 生成 HTML 并加载
         let html = Self.generateHTML()
         
-        // 创建临时 HTML 文件以支持本地图片加载
-        let tempURL = baseURL.appendingPathComponent("temp.html")
+        // 在外部数据路径创建temp.html，使用外部数据路径作为baseURL
+        let tempURL = dataPath.appendingPathComponent("temp.html")
+        
         do {
             try html.write(to: tempURL, atomically: true, encoding: .utf8)
             // 使用 loadFileURL 而不是 loadHTMLString，这样可以正确加载本地资源
-            webView.loadFileURL(tempURL, allowingReadAccessTo: baseURL)
+            webView.loadFileURL(tempURL, allowingReadAccessTo: dataPath)
+            print("🌐 WebView加载HTML: \(tempURL.path)")
+            print("🎯 WebView baseURL: \(dataPath.path)")
         } catch {
             print("创建临时HTML文件失败: \(error)")
             let errorHTML = Self.generateWriteErrorHTML()
@@ -357,44 +360,31 @@ struct VditorWebView: NSViewRepresentable {
         
         // 原生图片保存功能 - 优先保存到节点文件夹
         private func saveImageToFile(fileName: String, data: Data, loadingId: String? = nil, directMode: Bool = true) {
-            var relativePath: String
+            var relativePath: String = ""
             var saveSuccessful = false
             
-            // 节点文件夹功能暂时禁用，需要将NodeFolderManager.swift添加到Xcode项目中
-            // TODO: 恢复节点文件夹功能
-            
-            // 直接使用全局Images文件夹
-            print("🖼️ 使用全局Images文件夹保存图片")
-            
-            // 强制使用外部数据管理器获取图片路径，不提供后备选项
-            guard let imagesURL = ExternalDataManager.shared.getImagesURL() else {
-                print("错误：必须先设置外部数据存储路径才能保存图片")
-                showImageSaveError(fileName: fileName, error: "请先在设置中选择数据存储文件夹", loadingId: loadingId)
-                return
+            // 🎯 优先尝试使用节点文件夹功能
+            if let node = self.node {
+                print("🖼️ 尝试保存图片到节点文件夹: \(node.text)")
+                
+                do {
+                    // 使用NodeFolderManager保存图片到节点的Images子文件夹
+                    let nodeRelativePath = try NodeFolderManager.shared.saveImageToNodeFolder(node, fileName: fileName, data: data)
+                    relativePath = nodeRelativePath
+                    saveSuccessful = true
+                    print("✅ 图片已保存到节点文件夹: \(nodeRelativePath)")
+                } catch {
+                    print("⚠️ 节点文件夹保存失败，回退到全局Images文件夹: \(error)")
+                    // 如果节点文件夹保存失败，回退到全局文件夹
+                }
+            } else {
+                print("ℹ️ 没有关联的节点信息，使用全局Images文件夹")
             }
             
-            // 确保外部数据管理器有访问权限
-            guard ExternalDataManager.shared.ensureAccess() else {
-                print("错误：无法访问外部数据存储路径")
-                showImageSaveError(fileName: fileName, error: "无法访问数据存储文件夹，请重新选择", loadingId: loadingId)
-                return
-            }
-            
-            // 确保目录存在
-            try? FileManager.default.createDirectory(at: imagesURL, withIntermediateDirectories: true, attributes: nil)
-            
-            // 保存文件
-            let fileURL = imagesURL.appendingPathComponent(fileName)
-            
-            do {
-                // 直接保存原始图片，不压缩
-                try data.write(to: fileURL)
-                print("✅ 图片已保存到全局Images文件夹: \(fileURL.path)")
-                relativePath = "Images/\(fileName)"
-                saveSuccessful = true
-            } catch {
-                print("❌ 保存图片失败: \(error)")
-                showImageSaveError(fileName: fileName, error: error.localizedDescription, loadingId: loadingId)
+            // 如果节点文件夹保存失败，直接报错，不再使用全局Images文件夹作为后备
+            if !saveSuccessful {
+                print("❌ 节点文件夹保存失败，且没有关联的节点信息")
+                showImageSaveError(fileName: fileName, error: "请先创建节点或检查节点文件夹权限", loadingId: loadingId)
                 return
             }
             
@@ -641,23 +631,68 @@ struct VditorWebView: NSViewRepresentable {
         
         // 在 Finder 中显示图片
         private func showImageInFinder(filename: String) {
-            guard let imagesURL = ExternalDataManager.shared.getImagesURL() else { 
-                print("错误：必须先设置外部数据存储路径")
-                return 
-            }
+            print("🔍 showImageInFinder 调试信息:")
+            print("   - 收到的filename: '\(filename)'")
             
-            // 确保外部数据管理器有访问权限
-            guard ExternalDataManager.shared.ensureAccess() else {
-                print("错误：无法访问外部数据存储路径")
+            // 只在节点文件夹中查找图片
+            guard let node = self.node else {
+                print("❌ 没有关联的节点，无法查找图片")
                 return
             }
             
-            let fileURL = imagesURL.appendingPathComponent(filename.replacingOccurrences(of: "Images/", with: ""))
+            guard let nodeFolderPath = NodeFolderManager.shared.getFolderPath(for: node) else {
+                print("❌ 无法获取节点文件夹路径")
+                return
+            }
             
-            if FileManager.default.fileExists(atPath: fileURL.path) {
-                NSWorkspace.shared.selectFile(fileURL.path, inFileViewerRootedAtPath: fileURL.deletingLastPathComponent().path)
+            print("   - 节点文件夹路径: \(nodeFolderPath.path)")
+            
+            // 清理文件名（移除可能的旧格式前缀和URL编码）
+            var cleanFilename = filename.replacingOccurrences(of: "Images/", with: "")
+            cleanFilename = cleanFilename.removingPercentEncoding ?? cleanFilename
+            
+            print("   - 清理后的文件名: '\(cleanFilename)'")
+            
+            let imageURL = nodeFolderPath.appendingPathComponent(cleanFilename)
+            print("   - 完整图片路径: \(imageURL.path)")
+            
+            // 列出节点文件夹中的所有文件，帮助调试
+            do {
+                let folderContents = try FileManager.default.contentsOfDirectory(atPath: nodeFolderPath.path)
+                print("   - 节点文件夹内容: \(folderContents)")
+            } catch {
+                print("   - 无法列出文件夹内容: \(error)")
+            }
+            
+            if FileManager.default.fileExists(atPath: imageURL.path) {
+                NSWorkspace.shared.selectFile(imageURL.path, inFileViewerRootedAtPath: imageURL.deletingLastPathComponent().path)
+                print("✅ 在Finder中显示图片: \(imageURL.path)")
             } else {
-                print("图片文件不存在: \(fileURL.path)")
+                print("❌ 图片文件不存在: \(imageURL.path)")
+                print("   - 节点: \(node.text)")
+                print("   - 节点文件夹: \(nodeFolderPath.path)")
+                
+                // 尝试模糊匹配文件名（忽略扩展名）
+                let baseName = (cleanFilename as NSString).deletingPathExtension
+                print("   - 尝试模糊匹配，基础名称: '\(baseName)'")
+                
+                do {
+                    let folderContents = try FileManager.default.contentsOfDirectory(atPath: nodeFolderPath.path)
+                    let matchingFiles = folderContents.filter { file in
+                        let fileBaseName = (file as NSString).deletingPathExtension
+                        return fileBaseName.contains(baseName) || baseName.contains(fileBaseName)
+                    }
+                    
+                    if let matchedFile = matchingFiles.first {
+                        let matchedURL = nodeFolderPath.appendingPathComponent(matchedFile)
+                        NSWorkspace.shared.selectFile(matchedURL.path, inFileViewerRootedAtPath: matchedURL.deletingLastPathComponent().path)
+                        print("✅ 模糊匹配成功，在Finder中显示: \(matchedURL.path)")
+                    } else {
+                        print("❌ 模糊匹配也未找到相关文件")
+                    }
+                } catch {
+                    print("❌ 模糊匹配时读取文件夹失败: \(error)")
+                }
             }
         }
 
@@ -921,10 +956,15 @@ struct VditorWebView: NSViewRepresentable {
               background: #2b2b2b;
             }
             
-            /* 本地图片路径处理 */
-            .vditor-reset img[src^="Images/"],
-            .vditor-reset img[src^="./Images/"],
-            .vditor-reset img[src*="/Images/"] {
+            /* 本地图片路径处理 - 只处理节点文件夹中的图片 */
+            .vditor-reset img[src$=".jpg"],
+            .vditor-reset img[src$=".jpeg"],
+            .vditor-reset img[src$=".png"],
+            .vditor-reset img[src$=".gif"],
+            .vditor-reset img[src$=".webp"],
+            .vditor-reset img[src$=".bmp"],
+            .vditor-reset img[src$=".tiff"],
+            .vditor-reset img[src$=".tif"] {
               max-width: 100%;
               height: auto;
               cursor: default;
@@ -1362,10 +1402,10 @@ struct VditorWebView: NSViewRepresentable {
                 console.error('图片加载失败:', e.target.src);
                 // 尝试修复路径
                 const src = e.target.src;
-                if (src.includes('Images/') && !src.startsWith('file://')) {
-                  // 如果不是 file:// 开头，尝试转换
-                  const filename = src.split('Images/').pop();
-                  e.target.src = 'Images/' + filename;
+                if (src.match(/\.(jpg|jpeg|png|gif|webp|bmp|tiff|tif)$/i) && !src.startsWith('file://')) {
+                  // 节点文件夹图片，直接使用文件名
+                  const filename = src.split('/').pop();
+                  e.target.src = filename;
                 }
               }
             }, true);
@@ -1793,20 +1833,44 @@ struct VditorWebView: NSViewRepresentable {
             // 图片和其他元素的点击处理
             document.addEventListener('click', function(e) {
               
-              if (e.target.tagName === 'IMG' && e.target.src.includes('Images/')) {
+              // 检查是否是本地图片（节点文件夹图片）
+              if (e.target.tagName === 'IMG' && 
+                  e.target.src.match(/\.(jpg|jpeg|png|gif|webp|bmp|tiff|tif)$/i)) {
                 if (e.metaKey) {
                   // Command+点击：在 Finder 中显示图片
                   e.preventDefault();
                   e.stopPropagation();
                   const src = e.target.src;
-                  const filename = src.split('Images/').pop();
+                  console.log('🔍 Command+点击图片调试:');
+                  console.log('   - 原始src:', src);
+                  
+                  // 从src中提取文件名
+                  // src可能是相对路径如: "NodeFolders/nodeId_nodeName/fileName" 或绝对路径
+                  let filename = src.split('/').pop();
+                  
+                  // 清理可能的URL参数和锚点
+                  if (filename && filename.includes('?')) {
+                    filename = filename.split('?')[0];
+                  }
+                  if (filename && filename.includes('#')) {
+                    filename = filename.split('#')[0];
+                  }
+                  
+                  // 移除可能的URL编码
+                  if (filename) {
+                    filename = decodeURIComponent(filename);
+                  }
+                  
+                  console.log('   - 提取的文件名:', filename);
+                  
                   try {
                     window.webkit?.messageHandlers?.bridge?.postMessage({ 
                       type: 'showImageInFinder',
-                      filename: 'Images/' + filename
+                      filename: filename
                     });
+                    console.log('✅ 已发送showImageInFinder请求');
                   } catch(err) {
-                    console.error('无法打开图片:', err);
+                    console.error('❌ 无法发送showImageInFinder请求:', err);
                   }
                 } else {
                   // 普通点击：处理双击检测

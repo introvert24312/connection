@@ -584,8 +584,7 @@ struct GlobalTagGraphCanvas: View {
             switch node.nodeType {
             case .contentNode(let contentNode):
                 print("⌥ Option+点击全局标签图谱内容节点: \(contentNode.text)")
-                // TODO: 需要将NodeFolderManager.swift添加到Xcode项目中
-                // NodeFolderManager.shared.openNodeFolderInFinder(contentNode)
+                NodeFolderManager.shared.openNodeFolderInFinder(contentNode)
                 return
             default:
                 print("⌥ Option+点击了非内容节点，忽略文件夹操作")

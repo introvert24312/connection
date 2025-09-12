@@ -233,7 +233,6 @@ public class ExternalDataManager: ObservableObject {
                 baseURL.appendingPathComponent("data/tags"),
                 baseURL.appendingPathComponent("data/metadata"),
                 baseURL.appendingPathComponent("Images"),
-                baseURL.appendingPathComponent("Markdown"),
                 baseURL.appendingPathComponent("backups")
             ]
             
@@ -305,10 +304,8 @@ public class ExternalDataManager: ObservableObject {
         return basePath.appendingPathComponent("Images")
     }
     
-    public func getMarkdownURL() -> URL? {
-        guard let basePath = currentDataPath else { return nil }
-        return basePath.appendingPathComponent("Markdown")
-    }
+    // getMarkdownURL 方法已移除 - 不再使用全局Markdown文件夹
+    // 所有Markdown文件现在都保存在各自的节点文件夹中
     
     // MARK: - 数据验证
     

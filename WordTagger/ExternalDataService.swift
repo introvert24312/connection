@@ -242,9 +242,31 @@ public class ExternalDataService: ObservableObject {
                     print("⚠️ 删除备份文件夹失败: \(error)")
                 }
             }
+            
+            // 清理NodeFolders文件夹 - 这包含所有节点的Markdown文件和图片
+            let nodeFoldersPath = basePath.appendingPathComponent("NodeFolders")
+            if FileManager.default.fileExists(atPath: nodeFoldersPath.path) {
+                do {
+                    try FileManager.default.removeItem(at: nodeFoldersPath)
+                    print("🗑️ 已删除NodeFolders文件夹及其所有内容（节点Markdown文件和图片）")
+                } catch {
+                    print("⚠️ 删除NodeFolders文件夹失败: \(error)")
+                }
+            }
+            
+            // 清理Images文件夹（全局图片，如果还有的话）
+            let imagesPath = basePath.appendingPathComponent("Images")
+            if FileManager.default.fileExists(atPath: imagesPath.path) {
+                do {
+                    try FileManager.default.removeItem(at: imagesPath)
+                    print("🗑️ 已删除Images文件夹")
+                } catch {
+                    print("⚠️ 删除Images文件夹失败: \(error)")
+                }
+            }
         }
         
-        print("✅ 外部数据文件清理完成")
+        print("✅ 外部数据文件清理完成（包括NodeFolders和Images文件夹）")
     }
     
     // MARK: - 数据加载
