@@ -8,6 +8,9 @@ struct VditorWebView: NSViewRepresentable {
     var markdown: String
     var nodeId: String
     var onChange: (String) -> Void
+    
+    // 可选的节点对象，用于节点文件夹功能
+    var node: Node?
 
     // 允许外部持有 Coordinator（例如 DetailPanel 里通过 @State 传引用）
     @Binding var coordinatorBinding: Coordinator?
@@ -16,7 +19,7 @@ struct VditorWebView: NSViewRepresentable {
 
     // MARK: - NSViewRepresentable
     func makeCoordinator() -> Coordinator {
-        Coordinator(onChange: onChange)
+        Coordinator(onChange: onChange, node: node)
     }
 
     func makeNSView(context: Context) -> WKWebView {
@@ -155,12 +158,16 @@ struct VditorWebView: NSViewRepresentable {
         var isReady = false
         var latestMarkdown: String = ""
         var nodeId: String = ""
+        
+        // 节点对象，用于节点文件夹功能
+        var node: Node?
 
         // 主题缓存，避免重复注入
         private var lastDarkValue: Bool?
 
-        init(onChange: @escaping (String) -> Void) {
+        init(onChange: @escaping (String) -> Void, node: Node? = nil) {
             self.onChange = onChange
+            self.node = node
         }
 
         // JS → Native
@@ -348,8 +355,17 @@ struct VditorWebView: NSViewRepresentable {
             evaluateJS("window.__applyNativeTheme(\(isDark ? "true" : "false"));", delayMS: 0) // 立即执行，无延迟
         }
         
-        // 原生图片保存功能 - 绕过JavaScript回调机制
+        // 原生图片保存功能 - 优先保存到节点文件夹
         private func saveImageToFile(fileName: String, data: Data, loadingId: String? = nil, directMode: Bool = true) {
+            var relativePath: String
+            var saveSuccessful = false
+            
+            // 节点文件夹功能暂时禁用，需要将NodeFolderManager.swift添加到Xcode项目中
+            // TODO: 恢复节点文件夹功能
+            
+            // 直接使用全局Images文件夹
+            print("🖼️ 使用全局Images文件夹保存图片")
+            
             // 强制使用外部数据管理器获取图片路径，不提供后备选项
             guard let imagesURL = ExternalDataManager.shared.getImagesURL() else {
                 print("错误：必须先设置外部数据存储路径才能保存图片")
@@ -373,11 +389,17 @@ struct VditorWebView: NSViewRepresentable {
             do {
                 // 直接保存原始图片，不压缩
                 try data.write(to: fileURL)
-                print("✅ 图片已保存到: \(fileURL.path)")
-                
-                // 🚀 使用原生Swift方法直接插入图片链接，不依赖JavaScript回调
-                let relativePath = "Images/\(fileName)"
-                
+                print("✅ 图片已保存到全局Images文件夹: \(fileURL.path)")
+                relativePath = "Images/\(fileName)"
+                saveSuccessful = true
+            } catch {
+                print("❌ 保存图片失败: \(error)")
+                showImageSaveError(fileName: fileName, error: error.localizedDescription, loadingId: loadingId)
+                return
+            }
+            
+            // 插入图片链接
+            if saveSuccessful {
                 if directMode {
                     print("🚀 使用直接插入模式")
                     nativeInsertImageLink(fileName: fileName, relativePath: relativePath, loadingId: loadingId)
@@ -387,10 +409,6 @@ struct VditorWebView: NSViewRepresentable {
                     let jsCallback = "window.__onImageSaved('\(fileName)', '\(relativePath)', '\(loadingId ?? "")');"
                     evaluateJS(jsCallback)
                 }
-                
-            } catch {
-                print("❌ 保存图片失败: \(error)")
-                showImageSaveError(fileName: fileName, error: error.localizedDescription, loadingId: loadingId)
             }
         }
         

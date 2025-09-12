@@ -7,7 +7,7 @@ struct NodeContextGraphView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>:
     let title: String
     let initialScale: Double
     let useHierarchicalLayout: Bool
-    let onNodeSelected: ((Int, Bool) -> Void)?
+    let onNodeSelected: ((Int, Bool, Bool) -> Void)?
     let onNodeDeselected: (() -> Void)?
     let onFitGraph: (() -> Void)?
     
@@ -24,7 +24,7 @@ struct NodeContextGraphView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>:
         title: String = "节点关系图",
         initialScale: Double = 1.0,
         useHierarchicalLayout: Bool = false,
-        onNodeSelected: ((Int, Bool) -> Void)? = nil,
+        onNodeSelected: ((Int, Bool, Bool) -> Void)? = nil,
         onNodeDeselected: (() -> Void)? = nil,
         onFitGraph: (() -> Void)? = nil
     ) {

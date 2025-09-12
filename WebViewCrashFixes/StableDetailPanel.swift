@@ -220,6 +220,7 @@ struct StableNodeDetailView: View {
                 VditorWebView(
                     markdown: markdownText,
                     nodeId: node.id.uuidString,
+                    node: node,
                     onChange: { newValue in
                         handleContentChange(newValue)
                     },
@@ -310,7 +311,7 @@ struct StableNodeGraphView: View {
                         nodes: graphData.nodes,
                         edges: graphData.edges,
                         title: "稳定节点图谱",
-                        onNodeSelected: { nodeId, commandPressed in
+                        onNodeSelected: { nodeId, commandPressed, optionPressed in
                             // 稳定的节点选择处理
                             handleNodeSelection(nodeId: nodeId, commandPressed: commandPressed)
                         }

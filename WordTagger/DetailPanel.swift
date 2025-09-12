@@ -286,6 +286,7 @@ struct NodeDetailView: View {
                         markdownText = newValue
                     }
                 },
+                node: currentNode,
                 coordinatorBinding: $vditorCoordinator
             )
             .id("vditor-\(currentNode.id)-\(colorScheme)")
@@ -1515,7 +1516,19 @@ struct NodeGraphView: View {
                     edges: graphData.edges,
                     title: "(* ¯ ︶ ¯ *)ノ ❤ ヽ( ^ ^ )",
                     initialScale: detailGraphInitialScale,
-                    onNodeSelected: { nodeId, commandPressed in
+                    onNodeSelected: { nodeId, commandPressed, optionPressed in
+                        // 检测Option键，处理节点文件夹功能
+                        if optionPressed {
+                            print("⌥ Option+点击详情面板节点，ID: \(nodeId)")
+                            if let selectedNode = graphData.nodes.first(where: { $0.id == nodeId }),
+                               let selectedTargetNode = selectedNode.node {
+                                // 打开节点文件夹
+                                // TODO: 需要将NodeFolderManager.swift添加到Xcode项目中
+                                // NodeFolderManager.shared.openNodeFolderInFinder(selectedTargetNode)
+                            }
+                            return
+                        }
+                        
                         // 当点击节点时，选择对应的节点（只有节点才会触发选择）
                         if let selectedNode = graphData.nodes.first(where: { $0.id == nodeId }),
                            let selectedTargetNode = selectedNode.node {
@@ -1778,7 +1791,19 @@ struct FullscreenGraphView: View {
                     edges: graphData.edges,
                     title: "复合节点全屏图谱",
                     initialScale: fullscreenGraphInitialScale,
-                    onNodeSelected: { nodeId, commandPressed in
+                    onNodeSelected: { nodeId, commandPressed, optionPressed in
+                        // 检测Option键，处理节点文件夹功能
+                        if optionPressed {
+                            print("⌥ Option+点击全屏图谱节点，ID: \(nodeId)")
+                            if let selectedNode = graphData.nodes.first(where: { $0.id == nodeId }),
+                               let selectedTargetNode = selectedNode.node {
+                                // 打开节点文件夹
+                                // TODO: 需要将NodeFolderManager.swift添加到Xcode项目中
+                                // NodeFolderManager.shared.openNodeFolderInFinder(selectedTargetNode)
+                            }
+                            return
+                        }
+                        
                         // 在全屏图谱中点击节点时，选择对应的节点
                         if let selectedNode = graphData.nodes.first(where: { $0.id == nodeId }),
                            let selectedTargetNode = selectedNode.node {

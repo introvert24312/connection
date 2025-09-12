@@ -1027,10 +1027,16 @@ struct LayerStructureGraphViewSimple: View {
                 edges: cachedEdges,
                 title: "层结构图谱",
                 initialScale: layerGraphInitialScale,
-                onNodeSelected: { nodeId, commandPressed in
+                onNodeSelected: { nodeId, commandPressed, optionPressed in
                     if let selectedGraphNode = cachedNodes.first(where: { $0.id == nodeId }),
                        let layerId = selectedGraphNode.layerId,
                        let targetLayer = store.layers.first(where: { $0.id == layerId }) {
+                        
+                        if optionPressed {
+                            // ⌥+点击：命令面板层图谱不支持节点文件夹操作
+                            print("⌥ Option+点击了命令面板层节点，不支持节点文件夹操作")
+                            return
+                        }
                         
                         if commandPressed {
                             // ⌘+点击：切换到该层（只对普通层有效）

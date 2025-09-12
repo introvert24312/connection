@@ -39,20 +39,26 @@ struct FullscreenTagTypeGraphView: View {
                     edges: graphEdges,
                     title: "标签图谱: \(currentTagType.displayName)",
                     initialScale: tagTypeGraphInitialScale,
-                    onNodeSelected: { nodeId, commandPressed in
-                        if commandPressed {
-                            // Command+点击：进入节点（切换到主窗口并选中该节点）
-                            if let selectedGraphNode = graphNodes.first(where: { $0.id == nodeId }),
-                               case .contentNode(let contentNode) = selectedGraphNode.nodeType {
+                    onNodeSelected: { nodeId, commandPressed, optionPressed in
+                        if let selectedGraphNode = graphNodes.first(where: { $0.id == nodeId }),
+                           case .contentNode(let contentNode) = selectedGraphNode.nodeType {
+                            
+                            if optionPressed {
+                                // Option+点击：打开节点文件夹
+                                print("⌥ Option+点击全屏标签图谱节点: \(contentNode.text)")
+                                // TODO: 需要将NodeFolderManager.swift添加到Xcode项目中
+                                // NodeFolderManager.shared.openNodeFolderInFinder(contentNode)
+                                return
+                            }
+                            
+                            if commandPressed {
+                                // Command+点击：进入节点（切换到主窗口并选中该节点）
                                 NotificationCenter.default.post(
                                     name: NSNotification.Name("switchToMainWindowAndSelectNode"),
                                     object: contentNode
                                 )
-                            }
-                        } else {
-                            // 普通点击：标准选择行为
-                            if let selectedGraphNode = graphNodes.first(where: { $0.id == nodeId }),
-                               case .contentNode(let contentNode) = selectedGraphNode.nodeType {
+                            } else {
+                                // 普通点击：标准选择行为
                                 store.selectNode(contentNode)
                             }
                         }

@@ -557,8 +557,8 @@ struct GlobalTagGraphCanvas: View {
                     edges: edges,
                     title: "全局标签图谱",
                     initialScale: initialScale,
-                    onNodeSelected: { nodeId, commandPressed in
-                        handleNodeSelection(nodeId: nodeId, commandPressed: commandPressed)
+                    onNodeSelected: { nodeId, commandPressed, optionPressed in
+                        handleNodeSelection(nodeId: nodeId, commandPressed: commandPressed, optionPressed: optionPressed)
                     }
                 )
                 .id("global-tag-graph-\(resetTrigger)")
@@ -574,10 +574,25 @@ struct GlobalTagGraphCanvas: View {
         }
     }
     
-    private func handleNodeSelection(nodeId: Int, commandPressed: Bool) {
+    private func handleNodeSelection(nodeId: Int, commandPressed: Bool, optionPressed: Bool) {
         guard let node = nodes.first(where: { $0.id == nodeId }) else { return }
         
         print("🖱️ [全局标签图谱] 选中节点: \(node.label) (类型: \(node.nodeType))")
+        
+        // 检测Option键，只对内容节点处理文件夹功能
+        if optionPressed {
+            switch node.nodeType {
+            case .contentNode(let contentNode):
+                print("⌥ Option+点击全局标签图谱内容节点: \(contentNode.text)")
+                // TODO: 需要将NodeFolderManager.swift添加到Xcode项目中
+                // NodeFolderManager.shared.openNodeFolderInFinder(contentNode)
+                return
+            default:
+                print("⌥ Option+点击了非内容节点，忽略文件夹操作")
+                // 对于其他类型的节点，Option键不执行特殊操作，继续正常流程
+                break
+            }
+        }
         
         // 根据节点类型执行不同操作
         switch node.nodeType {

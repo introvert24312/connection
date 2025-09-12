@@ -947,14 +947,15 @@ class WindowFocusManager: ObservableObject {
                 }
                 
                 // 包含匹配
-                if windowTitle.contains(displayName) || displayName.contains(windowTitle) {
+                if !windowTitle.isEmpty && !displayName.isEmpty &&
+                   (windowTitle.contains(displayName) || displayName.contains(windowTitle)) {
                     print("✅ WindowFocusManager: 找到包含匹配 - '\(windowInfo.displayName)'")
                     return uuid
                 }
             }
         }
         
-        // 策略2: 根据窗口类型匹配
+        // 策略2: 根据窗口类型和特征匹配
         for uuid in registeredWindows {
             if let windowInfo = windowRegistry[uuid] {
                 switch windowInfo.type {
@@ -969,12 +970,19 @@ class WindowFocusManager: ObservableObject {
                         return uuid
                     }
                 case .main:
-                    if windowTitle.contains("wordtagger") || windowTitle.isEmpty {
+                    // 主窗口可能有应用名称、空标题或表情符号标题
+                    if windowTitle.contains("wordtagger") || 
+                       windowTitle.contains("connection") ||
+                       windowTitle.isEmpty ||
+                       (windowInfo.displayName.contains("主窗口") && windowTitle != windowInfo.displayName.lowercased()) {
                         print("✅ WindowFocusManager: 根据类型匹配到主窗口 - '\(windowInfo.displayName)'")
                         return uuid
                     }
                 case .independent:
-                    if windowTitle.contains("独立") || windowTitle.contains("independent") {
+                    // 独立窗口可能有各种标题，包括表情符号
+                    if windowTitle.contains("独立") || 
+                       windowTitle.contains("independent") ||
+                       (windowInfo.displayName.contains("独立窗口") && windowTitle != windowInfo.displayName.lowercased()) {
                         print("✅ WindowFocusManager: 根据类型匹配到独立窗口 - '\(windowInfo.displayName)'")
                         return uuid
                     }
@@ -984,13 +992,41 @@ class WindowFocusManager: ObservableObject {
             }
         }
         
-        // 策略3: 如果没有其他匹配，返回第一个未关联的窗口
+        // 策略3: 基于窗口数量的智能匹配
+        // 如果只有一个窗口且未关联，直接使用
+        let unassociatedWindows = registeredWindows.filter { uuid in
+            uuidToWindowMap[uuid]?.window == nil
+        }
+        
+        if unassociatedWindows.count == 1 {
+            let uuid = unassociatedWindows[0]
+            if let windowInfo = windowRegistry[uuid] {
+                print("✅ WindowFocusManager: 唯一未关联窗口匹配 - '\(windowInfo.displayName)'")
+                return uuid
+            }
+        }
+        
+        // 策略4: 基于窗口创建顺序的智能匹配
+        // 按照注册顺序匹配未关联的窗口
         for uuid in registeredWindows {
             if uuidToWindowMap[uuid]?.window == nil {
                 if let windowInfo = windowRegistry[uuid] {
-                    print("✅ WindowFocusManager: 使用第一个未关联的窗口 - '\(windowInfo.displayName)'")
+                    print("✅ WindowFocusManager: 使用注册顺序匹配的未关联窗口 - '\(windowInfo.displayName)'")
                     return uuid
                 }
+            }
+        }
+        
+        // 策略5: 最后的回退策略 - 使用第一个注册的窗口（即使已关联）
+        if let firstUUID = registeredWindows.first {
+            if let windowInfo = windowRegistry[firstUUID] {
+                print("⚠️ WindowFocusManager: 回退匹配到第一个注册窗口 - '\(windowInfo.displayName)'")
+                // 清理可能的旧关联
+                if let existingWindow = uuidToWindowMap[firstUUID]?.window {
+                    windowToUUIDMap.removeValue(forKey: existingWindow)
+                }
+                uuidToWindowMap.removeValue(forKey: firstUUID)
+                return firstUUID
             }
         }
         

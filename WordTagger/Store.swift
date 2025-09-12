@@ -907,9 +907,17 @@ public final class NodeStore: ObservableObject {
             newNodes[index] = updatedNode
             nodes = newNodes
             
-            // 🔧 如果节点名称发生了变化，需要刷新引用该节点的复合节点
+            // 🔧 如果节点名称发生了变化，需要刷新引用该节点的复合节点并重命名文件夹
             if let newText = text, newText != oldNode.text {
                 print("🔄 节点名称变化: '\(oldNode.text)' -> '\(newText)'")
+                
+                // 重命名对应的文件夹
+                do {
+                    try NodeFolderManager.shared.renameNodeFolder(from: oldNode, to: updatedNode)
+                } catch {
+                    print("⚠️ 重命名节点文件夹失败: \(error)")
+                }
+                
                 // 刷新引用旧名称的复合节点
                 refreshCompoundNodesReferencingNode(oldNode.text)
                 // 刷新引用新名称的复合节点

@@ -375,7 +375,19 @@ struct GraphView: View {
                     edges: cachedEdges,
                     title: "全局节点图谱",
                     initialScale: globalGraphInitialScale,
-                    onNodeSelected: { nodeId, commandPressed in
+                    onNodeSelected: { nodeId, commandPressed, optionPressed in
+                        // 检测Option键，处理节点文件夹功能
+                        if optionPressed {
+                            print("⌥ Option+点击节点，ID: \(nodeId)")
+                            if let selectedGraphNode = cachedNodes.first(where: { $0.id == nodeId }),
+                               let selectedNode = selectedGraphNode.node {
+                                // 打开节点文件夹
+                                // TODO: 需要将NodeFolderManager.swift添加到Xcode项目中
+                                // NodeFolderManager.shared.openNodeFolderInFinder(selectedNode)
+                            }
+                            return
+                        }
+                        
                         // 当点击节点时，选择对应的节点（只有节点才会触发选择）
                         if let selectedGraphNode = cachedNodes.first(where: { $0.id == nodeId }),
                            let selectedNode = selectedGraphNode.node {

@@ -122,6 +122,12 @@ struct NodeListView: View {
                                     object: node
                                 )
                             },
+                            onOptionClick: {
+                                print("⌥ NodeListView: Option+点击节点 \(node.text)")
+                                print("📁 将在Finder中打开节点文件夹...")
+                                // 调用NodeFolderManager打开节点文件夹
+                                NodeFolderManager.shared.openNodeFolderInFinder(node)
+                            },
                             onDelete: {
                                 print("🗑️ NodeListView: 删除节点 \(node.text)")
                                 deleteNodeWithSmartTagCleanup(node)
@@ -408,6 +414,7 @@ struct NodeRowView: View {
     let searchQuery: String
     let onTap: () -> Void
     let onCommandClick: (() -> Void)?
+    let onOptionClick: (() -> Void)?
     let onDelete: (() -> Void)?
     
     @EnvironmentObject private var store: NodeStore
@@ -471,15 +478,19 @@ struct NodeRowView: View {
         .padding(.horizontal, 12)
         .contentShape(Rectangle()) // 确保整个区域都可以接收点击
         .onTapGesture {
-            // 检查Command键状态来处理所有点击
+            // 检查Command键和Option键状态来处理所有点击
             let currentEvent = NSApp.currentEvent
             let isCommandPressed = currentEvent?.modifierFlags.contains(.command) ?? false
+            let isOptionPressed = currentEvent?.modifierFlags.contains(.option) ?? false
             
-            print("🎯 NodeRowView: 点击检测 - Command键状态: \(isCommandPressed)")
+            print("🎯 NodeRowView: 点击检测 - Command键: \(isCommandPressed), Option键: \(isOptionPressed)")
             
             // 使用异步调用避免在view更新过程中发布状态更改
             DispatchQueue.main.async {
-                if isCommandPressed {
+                if isOptionPressed {
+                    print("⌥ NodeRowView: 检测到Option+点击")
+                    onOptionClick?()
+                } else if isCommandPressed {
                     print("⌘ NodeRowView: 检测到Command+点击")
                     onCommandClick?()
                 } else {

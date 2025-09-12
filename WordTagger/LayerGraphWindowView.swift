@@ -198,8 +198,8 @@ struct LayerGraphWindowView: View {
             edges: cachedEdges,
             title: "层结构图谱",
             initialScale: layerGraphInitialScale,
-            onNodeSelected: { nodeId, commandPressed in
-                handleNodeSelected(nodeId: nodeId, commandPressed: commandPressed)
+            onNodeSelected: { nodeId, commandPressed, optionPressed in
+                handleNodeSelected(nodeId: nodeId, commandPressed: commandPressed, optionPressed: optionPressed)
             },
             onNodeDeselected: {
                 selectedLayerId = nil
@@ -352,10 +352,16 @@ struct LayerGraphWindowView: View {
         updateGraphData()
     }
     
-    private func handleNodeSelected(nodeId: Int, commandPressed: Bool) {
+    private func handleNodeSelected(nodeId: Int, commandPressed: Bool, optionPressed: Bool) {
         guard let selectedGraphNode = cachedNodes.first(where: { $0.id == nodeId }),
               let layerId = selectedGraphNode.layerId,
               let targetLayer = store.layers.first(where: { $0.id == layerId }) else {
+            return
+        }
+        
+        if optionPressed {
+            // ⌥+点击：层图谱只显示层级，不支持节点文件夹操作
+            print("⌥ Option+点击了层节点，层图谱不支持节点文件夹操作")
             return
         }
         
