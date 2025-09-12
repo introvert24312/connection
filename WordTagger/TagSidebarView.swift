@@ -306,7 +306,7 @@ struct TagSidebarView: View {
                 .padding(8)
                 .background(
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.gray.opacity(0.1))
+                        .fill(Color(NSColor.controlBackgroundColor))
                 )
                 
                 if !filter.isEmpty {
@@ -446,7 +446,8 @@ struct TagSidebarView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
                 .background(
-                    Color.gray.opacity(isMatched ? 0.15 : 0.05)
+                    Color(NSColor.controlBackgroundColor)
+                        .opacity(isMatched ? 0.8 : 0.3)
                         .overlay(
                             // 匹配时添加左侧蓝色边框
                             isMatched ? 
@@ -530,7 +531,7 @@ struct TagSidebarView: View {
                     .padding(8)
                     .background(
                         RoundedRectangle(cornerRadius: 6)
-                            .fill(Color.gray.opacity(0.1))
+                            .fill(Color(NSColor.controlBackgroundColor))
                     )
                     
                     // 隐藏选项
@@ -586,7 +587,7 @@ struct TagSidebarView: View {
                             .padding(.vertical, 4)
                             .background(
                                 RoundedRectangle(cornerRadius: 6)
-                                    .fill(Color.blue.opacity(0.05))
+                                    .fill(Color.blue.opacity(0.1))
                             )
                         }
                     }
@@ -1157,11 +1158,11 @@ struct TagTypeSearchResultButton: View {
             .padding(.vertical, 6)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(isAlreadySelected ? Color.gray.opacity(0.1) : Color.blue.opacity(0.1))
+                    .fill(isAlreadySelected ? Color(NSColor.controlBackgroundColor) : Color.blue.opacity(0.1))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(isAlreadySelected ? Color.gray.opacity(0.3) : Color.blue, lineWidth: 1)
+                    .stroke(isAlreadySelected ? Color(NSColor.tertiaryLabelColor) : Color.blue, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -1226,7 +1227,7 @@ struct TagTypeMultiSelectButton: View {
                 // 选择状态指示
                 ZStack {
                     Circle()
-                        .fill(Color.gray.opacity(0.2))
+                        .fill(Color(NSColor.controlBackgroundColor))
                         .frame(width: 20, height: 20)
                     
                     if isSelected {
@@ -1251,11 +1252,11 @@ struct TagTypeMultiSelectButton: View {
             .padding(.vertical, 8)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(isSelected ? Color.blue.opacity(0.1) : Color.gray.opacity(0.05))
+                    .fill(isSelected ? Color.blue.opacity(0.1) : Color(NSColor.controlBackgroundColor))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(isSelected ? Color.blue : Color.gray.opacity(0.2), lineWidth: 1)
+                    .stroke(isSelected ? Color.blue : Color(NSColor.tertiaryLabelColor), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -1301,7 +1302,7 @@ struct TagGroupView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(Color.gray.opacity(0.05))
+                .background(Color(NSColor.controlBackgroundColor).opacity(0.3))
             }
             .buttonStyle(.plain)
             
@@ -1327,7 +1328,7 @@ struct TagGroupView: View {
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                .stroke(Color(NSColor.tertiaryLabelColor), lineWidth: 1)
         )
         .padding(.vertical, 4)
     }
@@ -1354,7 +1355,7 @@ struct TagValueRow: View {
                 
                 // 选择状态指示
                 Circle()
-                    .fill(isSelected ? Color.blue : Color.gray.opacity(0.3))
+                    .fill(isSelected ? Color.blue : Color(NSColor.tertiaryLabelColor))
                     .frame(width: 8, height: 8)
                 
                 // 标签值
@@ -1372,7 +1373,7 @@ struct TagValueRow: View {
                     .padding(.vertical, 2)
                     .background(
                         RoundedRectangle(cornerRadius: 10)
-                            .fill(Color.gray.opacity(0.1))
+                            .fill(Color(NSColor.controlBackgroundColor))
                     )
             }
             .padding(.horizontal, 16)
