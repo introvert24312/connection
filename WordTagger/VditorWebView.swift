@@ -75,7 +75,7 @@ struct VditorWebView: NSViewRepresentable {
         if let node = node,
            let nodeFolderPath = NodeFolderManager.shared.getFolderPath(for: node),
            FileManager.default.fileExists(atPath: nodeFolderPath.path) {
-            tempURL = nodeFolderPath.appendingPathComponent("temp_editor.html")
+            tempURL = nodeFolderPath.appendingPathComponent(".temp_editor.html")
             allowedPath = dataPath // 仍然允许访问整个数据目录
             print("🎯 在节点文件夹中创建HTML: \(nodeFolderPath.path)")
         }
