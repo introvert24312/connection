@@ -67,15 +67,25 @@ struct VditorWebView: NSViewRepresentable {
         // 生成 HTML 并加载
         let html = Self.generateHTML()
         
-        // 在外部数据路径创建temp.html，使用外部数据路径作为baseURL
-        let tempURL = dataPath.appendingPathComponent("temp.html")
+        // 🎯 尝试在节点文件夹中创建HTML，让相对路径能正常工作
+        var tempURL = dataPath.appendingPathComponent("temp.html")
+        var allowedPath = dataPath
+        
+        // 如果有关联的节点，尝试在节点文件夹中创建HTML
+        if let node = node,
+           let nodeFolderPath = NodeFolderManager.shared.getFolderPath(for: node),
+           FileManager.default.fileExists(atPath: nodeFolderPath.path) {
+            tempURL = nodeFolderPath.appendingPathComponent("temp_editor.html")
+            allowedPath = dataPath // 仍然允许访问整个数据目录
+            print("🎯 在节点文件夹中创建HTML: \(nodeFolderPath.path)")
+        }
         
         do {
             try html.write(to: tempURL, atomically: true, encoding: .utf8)
             // 使用 loadFileURL 而不是 loadHTMLString，这样可以正确加载本地资源
-            webView.loadFileURL(tempURL, allowingReadAccessTo: dataPath)
+            webView.loadFileURL(tempURL, allowingReadAccessTo: allowedPath)
             print("🌐 WebView加载HTML: \(tempURL.path)")
-            print("🎯 WebView baseURL: \(dataPath.path)")
+            print("🎯 WebView允许访问路径: \(allowedPath.path)")
         } catch {
             print("创建临时HTML文件失败: \(error)")
             let errorHTML = Self.generateWriteErrorHTML()
