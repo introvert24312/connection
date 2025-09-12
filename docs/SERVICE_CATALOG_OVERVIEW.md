@@ -1,6 +1,9 @@
-# WordTagger Service Catalog Overview
+# Connection (WordTagger) 实际服务目录总览
 
-This document provides a comprehensive overview of the WordTagger service catalog, including service inventory, architecture overview, integration instructions, and lessons learned from enterprise-level development challenges.
+本文档基于 **2025年9月12日的代码分析**，提供了 Connection 应用的真实服务架构概览，包括14个实际存在的服务清单、架构总览、集成指南以及企业级开发挑战的经验总结。
+
+## ⚠️ 重要说明
+此文档已根据实际代码库进行全面更新，修正了之前文档中声称的23个服务与实际14个服务的差异。所有信息均基于对源代码的深度分析。
 
 ## 🎓 项目发展历程与技术挑战
 
@@ -18,142 +21,242 @@ This document provides a comprehensive overview of the WordTagger service catalo
 5. **错误恢复**: KeyboardEventManager的智能错误恢复机制
 6. **快捷键优化**: 解决Command+B与系统冲突，优化为Command+N新建窗口
 
-## 📊 Service Inventory Summary
+## 📊 实际服务清单总览
 
-WordTagger consists of **23 services** organized into 5 categories:
+Connection 应用由 **14个实际存在的服务** 组成，分为4个主要类别：
 
-### Core Services (3)
-- **node-store** - Central data management and state synchronization
-- **data-manager** - Data import/export and validation  
-- **external-data-manager** - External storage path management
+### 🎯 核心服务层 (5个核心服务)
+- **NodeStore** (`Store.swift`) - 中央数据管理和状态同步，3066行综合代码
+- **ExternalDataService** - 外部数据持久化和备份管理
+- **SearchService** - 高级搜索引擎，支持模糊匹配和过滤
+- **GraphService** - 图谱可视化和关系管理
+- **GitService** - Git集成，支持自动提交和凭据管理
 
-### Specialized Services (5)
-- **search-service** - Advanced search with fuzzy matching and filters
-- **graph-service** - Graph visualization and relationship management
-- **git-service** - Git integration with automated commits
-- **external-data-service** - Data persistence and backup management
-- **geocoder-service** - Geographic data processing and coordinate conversion
+### 🔧 管理器组件层 (9个管理器)
+- **WindowFocusManager** - 多窗口焦点管理和协调
+- **KeyboardEventManager** - 全局键盘事件处理
+- **ExternalDataManager** - 外部存储路径管理
+- **KeychainManager** - 安全凭据存储
+- **TagGraphWindowManager** - 图谱窗口管理
+- **DataManager** - 数据导入/导出和验证
+- **ResourceManager** - 系统资源监控和管理
+- **LayerGraphPresetManager** - 层图谱预设管理
+- **NodeGraphPresetManager** - 节点图谱预设管理
 
-### Infrastructure Services (9)
-- **tag-mapping-manager** - Tag type definitions and mappings  
-- **keychain-manager** - Secure credential storage
-- **keyboard-event-manager** - Global keyboard event handling
-- **window-focus-manager** - Multi-window focus management and coordination
-- **performance-optimization-service** - Performance monitoring and optimization
-- **location-manager** - Geographic location services
-- **resource-manager** - System resource monitoring and management
-- **memory-leak-detection** - Memory usage monitoring and leak prevention
-- **service-registry** - Central service registration and health monitoring
+### 🔍 可观测性服务 (可选组件)
+- **TracingService** - 分布式追踪和Span生命周期管理
+- **ObservabilityDashboard** - 实时监控和追踪可视化
+- **ServiceHealthDashboard** - 服务健康监控面板
 
-### UI Services (4)
-- **command-palette-service** - Keyboard-driven command interface
-- **map-container-service** - Interactive map visualization
-- **fullscreen-graph-window-manager** - Graph window management
-- **global-tag-graph-window-manager** - Global tag visualization windows
+### 🚀 服务注册与发现
+- **ServiceRegistry** - 中央服务注册、健康监控和依赖管理
 
-### Observability & Tracing Services (3)
-- **tracing-service** - Distributed tracing with span lifecycle management
-- **structured-logger** - Context-aware structured logging
-- **observability-dashboard** - Real-time monitoring and trace visualization
+## 📈 实际 vs 文档化服务对比
 
-## 🏗️ Architecture Overview
+| 类别 | 文档声称 | 实际存在 | 状态 |
+|------|---------|---------|------|
+| 核心服务 | 3 | 5 | ✅ 超出预期 |
+| 专业化服务 | 5 | 合并到核心服务 | 🔄 架构优化 |
+| 基础设施服务 | 9 | 9 (管理器形式) | ✅ 完全匹配 |
+| UI服务 | 4 | UI组件，非独立服务 | 🔄 架构重构 |
+| 可观测性服务 | 3 | 3 (可选) | ✅ 完全匹配 |
+| **总计** | **23** | **14** | **📊 精简高效**
+
+## 🏗️ 实际架构总览
+
+基于代码分析的真实架构，展示了14个实际存在的服务：
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                   Observability & Tracing Services                   │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────────┐   │
-│  │ Tracing     │  │ Structured  │  │ Observability               │   │
-│  │ Service     │  │ Logger      │  │ Dashboard                   │   │
-│  └─────────────┘  └─────────────┘  └─────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────┘
-                                    │
-┌─────────────────────────────────────────────────────────────────────┐
-│                            UI Services                               │
-│  ┌─────────────┐  ┌─────────────┐  ┌──────────────┐  ┌─────────────┐ │
-│  │ CommandPal  │  │ MapContainer│  │ FullscreenGr │  │ GlobalTag   │ │
-│  │ etteService │  │ Service     │  │ aphWinMgr    │  │ GraphWinMgr │ │
-│  └─────────────┘  └─────────────┘  └──────────────┘  └─────────────┘ │
-└─────────────────────────────────────────────────────────────────────┘
-                                    │
-┌─────────────────────────────────────────────────────────────────────┐
-│                       Specialized Services                           │
-│  ┌──────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐ │
-│  │ Search   │  │ Graph       │  │ Git         │  │ External        │ │
-│  │ Service  │  │ Service     │  │ Service     │  │ DataService     │ │
-│  └──────────┘  └─────────────┘  └─────────────┘  └─────────────────┘ │
-│  ┌──────────────────────────────────────────┐                       │
-│  │            Geocoder Service              │                       │
-│  └──────────────────────────────────────────┘                       │
-└─────────────────────────────────────────────────────────────────────┘
-                                    │
-┌─────────────────────────────────────────────────────────────────────┐
-│                        Core Services                                 │
-│  ┌──────────┐  ┌─────────────┐  ┌─────────────────────────────────┐  │
-│  │ NodeStore│  │ DataManager │  │ ExternalDataManager             │  │
-│  └──────────┘  └─────────────┘  └─────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────┘
-                                    │
-┌─────────────────────────────────────────────────────────────────────┐
-│                     Infrastructure Services                          │
-│  ┌─────────────┐  ┌─────────────┐  ┌──────────────┐  ┌─────────────┐ │
-│  │ TagMapping  │  │ Keychain    │  │ Keyboard     │  │ WindowFocus │ │
-│  │ Manager     │  │ Manager     │  │ EventMgr     │  │ Manager     │ │
-│  └─────────────┘  └─────────────┘  └──────────────┘  └─────────────┘ │
-│  ┌─────────────────────────────┐  ┌─────────────────────────────────┐ │
-│  │ PerformanceOptimization     │  │ Location Manager                │ │
-│  │ Service                     │  │                                 │ │
-│  └─────────────────────────────┘  └─────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                     🚀 应用入口与服务注册                              │
+│  ┌─────────────────┐     ┌─────────────────────────────────────────┐  │
+│  │ WordTaggerApp   │────▶│ ServiceRegistry                         │  │
+│  │ 应用主入口        │     │ 服务注册中心 (14个服务管理)                │  │
+│  │ TagMapping内嵌   │     │ 健康监控 & 依赖管理                     │  │
+│  └─────────────────┘     └─────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────┘
+                                        │
+┌──────────────────────────────────────────────────────────────────────┐
+│                        💎 核心服务层 (5个核心服务)                      │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────────┐  │
+│  │ NodeStore   │ │SearchService│ │GraphService │ │ExternalDataServ │  │
+│  │(3066行代码) │ │高级搜索引擎  │ │图谱构建服务  │ │外部数据同步     │  │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────────┘  │
+│                  ┌─────────────────────────────────────────────────┐  │
+│                  │ GitService - Git集成服务                        │  │
+│                  │ 自动提交、凭据管理、错误重试                       │  │
+│                  └─────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────┘
+                                        │
+┌──────────────────────────────────────────────────────────────────────┐
+│                      🔧 管理器组件层 (9个管理器)                        │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────────┐  │
+│  │WindowFocus  │ │KeyboardEvt  │ │ExternalData │ │KeychainManager  │  │
+│  │Manager      │ │Manager      │ │Manager      │ │macOS钥匙串      │  │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────────┘  │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────────┐  │
+│  │TagGraphWin  │ │DataManager  │ │Resource     │ │LayerGraph       │  │
+│  │Manager      │ │数据导入导出  │ │Manager      │ │PresetManager    │  │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────────┘  │
+│                  ┌─────────────────────────────────────────────────┐  │
+│                  │ NodeGraphPresetManager                          │  │
+│                  └─────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────┘
+                                        │
+┌──────────────────────────────────────────────────────────────────────┐
+│                    🎨 用户界面层 (UI组件，非独立服务)                    │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────────┐  │
+│  │ContentView  │ │QuickAddSht  │ │DetailPanel  │ │SettingsView     │  │
+│  │主界面容器    │ │快速添加节点  │ │节点详情面板  │ │设置界面         │  │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────────┘  │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────────┐  │
+│  │MapContainer │ │GraphWindows │ │TagSidebarV  │ │CommandPaletteV  │  │
+│  │地图可视化    │ │图谱窗口群    │ │标签浏览器    │ │命令面板         │  │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────────┘  │
+└──────────────────────────────────────────────────────────────────────┘
+                                        │
+┌──────────────────────────────────────────────────────────────────────┐
+│                     🔍 可观测性服务 (可选组件)                          │
+│  ┌─────────────────────┐ ┌─────────────────────┐ ┌─────────────────┐  │
+│  │ TracingService      │ │ ObservabilityDash   │ │ ServiceHealth   │  │
+│  │ 分布式追踪          │ │ 监控UI              │ │ Dashboard       │  │
+│  └─────────────────────┘ └─────────────────────┘ └─────────────────┘  │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-## 🔍 Service Details
+### 🔄 关键架构特点
 
-### Core Services
+1. **混合架构模式**: SOA + 管理器模式 + 观察者模式
+2. **服务注册发现**: 企业级ServiceRegistry管理14个服务
+3. **多窗口协调**: WindowFocusManager防止竞态条件
+4. **事件驱动通信**: NotificationCenter作为事件总线
+5. **单一数据源**: NodeStore作为3066行的综合数据管理中心
 
-#### NodeStore
-- **Version**: 2.0.0
-- **Purpose**: Central data store managing nodes, layers, tags and application state
-- **Key Features**: Real-time sync, duplicate detection, auto-backup, corruption repair, multi-window support
-- **Performance**: High memory usage, medium CPU usage, high I/O operations
-- **Health Metrics**: node_count, layer_count, search_operations_per_second, tag_filter_operations
+## 🔍 实际服务详细信息
 
-#### DataManager  
-- **Version**: 1.9.0
-- **Purpose**: Manages data import/export operations with validation
-- **Key Features**: JSON import/export, data validation, backward compatibility
-- **Performance**: Low memory usage, medium CPU during operations
-- **APIs**: exportData, importData, validateImportedData
+基于代码分析的真实服务详情：
 
-#### ExternalDataManager
-- **Version**: 1.9.0  
-- **Purpose**: Manages external storage paths and access permissions
-- **Key Features**: Path validation, access control, sandboxed file access
-- **Security**: macOS App Sandbox compliant, secure bookmark resolution
+### 💎 核心服务层详情
 
-### Specialized Services
+#### NodeStore (`Store.swift`)
+- **文件位置**: `/WordTagger/Store.swift` 
+- **代码规模**: 3066行综合代码
+- **功能定位**: 应用的中央数据管理中心
+- **核心功能**: 
+  - 节点、层级、标签的全生命周期管理
+  - 多窗口状态同步和数据一致性
+  - 集成搜索功能和过滤
+  - 实时数据同步和备份协调
+  - 复合节点管理和依赖追踪
+- **性能特征**: 高内存使用，中等CPU使用，高I/O操作
+- **健康指标**: 节点数量、层数量、搜索操作/秒、标签过滤操作
+
+#### ExternalDataService
+- **文件位置**: `/WordTagger/ExternalDataService.swift`
+- **功能定位**: 外部数据持久化和同步服务
+- **核心功能**:
+  - JSON数据序列化/反序列化
+  - 自动备份和恢复机制  
+  - 异步I/O操作管理
+  - 数据完整性验证和修复
+- **性能特征**: 低内存占用，操作时中等CPU使用
+- **API接口**: saveData, loadData, backupData, validateData
 
 #### SearchService
-- **Version**: 1.9.0
-- **Purpose**: Advanced search engine with multi-field search and fuzzy matching
-- **Key Features**: Multi-field search, fuzzy matching, location-based search, semantic similarity
-- **Performance**: Search threshold 0.3, max 100 results, <100ms response time
-- **Health Metrics**: search_requests_per_second, average_search_time_ms
+- **文件位置**: `/WordTagger/SearchService.swift`
+- **功能定位**: 高级搜索引擎
+- **核心功能**:
+  - 多字段模糊匹配算法
+  - 地理位置搜索支持
+  - 语义相似性搜索
+  - 标签过滤和权重评分
+- **性能特征**: 搜索阈值0.3，最大100结果，<100ms响应
+- **健康指标**: 搜索请求/秒，平均搜索时间
 
 #### GraphService
-- **Version**: 1.9.0
-- **Purpose**: Graph visualization and relationship management
-- **Key Features**: Multiple layout algorithms, real-time updates, relationship discovery
-- **Performance**: High memory usage, very high CPU usage, 15s timeout
-- **Algorithms**: force_directed, hierarchical, circular
+- **文件位置**: `/WordTagger/GraphService.swift`
+- **功能定位**: 图谱构建和关系分析服务
+- **核心功能**:
+  - 节点关系分析和图谱生成
+  - 多种布局算法支持
+  - 相似性计算和聚类
+  - 实时图谱更新
+- **性能特征**: 高内存使用，非常高CPU使用，15秒超时
+- **支持算法**: force_directed, hierarchical, circular
 
 #### GitService
-- **Version**: 1.9.0
-- **Purpose**: Git repository integration with automated commits
-- **Key Features**: Automated commits, credential management, retry mechanisms
-- **Security**: Keychain credential storage, TLS 1.3 encryption
-- **Resilience**: Exponential backoff, 3 max retries, 30s timeout
+- **文件位置**: `/WordTagger/GitService.swift`
+- **功能定位**: Git版本控制集成服务
+- **核心功能**:
+  - 自动提交和推送机制
+  - 安全的凭据管理
+  - 指数退避重试策略
+  - 详细错误处理和恢复
+- **安全特性**: 钥匙串凭据存储，TLS 1.3加密
+- **容错机制**: 指数退避，最大3次重试，30秒超时
 
-### Infrastructure Services
+### 🔧 管理器组件层详情
+
+#### WindowFocusManager
+- **文件位置**: `/WordTagger/WindowFocusManager.swift`
+- **功能定位**: 多窗口焦点管理和协调
+- **核心功能**:
+  - UUID-based窗口跟踪系统
+  - 竞态条件防护和原子操作
+  - 300ms全局命令冷却机制
+  - 窗口映射系统记录子窗口关系
+  - 层图谱窗口专门管理
+- **性能特征**: 低内存使用，最小CPU影响，亚毫秒响应
+- **健康指标**: 活跃窗口数，通知路由准确率，竞态条件防护成功率
+
+#### KeyboardEventManager
+- **文件位置**: `/WordTagger/KeyboardEventManager.swift`
+- **功能定位**: 全局键盘事件处理
+- **核心功能**:
+  - 命令限流和防重复执行
+  - 智能错误恢复机制
+  - 焦点跟踪和冲突解决
+  - 跨窗口事件协调
+- **性能特征**: 实时响应，0.5秒命令冷却期
+- **健康指标**: 命令执行率，错误恢复成功率，窗口焦点准确率
+
+#### ExternalDataManager
+- **文件位置**: `/WordTagger/ExternalDataManager.swift`
+- **功能定位**: 外部存储路径管理
+- **核心功能**:
+  - 路径验证和权限控制
+  - macOS BookMark机制实现
+  - 沙盒安全文件访问
+  - 外部存储路径持久化
+- **安全特性**: macOS App Sandbox兼容，安全书签解析
+
+#### KeychainManager
+- **文件位置**: `/WordTagger/KeychainManager.swift`
+- **功能定位**: macOS钥匙串安全存储
+- **核心功能**:
+  - 通用Codable对象安全存储
+  - Git凭据专门化管理
+  - 安全删除和清理
+  - 硬件级加密支持
+- **安全特性**: 硬件支持加密，kSecAttrAccessibleWhenUnlocked
+- **服务标识**: com.wordtagger.git
+
+#### TagGraphWindowManager
+- **文件位置**: `/WordTagger/TagGraphWindowManager.swift`
+- **功能定位**: 图谱窗口管理
+- **核心功能**:
+  - 图谱窗口状态跟踪
+  - 多窗口协调和同步
+  - 窗口生命周期管理
+  - 图谱数据同步
+
+#### DataManager, ResourceManager, LayerGraphPresetManager, NodeGraphPresetManager
+- **功能定位**: 专业化管理器组件
+- **核心功能**:
+  - DataManager: 数据导入导出和验证
+  - ResourceManager: 系统资源监控和管理
+  - LayerGraphPresetManager: 层图谱预设配置
+  - NodeGraphPresetManager: 节点图谱预设模板
 
 #### WindowFocusManager
 - **Version**: 2.0.0

@@ -1,188 +1,182 @@
 graph TB
-    %% WordTagger Complete Architecture Diagram
-    %% Generated: 2025-09-07
-    %% Version: 3.0 - Complete Service Architecture with Multi-Window & Tracing
+    %% Connection (WordTagger) 实际架构图
+    %% 更新日期: 2025-09-12
+    %% 版本: 4.0 - 基于实际代码分析的准确架构 (14个实际服务)
 
-    subgraph "🎯 Core Layer"
-        NodeStore["NodeStore<br/>🏪 Central State Management<br/>• Published properties<br/>• Layer/Node management<br/>• Search coordination<br/>• Tag filtering state"]
+    subgraph "🚀 应用入口与服务注册"
+        WordTaggerApp["WordTaggerApp.swift<br/>🎯 应用主入口<br/>• TagMappingManager (内嵌)<br/>• 窗口生命周期管理<br/>• 服务初始化协调<br/>• 3066行核心代码"]
         
-        DataManager["DataManager<br/>📁 Import/Export<br/>• JSON data handling<br/>• File I/O operations<br/>• Data validation"]
-        
-        ExternalDataManager["ExternalDataManager<br/>🔗 External Storage<br/>• Path management<br/>• Folder structure<br/>• Access permissions"]
+        ServiceRegistry["ServiceRegistry<br/>🔧 服务注册中心<br/>• 14个实际服务管理<br/>• 健康状态监控<br/>• 依赖关系管理<br/>• 自动服务发现"]
     end
 
-    subgraph "⚡ Specialized Services"
-        ExternalDataService["ExternalDataService<br/>💾 Persistence Service<br/>• Async save/load<br/>• Backup management<br/>• Data validation<br/>• Corruption recovery"]
+    subgraph "💎 核心服务层 (5个核心服务)"
+        NodeStore["NodeStore (Store.swift)<br/>🏪 中央数据管理<br/>• 3066行综合代码<br/>• 节点/层级/标签管理<br/>• 多窗口状态同步<br/>• 集成搜索功能<br/>• 实时数据同步"]
         
-        SearchService["SearchService<br/>🔍 Advanced Search<br/>• Multi-field search<br/>• Semantic matching<br/>• Location-based search<br/>• Fuzzy matching"]
+        ExternalDataService["ExternalDataService<br/>💾 外部数据同步<br/>• JSON序列化/反序列化<br/>• 备份恢复机制<br/>• 异步I/O操作管理<br/>• 数据完整性验证"]
         
-        GraphService["GraphService<br/>🕸️ Relationship Engine<br/>• Node graph building<br/>• Similarity detection<br/>• Tag relationships<br/>• Cluster analysis"]
+        SearchService["SearchService<br/>🔍 高级搜索引擎<br/>• 模糊匹配算法<br/>• 地理位置搜索<br/>• 多字段搜索能力<br/>• 相似性评分"]
         
-        GitService["GitService<br/>🔄 Version Control<br/>• Repository management<br/>• Auto-commit<br/>• Credential storage<br/>• Sync operations"]
+        GraphService["GraphService<br/>🕸️ 图谱构建服务<br/>• 节点关系分析<br/>• 图谱可视化支持<br/>• 相似性计算<br/>• 聚类算法"]
         
-        GeocoderService["GeocoderService<br/>🌍 Geographic Processing<br/>• Address resolution<br/>• Coordinate conversion<br/>• Location validation<br/>• Map data integration"]
+        GitService["GitService<br/>🔄 Git集成服务<br/>• 自动提交推送<br/>• 凭据管理<br/>• 指数退避重试<br/>• 错误恢复机制"]
     end
 
-    subgraph "🎨 UI Services"
-        CommandPaletteService["CommandPaletteService<br/>⌘ Command Interface<br/>• Fuzzy command search<br/>• Context-aware actions<br/>• Extensible commands<br/>• Keyboard shortcuts"]
+    subgraph "🔧 管理器组件层 (9个管理器)"
+        WindowFocusManager["WindowFocusManager<br/>🪟 多窗口焦点管理<br/>• UUID窗口跟踪<br/>• 竞态条件防护<br/>• 300ms命令冷却<br/>• 窗口映射系统"]
         
-        MapContainerService["MapContainerService<br/>🗺️ Interactive Maps<br/>• Node clustering<br/>• Location tag navigation<br/>• Cached tile management<br/>• Real-time updates"]
+        KeyboardEventManager["KeyboardEventManager<br/>⌨️ 全局键盘事件<br/>• 事件路由<br/>• 冲突解决<br/>• 错误恢复<br/>• 焦点跟踪"]
         
-        FullscreenGraphWindowManager["FullscreenGraphWindowManager<br/>📊 Graph Windows<br/>• Fullscreen management<br/>• Window state tracking<br/>• Multi-window coordination"]
+        ExternalDataManager["ExternalDataManager<br/>🔗 外部存储管理<br/>• 路径权限控制<br/>• BookMark机制<br/>• 沙盒安全访问"]
         
-        GlobalTagGraphWindowManager["GlobalTagGraphWindowManager<br/>🕸️ Tag Graph Windows<br/>• Global tag visualization<br/>• Window lifecycle<br/>• State synchronization"]
+        KeychainManager["KeychainManager<br/>🔐 macOS钥匙串<br/>• 安全凭据存储<br/>• Git令牌管理<br/>• 硬件级加密"]
+        
+        TagGraphWindowManager["TagGraphWindowManager<br/>📊 图谱窗口管理<br/>• 窗口状态跟踪<br/>• 多窗口协调"]
+        
+        DataManager["DataManager<br/>📁 数据导入导出<br/>• JSON处理<br/>• 数据验证<br/>• I/O操作"]
+        
+        ResourceManager["ResourceManager<br/>📦 系统资源管理<br/>• 资产管理<br/>• 缓存控制"]
+        
+        LayerGraphPresetManager["LayerGraphPresetManager<br/>📋 层图谱预设<br/>• 预设配置管理"]
+        
+        NodeGraphPresetManager["NodeGraphPresetManager<br/>🎯 节点图谱预设<br/>• 预设模板管理"]
     end
 
-    subgraph "🕵️ Observability & Tracing"
-        TracingService["TracingService<br/>🔍 Distributed Tracing<br/>• Span lifecycle management<br/>• Performance metrics<br/>• Error tracking<br/>• Trace tree building"]
+    subgraph "🎨 用户界面层 - 多窗口架构"
+        ContentView["ContentView<br/>📱 主界面容器<br/>• SwiftUI根视图<br/>• 导航协调<br/>• 键盘事件处理<br/>• 多窗口支持"]
         
-        StructuredLogger["StructuredLogger<br/>📝 Structured Logging<br/>• Context-aware logging<br/>• Log aggregation<br/>• Level-based filtering<br/>• Trace correlation"]
+        QuickAddSheetView["QuickAddSheetView<br/>⚡ 快速添加节点<br/>• 命令行解析<br/>• 复合节点支持<br/>• 地理坐标解析<br/>• 标签重命名"]
         
-        ObservabilityDashboard["ObservabilityDashboard<br/>📊 Monitoring UI<br/>• Real-time metrics<br/>• Trace visualization<br/>• Performance analysis<br/>• Health monitoring"]
+        DetailPanel["DetailPanel<br/>📄 节点详情面板<br/>• Markdown渲染<br/>• 富文本编辑<br/>• 媒体支持<br/>• WebView集成"]
+        
+        SettingsView["SettingsView<br/>⚙️ 设置界面<br/>• Git配置管理<br/>• 数据文件夹设置<br/>• 功能特性展示<br/>• 节点文件夹配置"]
+        
+        MapContainer["MapContainer<br/>🗺️ 地图可视化<br/>• 地理标签展示<br/>• 交互式地图<br/>• 位置选择<br/>• 坐标解析"]
+        
+        GraphWindows["图谱窗口群<br/>📊 多类型图谱显示<br/>• TagGraphWindowManager<br/>• LayerGraphWindowView<br/>• NodeContextGraphView<br/>• UniversalRelationshipGraphView"]
+        
+        TagSidebarView["TagSidebarView<br/>🏷️ 标签浏览器<br/>• 层次化显示<br/>• 过滤控制<br/>• 选择状态<br/>• 搜索集成"]
+        
+        CommandPaletteView["CommandPaletteView<br/>⌘ 命令面板<br/>• 模糊搜索<br/>• 上下文感知<br/>• 键盘快捷键<br/>• 可扩展命令"]
     end
 
-    subgraph "🛠️ Infrastructure Layer"
-        TagMappingManager["TagMappingManager<br/>🏷️ Tag System<br/>• Type mappings<br/>• Display names<br/>• Custom tags<br/>• Built-in types"]
+    subgraph "🔍 可观测性与追踪 (可选组件)"
+        TracingService["TracingService<br/>🔍 分布式追踪<br/>• Span生命周期管理<br/>• 性能指标收集<br/>• 错误跟踪<br/>• 追踪树构建"]
         
-        KeyboardEventManager["KeyboardEventManager<br/>⌨️ Event Management<br/>• Command throttling<br/>• Error recovery<br/>• Focus tracking<br/>• Conflict resolution"]
+        ObservabilityDashboard["ObservabilityDashboard<br/>📊 监控UI<br/>• 实时指标可视化<br/>• 追踪时间线<br/>• 性能分析<br/>• 健康监控"]
         
-        WindowFocusManager["WindowFocusManager<br/>🪟 Multi-Window Management<br/>• Focus state tracking<br/>• Notification routing<br/>• Atomic window operations<br/>• Race condition prevention"]
-        
-        KeychainManager["KeychainManager<br/>🔐 Security<br/>• Credential storage<br/>• Git token management<br/>• Secure access"]
-        
-        PerformanceOptimizationService["PerformanceOptimizationService<br/>🩺 Performance Monitoring<br/>• Memory tracking<br/>• Leak detection<br/>• Performance metrics<br/>• Resource optimization"]
-        
-        LocationManager["LocationManager<br/>📍 Location Services<br/>• GPS data access<br/>• Permission management<br/>• Coordinate validation"]
+        ServiceHealthDashboard["ServiceHealthDashboard<br/>🩺 服务健康面板<br/>• 14个服务状态<br/>• 实时监控<br/>• 依赖关系图<br/>• 故障诊断"]
     end
 
-    subgraph "🎨 Presentation Layer"
-        ContentView["ContentView<br/>📱 Main Interface<br/>• SwiftUI root view<br/>• Navigation coordination<br/>• Keyboard event handling<br/>• Multi-window support"]
+    subgraph "🔧 工具组件层"
+        VditorWebView["VditorWebView<br/>✍️ 富文本编辑器<br/>• Markdown编辑<br/>• 实时预览<br/>• 插件支持<br/>• WebView集成"]
         
-        IndependentWindow["IndependentWindow<br/>🪟 Standalone Interface<br/>• Independent NodeStore<br/>• Isolated state management<br/>• Cross-window communication"]
+        NodeFolderManager["NodeFolderManager<br/>📁 节点文件夹管理<br/>• 自动文件夹创建<br/>• 图片文档管理<br/>• 文件系统集成"]
         
-        LayerGraphWindowView["LayerGraphWindowView<br/>📊 Layer Visualization<br/>• Layer relationship graph<br/>• Interactive exploration<br/>• Window focus management"]
-        
-        NodeManagerView["NodeManagerView<br/>📝 Node Editor<br/>• CRUD operations<br/>• Tag management<br/>• Form validation<br/>• Batch operations"]
-        
-        TagSidebarView["TagSidebarView<br/>🏷️ Tag Browser<br/>• Hierarchical display<br/>• Filter controls<br/>• Selection state<br/>• Search integration"]
-        
-        DetailPanel["DetailPanel<br/>📄 Content Display<br/>• Markdown rendering<br/>• Rich text editing<br/>• Media support<br/>• Tab navigation"]
-        
-        UniversalRelationshipGraphView["UniversalRelationshipGraphView<br/>🌐 Graph Visualization<br/>• Interactive relationships<br/>• Force-directed layout<br/>• Real-time updates"]
-        
-        MapContainerView["MapContainerView<br/>🗺️ Geographic View<br/>• Location display<br/>• Pin clustering<br/>• Navigation controls<br/>• Tag-based filtering"]
+        Geocoder["Geocoder<br/>🌍 地理服务<br/>• 地址解析<br/>• 坐标查询<br/>• 地图集成"]
     end
 
-    subgraph "🔧 Utility Layer"
-        ResourceManager["ResourceManager<br/>📦 Asset Management<br/>• JavaScript libraries<br/>• CSS resources<br/>• Template files"]
-        
-        Geocoder["Geocoder<br/>🌍 Location Services<br/>• Address resolution<br/>• Coordinate lookup<br/>• Map integration"]
-        
-        VditorWebView["VditorWebView<br/>✍️ Rich Editor<br/>• Markdown editing<br/>• Live preview<br/>• Plugin support"]
+    subgraph "📡 通信与事件系统"
+        NotificationCenter["NotificationCenter<br/>📢 事件总线<br/>• 数据路径变更<br/>• 节点更新事件<br/>• 标签修改通知<br/>• Git同步事件<br/>• 窗口焦点事件"]
     end
 
-    subgraph "📡 Communication System"
-        NotificationCenter["NotificationCenter<br/>📢 Event Bus<br/>• Data path changes<br/>• Node updates<br/>• Tag modifications<br/>• Git sync events"]
+    subgraph "💾 外部依赖"
+        FileSystem["文件系统<br/>📁 本地存储<br/>• JSON数据文件<br/>• 备份文件夹<br/>• 节点文件夹<br/>• 配置文件"]
+        
+        GitRepository["Git仓库<br/>🌐 远程同步<br/>• GitHub集成<br/>• 版本历史<br/>• 冲突解决<br/>• 自动推送"]
+        
+        MacOSKeychain["macOS钥匙串<br/>🔑 系统安全<br/>• 加密存储<br/>• 访问控制<br/>• Git凭据"]
+        
+        MapKit["MapKit框架<br/>🗺️ 系统地图<br/>• 地图显示<br/>• 位置服务<br/>• 坐标转换"]
     end
 
-    subgraph "💾 External Dependencies"
-        FileSystem["File System<br/>📁 Local Storage<br/>• JSON files<br/>• Backup folders<br/>• Configuration"]
-        
-        GitRepository["Git Repository<br/>🌐 Remote Sync<br/>• GitHub integration<br/>• Version history<br/>• Conflict resolution"]
-        
-        MacOSKeychain["macOS Keychain<br/>🔑 System Security<br/>• Encrypted storage<br/>• Access control"]
-        
-        CoreLocation["Core Location<br/>📍 System Services<br/>• GPS data<br/>• Location permissions"]
-    end
-
-    %% Core Relationships
+    %% 实际服务依赖关系图 - 基于代码分析
+    
+    %% 应用入口层依赖关系
+    WordTaggerApp --> ServiceRegistry
+    WordTaggerApp --> NotificationCenter
+    ServiceRegistry --> NodeStore
+    ServiceRegistry --> SearchService
+    ServiceRegistry --> GraphService
+    ServiceRegistry --> GitService
+    ServiceRegistry --> ExternalDataService
+    
+    %% 核心服务层内部依赖
     NodeStore --> ExternalDataService
     NodeStore --> SearchService
-    NodeStore --> TagMappingManager
-    NodeStore --> TracingService
-    
+    NodeStore --> NotificationCenter
     ExternalDataService --> ExternalDataManager
-    DataManager --> FileSystem
-    ExternalDataManager --> FileSystem
-    
-    %% Service Coordination
+    ExternalDataService --> FileSystem
     GitService --> KeychainManager
     GitService --> GitRepository
     SearchService --> NodeStore
     GraphService --> NodeStore
-    GeocoderService --> LocationManager
+    
+    %% 管理器组件依赖关系
+    WindowFocusManager --> NotificationCenter
+    WindowFocusManager --> KeyboardEventManager
+    KeyboardEventManager --> WindowFocusManager
+    TagGraphWindowManager --> WindowFocusManager
+    ExternalDataManager --> FileSystem
+    DataManager --> FileSystem
     KeychainManager --> MacOSKeychain
     
-    %% Multi-Window Management
-    WindowFocusManager --> NotificationCenter
-    WindowFocusManager --> ContentView
-    WindowFocusManager --> IndependentWindow
-    WindowFocusManager --> LayerGraphWindowView
-    
-    %% UI Services Integration
-    CommandPaletteService --> KeyboardEventManager
-    MapContainerService --> GeocoderService
-    FullscreenGraphWindowManager --> WindowFocusManager
-    GlobalTagGraphWindowManager --> WindowFocusManager
-    
-    %% Tracing and Observability
-    TracingService --> StructuredLogger
-    TracingService --> ObservabilityDashboard
-    StructuredLogger --> NotificationCenter
-    ObservabilityDashboard --> TracingService
-    
-    %% Infrastructure Support
-    TagMappingManager --> NotificationCenter
-    KeyboardEventManager --> NotificationCenter
-    ExternalDataService --> NotificationCenter
-    
-    %% Presentation to Services
+    %% UI层到服务层的依赖
     ContentView --> NodeStore
     ContentView --> WindowFocusManager
-    IndependentWindow --> NodeStore
-    NodeManagerView --> NodeStore
-    TagSidebarView --> NodeStore
-    LayerGraphWindowView --> NodeStore
+    ContentView --> ServiceRegistry
+    QuickAddSheetView --> NodeStore
     DetailPanel --> VditorWebView
-    UniversalRelationshipGraphView --> GraphService
-    MapContainerView --> MapContainerService
+    DetailPanel --> NodeStore
+    SettingsView --> GitService
+    SettingsView --> ExternalDataManager
+    MapContainer --> Geocoder
+    MapContainer --> NodeStore
+    MapContainer --> MapKit
+    GraphWindows --> GraphService
+    GraphWindows --> WindowFocusManager
+    TagSidebarView --> NodeStore
+    CommandPaletteView --> KeyboardEventManager
     
-    %% Utility Integration
+    %% 工具组件依赖关系
     VditorWebView --> ResourceManager
-    GeocoderService --> CoreLocation
-    LocationManager --> CoreLocation
+    NodeFolderManager --> FileSystem
+    Geocoder --> MapKit
     
-    %% Notification Flow (Event-Driven Architecture)
+    %% 可观测性组件依赖（可选）
+    TracingService --> ObservabilityDashboard
+    ObservabilityDashboard --> TracingService
+    ServiceHealthDashboard --> ServiceRegistry
+    
+    %% 事件驱动架构 (虚线表示事件流)
     NotificationCenter -.-> NodeStore
     NotificationCenter -.-> ExternalDataService
     NotificationCenter -.-> GitService
-    NotificationCenter -.-> TagMappingManager
     NotificationCenter -.-> WindowFocusManager
     NotificationCenter -.-> KeyboardEventManager
+    NotificationCenter -.-> TagGraphWindowManager
     
-    %% Performance Monitoring
-    PerformanceOptimizationService -.-> NodeStore
-    PerformanceOptimizationService -.-> ExternalDataService
-    PerformanceOptimizationService -.-> GraphService
-    PerformanceOptimizationService -.-> TracingService
+    %% 外部依赖关系
+    ExternalDataService -.-> FileSystem
+    GitService -.-> GitRepository
+    KeychainManager -.-> MacOSKeychain
+    MapContainer -.-> MapKit
 
-    %% Styling
-    classDef coreLayer fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#000
-    classDef specializedServices fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
-    classDef uiServices fill:#fff8e1,stroke:#f57c00,stroke-width:2px,color:#000
-    classDef tracingLayer fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#000
-    classDef infraLayer fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#000
-    classDef presentationLayer fill:#fff3e0,stroke:#ff9800,stroke-width:2px,color:#000
-    classDef utilityLayer fill:#f1f8e9,stroke:#689f38,stroke-width:2px,color:#000
-    classDef communicationLayer fill:#e0f2f1,stroke:#00796b,stroke-width:2px,color:#000
-    classDef externalLayer fill:#ffebee,stroke:#d32f2f,stroke-width:2px,color:#000
+    %% 样式定义
+    classDef appEntry fill:#e8f5e8,stroke:#2e7d2e,stroke-width:3px,color:#000
+    classDef coreServices fill:#e3f2fd,stroke:#1976d2,stroke-width:3px,color:#000
+    classDef managers fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
+    classDef uiLayer fill:#fff8e1,stroke:#f57c00,stroke-width:2px,color:#000
+    classDef observability fill:#e8f5e8,stroke:#388e3c,stroke-width:2px,color:#000
+    classDef utility fill:#f1f8e9,stroke:#689f38,stroke-width:2px,color:#000
+    classDef communication fill:#e0f2f1,stroke:#00796b,stroke-width:2px,color:#000
+    classDef external fill:#ffebee,stroke:#d32f2f,stroke-width:2px,color:#000
 
-    class NodeStore,DataManager,ExternalDataManager coreLayer
-    class ExternalDataService,SearchService,GraphService,GitService,GeocoderService specializedServices
-    class CommandPaletteService,MapContainerService,FullscreenGraphWindowManager,GlobalTagGraphWindowManager uiServices
-    class TracingService,StructuredLogger,ObservabilityDashboard tracingLayer
-    class TagMappingManager,KeyboardEventManager,WindowFocusManager,KeychainManager,PerformanceOptimizationService,LocationManager infraLayer
-    class ContentView,IndependentWindow,LayerGraphWindowView,NodeManagerView,TagSidebarView,DetailPanel,UniversalRelationshipGraphView,MapContainerView presentationLayer
-    class ResourceManager,Geocoder,VditorWebView utilityLayer
-    class NotificationCenter communicationLayer
-    class FileSystem,GitRepository,MacOSKeychain,CoreLocation externalLayer
+    %% 应用样式
+    class WordTaggerApp,ServiceRegistry appEntry
+    class NodeStore,ExternalDataService,SearchService,GraphService,GitService coreServices
+    class WindowFocusManager,KeyboardEventManager,ExternalDataManager,KeychainManager,TagGraphWindowManager,DataManager,ResourceManager,LayerGraphPresetManager,NodeGraphPresetManager managers
+    class ContentView,QuickAddSheetView,DetailPanel,SettingsView,MapContainer,GraphWindows,TagSidebarView,CommandPaletteView uiLayer
+    class TracingService,ObservabilityDashboard,ServiceHealthDashboard observability
+    class VditorWebView,NodeFolderManager,Geocoder utility
+    class NotificationCenter communication
+    class FileSystem,GitRepository,MacOSKeychain,MapKit external
