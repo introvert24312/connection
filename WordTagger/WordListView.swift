@@ -174,49 +174,49 @@ struct NodeListView: View {
                             selectedIndex = -1  // 没有结果时设为-1
                         }
                         
-                        // 🎬 标签展开后的自动滚动动画
+                        // 🎬 标签展开后的自动滚动动画 - 滚动到底部显示新节点
                         if !newNodes.isEmpty && store.selectedTag != nil && store.showAllTagTypeNodes {
-                            print("🎬 检测到标签展开，立即滚动到新节点")
-                            // 滚动到第一个焦点节点（如果存在）
+                            print("🎬 检测到标签展开，滚动到底部显示新节点")
+                            // 滚动到最后一个焦点节点（现在焦点节点在底部）
                             if let selectedTag = store.selectedTag {
-                                if let focusNodeIndex = newNodes.firstIndex(where: { $0.hasTag(selectedTag) }) {
-                                    print("🎬 滚动到焦点节点位置: index \(focusNodeIndex)")
+                                if let focusNodeIndex = newNodes.lastIndex(where: { $0.hasTag(selectedTag) }) {
+                                    print("🎬 滚动到底部焦点节点位置: index \(focusNodeIndex)")
                                     withAnimation(.easeInOut(duration: 0.3)) {
-                                        proxy.scrollTo(newNodes[focusNodeIndex].id, anchor: .top)
+                                        proxy.scrollTo(newNodes[focusNodeIndex].id, anchor: .bottom)
                                     }
                                 } else {
-                                    // 如果没有焦点节点，滚动到顶部显示新的节点列表
-                                    print("🎬 滚动到列表顶部显示新节点")
+                                    // 如果没有焦点节点，滚动到列表底部
+                                    print("🎬 滚动到列表底部显示新节点")
                                     withAnimation(.easeInOut(duration: 0.3)) {
-                                        proxy.scrollTo(newNodes.first?.id, anchor: .top)
+                                        proxy.scrollTo(newNodes.last?.id, anchor: .bottom)
                                     }
                                 }
                             } else {
-                                // 普通情况滚动到顶部
-                                print("🎬 滚动到列表顶部")
+                                // 普通情况滚动到底部
+                                print("🎬 滚动到列表底部")
                                 withAnimation(.easeInOut(duration: 0.3)) {
-                                    proxy.scrollTo(newNodes.first?.id, anchor: .top)
+                                    proxy.scrollTo(newNodes.last?.id, anchor: .bottom)
                                 }
                             }
                         }
                     }
                     .onChange(of: store.expandedTagTypes) { _, newExpandedTypes in
-                        // 🎬 监听标签展开状态变化，触发自动滚动
+                        // 🎬 监听标签展开状态变化，滚动到底部显示新节点
                         if !newExpandedTypes.isEmpty && !displayNodes.isEmpty {
                             print("🎬 检测到标签展开状态变化: \(newExpandedTypes.map { $0.displayName })")
                             if let selectedTag = store.selectedTag {
-                                // 滚动到第一个焦点节点
-                                if let focusNode = displayNodes.first(where: { $0.hasTag(selectedTag) }) {
-                                    print("🎬 滚动到焦点节点: \(focusNode.text)")
+                                // 滚动到最后一个焦点节点（现在在底部）
+                                if let focusNode = displayNodes.last(where: { $0.hasTag(selectedTag) }) {
+                                    print("🎬 滚动到底部焦点节点: \(focusNode.text)")
                                     withAnimation(.easeInOut(duration: 0.3)) {
-                                        proxy.scrollTo(focusNode.id, anchor: .top)
+                                        proxy.scrollTo(focusNode.id, anchor: .bottom)
                                     }
                                 }
-                            } else if let firstNode = displayNodes.first {
-                                // 滚动到第一个节点
-                                print("🎬 滚动到第一个节点: \(firstNode.text)")
+                            } else if let lastNode = displayNodes.last {
+                                // 滚动到最后一个节点
+                                print("🎬 滚动到最后一个节点: \(lastNode.text)")
                                 withAnimation(.easeInOut(duration: 0.3)) {
-                                    proxy.scrollTo(firstNode.id, anchor: .top)
+                                    proxy.scrollTo(lastNode.id, anchor: .bottom)
                                 }
                             }
                         }
@@ -301,11 +301,11 @@ struct NodeListView: View {
                 let node1HasFocusTag = node1.hasTag(selectedTag)
                 let node2HasFocusTag = node2.hasTag(selectedTag)
                 
-                // 首先按是否包含焦点标签排序
+                // 🆕 焦点节点排在最后（底部），让新节点从底部"长出来"
                 if node1HasFocusTag && !node2HasFocusTag {
-                    return true  // node1 排在前面
+                    return false  // node1 排在后面（底部）
                 } else if !node1HasFocusTag && node2HasFocusTag {
-                    return false // node2 排在前面
+                    return true   // node2 排在后面（底部）
                 } else {
                     // 如果都包含或都不包含焦点标签，按标签数量排序
                     return node1.tags.count > node2.tags.count
@@ -314,7 +314,7 @@ struct NodeListView: View {
             
             // 统计焦点节点数量
             let focusNodesCount = sorted.filter { $0.hasTag(selectedTag) }.count
-            print("🎯 焦点排序完成: \(focusNodesCount) 个焦点节点排在最顶上")
+            print("🎯 焦点排序完成: \(focusNodesCount) 个焦点节点排在最底部（容易看到）")
             
             return sorted
         } else {
