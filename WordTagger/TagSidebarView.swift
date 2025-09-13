@@ -571,6 +571,36 @@ struct TagSidebarView: View {
                         }
                         .frame(maxHeight: 40)
                         
+                        // 🆕 标签值搜索结果
+                        if !searchableTagValues.isEmpty {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("匹配的标签值 (\(searchableTagValues.count))")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(.green)
+                                
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 6) {
+                                        ForEach(searchableTagValues.prefix(10), id: \.id) { tag in
+                                            TagValueSearchResultButton(
+                                                tag: tag,
+                                                onSelect: {
+                                                    // 🎯 选择具体标签值 - 沿用标签筛选逻辑
+                                                    store.selectTagWithFocus(tag)
+                                                    
+                                                    // 清空搜索框并切换到标签筛选模式
+                                                    tagTypeSearchQuery = ""
+                                                    currentMode = .tagFiltering
+                                                }
+                                            )
+                                        }
+                                    }
+                                    .padding(.horizontal, 4)
+                                }
+                                .frame(maxHeight: 35)
+                            }
+                            .padding(.top, 4)
+                        }
+                        
                         // 🆕 多标签类型解析提示
                         let searchTerms = tagTypeSearchQuery.components(separatedBy: .whitespaces)
                             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -905,6 +935,41 @@ struct TagSidebarView: View {
         return matchingTypes
     }
     
+    // 🆕 搜索匹配的标签值 - 支持标签值模糊匹配
+    private var searchableTagValues: [Tag] {
+        guard !tagTypeSearchQuery.isEmpty else { return [] }
+        
+        let currentLayerTags = store.currentLayerTags
+        print("🔍 TagSidebarView: 搜索标签值 '\(tagTypeSearchQuery)'")
+        print("🔍 当前层标签总数: \(currentLayerTags.count)")
+        
+        let matchingTags = currentLayerTags.filter { tag in
+            // 1. 搜索标签值（如"牛肉片"、"beef slice"）
+            if tag.value.localizedCaseInsensitiveContains(tagTypeSearchQuery) {
+                print("  ✅ 匹配标签值: \(tag.value) (\(tag.type.displayName))")
+                return true
+            }
+            
+            // 2. 搜索标签类型显示名称中包含查询词的标签
+            if tag.type.displayName.localizedCaseInsensitiveContains(tagTypeSearchQuery) {
+                print("  ✅ 匹配标签类型: \(tag.type.displayName) - \(tag.value)")
+                return true
+            }
+            
+            return false
+        }.sorted { tag1, tag2 in
+            // 按标签值排序，确保一致的显示顺序
+            tag1.value < tag2.value
+        }
+        
+        print("🔍 标签值搜索结果: \(matchingTags.count) 个匹配的标签")
+        for tag in matchingTags.prefix(5) {
+            print("  - \(tag.type.displayName): '\(tag.value)'")
+        }
+        
+        return matchingTags
+    }
+    
     private func addTagType(_ tagType: Tag.TagType) {
         selectedTagTypes.insert(tagType)
         expandedGroups.insert(tagType)
@@ -1146,6 +1211,49 @@ struct TagSidebarView: View {
         
         print("🧹 清空完成，当前选中类型: \(selectedTagTypes.map { $0.displayName })")
     }
+
+// MARK: - 标签值搜索结果按钮
+
+struct TagValueSearchResultButton: View {
+    let tag: Tag
+    let onSelect: () -> Void
+    
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 4) {
+                // 标签类型指示器
+                Circle()
+                    .fill(Color.from(tagType: tag.type))
+                    .frame(width: 6, height: 6)
+                
+                VStack(alignment: .leading, spacing: 1) {
+                    // 标签值（主要显示）
+                    Text(tag.value)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                    
+                    // 标签类型（次要显示）
+                    Text(tag.type.displayName)
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.green.opacity(0.1))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.green, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
 
 // MARK: - 标签类型搜索结果按钮
 
