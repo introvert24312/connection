@@ -184,8 +184,12 @@ struct TagSidebarView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagSearch"))) { _ in
             print("🏷️ TagSidebarView: 收到打开标签搜索通知")
             
-            // TagSidebarView作为ContentView的子视图，不需要单独检查窗口状态
-            // 如果能收到通知，说明父窗口已经是活跃的
+            // 🔧 检查是否应该处理这个命令（只有活跃窗口处理）
+            guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: false, commandName: "openTagSearch") else {
+                print("🚫 TagSidebarView: 忽略Command+F - 窗口非活跃状态")
+                return
+            }
+            print("✅ TagSidebarView: 作为活跃窗口处理Command+F")
             
             // Command+F 在两个模块之间切换
             if currentMode == .tagFiltering {
