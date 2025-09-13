@@ -165,13 +165,64 @@ struct NodeListView: View {
                         selectNodeAtIndex()
                         return .handled
                     }
-                    .onChange(of: displayNodes) { _, _ in
+                    .onChange(of: displayNodes) { _, newNodes in
                         // 不自动选中第一个结果，只确保索引不越界
-                        if selectedIndex >= displayNodes.count {
-                            selectedIndex = displayNodes.count - 1
+                        if selectedIndex >= newNodes.count {
+                            selectedIndex = newNodes.count - 1
                         }
-                        if displayNodes.isEmpty {
+                        if newNodes.isEmpty {
                             selectedIndex = -1  // 没有结果时设为-1
+                        }
+                        
+                        // 🎬 标签展开后的自动滚动动画
+                        if !newNodes.isEmpty && store.selectedTag != nil && store.showAllTagTypeNodes {
+                            print("🎬 检测到标签展开，准备自动滚动到新节点")
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                // 滚动到第一个焦点节点（如果存在）
+                                if let selectedTag = store.selectedTag {
+                                    if let focusNodeIndex = newNodes.firstIndex(where: { $0.hasTag(selectedTag) }) {
+                                        print("🎬 滚动到焦点节点位置: index \(focusNodeIndex)")
+                                        withAnimation(.easeInOut(duration: 0.6)) {
+                                            proxy.scrollTo(newNodes[focusNodeIndex].id, anchor: .top)
+                                        }
+                                    } else {
+                                        // 如果没有焦点节点，滚动到顶部显示新的节点列表
+                                        print("🎬 滚动到列表顶部显示新节点")
+                                        withAnimation(.easeInOut(duration: 0.5)) {
+                                            proxy.scrollTo(newNodes.first?.id, anchor: .top)
+                                        }
+                                    }
+                                } else {
+                                    // 普通情况滚动到顶部
+                                    print("🎬 滚动到列表顶部")
+                                    withAnimation(.easeInOut(duration: 0.4)) {
+                                        proxy.scrollTo(newNodes.first?.id, anchor: .top)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .onChange(of: store.expandedTagTypes) { _, newExpandedTypes in
+                        // 🎬 监听标签展开状态变化，触发自动滚动
+                        if !newExpandedTypes.isEmpty && !displayNodes.isEmpty {
+                            print("🎬 检测到标签展开状态变化: \(newExpandedTypes.map { $0.displayName })")
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                if let selectedTag = store.selectedTag {
+                                    // 滚动到第一个焦点节点
+                                    if let focusNode = displayNodes.first(where: { $0.hasTag(selectedTag) }) {
+                                        print("🎬 滚动到焦点节点: \(focusNode.text)")
+                                        withAnimation(.easeInOut(duration: 0.6)) {
+                                            proxy.scrollTo(focusNode.id, anchor: .top)
+                                        }
+                                    }
+                                } else if let firstNode = displayNodes.first {
+                                    // 滚动到第一个节点
+                                    print("🎬 滚动到第一个节点: \(firstNode.text)")
+                                    withAnimation(.easeInOut(duration: 0.5)) {
+                                        proxy.scrollTo(firstNode.id, anchor: .top)
+                                    }
+                                }
+                            }
                         }
                     }
                     .onAppear {

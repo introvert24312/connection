@@ -397,15 +397,16 @@ struct TagSidebarView: View {
                 print("🖱️ TagSidebarView: 标签类型按钮被点击 - \(tagType.displayName)")
                 print("🖱️ TagSidebarView: 当前展开状态: \(isExpanded)")
                 
-                // 选择标签类型，显示该类型下的所有节点
-                store.selectTagType(tagType)
+                // 总是切换展开/折叠状态
+                store.toggleExpandedTagType(tagType)
                 
-                // 自动展开该标签类型
+                // 如果展开了，选择标签类型显示该类型下的所有节点
                 if !isExpanded {
-                    store.toggleExpandedTagType(tagType)
+                    store.selectTagType(tagType)
+                    print("🏷️ 展开并选择标签类型: \(tagType.displayName)，显示该类型下的所有节点")
+                } else {
+                    print("🏷️ 折叠标签类型: \(tagType.displayName)")
                 }
-                
-                print("🏷️ 选择标签类型: \(tagType.displayName)，显示该类型下的所有节点")
             }) {
                 HStack {
                     Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
