@@ -596,7 +596,7 @@ struct TagSidebarView: View {
                                     }
                                     .padding(.horizontal, 4)
                                 }
-                                .frame(maxHeight: 35)
+                                .frame(maxHeight: 60)
                             }
                             .padding(.top, 4)
                         }
@@ -1218,37 +1218,92 @@ struct TagValueSearchResultButton: View {
     let tag: Tag
     let onSelect: () -> Void
     
+    // 获取快捷键信息
+    private var shortcutKey: String? {
+        if case .custom(let key) = tag.type {
+            return key
+        }
+        return nil
+    }
+    
     var body: some View {
         Button(action: onSelect) {
-            HStack(spacing: 4) {
-                // 标签类型指示器
-                Circle()
-                    .fill(Color.from(tagType: tag.type))
-                    .frame(width: 6, height: 6)
-                
-                VStack(alignment: .leading, spacing: 1) {
-                    // 标签值（主要显示）
-                    Text(tag.value)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.primary)
-                        .lineLimit(1)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    // 标签类型指示器
+                    Circle()
+                        .fill(Color.from(tagType: tag.type))
+                        .frame(width: 8, height: 8)
                     
-                    // 标签类型（次要显示）
-                    Text(tag.type.displayName)
-                        .font(.system(size: 9))
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
+                    VStack(alignment: .leading, spacing: 2) {
+                        // 标签值（主要显示）
+                        Text(tag.value)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+                        
+                        // 标签类型名称
+                        Text(tag.type.displayName)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.green)
+                            .lineLimit(1)
+                    }
+                    
+                    Spacer()
+                    
+                    // 地理坐标指示器
+                    if tag.hasCoordinates {
+                        Image(systemName: "location.fill")
+                            .font(.system(size: 8))
+                            .foregroundColor(.red)
+                    }
+                }
+                
+                // 快捷键信息
+                if let shortcut = shortcutKey {
+                    HStack(spacing: 4) {
+                        Image(systemName: "keyboard")
+                            .font(.system(size: 8))
+                            .foregroundColor(.secondary)
+                        
+                        Text("快捷键: \(shortcut)")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(Color.gray.opacity(0.1))
+                            )
+                        
+                        Spacer()
+                    }
+                }
+                
+                // 额外信息（如果是快捷键类型）
+                if tag.isShortcutType {
+                    HStack(spacing: 4) {
+                        Image(systemName: "bolt.fill")
+                            .font(.system(size: 8))
+                            .foregroundColor(.orange)
+                        
+                        Text("快捷格式")
+                            .font(.system(size: 8))
+                            .foregroundColor(.orange)
+                        
+                        Spacer()
+                    }
                 }
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
             .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.green.opacity(0.1))
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.green.opacity(0.08))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.green, lineWidth: 1)
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.green.opacity(0.4), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
