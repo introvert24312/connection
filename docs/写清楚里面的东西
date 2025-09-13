@@ -1,0 +1,229 @@
+# Connection 应用程序完整功能文档
+
+## 🏗️ 最新重大重构 (2025-01-25)
+
+### 全局节点图谱架构重构
+本次重构解决了全局节点图谱与全局标签图谱映射机制不一致的问题，实现了**一一对应的窗口映射**。
+
+#### 核心问题解决
+- **问题**: 全局标签图谱支持多开且每个窗口独立，但全局节点图谱共享状态导致多窗口间数据污染
+- **解决方案**: 重构为独立数据管理器架构，每个窗口拥有独立的NodeGraphDataManager实例
+
+#### 重构成果
+```
+GraphView.swift: 2355行 → 423行 (减少78%)
++ NodeGraphDataManager.swift (380行)
++ NodeBoardView.swift (650行) 
++ NodeSelectorView.swift (240行)
++ LayerSelectorView.swift (250行)
++ NodeGraphPresetManagerView.swift (200行)
+```
+
+## 🎯 应用程序核心功能
+
+### 1. 全局节点图谱系统
+- **多窗口支持**: 每个窗口独立状态，支持无限多开
+- **数据管理**: 独立NodeGraphDataManager，避免窗口间数据污染
+- **图谱锁定**: 支持锁定图谱以固定显示内容，防止实时数据更新干扰
+- **关联看板**: 节点看板与图谱窗口一一对应，选择状态同步
+
+#### 技术架构
+```swift
+NodeGraphWindowManager.shared.showNodeGraphWindow()
+├── 创建独立GraphView实例
+├── 每个GraphView包含独立NodeGraphDataManager
+├── 支持关联NodeBoardView
+└── 窗口间完全隔离
+```
+
+### 2. 全局标签图谱系统
+- **窗口管理**: TagGraphWindowManager单例模式
+- **数据独立**: 每个窗口独立GlobalTagDataManager
+- **关联看板**: NewTagIndexBoard与图谱窗口关联
+- **一一映射**: 已实现完美的窗口-数据映射
+
+### 3. 键盘快捷键系统
+#### 最近修复的快捷键问题
+- **Command+F**: 修复多窗口路由和广播问题
+- **Command+E**: 完善多窗口传播机制
+- **架构升级**: 从简单广播改为基于通知的精确路由系统
+
+#### 支持的快捷键
+```
+Command+F  - 开启搜索模式
+Command+E  - 退出当前模式  
+Command+M  - 打开地图视图
+Command+G  - 打开全局节点图谱
+Command+K  - 图谱适配视图
+```
+
+### 4. 数据管理系统
+- **NodeStore**: 中央数据存储，管理所有节点和层级
+- **标签系统**: 支持自定义标签类型和层级标签
+- **复合节点**: 支持节点嵌套和层级关系
+- **持久化**: 数据自动保存和恢复
+
+### 5. 搜索和过滤系统
+- **全文搜索**: 支持节点内容、含义、标签搜索
+- **层级过滤**: 按层级筛选显示内容
+- **标签过滤**: 按标签类型和值过滤
+- **预设管理**: 保存和加载筛选状态
+
+## 📁 文件架构
+
+### 核心文件结构
+```
+WordTagger/
+├── 应用入口
+│   ├── WordTaggerApp.swift - 应用程序主入口
+│   └── ContentView.swift - 主界面视图
+│
+├── 图谱系统
+│   ├── GraphView.swift - 全局节点图谱主视图 (423行)
+│   ├── NodeGraphDataManager.swift - 节点图谱数据管理器 (380行)
+│   ├── NodeGraphWindowManager.swift - 窗口管理器 (内置在GraphView中)
+│   ├── GlobalTagGraphView.swift - 全局标签图谱
+│   └── GlobalTagGraphSystem.swift - 标签图谱系统
+│
+├── 界面组件
+│   ├── NodeBoardView.swift - 节点看板视图 (650行)
+│   ├── NodeSelectorView.swift - 节点选择器 (240行)
+│   ├── LayerSelectorView.swift - 层级选择器 (250行)
+│   ├── NodeGraphPresetManagerView.swift - 预设管理 (200行)
+│   └── NewTagIndexBoard.swift - 标签索引看板
+│
+├── 数据模型
+│   ├── Models.swift - 核心数据模型
+│   ├── Store.swift - 数据存储管理
+│   └── Extensions.swift - 扩展功能
+│
+├── 服务层
+│   ├── SearchService.swift - 搜索服务
+│   ├── GraphService.swift - 图谱服务
+│   ├── ExternalDataService.swift - 外部数据服务
+│   └── ExternalDataManager.swift - 外部数据管理
+│
+└── 窗口管理
+    ├── WindowFocusManager.swift - 窗口焦点管理
+    ├── TagGraphWindowManager.swift - 标签图谱窗口管理
+    └── KeyboardEventManager.swift - 键盘事件管理
+```
+
+## 🔧 技术特性
+
+### SwiftUI架构
+- **声明式UI**: 全部使用SwiftUI构建
+- **响应式编程**: @StateObject和@ObservableObject
+- **环境对象**: EnvironmentObject共享状态
+- **导航管理**: NavigationSplitView和工作区管理
+
+### 性能优化
+- **编译性能**: 通过文件拆分解决Swift编译器卡死问题
+- **内存管理**: 独立数据管理器防止内存泄漏
+- **视图缓存**: 图谱数据缓存避免重复计算
+- **异步处理**: 大数据量异步加载和处理
+
+### 多窗口支持
+- **窗口独立**: 每个窗口独立状态和数据
+- **关联映射**: 看板与图谱窗口一一对应
+- **状态同步**: 相关窗口间状态实时同步
+- **资源隔离**: 窗口间资源完全隔离
+
+## 🚀 使用指南
+
+### 启动应用
+```bash
+# 构建应用
+xcodebuild -project WordTagger.xcodeproj -scheme WordTagger -configuration Debug build
+
+# 应用位置
+/Library/Developer/Xcode/DerivedData/.../Build/Products/Debug/Connection.app
+```
+
+### 主要操作流程
+
+#### 1. 使用全局节点图谱
+1. 点击紫色图谱图标或使用 `Command+G`
+2. 多开支持：可以开启多个独立的图谱窗口
+3. 每个窗口可以独立筛选节点和层级
+4. 使用锁定功能固定当前显示内容
+
+#### 2. 节点看板操作
+1. 在图谱窗口点击"节点看板"按钮
+2. 看板与当前图谱窗口关联，选择状态同步
+3. 支持双搜索：层级搜索和节点搜索
+4. 支持多选：Command+点击进行多选操作
+
+#### 3. 预设管理
+1. 设置好筛选条件后点击"保存为预设"
+2. 在预设管理器中可以加载、删除预设
+3. 预设包含节点选择和层级选择状态
+
+## 🐛 已修复的重大问题
+
+### 编译性能问题
+- **问题**: GraphView.swift文件过大(2355行)导致Swift编译器卡死
+- **修复**: 模块化拆分为5个独立文件，编译速度显著提升
+
+### 窗口映射问题  
+- **问题**: 全局节点图谱多开时共享状态，数据互相污染
+- **修复**: 实现独立数据管理器，每个窗口状态独立
+
+### 键盘快捷键问题
+- **问题**: Command+F和Command+E在多窗口环境下路由混乱
+- **修复**: 重构为基于通知的精确路由系统
+
+## 📊 代码统计
+
+### 重构前后对比
+| 指标 | 重构前 | 重构后 | 改进 |
+|------|--------|--------|------|
+| GraphView.swift | 2355行 | 423行 | -78% |
+| 编译速度 | 卡死 | <30秒 | 显著提升 |
+| 窗口独立性 | 共享状态 | 完全独立 | 质的飞跃 |
+| 代码可维护性 | 单体文件 | 模块化 | 大幅提升 |
+
+### 当前代码规模
+```
+总文件数: 50+ Swift文件
+总代码行数: ~15,000行
+核心功能模块: 8个主要模块
+文档覆盖率: 80%+
+```
+
+## 🔮 未来发展方向
+
+### 短期计划
+- [ ] 图谱可视化效果优化
+- [ ] 更多快捷键支持
+- [ ] 导出功能增强
+- [ ] 性能进一步优化
+
+### 长期规划  
+- [ ] 插件系统
+- [ ] 云同步支持
+- [ ] 协作编辑功能
+- [ ] AI辅助节点管理
+
+---
+
+## 📝 更新日志
+
+### v1.5.0 (2025-01-25) 🏗️ 重大重构
+- ✅ 实现全局节点图谱一一对应窗口映射
+- ✅ 创建独立NodeGraphDataManager架构  
+- ✅ 解决SwiftUI编译性能问题
+- ✅ 优化多窗口支持和状态管理
+- ✅ 完善节点看板关联功能
+
+### v1.4.x (2025-01-24) 🔧 快捷键修复
+- ✅ 修复Command+F多窗口路由问题
+- ✅ 重构Command+F架构为通知系统
+- ✅ 解决Command+E传播问题
+- ✅ 完善窗口焦点管理
+
+---
+
+> **注意**: 此文档记录了Connection应用的完整功能和最新架构。随着功能持续迭代，请保持文档同步更新。
+
+*最后更新: 2025年1月25日*
