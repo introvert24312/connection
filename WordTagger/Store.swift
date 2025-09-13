@@ -1129,6 +1129,9 @@ public final class NodeStore: ObservableObject {
     public func setSelectedTagWithTypeMode(_ tag: Tag?) {
         selectedTag = tag
         showAllTagTypeNodes = true // 设置为显示同标签类型的所有节点
+        // 🎯 清除之前选中的节点，让焦点转移到标签上
+        selectedNode = nil
+        print("🎯 切换到标签焦点模式，清除节点选中状态")
     }
     
     // MARK: - 兼容性方法

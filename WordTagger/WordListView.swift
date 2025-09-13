@@ -545,8 +545,8 @@ struct NodeRowView: View {
             }
         } else {
             if isFocusNode {
-                // 焦点普通节点：金色高亮
-                return isSelected ? Color.yellow.opacity(0.3) : Color.yellow.opacity(0.15)
+                // 焦点普通节点：更明显的金色高亮
+                return isSelected ? Color.orange.opacity(0.4) : Color.orange.opacity(0.25)
             } else {
                 return isSelected ? Color.blue.opacity(0.15) : Color.clear
             }
@@ -566,8 +566,8 @@ struct NodeRowView: View {
             }
         } else {
             if isFocusNode {
-                // 焦点普通节点：金色边框
-                return isSelected ? Color.yellow.opacity(0.6) : Color.yellow.opacity(0.4)
+                // 焦点普通节点：更明显的橙色边框
+                return isSelected ? Color.orange.opacity(0.8) : Color.orange.opacity(0.6)
             } else {
                 return isSelected ? Color.blue.opacity(0.3) : Color.clear
             }
