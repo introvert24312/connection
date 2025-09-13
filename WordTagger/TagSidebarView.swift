@@ -515,15 +515,25 @@ struct TagSidebarView: View {
                             .font(.system(size: 15))
                             .focused($isTagTypeSearchFocused)
                             .onChange(of: tagTypeSearchQuery) { _, newValue in
-                                handleTagTypeSearch(newValue)
+                                // 🔍 只用于更新搜索结果预览，不自动选择标签类型
+                                print("🔍 TagSidebarView: 搜索查询变更为 '\(newValue)'，更新预览结果")
                             }
                             .onSubmit {
-                                // 🚀 回车键快速选择第一个搜索结果
-                                print("⏎ 检测到回车键，尝试快速选择标签类型")
+                                // 🎯 回车键确认选择 - 沿用标签筛选逻辑
+                                print("⏎ 检测到回车键，确认选择标签类型")
                                 if !searchableTagTypes.isEmpty {
                                     let firstType = searchableTagTypes[0]
-                                    print("🎯 自动选择第一个标签类型: \(firstType.displayName)")
-                                    addTagType(firstType)
+                                    print("🎯 确认选择标签类型: \(firstType.displayName)")
+                                    
+                                    // 🆕 沿用标签筛选的逻辑：选择标签类型并展开
+                                    store.selectTagType(firstType)
+                                    store.toggleExpandedTagType(firstType)
+                                    
+                                    // 清空搜索框
+                                    tagTypeSearchQuery = ""
+                                    
+                                    // 切换到标签筛选模式
+                                    currentMode = .tagFiltering
                                 } else {
                                     print("⚠️ 没有搜索结果可以选择")
                                 }
@@ -544,9 +554,15 @@ struct TagSidebarView: View {
                                 ForEach(searchableTagTypes, id: \.rawValue) { type in
                                     TagTypeSearchResultButton(
                                         type: type,
-                                        isAlreadySelected: selectedTagTypes.contains(type),
+                                        isAlreadySelected: store.expandedTagTypes.contains(type),
                                         onAdd: {
-                                            addTagType(type)
+                                            // 🆕 沿用标签筛选逻辑，不是添加到选中列表
+                                            store.selectTagType(type)
+                                            store.toggleExpandedTagType(type)
+                                            
+                                            // 清空搜索框并切换到标签筛选模式
+                                            tagTypeSearchQuery = ""
+                                            currentMode = .tagFiltering
                                         }
                                     )
                                 }
