@@ -174,53 +174,9 @@ struct NodeListView: View {
                             selectedIndex = -1  // 没有结果时设为-1
                         }
                         
-                        // 🎬 标签展开后的自动滚动动画 - 滚动到底部显示新节点
-                        if !newNodes.isEmpty && store.selectedTag != nil && store.showAllTagTypeNodes {
-                            print("🎬 检测到标签展开，滚动到底部显示新节点")
-                            // 滚动到最后一个焦点节点（现在焦点节点在底部）
-                            if let selectedTag = store.selectedTag {
-                                if let focusNodeIndex = newNodes.lastIndex(where: { $0.hasTag(selectedTag) }) {
-                                    print("🎬 滚动到底部焦点节点位置: index \(focusNodeIndex)")
-                                    withAnimation(.easeInOut(duration: 0.3)) {
-                                        proxy.scrollTo(newNodes[focusNodeIndex].id, anchor: .bottom)
-                                    }
-                                } else {
-                                    // 如果没有焦点节点，滚动到列表底部
-                                    print("🎬 滚动到列表底部显示新节点")
-                                    withAnimation(.easeInOut(duration: 0.3)) {
-                                        proxy.scrollTo(newNodes.last?.id, anchor: .bottom)
-                                    }
-                                }
-                            } else {
-                                // 普通情况滚动到底部
-                                print("🎬 滚动到列表底部")
-                                withAnimation(.easeInOut(duration: 0.3)) {
-                                    proxy.scrollTo(newNodes.last?.id, anchor: .bottom)
-                                }
-                            }
-                        }
+                        // 新节点现在从底部出现，用户可以立即看到，不需要滚动动画
                     }
-                    .onChange(of: store.expandedTagTypes) { _, newExpandedTypes in
-                        // 🎬 监听标签展开状态变化，滚动到底部显示新节点
-                        if !newExpandedTypes.isEmpty && !displayNodes.isEmpty {
-                            print("🎬 检测到标签展开状态变化: \(newExpandedTypes.map { $0.displayName })")
-                            if let selectedTag = store.selectedTag {
-                                // 滚动到最后一个焦点节点（现在在底部）
-                                if let focusNode = displayNodes.last(where: { $0.hasTag(selectedTag) }) {
-                                    print("🎬 滚动到底部焦点节点: \(focusNode.text)")
-                                    withAnimation(.easeInOut(duration: 0.3)) {
-                                        proxy.scrollTo(focusNode.id, anchor: .bottom)
-                                    }
-                                }
-                            } else if let lastNode = displayNodes.last {
-                                // 滚动到最后一个节点
-                                print("🎬 滚动到最后一个节点: \(lastNode.text)")
-                                withAnimation(.easeInOut(duration: 0.3)) {
-                                    proxy.scrollTo(lastNode.id, anchor: .bottom)
-                                }
-                            }
-                        }
-                    }
+                    // 移除标签展开的滚动动画 - 新节点从底部自然出现，无需滚动
                     .onAppear {
                         print("📋 List onAppear: 延迟设置List焦点")
                         // 延迟设置List焦点，避免与搜索框冲突
