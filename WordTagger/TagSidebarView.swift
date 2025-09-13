@@ -16,8 +16,18 @@ struct TagSidebarView: View {
     @State private var searchParsedTagTypes: Set<Tag.TagType> = [] // 跟踪从搜索解析出的标签类型
     @Binding var selectedNode: Node?
     @State private var selectedIndex: Int = -1
+    @State private var selectedSearchTypeIndex: Int = -1      // 标签搜索中选中的标签类型索引
+    @State private var selectedSearchValueIndex: Int = -1     // 标签搜索中选中的标签值索引
+    @State private var searchFocusMode: SearchFocusMode = .none // 当前搜索焦点模式
     @FocusState private var isListFocused: Bool
     @FocusState private var isTagTypeSearchFocused: Bool
+    
+    // 搜索焦点模式
+    enum SearchFocusMode {
+        case none           // 无焦点
+        case tagTypes       // 聚焦标签类型结果
+        case tagValues      // 聚焦标签值结果
+    }
     
     // 模块切换状态
     enum SidebarMode {
@@ -520,26 +530,28 @@ struct TagSidebarView: View {
                             .onChange(of: tagTypeSearchQuery) { _, newValue in
                                 // 🔍 只用于更新搜索结果预览，不自动选择标签类型
                                 print("🔍 TagSidebarView: 搜索查询变更为 '\(newValue)'，更新预览结果")
+                                // 重置搜索焦点状态
+                                resetSearchFocusState()
                             }
                             .onSubmit {
-                                // 🎯 回车键确认选择 - 保持在标签搜索模式
-                                print("⏎ 检测到回车键，确认选择标签类型")
-                                if !searchableTagTypes.isEmpty {
-                                    let firstType = searchableTagTypes[0]
-                                    print("🎯 确认选择标签类型: \(firstType.displayName)")
-                                    
-                                    // 🆕 沿用标签筛选的逻辑：选择标签类型并展开
-                                    store.selectTagType(firstType)
-                                    store.toggleExpandedTagType(firstType)
-                                    
-                                    // 清空搜索框，但保持在标签搜索模式
-                                    tagTypeSearchQuery = ""
-                                    
-                                    // 🔄 不再自动切换到标签筛选模式，保持在当前搜索模式
-                                    print("🔄 保持在标签搜索模式")
-                                } else {
-                                    print("⚠️ 没有搜索结果可以选择")
-                                }
+                                handleSearchSubmit()
+                            }
+                            .onKeyPress(.tab) {
+                                handleSearchTabNavigation()
+                                return .handled
+                            }
+                            .onKeyPress(.tab, phases: .down) { keyPress in
+                                guard keyPress.modifiers.contains(.shift) else { return .ignored }
+                                handleSearchShiftTabNavigation()
+                                return .handled
+                            }
+                            .onKeyPress(.upArrow) {
+                                handleSearchUpArrow()
+                                return .handled
+                            }
+                            .onKeyPress(.downArrow) {
+                                handleSearchDownArrow()
+                                return .handled
                             }
                     }
                     .padding(8)
@@ -554,10 +566,11 @@ struct TagSidebarView: View {
                     if !tagTypeSearchQuery.isEmpty {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
-                                ForEach(searchableTagTypes, id: \.rawValue) { type in
+                                ForEach(Array(searchableTagTypes.enumerated()), id: \.element.rawValue) { index, type in
                                     TagTypeSearchResultButton(
                                         type: type,
                                         isAlreadySelected: store.expandedTagTypes.contains(type),
+                                        isHighlighted: searchFocusMode == .tagTypes && selectedSearchTypeIndex == index,
                                         onAdd: {
                                             // 🆕 沿用标签筛选逻辑，不是添加到选中列表
                                             store.selectTagType(type)
@@ -565,6 +578,7 @@ struct TagSidebarView: View {
                                             
                                             // 清空搜索框，但保持在标签搜索模式
                                             tagTypeSearchQuery = ""
+                                            resetSearchFocusState()
                                             // 🔄 不再自动切换到标签筛选模式
                                             print("🔄 标签类型已选择，保持在标签搜索模式")
                                         }
@@ -584,15 +598,17 @@ struct TagSidebarView: View {
                                 
                                 ScrollView(.horizontal, showsIndicators: false) {
                                     HStack(spacing: 6) {
-                                        ForEach(searchableTagValues.prefix(10), id: \.id) { tag in
+                                        ForEach(Array(searchableTagValues.prefix(10).enumerated()), id: \.element.id) { index, tag in
                                             TagValueSearchResultButton(
                                                 tag: tag,
+                                                isHighlighted: searchFocusMode == .tagValues && selectedSearchValueIndex == index,
                                                 onSelect: {
                                                     // 🎯 选择具体标签值 - 沿用标签筛选逻辑
                                                     store.selectTagWithFocus(tag)
                                                     
                                                     // 清空搜索框，但保持在标签搜索模式
                                                     tagTypeSearchQuery = ""
+                                                    resetSearchFocusState()
                                                     // 🔄 不再自动切换到标签筛选模式
                                                     print("🔄 标签值已选择，保持在标签搜索模式")
                                                 }
@@ -1250,12 +1266,200 @@ struct TagSidebarView: View {
         
         print("🧹 清空完成，当前选中类型: \(selectedTagTypes.map { $0.displayName })")
     }
+    
+    // MARK: - 标签搜索键盘导航函数
+    
+    /// 处理回车键提交
+    private func handleSearchSubmit() {
+        print("⏎ 检测到回车键，确认选择")
+        
+        switch searchFocusMode {
+        case .tagTypes:
+            // 选择当前高亮的标签类型
+            if selectedSearchTypeIndex >= 0 && selectedSearchTypeIndex < searchableTagTypes.count {
+                let selectedType = searchableTagTypes[selectedSearchTypeIndex]
+                selectTagType(selectedType)
+            }
+        case .tagValues:
+            // 选择当前高亮的标签值
+            if selectedSearchValueIndex >= 0 && selectedSearchValueIndex < searchableTagValues.count {
+                let selectedTag = searchableTagValues[selectedSearchValueIndex]
+                selectTagValue(selectedTag)
+            }
+        case .none:
+            // 没有选择任何项时，选择第一个可用结果
+            if !searchableTagTypes.isEmpty {
+                selectTagType(searchableTagTypes[0])
+            } else if !searchableTagValues.isEmpty {
+                selectTagValue(searchableTagValues[0])
+            }
+        }
+    }
+    
+    /// 处理Tab键导航（向下）
+    private func handleSearchTabNavigation() {
+        print("🔼 Tab键导航")
+        
+        let hasTypes = !searchableTagTypes.isEmpty
+        let hasValues = !searchableTagValues.isEmpty
+        
+        switch searchFocusMode {
+        case .none:
+            if hasTypes {
+                searchFocusMode = .tagTypes
+                selectedSearchTypeIndex = 0
+                selectedSearchValueIndex = -1
+                print("🎯 进入标签类型焦点模式")
+            } else if hasValues {
+                searchFocusMode = .tagValues
+                selectedSearchValueIndex = 0
+                selectedSearchTypeIndex = -1
+                print("🎯 进入标签值焦点模式")
+            }
+            
+        case .tagTypes:
+            if selectedSearchTypeIndex < searchableTagTypes.count - 1 {
+                selectedSearchTypeIndex += 1
+                print("🎯 标签类型向下: \(selectedSearchTypeIndex)")
+            } else if hasValues {
+                // 从标签类型切换到标签值
+                searchFocusMode = .tagValues
+                selectedSearchValueIndex = 0
+                selectedSearchTypeIndex = -1
+                print("🎯 从标签类型切换到标签值")
+            } else {
+                // 循环回到第一个标签类型
+                selectedSearchTypeIndex = 0
+                print("🎯 标签类型循环到第一个")
+            }
+            
+        case .tagValues:
+            if selectedSearchValueIndex < searchableTagValues.count - 1 {
+                selectedSearchValueIndex += 1
+                print("🎯 标签值向下: \(selectedSearchValueIndex)")
+            } else if hasTypes {
+                // 从标签值切换到标签类型
+                searchFocusMode = .tagTypes
+                selectedSearchTypeIndex = 0
+                selectedSearchValueIndex = -1
+                print("🎯 从标签值切换到标签类型")
+            } else {
+                // 循环回到第一个标签值
+                selectedSearchValueIndex = 0
+                print("🎯 标签值循环到第一个")
+            }
+        }
+    }
+    
+    /// 处理Shift+Tab键导航（向上）
+    private func handleSearchShiftTabNavigation() {
+        print("🔽 Shift+Tab键导航")
+        
+        let hasTypes = !searchableTagTypes.isEmpty
+        let hasValues = !searchableTagValues.isEmpty
+        
+        switch searchFocusMode {
+        case .none:
+            if hasValues {
+                searchFocusMode = .tagValues
+                selectedSearchValueIndex = searchableTagValues.count - 1
+                selectedSearchTypeIndex = -1
+                print("🎯 进入标签值焦点模式（末尾）")
+            } else if hasTypes {
+                searchFocusMode = .tagTypes
+                selectedSearchTypeIndex = searchableTagTypes.count - 1
+                selectedSearchValueIndex = -1
+                print("🎯 进入标签类型焦点模式（末尾）")
+            }
+            
+        case .tagTypes:
+            if selectedSearchTypeIndex > 0 {
+                selectedSearchTypeIndex -= 1
+                print("🎯 标签类型向上: \(selectedSearchTypeIndex)")
+            } else if hasValues {
+                // 从标签类型切换到标签值
+                searchFocusMode = .tagValues
+                selectedSearchValueIndex = searchableTagValues.count - 1
+                selectedSearchTypeIndex = -1
+                print("🎯 从标签类型切换到标签值（末尾）")
+            } else {
+                // 循环到最后一个标签类型
+                selectedSearchTypeIndex = searchableTagTypes.count - 1
+                print("🎯 标签类型循环到最后一个")
+            }
+            
+        case .tagValues:
+            if selectedSearchValueIndex > 0 {
+                selectedSearchValueIndex -= 1
+                print("🎯 标签值向上: \(selectedSearchValueIndex)")
+            } else if hasTypes {
+                // 从标签值切换到标签类型
+                searchFocusMode = .tagTypes
+                selectedSearchTypeIndex = searchableTagTypes.count - 1
+                selectedSearchValueIndex = -1
+                print("🎯 从标签值切换到标签类型（末尾）")
+            } else {
+                // 循环到最后一个标签值
+                selectedSearchValueIndex = searchableTagValues.count - 1
+                print("🎯 标签值循环到最后一个")
+            }
+        }
+    }
+    
+    /// 处理上箭头键
+    private func handleSearchUpArrow() {
+        print("⬆️ 上箭头键")
+        handleSearchShiftTabNavigation() // 复用Shift+Tab逻辑
+    }
+    
+    /// 处理下箭头键
+    private func handleSearchDownArrow() {
+        print("⬇️ 下箭头键")
+        handleSearchTabNavigation() // 复用Tab逻辑
+    }
+    
+    /// 选择标签类型
+    private func selectTagType(_ type: Tag.TagType) {
+        print("🎯 选择标签类型: \(type.displayName)")
+        store.selectTagType(type)
+        store.toggleExpandedTagType(type)
+        
+        // 清空搜索框并重置焦点状态
+        tagTypeSearchQuery = ""
+        resetSearchFocusState()
+        print("🔄 保持在标签搜索模式")
+    }
+    
+    /// 选择标签值
+    private func selectTagValue(_ tag: Tag) {
+        print("🎯 选择标签值: \(tag.type.displayName) - \(tag.value)")
+        store.selectTagWithFocus(tag)
+        
+        // 清空搜索框并重置焦点状态
+        tagTypeSearchQuery = ""
+        resetSearchFocusState()
+        print("🔄 保持在标签搜索模式")
+    }
+    
+    /// 重置搜索焦点状态
+    private func resetSearchFocusState() {
+        searchFocusMode = .none
+        selectedSearchTypeIndex = -1
+        selectedSearchValueIndex = -1
+    }
 
 // MARK: - 标签值搜索结果按钮
 
 struct TagValueSearchResultButton: View {
     let tag: Tag
+    let isHighlighted: Bool
     let onSelect: () -> Void
+    
+    init(tag: Tag, isHighlighted: Bool = false, onSelect: @escaping () -> Void) {
+        self.tag = tag
+        self.isHighlighted = isHighlighted
+        self.onSelect = onSelect
+    }
     
     // 获取快捷键信息
     private var shortcutKey: String? {
@@ -1331,11 +1535,11 @@ struct TagValueSearchResultButton: View {
             .padding(.vertical, 6)
             .background(
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.green.opacity(0.08))
+                    .fill(isHighlighted ? Color.orange.opacity(0.15) : Color.green.opacity(0.08))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.green.opacity(0.4), lineWidth: 1)
+                    .stroke(isHighlighted ? Color.orange : Color.green.opacity(0.4), lineWidth: isHighlighted ? 2 : 1)
             )
         }
         .buttonStyle(.plain)
@@ -1347,7 +1551,15 @@ struct TagValueSearchResultButton: View {
 struct TagTypeSearchResultButton: View {
     let type: Tag.TagType
     let isAlreadySelected: Bool
+    let isHighlighted: Bool
     let onAdd: () -> Void
+    
+    init(type: Tag.TagType, isAlreadySelected: Bool, isHighlighted: Bool = false, onAdd: @escaping () -> Void) {
+        self.type = type
+        self.isAlreadySelected = isAlreadySelected
+        self.isHighlighted = isHighlighted
+        self.onAdd = onAdd
+    }
     
     var body: some View {
         Button(action: onAdd) {
@@ -1370,11 +1582,18 @@ struct TagTypeSearchResultButton: View {
             .padding(.vertical, 6)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(isAlreadySelected ? Color(NSColor.controlBackgroundColor) : Color.blue.opacity(0.1))
+                    .fill(
+                        isHighlighted ? Color.orange.opacity(0.2) :
+                        isAlreadySelected ? Color(NSColor.controlBackgroundColor) : Color.blue.opacity(0.1)
+                    )
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(isAlreadySelected ? Color(NSColor.tertiaryLabelColor) : Color.blue, lineWidth: 1)
+                    .stroke(
+                        isHighlighted ? Color.orange :
+                        isAlreadySelected ? Color(NSColor.tertiaryLabelColor) : Color.blue, 
+                        lineWidth: isHighlighted ? 2 : 1
+                    )
             )
         }
         .buttonStyle(.plain)
