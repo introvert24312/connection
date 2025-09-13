@@ -54,19 +54,13 @@ extension NodeStore {
                 return false
             }
             
-            // Check if layer is compound (cannot add nodes to compound layers)
+            // 复合层现在也支持创建节点
             if currentLayer.isCompound {
-                logger.warn("Cannot add node to compound layer", context: traceContext, fields: [
+                logger.info("复合层支持节点创建", context: traceContext, fields: [
                     "layer_name": currentLayer.displayName,
-                    "layer_is_compound": "true"
+                    "layer_type": "compound",
+                    "action": "allow_node_creation"
                 ])
-                duplicateNodeAlert = DuplicateNodeAlert(
-                    message: "复合层不支持创建节点，请选择普通层",
-                    isDuplicate: false,
-                    existingNode: nil,
-                    newNode: node
-                )
-                return false
             }
             
             // Duplicate detection with tracing
@@ -89,7 +83,28 @@ extension NodeStore {
                 ])
             }
             
-            if let existingNode = nodes.first(where: { $0.text.lowercased() == node.text.lowercased() }) {
+            // 检查重复节点，考虑层级结构
+            let layersToCheck: Set<UUID>
+            if currentLayer.isCompound {
+                // 复合层：检查所有子层和自身
+                var allLayerIds = Set<UUID>([currentLayer.id])
+                allLayerIds.formUnion(Set(currentLayer.childLayerIds))
+                layersToCheck = allLayerIds
+                logger.debug("复合层检测范围", context: duplicateCheckContext, fields: [
+                    "layers_count": String(layersToCheck.count)
+                ])
+            } else {
+                // 普通层：只检查自身
+                layersToCheck = Set([currentLayer.id])
+                logger.debug("普通层检测范围", context: duplicateCheckContext, fields: [
+                    "layer_id": currentLayer.id.uuidString
+                ])
+            }
+            
+            if let existingNode = nodes.first(where: { 
+                $0.text.lowercased() == node.text.lowercased() && 
+                layersToCheck.contains($0.layerId)
+            }) {
                 logger.warn("Duplicate node detected", context: duplicateCheckContext, fields: [
                     "existing_node_id": existingNode.id.uuidString,
                     "existing_tags_count": String(existingNode.tags.count),

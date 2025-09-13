@@ -653,26 +653,32 @@ public final class NodeStore: ObservableObject {
             return false
         }
         
-        // 检查是否是复合层，复合层不允许创建节点
-        if currentLayer.isCompound {
-            print("❌ 无法添加节点：复合层不支持创建节点！")
-            duplicateNodeAlert = DuplicateNodeAlert(
-                message: "复合层不支持创建节点，请选择普通层",
-                isDuplicate: false,
-                existingNode: nil,
-                newNode: node
-            )
-            return false
-        }
+        // 复合层现在也支持创建节点（移除之前的限制）
+        print("✅ 当前层: \(currentLayer.displayName) (复合层: \(currentLayer.isCompound ? "是" : "否"))")
+        print("✅ 复合层现在支持创建节点")
         
         // 安全地检查节点名称冲突，避免崩溃
         print("🔍 检查节点名称冲突 - 新节点: '\(node.text)', 现有节点数量: \(nodes.count)")
         
-        // 使用安全的方式查找重复节点，只在当前层内查找
-            let potentialDuplicates = nodes.filter { existingNode in
-                existingNode.text.lowercased() == node.text.lowercased() && 
-                existingNode.layerId == currentLayer.id
-            }
+        // 使用安全的方式查找重复节点
+        // 对于复合层，检查所有子层；对于普通层，只检查当前层
+        let layersToCheck: Set<UUID>
+        if currentLayer.isCompound {
+            // 复合层：检查所有子层和自身
+            var allLayerIds = Set<UUID>([currentLayer.id])
+            allLayerIds.formUnion(Set(currentLayer.childLayerIds))
+            layersToCheck = allLayerIds
+            print("🔍 复合层检测：检查层数量 \(layersToCheck.count)")
+        } else {
+            // 普通层：只检查自身
+            layersToCheck = Set([currentLayer.id])
+            print("🔍 普通层检测：只检查当前层")
+        }
+        
+        let potentialDuplicates = nodes.filter { existingNode in
+            existingNode.text.lowercased() == node.text.lowercased() && 
+            layersToCheck.contains(existingNode.layerId)
+        }
             
             if let existingNode = potentialDuplicates.first {
                 print("⚠️ 发现重复节点名称: \(node.text)")
