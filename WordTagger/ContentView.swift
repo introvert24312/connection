@@ -480,8 +480,8 @@ struct ContentViewFocusedValueModifier: ViewModifier {
             .focusedSceneValue(\.switchToGraphTab, ShowCardAction {
                 NotificationCenter.default.post(name: NSNotification.Name("switchToGraphTab"), object: nil)
             })
-            .focusedSceneValue(\.openTagSearch, ShowCardAction {
-                print("🔑 ContentView: Command+F 被触发")
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagSearch"))) { _ in
+                print("🔑 ContentView: 收到openTagSearch通知")
                 // 🔧 检查是否应该处理这个命令（只有活跃窗口处理）
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: false, commandName: "openTagSearch") else {
                     print("🚫 ContentView: 忽略Command+F - 窗口非活跃状态")
@@ -497,15 +497,15 @@ struct ContentViewFocusedValueModifier: ViewModifier {
                     }
                     // 延迟发送通知，等待侧边栏显示完成
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                        print("🔑 ContentView: 发送openTagSearch通知（延迟后）")
-                        NotificationCenter.default.post(name: NSNotification.Name("openTagSearch"), object: nil)
+                        print("🔑 ContentView: 发送tagSidebarOpenTagSearch通知（延迟后）")
+                        NotificationCenter.default.post(name: NSNotification.Name("tagSidebarOpenTagSearch"), object: nil)
                     }
                 } else {
-                    print("🔑 ContentView: 侧边栏已显示，直接发送openTagSearch通知")
-                    // 直接发送openTagSearch通知，让TagSidebarView处理
-                    NotificationCenter.default.post(name: NSNotification.Name("openTagSearch"), object: nil)
+                    print("🔑 ContentView: 侧边栏已显示，直接发送tagSidebarOpenTagSearch通知")
+                    // 直接发送tagSidebarOpenTagSearch通知，让TagSidebarView处理
+                    NotificationCenter.default.post(name: NSNotification.Name("tagSidebarOpenTagSearch"), object: nil)
                 }
-            })
+            }
     }
 }
 

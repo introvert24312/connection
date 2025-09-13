@@ -5492,17 +5492,17 @@ struct IndependentWindowModifier: ViewModifier {
             .focusedSceneValue(\.restorePreviousTagFilterState, ShowCardAction {
                 NotificationCenter.default.post(name: NSNotification.Name("restorePreviousTagFilterState"), object: nil)
             })
-            .focusedSceneValue(\.openTagSearch, ShowCardAction {
-                print("🔑 IndependentWindow: Command+F 被触发")
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagSearch"))) { _ in
+                print("🔑 IndependentWindow: 收到openTagSearch通知")
                 // 🔧 检查是否应该处理这个命令（只有活跃窗口处理）
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: false, commandName: "openTagSearch") else {
                     print("🚫 独立窗口: 忽略Command+F - 窗口非活跃状态")
                     return
                 }
                 print("✅ 独立窗口: 作为活跃窗口处理Command+F")
-                // 直接发送openTagSearch通知，让TagSidebarView处理
-                NotificationCenter.default.post(name: NSNotification.Name("openTagSearch"), object: nil)
-            })
+                // 发送给TagSidebarView的通知
+                NotificationCenter.default.post(name: NSNotification.Name("tagSidebarOpenTagSearch"), object: nil)
+            }
             .overlay {
                 if showQuickSearch {
                     QuickSearchView(
@@ -6008,15 +6008,11 @@ struct GlobalCommands: Commands {
             
             Button("标签搜索") {
                 print("🔑 GlobalCommands: 标签搜索菜单项被点击")
-                if let action = openTagSearch {
-                    print("🔑 GlobalCommands: openTagSearch action 存在，执行中...")
-                    action()
-                } else {
-                    print("❌ GlobalCommands: openTagSearch action 为 nil")
-                }
+                // 🔧 直接发送通知，让各窗口自行处理焦点检查
+                print("🔑 GlobalCommands: 发送openTagSearch通知到所有窗口")
+                NotificationCenter.default.post(name: NSNotification.Name("openTagSearch"), object: nil)
             }
             .keyboardShortcut("f", modifiers: [.command])
-            .disabled(openTagSearch == nil)
             
             Divider()
             

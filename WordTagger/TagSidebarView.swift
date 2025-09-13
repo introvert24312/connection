@@ -191,20 +191,12 @@ struct TagSidebarView: View {
             }
             print("✅ TagSidebarView: 作为活跃窗口处理Command+F")
             
-            // Command+F 在两个模块之间切换
-            if currentMode == .tagFiltering {
-                print("🏷️ TagSidebarView: 从标签筛选切换到标签搜索")
-                currentMode = .tagSearch
-                // 延迟一下确保UI切换完成后再设置焦点
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    isTagTypeSearchFocused = true
-                    print("🏷️ TagSidebarView: 切换到标签搜索模式并聚焦搜索框")
-                }
-            } else {
-                print("🏷️ TagSidebarView: 从标签搜索切换到标签筛选")
-                currentMode = .tagFiltering
-                print("🏷️ TagSidebarView: 切换到标签筛选模式")
-            }
+            handleTagSearchToggle()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("tagSidebarOpenTagSearch"))) { _ in
+            print("🏷️ TagSidebarView: 收到直接标签搜索通知")
+            // 这个通知来自已经过焦点检查的ContentView，直接处理
+            handleTagSearchToggle()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("restorePreviousTagFilterState"))) { _ in
             print("🔄 TagSidebarView: 收到恢复标签筛选状态通知")
@@ -270,6 +262,26 @@ struct TagSidebarView: View {
             }
             
             updateDisplayedNodesForExpandedTypes(newExpandedTypes)
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    /// 处理标签搜索切换逻辑
+    private func handleTagSearchToggle() {
+        // Command+F 在两个模块之间切换
+        if currentMode == .tagFiltering {
+            print("🏷️ TagSidebarView: 从标签筛选切换到标签搜索")
+            currentMode = .tagSearch
+            // 延迟一下确保UI切换完成后再设置焦点
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                isTagTypeSearchFocused = true
+                print("🏷️ TagSidebarView: 切换到标签搜索模式并聚焦搜索框")
+            }
+        } else {
+            print("🏷️ TagSidebarView: 从标签搜索切换到标签筛选")
+            currentMode = .tagFiltering
+            print("🏷️ TagSidebarView: 切换到标签筛选模式")
         }
     }
     
