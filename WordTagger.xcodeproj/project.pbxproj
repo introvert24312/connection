@@ -44,6 +44,11 @@
 		L002 /* LayerGraphPresetManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = L101 /* LayerGraphPresetManager.swift */; };
 		MR8R1RM3FTLQLCAQRR1XGJGF /* NewTagIndexBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = XIGWDDQHBCE8WQO56X0ZQO7Z /* NewTagIndexBoard.swift */; };
 		N001 /* NodeGraphPresetManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = N100 /* NodeGraphPresetManager.swift */; };
+		N002 /* NodeGraphDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = N101 /* NodeGraphDataManager.swift */; };
+		N003 /* NodeBoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = N102 /* NodeBoardView.swift */; };
+		N004 /* NodeSelectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = N103 /* NodeSelectorView.swift */; };
+		N005 /* LayerSelectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = N104 /* LayerSelectorView.swift */; };
+		N006 /* NodeGraphPresetManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = N105 /* NodeGraphPresetManagerView.swift */; };
 		OE33980ORF4VZBIIRH8YSAZ9 /* GlobalTagGraphSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = G3586Z8DANM2G65L0T6DV8ET /* GlobalTagGraphSystem.swift */; };
 		R001 /* Resources in Resources */ = {isa = PBXBuildFile; fileRef = R100 /* Resources */; };
 		R002 /* ResourceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = R101 /* ResourceManager.swift */; };
@@ -92,6 +97,11 @@
 		L100 /* LayerGraphWindowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayerGraphWindowView.swift; sourceTree = "<group>"; };
 		L101 /* LayerGraphPresetManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayerGraphPresetManager.swift; sourceTree = "<group>"; };
 		N100 /* NodeGraphPresetManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeGraphPresetManager.swift; sourceTree = "<group>"; };
+		N101 /* NodeGraphDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeGraphDataManager.swift; sourceTree = "<group>"; };
+		N102 /* NodeBoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeBoardView.swift; sourceTree = "<group>"; };
+		N103 /* NodeSelectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeSelectorView.swift; sourceTree = "<group>"; };
+		N104 /* LayerSelectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayerSelectorView.swift; sourceTree = "<group>"; };
+		N105 /* NodeGraphPresetManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeGraphPresetManagerView.swift; sourceTree = "<group>"; };
 		R100 /* Resources */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Resources; sourceTree = "<group>"; };
 		R101 /* ResourceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceManager.swift; sourceTree = "<group>"; };
 		V100 /* VditorWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VditorWebView.swift; sourceTree = "<group>"; };
@@ -138,6 +148,11 @@
 				L100 /* LayerGraphWindowView.swift */,
 				L101 /* LayerGraphPresetManager.swift */,
 				N100 /* NodeGraphPresetManager.swift */,
+				N101 /* NodeGraphDataManager.swift */,
+				N102 /* NodeBoardView.swift */,
+				N103 /* NodeSelectorView.swift */,
+				N104 /* LayerSelectorView.swift */,
+				N105 /* NodeGraphPresetManagerView.swift */,
 				54831DBC2E64470E00CD4724 /* TagBatchManagementView.swift */,
 				54209B7A2E3F248300388A1B /* ExternalDataManager.swift */,
 				54209B7B2E3F248300388A1B /* ExternalDataService.swift */,
@@ -256,6 +271,11 @@
 				L001 /* LayerGraphWindowView.swift in Sources */,
 				L002 /* LayerGraphPresetManager.swift in Sources */,
 				N001 /* NodeGraphPresetManager.swift in Sources */,
+				N002 /* NodeGraphDataManager.swift in Sources */,
+				N003 /* NodeBoardView.swift in Sources */,
+				N004 /* NodeSelectorView.swift in Sources */,
+				N005 /* LayerSelectorView.swift in Sources */,
+				N006 /* NodeGraphPresetManagerView.swift in Sources */,
 				A001 /* WordTaggerApp.swift in Sources */,
 				A004 /* Models.swift in Sources */,
 				54831DBD2E64470E00CD4724 /* TagBatchManagementView.swift in Sources */,

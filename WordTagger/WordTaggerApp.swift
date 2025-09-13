@@ -5472,7 +5472,7 @@ struct IndependentWindowModifier: ViewModifier {
                 }
             })
             .focusedSceneValue(\.openGraphWindow, ShowCardAction {
-                openWindow(id: "graph")
+                NodeGraphWindowManager.shared.showNodeGraphWindow()
             })
             .focusedSceneValue(\.toggleSidebar, ShowCardAction {
                 // 独立窗口发送窗口特定的toggleSidebar通知

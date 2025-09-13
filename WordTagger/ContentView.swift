@@ -294,7 +294,7 @@ struct ContentViewModifier: ViewModifier {
             .help("打开地图视图 (⌘M)")
             
             Button(action: {
-                openWindow(id: "graph")
+                NodeGraphWindowManager.shared.showNodeGraphWindow()
             }) {
                 Image(systemName: "circle.hexagonpath")
                     .foregroundColor(.purple)
@@ -487,7 +487,7 @@ struct ContentViewFocusedValueModifier: ViewModifier {
                 }
             })
             .focusedSceneValue(\.openGraphWindow, ShowCardAction {
-                openWindow(id: "graph")
+                NodeGraphWindowManager.shared.showNodeGraphWindow()
             })
             .focusedSceneValue(\.toggleSidebar, ShowCardAction {
                 withAnimation(.easeInOut(duration: 0.3)) {
