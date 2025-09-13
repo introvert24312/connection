@@ -2079,7 +2079,7 @@ struct LayerManagementView: View {
         } message: {
             if let layer = layerToDelete {
                 let nodeCount = store.nodes.filter { $0.layerId == layer.id }.count
-                Text("确定要删除层 \"\(layer.displayName)\" 吗？\n这将同时删除该层中的 \(nodeCount) 个节点，此操作无法撤销。")
+                Text("确定要删除层 \"\(layer.displayName)\" 吗？\n\n这将同时删除：\n• 该层中的 \(nodeCount) 个节点\n• 每个节点对应的文件夹及其内容\n\n删除的文件夹将移至废纸篓，此操作无法撤销。")
             }
         }
     }

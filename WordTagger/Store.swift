@@ -1269,9 +1269,22 @@ public final class NodeStore: ObservableObject {
             print("   - 这是一个复合层，包含 \(layer.childLayerIds.count) 个子层")
         }
         
-        // 删除该层中的所有节点
+        // 删除该层中的所有节点和对应的文件夹
         let nodesToDelete = nodes.filter { $0.layerId == layer.id }
-        print("🗑️ 将删除 \(nodesToDelete.count) 个节点")
+        print("🗑️ 将删除 \(nodesToDelete.count) 个节点及其文件夹")
+        
+        // 先删除节点对应的文件夹
+        let folderManager = NodeFolderManager.shared
+        for node in nodesToDelete {
+            do {
+                try folderManager.deleteFolder(for: node, moveToTrash: true)
+                print("📁 已删除节点文件夹: \(node.text)")
+            } catch {
+                print("⚠️ 删除节点文件夹失败 (\(node.text)): \(error)")
+            }
+        }
+        
+        // 然后删除内存中的节点数据
         nodes.removeAll { $0.layerId == layer.id }
         
         // 从其他复合层中移除对此层的引用

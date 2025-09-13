@@ -418,6 +418,20 @@ extension NodeStore {
                     "node_tags_count": String(node.tags.count),
                     "node_layer_id": node.layerId.uuidString
                 ])
+                
+                // Delete node folder
+                do {
+                    try NodeFolderManager.shared.deleteFolder(for: node, moveToTrash: true)
+                    logger.info("Node folder deleted successfully", context: traceContext, fields: [
+                        "node_folder_name": node.text
+                    ])
+                } catch {
+                    logger.warn("Failed to delete node folder", context: traceContext, fields: [
+                        "node_folder_name": node.text,
+                        "error": error.localizedDescription
+                    ])
+                    // Continue with node deletion even if folder deletion fails
+                }
             } else {
                 logger.warn("Node not found for deletion", context: traceContext, fields: [
                     "node_id": nodeId.uuidString
