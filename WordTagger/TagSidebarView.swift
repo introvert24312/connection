@@ -15,6 +15,7 @@ struct TagSidebarView: View {
     ] // 隐藏系统级别的标签类型
     @State private var searchParsedTagTypes: Set<Tag.TagType> = [] // 跟踪从搜索解析出的标签类型
     @Binding var selectedNode: Node?
+    let windowId: UUID
     @State private var selectedIndex: Int = -1
     @State private var selectedSearchTypeIndex: Int = -1      // 标签搜索中选中的标签类型索引
     @State private var selectedSearchValueIndex: Int = -1     // 标签搜索中选中的标签值索引
@@ -41,7 +42,7 @@ struct TagSidebarView: View {
     
     // 窗口焦点管理
     @StateObject private var focusManager = WindowFocusManager.shared
-    @State private var windowId = UUID()
+    
     
     // 窗口激活状态检查
     private var isWindowActive: Bool {
@@ -193,10 +194,23 @@ struct TagSidebarView: View {
             
             handleTagSearchToggle()
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("tagSidebarOpenTagSearch"))) { _ in
-            print("🏷️ TagSidebarView: 收到直接标签搜索通知")
-            // 这个通知来自已经过焦点检查的ContentView，直接处理
-            handleTagSearchToggle()
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("tagSidebarOpenTagSearch"))) { notification in
+            print("🏷️ TagSidebarView: 收到tagSidebarOpenTagSearch通知")
+            
+            // 检查是否是给这个特定窗口的通知
+            if let userInfo = notification.userInfo,
+               let targetWindowId = userInfo["windowId"] as? String {
+                if targetWindowId == windowId.uuidString {
+                    print("🏷️ TagSidebarView: 通知匹配当前窗口，处理Command+F")
+                    handleTagSearchToggle()
+                } else {
+                    print("🏷️ TagSidebarView: 通知不匹配当前窗口，忽略")
+                }
+            } else {
+                // 如果没有windowId信息，为了向后兼容还是处理
+                print("🏷️ TagSidebarView: 通知无窗口ID信息，为向后兼容仍处理")
+                handleTagSearchToggle()
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("restorePreviousTagFilterState"))) { _ in
             print("🔄 TagSidebarView: 收到恢复标签筛选状态通知")

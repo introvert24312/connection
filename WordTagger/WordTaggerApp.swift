@@ -4037,8 +4037,8 @@ struct WordTaggerApp: App {
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("toggleSidebar"))) { _ in
                 // toggleSidebar 是全局命令，只在当前key窗口处理
-                guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true, commandName: "toggleSidebar") else {
-                    print("🚫 主窗口: 忽略toggleSidebar通知 - 非key窗口或冷却期")
+                guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true) else {
+                    print("🚫 主窗口: 忽略toggleSidebar通知 - 非key窗口")
                     return
                 }
                 
@@ -5475,7 +5475,12 @@ struct IndependentWindowModifier: ViewModifier {
                 openWindow(id: "graph")
             })
             .focusedSceneValue(\.toggleSidebar, ShowCardAction {
-                NotificationCenter.default.post(name: NSNotification.Name("executeToggleSidebar"), object: "independent")
+                // 独立窗口发送窗口特定的toggleSidebar通知
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("executeToggleSidebar"), 
+                    object: nil,
+                    userInfo: ["windowId": windowId.uuidString]
+                )
             })
             .focusedSceneValue(\.openNewWindow, ShowCardAction {
                 openWindow(id: "layerView")
@@ -5492,17 +5497,14 @@ struct IndependentWindowModifier: ViewModifier {
             .focusedSceneValue(\.restorePreviousTagFilterState, ShowCardAction {
                 NotificationCenter.default.post(name: NSNotification.Name("restorePreviousTagFilterState"), object: nil)
             })
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagSearch"))) { _ in
-                print("🔑 IndependentWindow: 收到openTagSearch通知")
-                // 🔧 检查是否应该处理这个命令（只有活跃窗口处理）
-                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: false, commandName: "openTagSearch") else {
-                    print("🚫 独立窗口: 忽略Command+F - 窗口非活跃状态")
-                    return
-                }
-                print("✅ 独立窗口: 作为活跃窗口处理Command+F")
-                // 发送给TagSidebarView的通知
-                NotificationCenter.default.post(name: NSNotification.Name("tagSidebarOpenTagSearch"), object: nil)
-            }
+            .focusedSceneValue(\.openTagSearch, ShowCardAction {
+                // Command+F - 在独立窗口中打开标签搜索，发送窗口特定通知
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("tagSidebarOpenTagSearch"), 
+                    object: nil,
+                    userInfo: ["windowId": windowId.uuidString]
+                )
+            })
             .overlay {
                 if showQuickSearch {
                     QuickSearchView(
@@ -5755,8 +5757,8 @@ struct IndependentWindowModifier: ViewModifier {
                 NotificationCenter.default.post(name: NSNotification.Name("executeOpenNodeManager"), object: "independent")
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("toggleSidebar"))) { _ in
-                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "toggleSidebar") else {
-                    print("🚫 独立窗口: 忽略toggleSidebar通知 - 非key窗口或冷却期")
+                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
+                    print("🚫 独立窗口: 忽略toggleSidebar通知 - 非key窗口")
                     return
                 }
                 print("✅ 独立窗口: 处理toggleSidebar通知")
@@ -6007,10 +6009,7 @@ struct GlobalCommands: Commands {
             .disabled(openQuickSearch == nil)
             
             Button("标签搜索") {
-                print("🔑 GlobalCommands: 标签搜索菜单项被点击")
-                // 🔧 直接发送通知，让各窗口自行处理焦点检查
-                print("🔑 GlobalCommands: 发送openTagSearch通知到所有窗口")
-                NotificationCenter.default.post(name: NSNotification.Name("openTagSearch"), object: nil)
+                openTagSearch?()
             }
             .keyboardShortcut("f", modifiers: [.command])
             

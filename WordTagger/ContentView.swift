@@ -89,7 +89,7 @@ struct ContentView: View {
         HStack(spacing: 0) {
             // 左侧：标签和搜索
             if showSidebar {
-                TagSidebarView(selectedNode: $selectedNode)
+                TagSidebarView(selectedNode: $selectedNode, windowId: windowId)
                     .frame(width: sidebarWidth)
                     .transition(.move(edge: .leading).combined(with: .opacity))
                 
@@ -441,6 +441,29 @@ struct ContentViewFocusedValueModifier: ViewModifier {
             .focusedSceneValue(\.openQuickSearch, ShowCardAction {
                 showQuickSearch = true
             })
+            .focusedSceneValue(\.openTagSearch, ShowCardAction {
+                // Command+F - 标签搜索，发送窗口特定通知
+                if !showSidebar {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showSidebar = true
+                    }
+                    // 延迟发送通知，等待侧边栏显示完成
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("tagSidebarOpenTagSearch"), 
+                            object: nil,
+                            userInfo: ["windowId": windowId.uuidString]
+                        )
+                    }
+                } else {
+                    // 直接发送通知
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("tagSidebarOpenTagSearch"), 
+                        object: nil,
+                        userInfo: ["windowId": windowId.uuidString]
+                    )
+                }
+            })
             .focusedSceneValue(\.openTagManager, ShowCardAction {
                 showTagManager = true
             })
@@ -480,30 +503,24 @@ struct ContentViewFocusedValueModifier: ViewModifier {
             .focusedSceneValue(\.switchToGraphTab, ShowCardAction {
                 NotificationCenter.default.post(name: NSNotification.Name("switchToGraphTab"), object: nil)
             })
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagSearch"))) { _ in
-                print("🔑 ContentView: 收到openTagSearch通知")
-                // 🔧 检查是否应该处理这个命令（只有活跃窗口处理）
-                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: false, commandName: "openTagSearch") else {
-                    print("🚫 ContentView: 忽略Command+F - 窗口非活跃状态")
-                    return
-                }
-                print("✅ ContentView: 作为活跃窗口处理Command+F")
-                
-                // 如果侧边栏隐藏，先显示侧边栏
-                if !showSidebar {
-                    print("🔑 ContentView: 侧边栏隐藏，先显示侧边栏")
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        showSidebar = true
-                    }
-                    // 延迟发送通知，等待侧边栏显示完成
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                        print("🔑 ContentView: 发送tagSidebarOpenTagSearch通知（延迟后）")
-                        NotificationCenter.default.post(name: NSNotification.Name("tagSidebarOpenTagSearch"), object: nil)
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("executeToggleSidebar"))) { notification in
+                // 处理窗口特定的 toggleSidebar 通知
+                if let userInfo = notification.userInfo,
+                   let targetWindowId = userInfo["windowId"] as? String {
+                    if targetWindowId == windowId.uuidString {
+                        print("📦 ContentView: 处理当前窗口的toggleSidebar通知")
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            showSidebar.toggle()
+                        }
+                    } else {
+                        print("📦 ContentView: 忽略其他窗口的toggleSidebar通知")
                     }
                 } else {
-                    print("🔑 ContentView: 侧边栏已显示，直接发送tagSidebarOpenTagSearch通知")
-                    // 直接发送tagSidebarOpenTagSearch通知，让TagSidebarView处理
-                    NotificationCenter.default.post(name: NSNotification.Name("tagSidebarOpenTagSearch"), object: nil)
+                    // 如果没有windowId信息，为了向后兼容还是处理
+                    print("📦 ContentView: 处理没有窗口ID的toggleSidebar通知（向后兼容）")
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showSidebar.toggle()
+                    }
                 }
             }
     }
