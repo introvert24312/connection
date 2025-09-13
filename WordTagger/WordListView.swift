@@ -137,6 +137,8 @@ struct NodeListView: View {
                         .transition(.opacity.combined(with: .move(edge: .leading)))
                     }
                     .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .animation(.interpolatingSpring(stiffness: 60, damping: 20), value: displayNodes.count)
                     .focused($isListFocused)
                     .onChange(of: isListFocused) { _, newValue in
                         print("📋 List focus changed: isListFocused = \(newValue)")
@@ -145,8 +147,8 @@ struct NodeListView: View {
                         if selectedIndex > 0 {
                             selectedIndex -= 1
                             selectNodeAtIndex()
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                proxy.scrollTo(selectedIndex, anchor: .center)
+                            withAnimation(.interpolatingSpring(stiffness: 80, damping: 25)) {
+                                proxy.scrollTo(displayNodes[selectedIndex].id, anchor: .center)
                             }
                         }
                         return .handled
@@ -155,8 +157,8 @@ struct NodeListView: View {
                         if selectedIndex < displayNodes.count - 1 {
                             selectedIndex += 1
                             selectNodeAtIndex()
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                proxy.scrollTo(selectedIndex, anchor: .center)
+                            withAnimation(.interpolatingSpring(stiffness: 80, damping: 25)) {
+                                proxy.scrollTo(displayNodes[selectedIndex].id, anchor: .center)
                             }
                         }
                         return .handled
@@ -177,25 +179,25 @@ struct NodeListView: View {
                         // 🎬 标签展开后的自动滚动动画
                         if !newNodes.isEmpty && store.selectedTag != nil && store.showAllTagTypeNodes {
                             print("🎬 检测到标签展开，准备自动滚动到新节点")
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                                 // 滚动到第一个焦点节点（如果存在）
                                 if let selectedTag = store.selectedTag {
                                     if let focusNodeIndex = newNodes.firstIndex(where: { $0.hasTag(selectedTag) }) {
                                         print("🎬 滚动到焦点节点位置: index \(focusNodeIndex)")
-                                        withAnimation(.easeInOut(duration: 0.6)) {
+                                        withAnimation(.spring(response: 1.2, dampingFraction: 0.8, blendDuration: 0.3)) {
                                             proxy.scrollTo(newNodes[focusNodeIndex].id, anchor: .top)
                                         }
                                     } else {
                                         // 如果没有焦点节点，滚动到顶部显示新的节点列表
                                         print("🎬 滚动到列表顶部显示新节点")
-                                        withAnimation(.easeInOut(duration: 0.5)) {
+                                        withAnimation(.spring(response: 1.0, dampingFraction: 0.75, blendDuration: 0.25)) {
                                             proxy.scrollTo(newNodes.first?.id, anchor: .top)
                                         }
                                     }
                                 } else {
                                     // 普通情况滚动到顶部
                                     print("🎬 滚动到列表顶部")
-                                    withAnimation(.easeInOut(duration: 0.4)) {
+                                    withAnimation(.spring(response: 0.8, dampingFraction: 0.7, blendDuration: 0.2)) {
                                         proxy.scrollTo(newNodes.first?.id, anchor: .top)
                                     }
                                 }
@@ -206,19 +208,19 @@ struct NodeListView: View {
                         // 🎬 监听标签展开状态变化，触发自动滚动
                         if !newExpandedTypes.isEmpty && !displayNodes.isEmpty {
                             print("🎬 检测到标签展开状态变化: \(newExpandedTypes.map { $0.displayName })")
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                                 if let selectedTag = store.selectedTag {
                                     // 滚动到第一个焦点节点
                                     if let focusNode = displayNodes.first(where: { $0.hasTag(selectedTag) }) {
                                         print("🎬 滚动到焦点节点: \(focusNode.text)")
-                                        withAnimation(.easeInOut(duration: 0.6)) {
+                                        withAnimation(.interpolatingSpring(stiffness: 50, damping: 20)) {
                                             proxy.scrollTo(focusNode.id, anchor: .top)
                                         }
                                     }
                                 } else if let firstNode = displayNodes.first {
                                     // 滚动到第一个节点
                                     print("🎬 滚动到第一个节点: \(firstNode.text)")
-                                    withAnimation(.easeInOut(duration: 0.5)) {
+                                    withAnimation(.interpolatingSpring(stiffness: 60, damping: 22)) {
                                         proxy.scrollTo(firstNode.id, anchor: .top)
                                     }
                                 }
