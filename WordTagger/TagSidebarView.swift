@@ -522,7 +522,7 @@ struct TagSidebarView: View {
                                 print("🔍 TagSidebarView: 搜索查询变更为 '\(newValue)'，更新预览结果")
                             }
                             .onSubmit {
-                                // 🎯 回车键确认选择 - 沿用标签筛选逻辑
+                                // 🎯 回车键确认选择 - 保持在标签搜索模式
                                 print("⏎ 检测到回车键，确认选择标签类型")
                                 if !searchableTagTypes.isEmpty {
                                     let firstType = searchableTagTypes[0]
@@ -532,11 +532,11 @@ struct TagSidebarView: View {
                                     store.selectTagType(firstType)
                                     store.toggleExpandedTagType(firstType)
                                     
-                                    // 清空搜索框
+                                    // 清空搜索框，但保持在标签搜索模式
                                     tagTypeSearchQuery = ""
                                     
-                                    // 切换到标签筛选模式
-                                    currentMode = .tagFiltering
+                                    // 🔄 不再自动切换到标签筛选模式，保持在当前搜索模式
+                                    print("🔄 保持在标签搜索模式")
                                 } else {
                                     print("⚠️ 没有搜索结果可以选择")
                                 }
@@ -563,9 +563,10 @@ struct TagSidebarView: View {
                                             store.selectTagType(type)
                                             store.toggleExpandedTagType(type)
                                             
-                                            // 清空搜索框并切换到标签筛选模式
+                                            // 清空搜索框，但保持在标签搜索模式
                                             tagTypeSearchQuery = ""
-                                            currentMode = .tagFiltering
+                                            // 🔄 不再自动切换到标签筛选模式
+                                            print("🔄 标签类型已选择，保持在标签搜索模式")
                                         }
                                     )
                                 }
@@ -590,9 +591,10 @@ struct TagSidebarView: View {
                                                     // 🎯 选择具体标签值 - 沿用标签筛选逻辑
                                                     store.selectTagWithFocus(tag)
                                                     
-                                                    // 清空搜索框并切换到标签筛选模式
+                                                    // 清空搜索框，但保持在标签搜索模式
                                                     tagTypeSearchQuery = ""
-                                                    currentMode = .tagFiltering
+                                                    // 🔄 不再自动切换到标签筛选模式
+                                                    print("🔄 标签值已选择，保持在标签搜索模式")
                                                 }
                                             )
                                         }
