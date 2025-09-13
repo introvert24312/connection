@@ -956,6 +956,33 @@ struct TagSidebarView: View {
                 return true
             }
             
+            // 3. 🆕 搜索快捷键（TagMapping的key）
+            if case .custom(let key) = tag.type {
+                if key.localizedCaseInsensitiveContains(tagTypeSearchQuery) {
+                    print("  ✅ 匹配快捷键: \(key) -> \(tag.value) (\(tag.type.displayName))")
+                    return true
+                }
+                
+                // 4. 🆕 通过TagMappingManager搜索相关映射
+                let tagManager = TagMappingManager.shared
+                let matchingMappings = tagManager.tagMappings.filter { mapping in
+                    mapping.key.lowercased() == key.lowercased()
+                }
+                
+                for mapping in matchingMappings {
+                    // 搜索映射中的key
+                    if mapping.key.localizedCaseInsensitiveContains(tagTypeSearchQuery) {
+                        print("  ✅ 匹配映射key: \(mapping.key) -> \(tag.value)")
+                        return true
+                    }
+                    // 搜索映射中的typeName
+                    if mapping.typeName.localizedCaseInsensitiveContains(tagTypeSearchQuery) {
+                        print("  ✅ 匹配映射类型名: \(mapping.typeName) -> \(tag.value)")
+                        return true
+                    }
+                }
+            }
+            
             return false
         }.sorted { tag1, tag2 in
             // 按标签值排序，确保一致的显示顺序
