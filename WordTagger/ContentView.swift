@@ -482,6 +482,13 @@ struct ContentViewFocusedValueModifier: ViewModifier {
             })
             .focusedSceneValue(\.openTagSearch, ShowCardAction {
                 print("🔑 ContentView: Command+F 被触发")
+                // 🔧 检查是否应该处理这个命令（只有活跃窗口处理）
+                guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: false, commandName: "openTagSearch") else {
+                    print("🚫 ContentView: 忽略Command+F - 窗口非活跃状态")
+                    return
+                }
+                print("✅ ContentView: 作为活跃窗口处理Command+F")
+                
                 // 如果侧边栏隐藏，先显示侧边栏
                 if !showSidebar {
                     print("🔑 ContentView: 侧边栏隐藏，先显示侧边栏")
