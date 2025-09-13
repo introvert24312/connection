@@ -5294,6 +5294,31 @@ struct IndependentWindowWrapper: View {
                     // 注销窗口
                     WindowFocusManager.shared.unregisterWindow(windowId)
                 }
+                .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("nodeUpdated"))) { notification in
+                    // 🔧 处理节点更新通知，确保独立窗口UI能实时刷新
+                    print("📡 独立窗口: 收到nodeUpdated通知")
+                    
+                    if let updatedNode = notification.object as? Node {
+                        print("📡 独立窗口: 节点更新 - '\(updatedNode.text)'")
+                        
+                        // 查找并更新store中的对应节点
+                        if store.nodes.contains(where: { $0.id == updatedNode.id }) {
+                            // 使用NodeStore的updateNode方法来正确更新节点
+                            store.updateNode(updatedNode)
+                            print("✅ 独立窗口: 已同步更新节点 - '\(updatedNode.text)'")
+                            
+                            // 如果当前选中的节点是更新的节点，也要更新选中节点引用
+                            if store.selectedNode?.id == updatedNode.id {
+                                store.setSelectedNode(updatedNode)
+                                print("🔄 独立窗口: 已更新选中节点引用")
+                            }
+                        } else {
+                            print("⚠️ 独立窗口: 未找到要更新的节点 - '\(updatedNode.text)' (ID: \(updatedNode.id.uuidString.prefix(8)))")
+                        }
+                    } else {
+                        print("⚠️ 独立窗口: nodeUpdated通知格式错误 - 缺少节点对象")
+                    }
+                }
             
             if showPalette {
                 ZStack {
