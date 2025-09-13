@@ -758,8 +758,8 @@ struct UniversalGraphWebView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>
                         physics: {
                             enabled: !useHierarchical,  // 分层布局时禁用物理引擎
                             stabilization: { 
-                                iterations: 200,
-                                updateInterval: 25
+                                iterations: 150,         // 🚀 减少迭代，更快稳定
+                                updateInterval: 16       // ⚡ 60FPS，更流畅响应
                             },
                             solver: 'forceAtlas2Based',
                             timestep: 0.5,
