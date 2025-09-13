@@ -9,7 +9,10 @@ struct TagSidebarView: View {
     @State private var tagTypeSearchQuery: String = ""
     @State private var selectedTagTypes: Set<Tag.TagType> = []
     @State private var expandedGroups: Set<Tag.TagType> = []
-    @State private var hiddenTagTypes: Set<Tag.TagType> = [] // 默认不隐藏任何标签
+    @State private var hiddenTagTypes: Set<Tag.TagType> = [
+        .custom("child"),     // 子节点引用标签，系统内部使用
+        .custom("compound")   // 复合节点标签，系统内部使用
+    ] // 隐藏系统级别的标签类型
     @State private var searchParsedTagTypes: Set<Tag.TagType> = [] // 跟踪从搜索解析出的标签类型
     @Binding var selectedNode: Node?
     @State private var selectedIndex: Int = -1
@@ -732,8 +735,10 @@ struct TagSidebarView: View {
     private var uniqueTagTypes: [Tag.TagType] {
         let currentLayerTagTypes = store.currentLayerTags.map { $0.type }
         let uniqueTypes = Array(Set(currentLayerTagTypes))
+        // 过滤掉系统级别的标签类型
+        let visibleTypes = uniqueTypes.filter { !hiddenTagTypes.contains($0) }
         // 按类型名称排序，确保consistent显示顺序
-        return uniqueTypes.sorted { $0.displayName < $1.displayName }
+        return visibleTypes.sorted { $0.displayName < $1.displayName }
     }
     
     // 根据搜索过滤的标签类型 - 支持空格分隔的多标签类型搜索
@@ -944,6 +949,11 @@ struct TagSidebarView: View {
         print("🔍 当前层标签总数: \(currentLayerTags.count)")
         
         let matchingTags = currentLayerTags.filter { tag in
+            // 过滤掉系统级别的标签类型
+            if hiddenTagTypes.contains(tag.type) {
+                return false
+            }
+            
             // 1. 搜索标签值（如"牛肉片"、"beef slice"）
             if tag.value.localizedCaseInsensitiveContains(tagTypeSearchQuery) {
                 print("  ✅ 匹配标签值: \(tag.value) (\(tag.type.displayName))")
