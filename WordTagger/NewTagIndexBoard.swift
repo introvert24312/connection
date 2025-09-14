@@ -454,7 +454,6 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
         </head>
         <body>
             <div class="header">
-                <h1>标签看板</h1>
                 <div class="header-right">
                     <span id="selectedCount" class="selected-count"></span>
                     <span id="tagCount" class="tag-count"></span>
