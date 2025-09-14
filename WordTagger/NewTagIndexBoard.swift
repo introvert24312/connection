@@ -300,14 +300,15 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                     margin-bottom: 16px;
                 }
                 input, select, button {
-                    height: 32px;
+                    height: 36px;
                     border: 1px solid var(--border);
                     background: var(--card);
                     color: var(--text);
                     border-radius: 6px;
-                    padding: 0 10px;
+                    padding: 0 12px;
                     outline: none;
                     cursor: pointer;
+                    font-size: 16px;
                 }
                 input:focus, select:focus {
                     border-color: var(--accent);
@@ -463,7 +464,7 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
             <div class="controls">
                 <input id="search" type="text" placeholder="搜索标签值或类型...">
                 <input id="layerSearch" type="text" placeholder="搜索层级名称...">
-                <select id="groupBy">
+                <select id="groupBy" style="font-size: 16px;">
                     <option value="layer">按层级分组</option>
                     <option value="type">按标签类型分组</option>
                     <option value="none">不分组</option>
