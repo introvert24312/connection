@@ -70,10 +70,6 @@ struct NodeBoardView: View {
         VStack(spacing: 0) {
             // 标题栏
             HStack {
-                Text("节点看板")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                
                 Spacer()
                 
                 // 选中状态显示
