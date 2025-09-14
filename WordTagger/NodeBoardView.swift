@@ -74,17 +74,22 @@ struct NodeBoardView: View {
                 // 搜索框一行排列
                 HStack(spacing: 12) {
                     // 层级搜索栏
-                    HStack(spacing: 6) {
+                    HStack(spacing: 8) {
                         Image(systemName: "folder")
                             .foregroundColor(.blue)
-                            .font(.system(size: 14))
+                            .font(.system(size: 16))
                         
                         TextField("搜索层级...", text: $layerSearchText)
-                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 16))
+                            .textFieldStyle(.plain)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color(NSColor.controlBackgroundColor))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .stroke(layerSearchText.isEmpty ? Color.clear : Color.blue.opacity(0.5), lineWidth: 1)
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(layerSearchText.isEmpty ? Color.gray.opacity(0.3) : Color.blue.opacity(0.8), lineWidth: 1.5)
                             )
+                            .cornerRadius(8)
                         
                         if !layerSearchText.isEmpty {
                             Button("×") {
@@ -92,7 +97,7 @@ struct NodeBoardView: View {
                             }
                             .buttonStyle(.plain)
                             .foregroundColor(.blue)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.system(size: 16, weight: .medium))
                         }
                     }
                     .frame(maxWidth: .infinity)
@@ -102,17 +107,22 @@ struct NodeBoardView: View {
                         .frame(height: 20)
                     
                     // 节点搜索栏  
-                    HStack(spacing: 6) {
+                    HStack(spacing: 8) {
                         Image(systemName: "magnifyingglass")
                             .foregroundColor(.green)
-                            .font(.system(size: 14))
+                            .font(.system(size: 16))
                         
                         TextField("搜索节点...", text: $searchText)
-                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 16))
+                            .textFieldStyle(.plain)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Color(NSColor.controlBackgroundColor))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .stroke(searchText.isEmpty ? Color.clear : Color.green.opacity(0.5), lineWidth: 1)
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(searchText.isEmpty ? Color.gray.opacity(0.3) : Color.green.opacity(0.8), lineWidth: 1.5)
                             )
+                            .cornerRadius(8)
                         
                         if !searchText.isEmpty {
                             Button("×") {
@@ -120,7 +130,7 @@ struct NodeBoardView: View {
                             }
                             .buttonStyle(.plain)
                             .foregroundColor(.green)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.system(size: 16, weight: .medium))
                         }
                     }
                     .frame(maxWidth: .infinity)
