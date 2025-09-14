@@ -456,7 +456,6 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
             <div class="header">
                 <div class="header-right">
                     <span id="selectedCount" class="selected-count"></span>
-                    <span id="tagCount" class="tag-count"></span>
                     <button id="clearSelection" class="clear-btn" style="display: none;">清除选择</button>
                 </div>
             </div>
@@ -696,10 +695,7 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
             
             // 更新标签计数显示
             function updateTagCount(count) {
-                const tagCountElement = document.getElementById('tagCount');
-                if (tagCountElement) {
-                    tagCountElement.textContent = `${count} 个标签`;
-                }
+                // 标签计数显示已移除
             }
             
             // 更新选中状态显示
