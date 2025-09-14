@@ -284,10 +284,8 @@ struct GraphView: View {
     // MARK: - 预设和看板功能
     
     private func showNodeBoardWindow() {
-        // 🆕 创建与当前图谱窗口关联的节点看板窗口
-        let nodeBoardView = NodeBoardView(
-            associatedDataManager: dataManager  // 传递当前窗口的数据管理器
-        )
+        // 创建节点看板窗口
+        let nodeBoardView = NodeBoardView()
         .environmentObject(store)
         
         let hostingView = NSHostingView(rootView: nodeBoardView)

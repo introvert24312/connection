@@ -450,66 +450,6 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                     background: var(--accent);
                     color: white;
                 }
-                .layer-selector {
-                    border: 1px solid var(--border);
-                    border-radius: 8px;
-                    background: var(--card);
-                    padding: 16px;
-                    margin-bottom: 16px;
-                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-                }
-                .layer-selector-header {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 12px;
-                    font-weight: 500;
-                }
-                .layer-selector-header button {
-                    width: 24px;
-                    height: 24px;
-                    border-radius: 50%;
-                    background: var(--border);
-                    border: none;
-                    color: var(--text);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 16px;
-                    line-height: 1;
-                    padding: 0;
-                }
-                .layer-grid {
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 8px;
-                    margin-bottom: 12px;
-                }
-                .layer-chip {
-                    padding: 6px 12px;
-                    border-radius: 6px;
-                    background: var(--border);
-                    border: 1px solid transparent;
-                    cursor: pointer;
-                    user-select: none;
-                    font-size: 12px;
-                    transition: all 0.15s ease;
-                }
-                .layer-chip:hover {
-                    background: var(--accent);
-                    color: white;
-                }
-                .layer-chip.selected {
-                    background: var(--accent);
-                    color: white;
-                    border-color: var(--accent);
-                }
-                .selected-layers {
-                    font-size: 12px;
-                    color: var(--muted);
-                    border-top: 1px solid var(--border);
-                    padding-top: 12px;
-                }
             </style>
         </head>
         <body>
@@ -524,7 +464,7 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
             
             <div class="controls">
                 <input id="search" type="text" placeholder="搜索标签值或类型...">
-                <input id="layerSearch" type="text" placeholder="搜索层级名称（支持多选）...">
+                <input id="layerSearch" type="text" placeholder="搜索层级名称...">
                 <select id="groupBy">
                     <option value="layer">按层级分组</option>
                     <option value="type">按标签类型分组</option>
@@ -532,18 +472,6 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                 </select>
                 <button id="clearFilters">清除筛选</button>
                 <button id="refreshData">刷新数据</button>
-            </div>
-            
-            <div id="layerSelectorContainer" style="display: none;" class="layer-selector">
-                <div class="layer-selector-header">
-                    <span>选择层级（Command+点击多选）:</span>
-                    <button id="closeLayerSelector">×</button>
-                </div>
-                <div id="layerGrid" class="layer-grid"></div>
-                <div class="selected-layers">
-                    <span>已选择: </span>
-                    <span id="selectedLayersDisplay">无</span>
-                </div>
             </div>
             
             <div id="board" class="grid">
@@ -556,7 +484,6 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
             let DATA = [];
             let ALL_LAYERS = new Set();
             const selectedItems = new Set();
-            const selectedLayers = new Set();
             const selectedGroupHeaders = new Set();  // 新增：选中的组头部（层级）
             const selectedTypeHeaders = new Set();   // 新增：选中的标签类型头部
             
@@ -584,7 +511,6 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                     });
                     console.log("📋 收集到层级:", Array.from(ALL_LAYERS));
                     
-                    updateLayerSelector();
                     renderBoard();
                     return "success";
                 } catch (e) {
@@ -593,57 +519,6 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                     return "error";
                 }
             };
-            
-            // 更新层级选择器
-            function updateLayerSelector() {
-                const layerGrid = document.getElementById('layerGrid');
-                const layers = Array.from(ALL_LAYERS).sort();
-                
-                layerGrid.innerHTML = layers.map(layer => {
-                    const isSelected = selectedLayers.has(layer);
-                    return `<div class="layer-chip ${isSelected ? 'selected' : ''}" 
-                                 onclick="toggleLayerSelection('${escapeHtml(layer)}', event)">
-                                ${escapeHtml(layer)}
-                            </div>`;
-                }).join('');
-                
-                updateSelectedLayersDisplay();
-            }
-            
-            // 切换层级选择
-            function toggleLayerSelection(layer, event) {
-                console.log("🎯 切换层级选择:", layer);
-                
-                // 阻止事件冒泡，防止触发外部点击关闭
-                event.stopPropagation();
-                
-                if (event.metaKey || event.ctrlKey) {
-                    // Command/Ctrl+点击: 多选
-                    if (selectedLayers.has(layer)) {
-                        selectedLayers.delete(layer);
-                    } else {
-                        selectedLayers.add(layer);
-                    }
-                } else {
-                    // 普通点击: 单选
-                    selectedLayers.clear();
-                    selectedLayers.add(layer);
-                }
-                
-                updateLayerSelector();
-                renderBoard();
-                notifySelectionChange();
-            }
-            
-            // 更新已选择层级显示
-            function updateSelectedLayersDisplay() {
-                const display = document.getElementById('selectedLayersDisplay');
-                if (selectedLayers.size === 0) {
-                    display.textContent = '无';
-                } else {
-                    display.textContent = Array.from(selectedLayers).join(', ');
-                }
-            }
             
             // 渲染看板
             function renderBoard() {
@@ -663,11 +538,7 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                     const matchesLayerSearch = !layerSearchTerm ||
                         (item.layers && item.layers.some(layer => layer.toLowerCase().includes(layerSearchTerm)));
                     
-                    // 层级选择过滤
-                    const matchesLayers = selectedLayers.size === 0 || 
-                        (item.layers && item.layers.some(layer => selectedLayers.has(layer)));
-                    
-                    return matchesSearch && matchesLayerSearch && matchesLayers;
+                    return matchesSearch && matchesLayerSearch;
                 });
                 
                 if (filtered.length === 0) {
@@ -1020,7 +891,7 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                         const message = {
                             action: 'tagTypeSelected', // 使用新的action类型
                             tagType: typeName,
-                            selectedLayers: Array.from(selectedLayers)
+                            selectedLayers: []
                         };
                         console.log("   - 发送的标签类型消息:", message);
                         window.webkit.messageHandlers.tagIndexBoard.postMessage(message);
@@ -1039,7 +910,7 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
             function notifySelectionChange() {
                 console.log("📤 [新版] 通知选择变化 START");
                 console.log("   - 原始选中项:", Array.from(selectedItems));
-                console.log("   - 选中层级:", Array.from(selectedLayers));
+                console.log("   - 选中层级:", []);
                 
                 const selections = Array.from(selectedItems).map(id => {
                     const [type, value] = id.split(':', 2);
@@ -1053,7 +924,7 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                 });
                 
                 console.log("   - 最终选择数据:", selections);
-                console.log("   - 层级过滤数据:", Array.from(selectedLayers));
+                console.log("   - 层级过滤数据:", []);
                 
                 // 检查messageHandler是否可用
                 if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.tagIndexBoard) {
@@ -1062,7 +933,7 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                         const message = {
                             action: 'selectionChanged',
                             selections: selections,
-                            selectedLayers: Array.from(selectedLayers)
+                            selectedLayers: []
                         };
                         console.log("   - 发送的消息:", message);
                         window.webkit.messageHandlers.tagIndexBoard.postMessage(message);
@@ -1087,43 +958,6 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                 return div.innerHTML;
             }
             
-            // 层级搜索功能
-            function setupLayerSearch() {
-                const layerSearch = document.getElementById('layerSearch');
-                const layerSelectorContainer = document.getElementById('layerSelectorContainer');
-                const closeLayerSelector = document.getElementById('closeLayerSelector');
-                
-                layerSearch.addEventListener('focus', () => {
-                    layerSelectorContainer.style.display = 'block';
-                });
-                
-                layerSearch.addEventListener('input', (e) => {
-                    const searchTerm = e.target.value.toLowerCase();
-                    const layerChips = document.querySelectorAll('.layer-chip');
-                    
-                    layerChips.forEach(chip => {
-                        const layerName = chip.textContent.toLowerCase();
-                        if (!searchTerm || layerName.includes(searchTerm)) {
-                            chip.style.display = 'block';
-                        } else {
-                            chip.style.display = 'none';
-                        }
-                    });
-                });
-                
-                closeLayerSelector.addEventListener('click', () => {
-                    layerSelectorContainer.style.display = 'none';
-                });
-                
-                // 点击外部关闭 - 使用事件捕获阶段，避免与内部点击冲突
-                document.addEventListener('mousedown', (e) => {
-                    // 如果点击的不是层级选择器容器内部，也不是搜索框，则关闭
-                    if (!layerSelectorContainer.contains(e.target) && 
-                        !layerSearch.contains(e.target)) {
-                        layerSelectorContainer.style.display = 'none';
-                    }
-                });
-            }
             
             // 清除筛选功能
             function clearAllFilters() {
@@ -1135,15 +969,10 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                 
                 // 清除选择
                 selectedItems.clear();
-                selectedLayers.clear();
                 selectedGroupHeaders.clear();  // 新增：清除组选择
                 selectedTypeHeaders.clear();   // 新增：清除类型选择
                 
-                // 隐藏层级选择器
-                document.getElementById('layerSelectorContainer').style.display = 'none';
-                
                 // 重新渲染
-                updateLayerSelector();
                 renderBoard();
                 notifySelectionChange();
             }
@@ -1183,9 +1012,6 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                 }
             }
             
-            
-            // 初始化层级搜索功能
-            setupLayerSearch();
             
             // 标记为就绪
             console.log("✅ [新版] JavaScript 初始化完成");
