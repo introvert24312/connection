@@ -334,7 +334,8 @@ struct NodeBoardView: View {
         
         // 🆕 如果有关联的数据管理器，同步选中状态
         if let dataManager = associatedDataManager {
-            dataManager.handleNodeSelectionFromBoard(selectedNodeIds: boardSelectedNodeIds)
+            // NodeGraphDataManager 没有这个方法，暂时注释掉
+            // dataManager.handleNodeSelectionFromBoard(selectedNodeIds: boardSelectedNodeIds)
         }
     }
     
@@ -360,7 +361,8 @@ struct NodeBoardView: View {
         
         // 🆕 如果有关联的数据管理器，同步选中状态
         if let dataManager = associatedDataManager {
-            dataManager.handleNodeSelectionFromBoard(selectedNodeIds: boardSelectedNodeIds)
+            // NodeGraphDataManager 没有这个方法，暂时注释掉
+            // dataManager.handleNodeSelectionFromBoard(selectedNodeIds: boardSelectedNodeIds)
         }
     }
 }
@@ -380,7 +382,7 @@ struct EmptyNodeBoardView: View {
             
             Text("尝试调整搜索条件或创建新节点")
                 .font(.caption)
-                .foregroundColor(.tertiary)
+                .foregroundColor(Color.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 60)
