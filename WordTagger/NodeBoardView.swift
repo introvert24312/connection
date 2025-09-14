@@ -68,51 +68,6 @@ struct NodeBoardView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // 标题栏
-            HStack {
-                Spacer()
-                
-                // 选中状态显示
-                HStack(spacing: 12) {
-                    if !boardSelectedNodeIds.isEmpty {
-                        Text("\(boardSelectedNodeIds.count) 个节点已选中")
-                            .font(.system(size: 12))
-                            .foregroundColor(.blue)
-                    }
-                    
-                    if !boardSelectedLayerIds.isEmpty {
-                        Text("\(boardSelectedLayerIds.count) 个层级已选中")
-                            .font(.system(size: 12))
-                            .foregroundColor(.green)
-                    }
-                    
-                    Text("\(filteredNodes.count) 个节点")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                }
-                
-                // 清除选择按钮
-                if !boardSelectedNodeIds.isEmpty || !boardSelectedLayerIds.isEmpty {
-                    Button("清除选择") {
-                        boardSelectedNodeIds.removeAll()
-                        boardSelectedLayerIds.removeAll()
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                }
-                
-                Button("关闭") {
-                    // Close the current window
-                    if let window = NSApplication.shared.keyWindow {
-                        window.close()
-                    }
-                }
-                .buttonStyle(.bordered)
-            }
-            .padding()
-            .background(Color(NSColor.windowBackgroundColor))
-            
-            Divider()
             
             // 双搜索栏 - 一行布局
             VStack(spacing: 8) {
