@@ -381,14 +381,6 @@ struct LayerSectionHeader: View {
             }
             
             Spacer()
-            
-            // 提示文字
-            if isHovered {
-                Text("点击选择整个层级 • ⌘+点击多选")
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
-                    .transition(.opacity)
-            }
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 8)
@@ -406,7 +398,6 @@ struct LayerSectionHeader: View {
             let currentEvent = NSApp.currentEvent ?? NSEvent()
             onLayerTapped(currentEvent)
         }
-        .help("点击选择整个层级，Command+点击进行多选")
     }
 }
 
