@@ -82,8 +82,8 @@ struct NodeBoardView: View {
                         TextField("搜索层级...", text: $layerSearchText)
                             .font(.system(size: 16))
                             .textFieldStyle(.plain)
+                            .frame(height: 36)
                             .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
                             .background(Color(NSColor.controlBackgroundColor))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 8)
@@ -115,8 +115,8 @@ struct NodeBoardView: View {
                         TextField("搜索节点...", text: $searchText)
                             .font(.system(size: 16))
                             .textFieldStyle(.plain)
+                            .frame(height: 36)
                             .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
                             .background(Color(NSColor.controlBackgroundColor))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 8)
