@@ -11,7 +11,7 @@ struct NodeBoardView: View {
     @Environment(\.dismiss) private var dismiss
     
     @State private var searchText = ""           // 节点搜索
-    @State private var layerSearchText = ""      // 层级搜索文本显示
+    @State private var layerSearchText = ""      // 层级搜索
     @State private var boardSelectedNodeIds: Set<UUID> = []  // 看板内部的选中状态
     @State private var boardSelectedLayerIds: Set<UUID> = [] // 看板内部的选中层级
     @State private var showingLayerSelector = false  // 是否显示层级选择器
@@ -244,9 +244,6 @@ struct NodeBoardView: View {
                         
                         Spacer()
                     }
-                    .padding(.horizontal)
-                    .padding(.bottom, 4)
-                    .transition(.opacity)
                 }
             }
             .padding()
@@ -254,45 +251,69 @@ struct NodeBoardView: View {
             
             Divider()
             
-            // 节点列表
+            // 按层级分组的节点列表
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 12, pinnedViews: [.sectionHeaders]) {
-                    if nodesByLayer.isEmpty {
-                        EmptyNodeBoardView()
-                            .frame(maxWidth: .infinity, minHeight: 400)
-                    } else {
-                        ForEach(nodesByLayer, id: \.layer.id) { layerGroup in
-                            Section {
-                                LazyVGrid(columns: [
-                                    GridItem(.flexible()),
-                                    GridItem(.flexible()),
-                                    GridItem(.flexible())
-                                ], spacing: 12) {
-                                    ForEach(layerGroup.nodes) { node in
-                                        NodeCard(
-                                            node: node,
-                                            layer: layerGroup.layer,
-                                            isSelected: boardSelectedNodeIds.contains(node.id),
-                                            onNodeTapped: { event in
-                                                handleNodeSelection(node: node, event: event)
-                                            }
-                                        )
-                                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                                    }
+                LazyVStack(alignment: .leading, spacing: 16) {
+                    ForEach(nodesByLayer, id: \.layer.id) { layerGroup in
+                        VStack(alignment: .leading, spacing: 12) {
+                            // 层级标题 - 支持点击选择
+                            LayerSectionHeader(
+                                layer: layerGroup.layer, 
+                                nodeCount: layerGroup.nodes.count,
+                                isSelected: boardSelectedLayerIds.contains(layerGroup.layer.id),
+                                onLayerTapped: { event in
+                                    handleLayerSelection(layer: layerGroup.layer, nodes: layerGroup.nodes, commandPressed: event.modifierFlags.contains(.command))
                                 }
-                                .padding(.horizontal)
-                                .padding(.bottom)
-                            } header: {
-                                NodeBoardLayerHeader(
-                                    layer: layerGroup.layer,
-                                    nodeCount: layerGroup.nodes.count,
-                                    isSelected: boardSelectedLayerIds.contains(layerGroup.layer.id),
-                                    onLayerTapped: { event in
-                                        handleLayerSelection(layer: layerGroup.layer, nodes: layerGroup.nodes, event: event)
-                                    }
-                                )
+                            )
+                            
+                            // 节点网格
+                            LazyVGrid(columns: [
+                                GridItem(.flexible(), spacing: 12),
+                                GridItem(.flexible(), spacing: 12),
+                                GridItem(.flexible(), spacing: 12)
+                            ], spacing: 12) {
+                                ForEach(layerGroup.nodes, id: \.id) { node in
+                                    CompactNodeCard(
+                                        node: node, 
+                                        layer: layerGroup.layer,
+                                        isSelected: boardSelectedNodeIds.contains(node.id),
+                                        onNodeTapped: { event in
+                                            handleNodeSelection(node: node, commandPressed: event.modifierFlags.contains(.command))
+                                        }
+                                    )
+                                }
                             }
                         }
+                        .padding(16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(NSColor.controlBackgroundColor))
+                                .stroke(
+                                    boardSelectedLayerIds.contains(layerGroup.layer.id) 
+                                        ? Color.blue.opacity(0.5)
+                                        : Color.gray.opacity(0.2), 
+                                    lineWidth: boardSelectedLayerIds.contains(layerGroup.layer.id) ? 2 : 1
+                                )
+                        )
+                    }
+                    
+                    if nodesByLayer.isEmpty {
+                        VStack(spacing: 16) {
+                            Image(systemName: "doc.text")
+                                .font(.largeTitle)
+                                .foregroundColor(.gray)
+                            
+                            Text("没有找到匹配的节点")
+                                .font(.title3)
+                                .foregroundColor(.secondary)
+                            
+                            if !boardSelectedNodeIds.isEmpty || !boardSelectedLayerIds.isEmpty {
+                                Text("当前筛选条件下没有节点")
+                                    .font(.body)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 200)
                     }
                 }
                 .padding()
@@ -319,77 +340,87 @@ struct NodeBoardView: View {
     
     // MARK: - 选择处理函数
     
-    private func handleNodeSelection(node: Node, event: NSEvent) {
-        if event.modifierFlags.contains(.command) {
-            // Command+点击：多选切换
-            if boardSelectedNodeIds.contains(node.id) {
-                boardSelectedNodeIds.remove(node.id)
-            } else {
-                boardSelectedNodeIds.insert(node.id)
-            }
-        } else {
-            // 普通点击：单选
-            boardSelectedNodeIds = [node.id]
-        }
-        
-        // 🆕 如果有关联的数据管理器，同步选中状态
-        if let dataManager = associatedDataManager {
-            dataManager.handleNodeSelectionFromBoard(selectedNodeIds: boardSelectedNodeIds)
-        }
-    }
-    
-    private func handleLayerSelection(layer: Layer, nodes: [Node], event: NSEvent) {
+    private func handleLayerSelection(layer: Layer, nodes: [Node], commandPressed: Bool) {
+        let layerId = layer.id
         let nodeIds = Set(nodes.map { $0.id })
         
-        if event.modifierFlags.contains(.command) {
-            // Command+点击：多选切换
-            if boardSelectedLayerIds.contains(layer.id) {
-                boardSelectedLayerIds.remove(layer.id)
-                // 取消选中该层的所有节点
+        if commandPressed {
+            // Command+点击：多选层级
+            if boardSelectedLayerIds.contains(layerId) {
+                // 取消选择该层级和其所有节点
+                boardSelectedLayerIds.remove(layerId)
                 boardSelectedNodeIds.subtract(nodeIds)
+                print("🔄 取消选择层级: \(layer.displayName) (\(nodes.count)个节点)")
             } else {
-                boardSelectedLayerIds.insert(layer.id)
-                // 选中该层的所有节点
+                // 添加选择该层级和其所有节点
+                boardSelectedLayerIds.insert(layerId)
                 boardSelectedNodeIds.formUnion(nodeIds)
+                print("✅ 多选添加层级: \(layer.displayName) (\(nodes.count)个节点)")
             }
         } else {
-            // 普通点击：单选
-            boardSelectedLayerIds = [layer.id]
-            boardSelectedNodeIds = nodeIds
+            // 普通点击：单选层级
+            boardSelectedLayerIds.removeAll()
+            boardSelectedNodeIds.removeAll()
+            boardSelectedLayerIds.insert(layerId)
+            boardSelectedNodeIds.formUnion(nodeIds)
+            print("🎯 单选层级: \(layer.displayName) (\(nodes.count)个节点)")
         }
         
-        // 🆕 如果有关联的数据管理器，同步选中状态
+        // 通知主应用选择状态变化
+        notifySelectionChange()
+    }
+    
+    private func handleNodeSelection(node: Node, commandPressed: Bool) {
+        let nodeId = node.id
+        
+        if commandPressed {
+            // Command+点击：多选节点
+            if boardSelectedNodeIds.contains(nodeId) {
+                boardSelectedNodeIds.remove(nodeId)
+                print("🔄 取消选择节点: \(node.text)")
+            } else {
+                boardSelectedNodeIds.insert(nodeId)
+                print("✅ 多选添加节点: \(node.text)")
+            }
+        } else {
+            // 普通点击：单选节点并选中主应用中的节点
+            store.selectNode(node)
+            boardSelectedNodeIds.removeAll()
+            boardSelectedNodeIds.insert(nodeId)
+            print("🎯 单选节点: \(node.text)")
+        }
+        
+        // 通知主应用选择状态变化
+        notifySelectionChange()
+    }
+    
+    private func notifySelectionChange() {
+        print("📤 节点看板选择状态变化:")
+        print("   - 选中节点: \(boardSelectedNodeIds.count) 个")
+        print("   - 选中层级: \(boardSelectedLayerIds.count) 个")
+        
+        // 🆕 如果有关联的数据管理器，直接更新它；否则发送全局通知
         if let dataManager = associatedDataManager {
-            dataManager.handleNodeSelectionFromBoard(selectedNodeIds: boardSelectedNodeIds)
+            print("📤 [节点看板] 更新关联数据管理器")
+            dataManager.updateSelectedNodes(boardSelectedNodeIds)
+            dataManager.updateSelectedLayers(boardSelectedLayerIds)
+        } else {
+            print("📤 [节点看板] 发送全局选择变化通知")
+            // 向后兼容：发送通知给主界面的GraphView更新选择状态
+            NotificationCenter.default.post(
+                name: Notification.Name("NodeBoardSelectionChanged"),
+                object: nil,
+                userInfo: [
+                    "selectedNodeIds": Array(boardSelectedNodeIds),
+                    "selectedLayerIds": Array(boardSelectedLayerIds)
+                ]
+            )
         }
     }
 }
 
-// MARK: - 空状态视图
-
-struct EmptyNodeBoardView: View {
-    var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "square.stack.3d.up.slash")
-                .font(.system(size: 48))
-                .foregroundColor(.gray)
-            
-            Text("暂无节点")
-                .font(.title3)
-                .foregroundColor(.secondary)
-            
-            Text("尝试调整搜索条件或创建新节点")
-                .font(.caption)
-                .foregroundColor(.tertiary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 60)
-    }
-}
-
-// MARK: - 层级标题视图
-
-struct NodeBoardLayerHeader: View {
+// MARK: - 层级分组标题
+struct LayerSectionHeader: View {
     let layer: Layer
     let nodeCount: Int
     let isSelected: Bool
@@ -399,36 +430,29 @@ struct NodeBoardLayerHeader: View {
     
     var body: some View {
         HStack(spacing: 8) {
+            // 选中状态指示器
+            Image(systemName: isSelected ? "checkmark.square.fill" : "square")
+                .font(.title3)
+                .foregroundColor(isSelected ? .blue : .secondary)
+            
             // 层级颜色指示器
             Circle()
                 .fill(Color.from(layer.color))
-                .frame(width: 14, height: 14)
+                .frame(width: 16, height: 16)
                 .shadow(radius: 1)
             
-            // 层级名称
             Text(layer.displayName)
-                .font(.headline)
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(isSelected ? .blue : .primary)
             
-            // 节点数量
             Text("(\(nodeCount))")
-                .font(.caption)
+                .font(.system(size: 13))
                 .foregroundColor(.secondary)
             
-            // 层级类型指示器
             if layer.isCompound {
-                HStack(spacing: 4) {
-                    Image(systemName: "square.stack.3d.up")
-                        .font(.system(size: 12))
-                        .foregroundColor(.purple)
-                    Text("复合层")
-                        .font(.caption)
-                        .foregroundColor(.purple)
-                }
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Color.purple.opacity(0.1))
-                .cornerRadius(4)
+                Image(systemName: "square.stack.3d.up")
+                    .font(.caption)
+                    .foregroundColor(.blue)
             }
             
             Spacer()
@@ -440,80 +464,53 @@ struct NodeBoardLayerHeader: View {
             RoundedRectangle(cornerRadius: 8)
                 .fill(isSelected ? Color.blue.opacity(0.1) : (isHovered ? Color.primary.opacity(0.05) : Color.clear))
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 2)
-        )
-        .contentShape(Rectangle())
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
+            withAnimation(.easeInOut(duration: 0.2)) {
                 isHovered = hovering
             }
         }
         .onTapGesture {
+            // 由于无法直接获取NSEvent，我们创建一个模拟事件
             let currentEvent = NSApp.currentEvent ?? NSEvent()
             onLayerTapped(currentEvent)
         }
     }
 }
 
-// MARK: - 节点卡片视图
-
-struct NodeCard: View {
+// MARK: - 紧凑节点卡片
+struct CompactNodeCard: View {
     let node: Node
     let layer: Layer
     let isSelected: Bool
     let onNodeTapped: (NSEvent) -> Void
-    
-    @State private var isHovered = false
     @EnvironmentObject private var store: NodeStore
     
-    private var formattedText: String {
-        guard !node.text.isEmpty else { return "" }
-        
-        // 首先处理换行符，统一替换为空格
-        var processedText = node.text
-            .replacingOccurrences(of: "\n", with: " ")
-            .replacingOccurrences(of: "\r", with: " ")
-            .replacingOccurrences(of: "\t", with: " ")
-        
-        // 移除多余的空格
-        while processedText.contains("  ") {
-            processedText = processedText.replacingOccurrences(of: "  ", with: " ")
-        }
-        
-        // 处理长文本：智能截断
-        let maxLength = 120
-        if processedText.count > maxLength {
-            // 找到合适的截断点（单词边界）
-            let truncateIndex = processedText.index(processedText.startIndex, offsetBy: maxLength)
-            let substring = String(processedText[..<truncateIndex])
-            
-            // 尝试在最后一个空格处截断
-            if let lastSpace = substring.lastIndex(of: " ") {
-                return String(processedText[..<lastSpace]) + "..."
-            } else {
-                return substring + "..."
-            }
-        }
-        
-        return processedText.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
+    @State private var isHovered = false
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // 顶部：节点文本
-            Text(formattedText)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.primary)
-                .lineLimit(3)
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(alignment: .leading, spacing: 10) {
+            // 节点名称和选中状态
+            HStack {
+                Text(node.text)
+                    .font(.system(size: 16, weight: .medium))  // 增大字体从13到16
+                    .foregroundColor(isSelected ? .blue : .primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                
+                Spacer()
+                
+                // 选中状态指示器
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 14))  // 增大图标
+                        .foregroundColor(.blue)
+                }
+            }
             
-            // 含义（如果有）
-            if let meaning = node.meaning, !meaning.isEmpty {
+            // 节点含义
+            if let meaning = node.meaning {
                 Text(meaning)
-                    .font(.system(size: 12))
+                    .font(.system(size: 14))  // 增大字体从12到14
                     .foregroundColor(.secondary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
@@ -627,6 +624,48 @@ struct LayerSelectorPopover: View {
     @EnvironmentObject private var store: NodeStore
     @State private var searchText = ""
     
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // 标题栏
+            HStack {
+                Text("选择层级（Command+点击多选）")
+                    .font(.headline)
+                    .foregroundColor(.secondary)
+                
+                Spacer()
+                
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding()
+            
+            Divider()
+            
+            // 层级内容
+            LayerSelectorContent(
+                selectedLayers: $selectedLayers,
+                layerSearchText: $layerSearchText,
+                searchText: $searchText
+            )
+            .environmentObject(store)
+        }
+        .frame(width: 400)
+        .onAppear {
+            // 同步外部搜索文本
+            searchText = layerSearchText
+        }
+    }
+}
+
+struct LayerSelectorContent: View {
+    @Binding var selectedLayers: Set<String>
+    @Binding var layerSearchText: String
+    @Binding var searchText: String
+    @EnvironmentObject private var store: NodeStore
+    
     private var filteredLayers: [Layer] {
         if searchText.isEmpty {
             return store.layers.sorted(by: { $0.displayName < $1.displayName })
@@ -738,12 +777,6 @@ struct LayerSelectorPopover: View {
             }
         }
         .frame(width: 400)
-        .onAppear {
-            // 如果外部已经有搜索文本，同步到内部
-            if !layerSearchText.isEmpty && !layerSearchText.contains("个层级") {
-                searchText = layerSearchText
-            }
-        }
     }
     
     private func updateLayerSearchText() {

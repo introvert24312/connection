@@ -2,7 +2,7 @@ import SwiftUI
 import WebKit
 import Foundation
 
-// MARK: - 新版标签索引看板 - 重构版本
+// MARK: - 新版标签看板 - 重构版本
 
 /// 标签索引窗口管理器 - 支持多开版
 @MainActor
@@ -30,7 +30,7 @@ class NewTagIndexWindowManager: ObservableObject {
         )
         
         newWindow.contentView = hostingView
-        newWindow.title = "标签索引看板"
+        newWindow.title = "标签看板"
         newWindow.setFrameAutosaveName("NewTagIndexBoardWindow")
         newWindow.isReleasedWhenClosed = false
         
@@ -46,7 +46,7 @@ class NewTagIndexWindowManager: ObservableObject {
         // self.window = newWindow
         newWindow.makeKeyAndOrderFront(nil)
         
-        print("🪟 [新标签索引看板] 窗口已创建（支持多开）")
+        print("🪟 [新标签看板] 窗口已创建（支持多开）")
     }
     
     func closeWindow() {
@@ -70,7 +70,7 @@ private class WindowCloseDelegate: NSObject, NSWindowDelegate {
     }
 }
 
-// MARK: - 新版标签索引看板主视图
+// MARK: - 新版标签看板主视图
 struct NewTagIndexBoardView: View {
     @EnvironmentObject private var store: NodeStore
     @StateObject private var webViewModel: NewTagIndexWebViewModel
@@ -82,36 +82,17 @@ struct NewTagIndexBoardView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // 顶部工具栏 - 只保留关闭按钮
-            HStack {
-                Spacer()
-                
-                // 关闭按钮
-                Button(action: {
-                    NewTagIndexWindowManager.shared.closeWindow()
-                }) {
-                    Image(systemName: "xmark.circle")
-                        .font(.title2)
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding()
-            .background(Color(NSColor.controlBackgroundColor))
-            
-            Divider()
-            
             // WebView
             NewTagIndexWebView(viewModel: webViewModel)
         }
         .onAppear {
-            print("🔄 [新标签索引看板] 视图出现")
+            print("🔄 [新标签看板] 视图出现")
             refreshData()
         }
     }
     
     private func refreshData() {
-        print("🔄 [新标签索引看板] 开始刷新数据")
+        print("🔄 [新标签看板] 开始刷新数据")
         webViewModel.loadTagData(from: store)
     }
 }
@@ -230,7 +211,7 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>标签索引看板</title>
+            <title>标签看板</title>
             <style>
                 /* Light theme (default) */
                 :root {
@@ -269,9 +250,44 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                     padding-bottom: 12px;
                     border-bottom: 1px solid var(--border);
                 }
+                .header {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                }
                 .header h1 {
                     margin: 0;
                     font-size: 18px;
+                }
+                .header-right {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                }
+                .tag-count {
+                    font-size: 12px;
+                    color: var(--muted);
+                    font-weight: normal;
+                }
+                .selected-count {
+                    font-size: 12px;
+                    color: #007AFF;
+                    font-weight: normal;
+                }
+                .clear-btn {
+                    font-size: 12px;
+                    padding: 4px 8px;
+                    height: 24px;
+                    background: var(--card);
+                    color: var(--text);
+                    border: 1px solid var(--border);
+                    border-radius: 4px;
+                    cursor: pointer;
+                }
+                .clear-btn:hover {
+                    background: var(--accent);
+                    color: white;
+                    border-color: var(--accent);
                 }
                 .hint {
                     color: var(--muted);
@@ -498,7 +514,12 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
         </head>
         <body>
             <div class="header">
-                <h1>标签索引看板</h1>
+                <h1>标签看板</h1>
+                <div class="header-right">
+                    <span id="selectedCount" class="selected-count"></span>
+                    <span id="tagCount" class="tag-count"></span>
+                    <button id="clearSelection" class="clear-btn" style="display: none;">清除选择</button>
+                </div>
             </div>
             
             <div class="controls">
@@ -530,7 +551,7 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
             </div>
             
             <script>
-            console.log("🚀 新版标签索引看板 JavaScript 初始化");
+            console.log("🚀 新版标签看板 JavaScript 初始化");
             
             let DATA = [];
             let ALL_LAYERS = new Set();
@@ -592,6 +613,9 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
             // 切换层级选择
             function toggleLayerSelection(layer, event) {
                 console.log("🎯 切换层级选择:", layer);
+                
+                // 阻止事件冒泡，防止触发外部点击关闭
+                event.stopPropagation();
                 
                 if (event.metaKey || event.ctrlKey) {
                     // Command/Ctrl+点击: 多选
@@ -656,11 +680,16 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                     // 不分组时按使用次数排序
                     filtered.sort((a, b) => (b.count || 0) - (a.count || 0));
                     board.innerHTML = '<div class="grid">' + filtered.map(renderChip).join('') + '</div>';
+                    // 更新标签计数
+                    updateTagCount(filtered.length);
                 } else if (groupBy === 'layer') {
                     renderGroupedByLayer(board, filtered);
                 } else if (groupBy === 'type') {
                     renderGroupedByType(board, filtered);
                 }
+                
+                // 更新选中状态显示
+                updateSelectionDisplay();
             }
             
             // 渲染单个标签芯片
@@ -755,6 +784,9 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                 });
                 
                 board.innerHTML = html;
+                
+                // 更新标签计数
+                updateTagCount(data.length);
             }
             
             // 按标签类型分组渲染
@@ -787,6 +819,33 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                 });
                 
                 board.innerHTML = html;
+                
+                // 更新标签计数
+                updateTagCount(data.length);
+            }
+            
+            // 更新标签计数显示
+            function updateTagCount(count) {
+                const tagCountElement = document.getElementById('tagCount');
+                if (tagCountElement) {
+                    tagCountElement.textContent = `${count} 个标签`;
+                }
+            }
+            
+            // 更新选中状态显示
+            function updateSelectionDisplay() {
+                const selectedCountElement = document.getElementById('selectedCount');
+                const clearButton = document.getElementById('clearSelection');
+                const selectedCount = selectedItems.size;
+                
+                if (selectedCount > 0) {
+                    selectedCountElement.textContent = `${selectedCount} 个标签已选中`;
+                    selectedCountElement.style.display = 'inline';
+                    clearButton.style.display = 'inline-block';
+                } else {
+                    selectedCountElement.style.display = 'none';
+                    clearButton.style.display = 'none';
+                }
             }
             
             // 切换选择状态
@@ -1056,8 +1115,9 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                     layerSelectorContainer.style.display = 'none';
                 });
                 
-                // 点击外部关闭
-                document.addEventListener('click', (e) => {
+                // 点击外部关闭 - 使用事件捕获阶段，避免与内部点击冲突
+                document.addEventListener('mousedown', (e) => {
+                    // 如果点击的不是层级选择器容器内部，也不是搜索框，则关闭
                     if (!layerSelectorContainer.contains(e.target) && 
                         !layerSearch.contains(e.target)) {
                         layerSelectorContainer.style.display = 'none';
@@ -1094,6 +1154,14 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
             document.getElementById('groupBy').addEventListener('change', renderBoard);
             document.getElementById('clearFilters').addEventListener('click', clearAllFilters);
             document.getElementById('refreshData').addEventListener('click', refreshDataFromWebView);
+            
+            // 清除选择按钮
+            document.getElementById('clearSelection').addEventListener('click', () => {
+                selectedItems.clear();
+                selectedTypeHeaders.clear();
+                renderBoard();
+                notifySelectionChange();
+            });
             
             // 🆕 刷新数据功能
             function refreshDataFromWebView() {
