@@ -1115,6 +1115,7 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                 }
             }
             
+            
             // 初始化层级搜索功能
             setupLayerSearch();
             
@@ -1325,6 +1326,7 @@ extension NewTagIndexWebViewModel: WKScriptMessageHandler {
             return .custom(displayName.lowercased().replacingOccurrences(of: " ", with: "_"))
         }
     }
+    
 }
 
 // MARK: - 弱引用Script消息处理器

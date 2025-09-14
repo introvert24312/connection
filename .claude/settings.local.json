@@ -78,7 +78,8 @@
       "Bash(iconutil:*)",
       "Bash(sips:*)",
       "Bash(zip:*)",
-      "Bash(gh release create:*)"
+      "Bash(gh release create:*)",
+      "Bash(/Users/Patronum/Desktop/Connection/create_dmg.sh:*)"
     ],
     "deny": []
   }

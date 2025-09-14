@@ -852,6 +852,9 @@ struct LayerSelectionBoardView: View {
     @State private var newLayerDisplayName = ""
     @State private var newLayerColor = "blue"
     @State private var showingDeleteSelectedAlert = false
+    @State private var showingEditLayerDialog = false
+    @State private var editingLayer: Layer?
+    @State private var editLayerDisplayName = ""
     
     private var filteredLayers: [Layer] {
         let filtered = store.layers.filter { layer in
@@ -873,14 +876,6 @@ struct LayerSelectionBoardView: View {
                     .fontWeight(.semibold)
                 
                 Spacer()
-                
-                Button("完成") {
-                    // Close the current window
-                    if let window = NSApplication.shared.keyWindow {
-                        window.close()
-                    }
-                }
-                .buttonStyle(.bordered)
             }
             .padding()
             .background(Color(NSColor.windowBackgroundColor))
@@ -969,6 +964,11 @@ struct LayerSelectionBoardView: View {
                                 } else {
                                     selectedLayerIds.insert(layer.id)
                                 }
+                            },
+                            onEdit: { layerToEdit in
+                                showingEditLayerDialog = true
+                                editingLayer = layerToEdit
+                                editLayerDisplayName = layerToEdit.displayName
                             }
                         )
                     }
@@ -1001,6 +1001,15 @@ struct LayerSelectionBoardView: View {
             
             Text("确定要删除选中的 \(selectedLayerIds.count) 个层吗？\n\n这将删除 \(totalNodes) 个节点及其所有数据。此操作无法撤销。")
         }
+        .sheet(isPresented: $showingEditLayerDialog) {
+            EditLayerDialogView(
+                layer: editingLayer ?? Layer(name: "", displayName: "", color: "blue"),
+                editLayerDisplayName: $editLayerDisplayName,
+                onCancel: { showingEditLayerDialog = false },
+                onConfirm: { updateLayerName() }
+            )
+            .environmentObject(store)
+        }
     }
     
     private func createNewLayer() {
@@ -1031,6 +1040,59 @@ struct LayerSelectionBoardView: View {
         }
         selectedLayerIds.removeAll()
         print("🗑️ 删除了 \(selectedLayers.count) 个层")
+    }
+    
+    private func updateLayerName() {
+        guard let layer = editingLayer else { return }
+        
+        let trimmedName = editLayerDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return }
+        
+        // 更新层名
+        store.updateLayerDisplayName(layer: layer, newDisplayName: trimmedName)
+        
+        // 关闭对话框
+        showingEditLayerDialog = false
+        
+        print("✅ 更新层名: \(layer.displayName) -> \(trimmedName)")
+    }
+}
+
+// MARK: - 编辑层名对话框
+struct EditLayerDialogView: View {
+    let layer: Layer
+    @Binding var editLayerDisplayName: String
+    let onCancel: () -> Void
+    let onConfirm: () -> Void
+    @FocusState private var isFocused: Bool
+    
+    var isFormValid: Bool {
+        !editLayerDisplayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        editLayerDisplayName.trimmingCharacters(in: .whitespacesAndNewlines) != layer.displayName
+    }
+    
+    var body: some View {
+        TextField("层名", text: $editLayerDisplayName)
+            .textFieldStyle(.roundedBorder)
+            .font(.system(size: 14))
+            .focused($isFocused)
+            .onSubmit {
+                if isFormValid {
+                    onConfirm()
+                }
+            }
+            .onAppear {
+                // 自动聚焦并选中全部文本
+                isFocused = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    if let window = NSApplication.shared.keyWindow,
+                       let fieldEditor = window.fieldEditor(false, for: nil) as? NSText {
+                        fieldEditor.selectAll(nil)
+                    }
+                }
+            }
+            .padding(16)
+            .frame(width: 250)
     }
 }
 
@@ -1134,11 +1196,11 @@ struct LayerSelectionCard: View {
     let layer: Layer
     let isSelected: Bool
     let onToggle: () -> Void
+    var onEdit: ((Layer) -> Void)?
     @EnvironmentObject private var store: NodeStore
     
     var body: some View {
-        Button(action: onToggle) {
-            VStack(spacing: 8) {
+        VStack(spacing: 8) {
                 // 顶部：选择状态和颜色指示器
                 HStack {
                     // 层颜色指示器
@@ -1173,7 +1235,7 @@ struct LayerSelectionCard: View {
                 }
                 
                 // 中间：层名称
-                Text(layer.name)
+                Text(layer.displayName)
                     .font(.headline)
                     .foregroundColor(.primary)
                     .lineLimit(2)
@@ -1206,17 +1268,25 @@ struct LayerSelectionCard: View {
                             .cornerRadius(3)
                     }
                 }
-            }
-            .padding(12)
-            .frame(minHeight: 100)  // 设置最小高度保持一致性
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isSelected ? Color.blue.opacity(0.1) : Color(NSColor.controlBackgroundColor))
-                    .stroke(isSelected ? Color.blue : Color.gray.opacity(0.3), lineWidth: isSelected ? 2 : 1)
-            )
         }
-        .buttonStyle(PlainButtonStyle())
+        .padding(12)
+        .frame(minHeight: 100)  // 设置最小高度保持一致性
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(isSelected ? Color.blue.opacity(0.1) : Color(NSColor.controlBackgroundColor))
+                .stroke(isSelected ? Color.blue : Color.gray.opacity(0.3), lineWidth: isSelected ? 2 : 1)
+        )
         .contentShape(Rectangle())
+        .onTapGesture { location in
+            // 检查是否按下了 Option 键
+            if NSEvent.modifierFlags.contains(.option) {
+                // Option+点击：编辑层名
+                onEdit?(layer)
+            } else {
+                // 普通点击：切换选择状态
+                onToggle()
+            }
+        }
     }
 }
 
