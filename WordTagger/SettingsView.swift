@@ -1643,13 +1643,6 @@ struct SettingsView: View {
                     Label("常规", systemImage: "gear")
                 }
             
-            // 层管理
-            LayerManagementView()
-                .tabItem {
-                    Label("层管理", systemImage: "square.stack.3d.up")
-                }
-                .environmentObject(store)
-            
             // 数据管理
             DataManagementView()
                 .tabItem {

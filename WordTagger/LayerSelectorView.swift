@@ -12,13 +12,12 @@ struct LayerSelectorView: View {
     
     private var filteredLayers: [Layer] {
         if searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return store.layers.sorted { $0.displayName < $1.displayName }
+            return store.layers.sorted { $0.name < $1.name }
         }
         
         return store.layers.filter { layer in
-            layer.displayName.localizedCaseInsensitiveContains(searchQuery) ||
             layer.name.localizedCaseInsensitiveContains(searchQuery)
-        }.sorted { $0.displayName < $1.displayName }
+        }.sorted { $0.name < $1.name }
     }
     
     var body: some View {
@@ -32,17 +31,12 @@ struct LayerSelectorView: View {
                 
                 Spacer()
                 
-                Text("选择要显示的层")
+                Text("层看板")
                     .font(.headline)
                     .fontWeight(.semibold)
                 
                 Spacer()
                 
-                Button("完成") {
-                    selectedLayerIds = tempSelectedIds
-                    dismiss()
-                }
-                .buttonStyle(.borderedProminent)
             }
             .padding()
             .background(Color(NSColor.controlBackgroundColor))
@@ -69,23 +63,23 @@ struct LayerSelectorView: View {
             // 快速选择按钮
             HStack {
                 Button("全选") {
-                    tempSelectedIds = Set(store.layers.map { $0.id })
+                    selectedLayerIds = Set(store.layers.map { $0.id })
                 }
                 .buttonStyle(.bordered)
                 
                 Button("全不选") {
-                    tempSelectedIds.removeAll()
+                    selectedLayerIds.removeAll()
                 }
                 .buttonStyle(.bordered)
                 
                 Button("显示所有层") {
-                    tempSelectedIds.removeAll() // 空集表示显示所有层
+                    selectedLayerIds.removeAll() // 空集表示显示所有层
                 }
                 .buttonStyle(.bordered)
                 
                 if let currentLayer = store.currentLayer {
                     Button("仅当前层") {
-                        tempSelectedIds = Set([currentLayer.id])
+                        selectedLayerIds = Set([currentLayer.id])
                     }
                     .buttonStyle(.bordered)
                 }
@@ -103,7 +97,7 @@ struct LayerSelectorView: View {
                     ForEach(filteredLayers, id: \.id) { layer in
                         LayerSelectorRow(
                             layer: layer,
-                            isSelected: tempSelectedIds.contains(layer.id),
+                            isSelected: selectedLayerIds.contains(layer.id),
                             isCurrentLayer: store.currentLayer?.id == layer.id
                         ) {
                             toggleLayer(layer)
@@ -129,16 +123,13 @@ struct LayerSelectorView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear {
-            tempSelectedIds = selectedLayerIds
-        }
     }
     
     private func toggleLayer(_ layer: Layer) {
-        if tempSelectedIds.contains(layer.id) {
-            tempSelectedIds.remove(layer.id)
+        if selectedLayerIds.contains(layer.id) {
+            selectedLayerIds.remove(layer.id)
         } else {
-            tempSelectedIds.insert(layer.id)
+            selectedLayerIds.insert(layer.id)
         }
     }
 }
@@ -151,6 +142,7 @@ struct LayerSelectorRow: View {
     let isSelected: Bool
     let isCurrentLayer: Bool
     let onToggle: () -> Void
+    @State private var showingDeleteAlert = false
     
     var body: some View {
         HStack(spacing: 12) {
@@ -170,7 +162,7 @@ struct LayerSelectorRow: View {
             // 层级信息
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
-                    Text(layer.displayName)
+                    Text(layer.name)
                         .font(.body)
                         .fontWeight(.medium)
                     
@@ -195,21 +187,33 @@ struct LayerSelectorRow: View {
                     }
                     
                     Spacer()
-                    
-                    // 节点数量
-                    let nodeCount = store.nodes.filter { $0.layerId == layer.id }.count
-                    Text("\(nodeCount)个节点")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
                 }
                 
-                Text("(\(layer.name))")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
+                // 综合统计信息
+                HStack(spacing: 4) {
+                    let nodeCount = store.nodes.filter { $0.layerId == layer.id }.count
+                    let tagCount = store.nodes.filter { $0.layerId == layer.id }.flatMap { $0.tags }.count
+                    Text("\(nodeCount) 节点")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("\(tagCount) 标签")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
             }
             
-            Spacer()
+            // 删除层按钮
+            Button(action: {
+                showingDeleteAlert = true
+            }) {
+                Image(systemName: "trash")
+                    .font(.caption)
+                    .foregroundColor(.red)
+                    .opacity(0.7)
+            }
+            .buttonStyle(.plain)
+            .help("删除层")
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 4)
@@ -219,6 +223,15 @@ struct LayerSelectorRow: View {
         )
         .onTapGesture {
             onToggle()
+        }
+        .alert("删除层", isPresented: $showingDeleteAlert) {
+            Button("取消", role: .cancel) { }
+            Button("删除", role: .destructive) {
+                store.deleteLayer(layer)
+            }
+        } message: {
+            let nodeCount = store.nodes.filter { $0.layerId == layer.id }.count
+            Text("确定要删除层 \"\(layer.name)\" 吗？\n\n这将删除该层中的 \(nodeCount) 个节点及其所有数据。此操作无法撤销。")
         }
     }
 }

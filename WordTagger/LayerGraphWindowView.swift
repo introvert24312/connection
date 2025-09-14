@@ -643,7 +643,6 @@ struct LayerGraphWindowView: View {
     
     private func showLayerSelectionWindow() {
         let layerBoardView = LayerSelectionBoardView(
-            layers: store.layers,
             selectedLayerIds: $filteredLayerIds,
             onClose: { }  // Window will handle its own closing
         )
@@ -842,7 +841,6 @@ struct LayerGraphWindowView: View {
 
 // MARK: - 层选择看板视图
 struct LayerSelectionBoardView: View {
-    let layers: [Layer]
     @Binding var selectedLayerIds: Set<UUID>
     let onClose: () -> Void
     
@@ -853,9 +851,10 @@ struct LayerSelectionBoardView: View {
     @State private var newLayerName = ""
     @State private var newLayerDisplayName = ""
     @State private var newLayerColor = "blue"
+    @State private var showingDeleteSelectedAlert = false
     
     private var filteredLayers: [Layer] {
-        let filtered = layers.filter { layer in
+        let filtered = store.layers.filter { layer in
             let matchesSearch = searchText.isEmpty || 
                                layer.displayName.localizedCaseInsensitiveContains(searchText) ||
                                layer.name.localizedCaseInsensitiveContains(searchText)
@@ -934,9 +933,16 @@ struct LayerSelectionBoardView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     
+                    Button("删除选中") {
+                        showingDeleteSelectedAlert = true
+                    }
+                    .buttonStyle(.bordered)
+                    .foregroundColor(.red)
+                    .disabled(selectedLayerIds.isEmpty)
+                    
                     Spacer()
                     
-                    Text("\(selectedLayerIds.count)/\(layers.count) 已选择")
+                    Text("\(selectedLayerIds.count)/\(store.layers.count) 已选择")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -982,6 +988,19 @@ struct LayerSelectionBoardView: View {
             )
             .environmentObject(store)
         }
+        .alert("删除选中的层", isPresented: $showingDeleteSelectedAlert) {
+            Button("取消", role: .cancel) { }
+            Button("删除", role: .destructive) {
+                deleteSelectedLayers()
+            }
+        } message: {
+            let selectedLayers = store.layers.filter { selectedLayerIds.contains($0.id) }
+            let totalNodes = selectedLayers.flatMap { layer in
+                store.nodes.filter { $0.layerId == layer.id }
+            }.count
+            
+            Text("确定要删除选中的 \(selectedLayerIds.count) 个层吗？\n\n这将删除 \(totalNodes) 个节点及其所有数据。此操作无法撤销。")
+        }
     }
     
     private func createNewLayer() {
@@ -1003,6 +1022,15 @@ struct LayerSelectionBoardView: View {
         showingNewLayerDialog = false
         
         print("✅ 创建新层: \(actualDisplayName) (\(actualName))")
+    }
+    
+    private func deleteSelectedLayers() {
+        let selectedLayers = store.layers.filter { selectedLayerIds.contains($0.id) }
+        for layer in selectedLayers {
+            store.deleteLayer(layer)
+        }
+        selectedLayerIds.removeAll()
+        print("🗑️ 删除了 \(selectedLayers.count) 个层")
     }
 }
 
@@ -1106,6 +1134,7 @@ struct LayerSelectionCard: View {
     let layer: Layer
     let isSelected: Bool
     let onToggle: () -> Void
+    @EnvironmentObject private var store: NodeStore
     
     var body: some View {
         Button(action: onToggle) {
@@ -1144,32 +1173,38 @@ struct LayerSelectionCard: View {
                 }
                 
                 // 中间：层名称
-                VStack(spacing: 2) {
-                    Text(layer.displayName)
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.center)
-                    
-                    Text(layer.name)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                }
+                Text(layer.name)
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
                 
-                // 底部：额外信息
-                if layer.isCompound && !layer.childLayerIds.isEmpty {
-                    Text("\(layer.childLayerIds.count) 子层")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 1)
-                        .background(Color.secondary.opacity(0.1))
-                        .cornerRadius(3)
-                } else {
-                    // 占位空间保持卡片高度一致
-                    Text("")
-                        .font(.caption2)
+                // 底部：统计信息
+                VStack(spacing: 2) {
+                    // 节点和标签统计
+                    HStack(spacing: 8) {
+                        let nodeCount = store.nodes.filter { $0.layerId == layer.id }.count
+                        let tagCount = store.nodes.filter { $0.layerId == layer.id }.flatMap { $0.tags }.count
+                        
+                        Text("\(nodeCount) 节点")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        
+                        Text("\(tagCount) 标签")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    // 复合层信息
+                    if layer.isCompound && !layer.childLayerIds.isEmpty {
+                        Text("\(layer.childLayerIds.count) 子层")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(Color.secondary.opacity(0.1))
+                            .cornerRadius(3)
+                    }
                 }
             }
             .padding(12)
@@ -1541,7 +1576,7 @@ struct LayerDropdownItem: View {
                 // 层信息
                 VStack(alignment: .leading, spacing: 2) {
                     HStack {
-                        Text(layer.displayName)
+                        Text(layer.name)
                             .font(.system(size: 14, weight: .medium))
                             .foregroundColor(.primary)
                             .lineLimit(1)
@@ -1561,12 +1596,6 @@ struct LayerDropdownItem: View {
                         }
                     }
                     
-                    if layer.displayName != layer.name {
-                        Text(layer.name)
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
-                    }
                 }
                 
                 Spacer()
