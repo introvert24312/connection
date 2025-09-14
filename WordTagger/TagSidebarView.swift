@@ -22,6 +22,7 @@ struct TagSidebarView: View {
     @State private var searchFocusMode: SearchFocusMode = .none // 当前搜索焦点模式
     @FocusState private var isListFocused: Bool
     @FocusState private var isTagTypeSearchFocused: Bool
+    @FocusState private var isFilterFocused: Bool
     
     // 搜索焦点模式
     enum SearchFocusMode {
@@ -295,7 +296,11 @@ struct TagSidebarView: View {
         } else {
             print("🏷️ TagSidebarView: 从标签搜索切换到标签筛选")
             currentMode = .tagFiltering
-            print("🏷️ TagSidebarView: 切换到标签筛选模式")
+            // 延迟一下确保UI切换完成后再设置焦点
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                isFilterFocused = true
+                print("🏷️ TagSidebarView: 切换到标签筛选模式并聚焦筛选框")
+            }
         }
     }
     
@@ -312,6 +317,7 @@ struct TagSidebarView: View {
                     TextField("输入标签类型快速定位...", text: $filter)
                         .textFieldStyle(.plain)
                         .font(.system(size: 14))
+                        .focused($isFilterFocused)
                         .onChange(of: filter) { _, newValue in
                             // 🆕 输入变化时自动展开匹配的标签类型
                             // 使用 DispatchQueue 确保计算在下一个运行循环中进行
