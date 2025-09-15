@@ -3,12 +3,12 @@ import AppKit
 
 struct GraphView: View {
     @EnvironmentObject private var store: NodeStore
-    @StateObject private var dataManager = NodeGraphDataManager()  // 🆕 每个视图独立的数据管理器
+    @StateObject private var dataManager = NodeGraphDataManager()  // 🆕 每个视图独立的数据管理器，就像GlobalTagGraphView
     @AppStorage("globalGraphInitialScale") private var globalGraphInitialScale: Double = 1.0
     @State private var cachedNodes: [NodeGraphNode] = []
     @State private var cachedEdges: [NodeGraphEdge] = []
     @State private var showingNodeSelector = false
-    private let instanceId = UUID().uuidString.prefix(8)  // 🆕 实例标识符
+    private let instanceId = UUID().uuidString.prefix(8)
     
     // 层级筛选状态
     @State private var showingLayerSelector = false
@@ -30,7 +30,6 @@ struct GraphView: View {
         cachedNodes = data.nodes
         cachedEdges = data.edges
     }
-    
     
     var body: some View {
         VStack(spacing: 0) {
@@ -78,7 +77,7 @@ struct GraphView: View {
                     print("📋 [全局节点图谱] 打开节点看板")
                 }
                 .buttonStyle(.borderedProminent)
-                .help("打开节点看板")
+                .help("打开节点看板 (⌘B)")
                 
                 // 重置按钮
                 if dataManager.hasActiveFilters {
@@ -125,48 +124,18 @@ struct GraphView: View {
                 .environmentObject(store)
             }
         }
-        .sheet(isPresented: $showingNodeSelector) {
-            NodeSelectorView(selectedNodeIds: $dataManager.selectedNodeIds)
-                .environmentObject(store)
-                .frame(width: 700, height: 600)
-                .background(WindowAccessor())
-        }
-        .sheet(isPresented: $showingLayerSelector) {
-            LayerSelectorView(selectedLayerIds: $dataManager.selectedLayerIds)
-                .environmentObject(store)
-                .frame(width: 600, height: 500)
-                .background(LayerWindowAccessor())
-        }
-        .onChange(of: showingPresetManager) { _, isShowing in
-            if isShowing {
-                // 使用新的预设管理系统，创建独立窗口
-                showNodeGraphPresetManager()
-                showingPresetManager = false
-            }
-        }
-        .alert("保存节点图谱预设", isPresented: $showingSavePresetDialog) {
-            TextField("预设名称", text: $newPresetName)
-            
-            Button("保存") {
-                if !newPresetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    saveCurrentAsPreset()
-                    newPresetName = ""
-                }
-            }
-            .disabled(newPresetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            
-            Button("取消", role: .cancel) {
-                newPresetName = ""
-            }
-        } message: {
-            Text("为当前的节点和层级筛选状态创建一个预设。")
-        }
-        .onKeyPress(.init("k"), phases: .down) { _ in
-            NotificationCenter.default.post(name: Notification.Name("fitGraph"), object: nil)
-            return .handled
-        }
         .onAppear {
             print("📋 [全局节点图谱] 视图出现，初始化数据管理器")
+            
+            // 🆕 尝试应用上次使用的预设
+            if let presetData = NodeGraphPresetManager.shared.applyLastUsedPresetIfAvailable() {
+                dataManager.selectedNodeIds = presetData.selectedNodeIds
+                dataManager.selectedLayerIds = presetData.selectedLayerIds
+                print("✅ [全局节点图谱] 已应用上次使用的预设")
+            } else {
+                print("ℹ️ [全局节点图谱] 没有上次使用的预设，使用默认状态")
+            }
+            
             updateGraphData()
         }
         .onChange(of: store.nodes) {
@@ -177,54 +146,6 @@ struct GraphView: View {
         }
         .onChange(of: dataManager.selectedLayerIds) {
             updateGraphData()
-        }
-        .onChange(of: dataManager.displayedNodes) {
-            updateGraphData()
-        }
-        .onChange(of: store.selectedTag) {
-            updateGraphData()
-        }
-        .onChange(of: store.showAllTagTypeNodes) {
-            updateGraphData()
-        }
-        .onChange(of: store.expandedTagTypes) {
-            updateGraphData()
-        }
-        .onReceive(dataManager.$selectedNodeIds.combineLatest(dataManager.$selectedLayerIds)) { nodeIds, layerIds in
-            print("🔄 [全局节点图谱-\(instanceId)] 数据管理器变化，准备重新加载数据")
-            print("   新的选择条件: 节点=\(nodeIds.count), 层级=\(layerIds.count)")
-            
-            // 🔒 如果图谱被锁定，忽略所有数据更新
-            guard !dataManager.isLocked else {
-                print("🔒 [全局节点图谱-\(instanceId)] 图谱已锁定，忽略数据管理器变化")
-                return
-            }
-            
-            // 更新图谱数据（模仿全局标签图谱的方式）
-            updateGraphData()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("compoundNodeRefreshed"))) { notification in
-            print("📨 [GraphView] 收到复合节点刷新通知！")
-            
-            if let userInfo = notification.userInfo {
-                print("   - 通知数据: \(userInfo)")
-                if let compoundNodeId = userInfo["compoundNodeId"] as? UUID,
-                   let compoundNodeName = userInfo["compoundNodeName"] as? String,
-                   let childNodeName = userInfo["childNodeName"] as? String {
-                    print("   - 复合节点: \(compoundNodeName) (ID: \(compoundNodeId))")
-                    print("   - 子节点: \(childNodeName)")
-                }
-            }
-            
-            // 如果图谱被锁定，不进行更新
-            if !dataManager.isLocked {
-                print("🔄 GraphView: 开始更新图谱数据...")
-                // 强制更新图谱数据以反映复合节点的最新状态
-                updateGraphData()
-                print("✅ GraphView: 图谱已更新以反映复合节点变化")
-            } else {
-                print("🔒 GraphView: 图谱已锁定，跳过更新")
-            }
         }
         .navigationTitle("全局节点图谱")
     }
@@ -272,64 +193,11 @@ struct GraphView: View {
         }
     }
     
-    
-    // MARK: - 预设和看板功能
-    
-    private func showNodeGraphPresetManager() {
-        print("📚 [全局节点图谱] 打开新的预设管理系统")
-        
-        // 使用正确的NodeGraphPresetManagerView
-        let contentView = NodeGraphPresetManagerView(
-            selectedNodeIds: $dataManager.selectedNodeIds,
-            selectedLayerIds: $dataManager.selectedLayerIds
-        )
-        .environmentObject(NodeStore.shared)
-        
-        let hostingView = NSHostingView(rootView: contentView)
-        
-        let newWindow = NSWindow(
-            contentRect: NSRect(x: 300, y: 300, width: 800, height: 600),
-            styleMask: [.titled, .closable, .resizable, .miniaturizable],
-            backing: .buffered,
-            defer: false
-        )
-        
-        newWindow.contentView = hostingView
-        newWindow.title = "图谱预设管理"
-        newWindow.setFrameAutosaveName("GraphPresetManagerWindow")
-        newWindow.isReleasedWhenClosed = false  // 修复内存问题
-        
-        // 窗口关闭处理
-        let delegate = NodeGraphPresetWindowDelegate()
-        newWindow.delegate = delegate
-        
-        newWindow.makeKeyAndOrderFront(nil)
-    }
-    
     private func showNodeBoardWindow() {
-        // 创建与当前图谱配对的节点看板窗口
-        NodeBoardWindowManager.shared.showPairedNodeBoardWindow(with: dataManager)
-        print("🔗 [全局节点图谱-\(instanceId)] 创建配对的节点看板窗口")
+        // 🆕 简化配对：直接打开节点看板，通过共享的NodeStore实现"配对"
+        NodeBoardWindowManager.shared.showNodeBoardWindow()
+        print("🔗 [全局节点图谱-\(instanceId)] 打开节点看板")
     }
-    
-    private func saveCurrentAsPreset() {
-        let name = newPresetName.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        guard !name.isEmpty else { return }
-        
-        // 使用新的saveCurrentAsPreset方法，不传递description
-        NodeGraphPresetManager.shared.saveCurrentAsPreset(
-            name: name,
-            description: nil,
-            selectedNodeIds: dataManager.selectedNodeIds,
-            selectedLayerIds: dataManager.selectedLayerIds
-        )
-        
-        print("💾 保存节点图谱预设: \(name)")
-        print("   - 选中节点数: \(dataManager.selectedNodeIds.count)")
-        print("   - 选中层数: \(dataManager.selectedLayerIds.count)")
-    }
-    
 }
 
 // MARK: - Empty Graph View
@@ -354,6 +222,7 @@ struct EmptyGraphView: View {
     }
 }
 
+
 #Preview {
     GraphView()
         .environmentObject(NodeStore.shared)
@@ -366,16 +235,15 @@ struct EmptyGraphView: View {
 class NodeGraphWindowManager: ObservableObject {
     static let shared = NodeGraphWindowManager()
     
-    // 不再保存窗口引用，每次都创建新窗口以支持多开
     private init() {
         print("🏗️ [节点图谱窗口管理器] 初始化，支持多开模式")
     }
     
-    /// 显示全局节点图谱窗口 - 支持多开
+    /// 显示节点图谱窗口 - 支持多开，每个窗口独立
     func showNodeGraphWindow() {
-        print("🪟 [节点图谱窗口管理器] 创建新的节点图谱窗口")
+        print("🪟 [节点图谱窗口管理器] 创建节点图谱窗口")
         
-        // 🆕 每次都创建新的GraphView实例，每个实例都有独立的数据管理器
+        // 🆕 简化实现：每次都创建新的GraphView，就像GlobalTagGraphView一样
         let contentView = GraphView()
             .environmentObject(NodeStore.shared)
         
@@ -393,17 +261,17 @@ class NodeGraphWindowManager: ObservableObject {
         newWindow.setFrameAutosaveName("NodeGraphWindow")
         newWindow.isReleasedWhenClosed = false
         
-        // 窗口关闭处理 - 不保存窗口引用
+        // 窗口关闭处理
         let delegate = NodeGraphWindowDelegate {
             print("🗑️ [节点图谱窗口] 窗口已关闭")
         }
         newWindow.delegate = delegate
         
-        // 🆕 多开支持：不再保存窗口引用，每次都创建新窗口
         newWindow.makeKeyAndOrderFront(nil)
         
-        print("✅ [节点图谱窗口管理器] 新窗口已创建并显示")
+        print("✅ [节点图谱窗口管理器] 窗口已创建并显示")
     }
+    
 }
 
 // MARK: - 窗口委托

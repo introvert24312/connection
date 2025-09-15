@@ -45,47 +45,13 @@ class NodeBoardWindowManager: ObservableObject {
         print("🪟 [节点看板] 独立窗口已创建")
     }
     
-    /// 创建与全局节点图谱配对的节点看板窗口
-    func showPairedNodeBoardWindow(with dataManager: NodeGraphDataManager) {
-        print("🪟 [节点看板窗口管理器] 创建配对的节点看板窗口")
-        
-        let contentView = NodeBoardView(associatedDataManager: dataManager)
-            .environmentObject(NodeStore.shared)
-        
-        let hostingView = NSHostingView(rootView: contentView)
-        
-        let newWindow = NSWindow(
-            contentRect: NSRect(x: 200, y: 200, width: 1200, height: 800),
-            styleMask: [.titled, .closable, .resizable, .miniaturizable],
-            backing: .buffered,
-            defer: false
-        )
-        
-        newWindow.contentView = hostingView
-        newWindow.title = "节点看板"
-        newWindow.setFrameAutosaveName("PairedNodeBoardWindow")
-        newWindow.isReleasedWhenClosed = false
-        
-        let delegate = NodeBoardWindowCloseDelegate { 
-            print("🔄 [配对节点看板] 窗口关闭")
-        }
-        newWindow.delegate = delegate
-        
-        newWindow.makeKeyAndOrderFront(nil)
-        
-        print("🪟 [节点看板] 配对窗口已创建")
-    }
+    
 }
 
 // MARK: - 节点看板主视图
 struct NodeBoardView: View {
     @EnvironmentObject var nodeStore: NodeStore
-    @StateObject private var webViewModel: NodeBoardWebViewModel
-    
-    // 🆕 支持关联数据管理器的初始化器，模仿标签看板
-    init(associatedDataManager: NodeGraphDataManager? = nil) {
-        self._webViewModel = StateObject(wrappedValue: NodeBoardWebViewModel(associatedDataManager: associatedDataManager))
-    }
+    @StateObject private var webViewModel = NodeBoardWebViewModel()  // 🆕 简化：每个窗口独立
     
     var body: some View {
         VStack(spacing: 0) {
@@ -120,11 +86,9 @@ class NodeBoardWebViewModel: NSObject, ObservableObject {
     private var isWebViewReady = false
     private var pendingData: [NodeItem]?
     private weak var nodeStore: NodeStore?
-    private let associatedDataManager: NodeGraphDataManager?  // 🆕 关联的数据管理器，模仿标签看板
     private let instanceId = UUID().uuidString.prefix(8)     // 🆕 实例标识符
     
-    init(associatedDataManager: NodeGraphDataManager? = nil) {
-        self.associatedDataManager = associatedDataManager
+    override init() {
         let config = WKWebViewConfiguration()
         config.userContentController = WKUserContentController()
         
@@ -132,7 +96,7 @@ class NodeBoardWebViewModel: NSObject, ObservableObject {
         super.init()
         
         setupWebView()
-        print("🏗️ [节点看板WebView-\(instanceId)] 初始化，关联数据管理器: \(associatedDataManager != nil)")
+        print("🏗️ [节点看板WebView-\(instanceId)] 初始化（独立模式）")
     }
     
     private func setupWebView() {
@@ -798,28 +762,11 @@ class NodeBoardWebViewModel: NSObject, ObservableObject {
                 nodeStore.selectNode(firstNode)
             }
             
-            // 🆕 如果有关联的数据管理器，直接更新它；否则不做任何操作（模仿标签看板）
-            if let dataManager = associatedDataManager {
-                print("📤 [节点看板-\(instanceId)] 更新关联数据管理器")
-                print("   - 选中节点: \(selectedUUIDs.count)个")
-                print("   - 选中层级: \(Set(selectedNodes.map { $0.layerId }).count)个")
-                
-                dataManager.updateSelectedNodes(Set(selectedUUIDs))
-                dataManager.updateSelectedLayers(Set(selectedNodes.map { $0.layerId }))
-                
-                print("🔄 [节点看板-\(instanceId)] 数据管理器已更新（不使用通知）")
-            } else {
-                print("📤 [节点看板-\(instanceId)] 无关联数据管理器，跳过图谱更新")
-            }
+            // 🆕 简化：独立模式，只更新主界面的节点选择
+            print("📤 [节点看板-\(instanceId)] 独立模式，节点选择已同步到主界面")
         } else if selectedNodeIds.isEmpty {
             // 清除选中状态
             nodeStore.selectNode(nil)
-            
-            if let dataManager = associatedDataManager {
-                print("🧹 [节点看板-\(instanceId)] 清除数据管理器选择")
-                dataManager.updateSelectedNodes(Set())
-                dataManager.updateSelectedLayers(Set())
-            }
             print("🧹 [节点看板-\(instanceId)] 已清除节点选择")
         } else {
             print("❌ [节点看板] 未找到对应的节点")
