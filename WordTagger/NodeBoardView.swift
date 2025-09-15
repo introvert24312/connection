@@ -1,540 +1,940 @@
 import SwiftUI
-import AppKit
+import WebKit
+import Foundation
 
-// MARK: - 节点看板视图
+// MARK: - 节点看板 - HTML版本
 
+/// 节点看板窗口管理器 - 支持多开
+@MainActor
+class NodeBoardWindowManager: ObservableObject {
+    static let shared = NodeBoardWindowManager()
+    
+    // 不再保存窗口引用，每次都创建新窗口以支持多开
+    private init() {
+        print("🏗️ [节点看板窗口管理器] 初始化，支持多开模式")
+    }
+    
+    /// 显示节点看板窗口 - 独立创建
+    func showNodeBoardWindow() {
+        print("🪟 [节点看板窗口管理器] 创建新的节点看板窗口（独立）")
+        
+        let contentView = NodeBoardView()
+            .environmentObject(NodeStore.shared)
+        
+        let hostingView = NSHostingView(rootView: contentView)
+        
+        let newWindow = NSWindow(
+            contentRect: NSRect(x: 200, y: 200, width: 1200, height: 800),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        
+        newWindow.contentView = hostingView
+        newWindow.title = "节点看板"
+        newWindow.setFrameAutosaveName("NodeBoardWindow")
+        newWindow.isReleasedWhenClosed = false
+        
+        let delegate = NodeBoardWindowCloseDelegate { 
+            print("🔄 [节点看板] 窗口关闭")
+        }
+        newWindow.delegate = delegate
+        
+        newWindow.makeKeyAndOrderFront(nil)
+        
+        print("🪟 [节点看板] 独立窗口已创建")
+    }
+    
+    /// 创建与全局节点图谱配对的节点看板窗口
+    func showPairedNodeBoardWindow(with dataManager: NodeGraphDataManager) {
+        print("🪟 [节点看板窗口管理器] 创建配对的节点看板窗口")
+        
+        let contentView = NodeBoardView(associatedDataManager: dataManager)
+            .environmentObject(NodeStore.shared)
+        
+        let hostingView = NSHostingView(rootView: contentView)
+        
+        let newWindow = NSWindow(
+            contentRect: NSRect(x: 200, y: 200, width: 1200, height: 800),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        
+        newWindow.contentView = hostingView
+        newWindow.title = "节点看板"
+        newWindow.setFrameAutosaveName("PairedNodeBoardWindow")
+        newWindow.isReleasedWhenClosed = false
+        
+        let delegate = NodeBoardWindowCloseDelegate { 
+            print("🔄 [配对节点看板] 窗口关闭")
+        }
+        newWindow.delegate = delegate
+        
+        newWindow.makeKeyAndOrderFront(nil)
+        
+        print("🪟 [节点看板] 配对窗口已创建")
+    }
+}
+
+// MARK: - 节点看板主视图
 struct NodeBoardView: View {
-    @EnvironmentObject private var store: NodeStore
-    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var nodeStore: NodeStore
+    @StateObject private var webViewModel: NodeBoardWebViewModel
     
-    @State private var searchText = ""           // 节点搜索
-    @State private var layerSearchText = ""      // 层级搜索
-    @State private var boardSelectedNodeIds: Set<UUID> = []  // 看板内部的选中状态
-    @State private var boardSelectedLayerIds: Set<UUID> = [] // 看板内部的选中层级
-    
-    init() {
-        // 默认初始化器
-    }
-    
-    private var filteredNodes: [Node] {
-        var nodes = store.nodes
-        
-        // 1. 先应用层级搜索筛选
-        if !layerSearchText.isEmpty {
-            let matchingLayers = store.layers.filter { layer in
-                layer.displayName.localizedCaseInsensitiveContains(layerSearchText) ||
-                layer.name.localizedCaseInsensitiveContains(layerSearchText)
-            }
-            let matchingLayerIds = Set(matchingLayers.map { $0.id })
-            nodes = nodes.filter { matchingLayerIds.contains($0.layerId) }
-        }
-        
-        // 2. 再应用节点搜索筛选
-        if !searchText.isEmpty {
-            nodes = nodes.filter { node in
-                node.text.localizedCaseInsensitiveContains(searchText) ||
-                node.meaning?.localizedCaseInsensitiveContains(searchText) == true
-            }
-        }
-        
-        return nodes.sorted { $0.text < $1.text }
-    }
-    
-    // 按层级分组的节点
-    private var nodesByLayer: [(layer: Layer, nodes: [Node])] {
-        let groupedNodes = Dictionary(grouping: filteredNodes) { node in
-            node.layerId
-        }
-        
-        // 🔍 智能显示逻辑：根据搜索状态决定显示哪些层级
-        if layerSearchText.isEmpty && searchText.isEmpty {
-            // 无搜索：显示所有层（包括空层）
-            return store.layers.map { layer in
-                let nodes = groupedNodes[layer.id] ?? []
-                return (layer: layer, nodes: nodes.sorted { $0.text < $1.text })
-            }.sorted { $0.layer.displayName < $1.layer.displayName }
-        } else {
-            // 有搜索：只显示有内容的层级
-            return store.layers.compactMap { layer in
-                let nodes = groupedNodes[layer.id] ?? []
-                // 只有当层级有节点时才显示
-                if !nodes.isEmpty {
-                    return (layer: layer, nodes: nodes.sorted { $0.text < $1.text })
-                }
-                return nil
-            }.sorted { $0.layer.displayName < $1.layer.displayName }
-        }
+    // 🆕 支持关联数据管理器的初始化器，模仿标签看板
+    init(associatedDataManager: NodeGraphDataManager? = nil) {
+        self._webViewModel = StateObject(wrappedValue: NodeBoardWebViewModel(associatedDataManager: associatedDataManager))
     }
     
     var body: some View {
         VStack(spacing: 0) {
-            
-            // 双搜索栏 - 一行布局
-            VStack(spacing: 8) {
-                // 搜索框一行排列
-                HStack(spacing: 12) {
-                    // 层级搜索栏
-                    HStack(spacing: 8) {
-                        Image(systemName: "folder")
-                            .foregroundColor(.blue)
-                            .font(.system(size: 16))
-                        
-                        TextField("搜索层级...", text: $layerSearchText)
-                            .font(.system(size: 16))
-                            .textFieldStyle(.plain)
-                            .frame(height: 36)
-                            .padding(.horizontal, 12)
-                            .background(Color(NSColor.controlBackgroundColor))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(layerSearchText.isEmpty ? Color.gray.opacity(0.3) : Color.blue.opacity(0.8), lineWidth: 1.5)
-                            )
-                            .cornerRadius(8)
-                        
-                        if !layerSearchText.isEmpty {
-                            Button("×") {
-                                layerSearchText = ""
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundColor(.blue)
-                            .font(.system(size: 16, weight: .medium))
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    
-                    // 分隔线
-                    Divider()
-                        .frame(height: 20)
-                    
-                    // 节点搜索栏  
-                    HStack(spacing: 8) {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(.green)
-                            .font(.system(size: 16))
-                        
-                        TextField("搜索节点...", text: $searchText)
-                            .font(.system(size: 16))
-                            .textFieldStyle(.plain)
-                            .frame(height: 36)
-                            .padding(.horizontal, 12)
-                            .background(Color(NSColor.controlBackgroundColor))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(searchText.isEmpty ? Color.gray.opacity(0.3) : Color.green.opacity(0.8), lineWidth: 1.5)
-                            )
-                            .cornerRadius(8)
-                        
-                        if !searchText.isEmpty {
-                            Button("×") {
-                                searchText = ""
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundColor(.green)
-                            .font(.system(size: 16, weight: .medium))
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    
-                    // 清除所有按钮
-                    if !layerSearchText.isEmpty || !searchText.isEmpty {
-                        Button("全部清除") {
-                            layerSearchText = ""
-                            searchText = ""
-                        }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                    }
-                }
-                
-                // 搜索状态显示
-                if !layerSearchText.isEmpty || !searchText.isEmpty {
-                    HStack(spacing: 8) {
-                        if !layerSearchText.isEmpty {
-                            HStack(spacing: 4) {
-                                Image(systemName: "folder.fill")
-                                    .foregroundColor(.blue)
-                                    .font(.system(size: 10))
-                                Text("\(layerSearchText)")
-                                    .font(.system(size: 11))
-                                    .foregroundColor(.blue)
-                            }
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.blue.opacity(0.1))
-                            .cornerRadius(4)
-                        }
-                        
-                        if !searchText.isEmpty {
-                            HStack(spacing: 4) {
-                                Image(systemName: "doc.text.fill")
-                                    .foregroundColor(.green)
-                                    .font(.system(size: 10))
-                                Text("\(searchText)")
-                                    .font(.system(size: 11))
-                                    .foregroundColor(.green)
-                            }
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.green.opacity(0.1))
-                            .cornerRadius(4)
-                        }
-                        
-                        Spacer()
-                    }
-                    .padding(.horizontal)
-                    .padding(.bottom, 4)
-                    .transition(.opacity)
-                }
-            }
-            .padding()
-            .background(Color(NSColor.windowBackgroundColor))
-            
-            Divider()
-            
-            // 按层级分组的节点列表
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 16) {
-                    ForEach(nodesByLayer, id: \.layer.id) { layerGroup in
-                        VStack(alignment: .leading, spacing: 12) {
-                            // 层级标题 - 支持点击选择
-                            LayerSectionHeader(
-                                layer: layerGroup.layer, 
-                                nodeCount: layerGroup.nodes.count,
-                                isSelected: boardSelectedLayerIds.contains(layerGroup.layer.id),
-                                onLayerTapped: { event in
-                                    handleLayerSelection(layer: layerGroup.layer, nodes: layerGroup.nodes, commandPressed: event.modifierFlags.contains(.command))
-                                }
-                            )
-                            
-                            // 节点网格
-                            LazyVGrid(columns: [
-                                GridItem(.flexible(), spacing: 12),
-                                GridItem(.flexible(), spacing: 12),
-                                GridItem(.flexible(), spacing: 12)
-                            ], spacing: 12) {
-                                ForEach(layerGroup.nodes, id: \.id) { node in
-                                    CompactNodeCard(
-                                        node: node, 
-                                        layer: layerGroup.layer,
-                                        isSelected: boardSelectedNodeIds.contains(node.id),
-                                        onNodeTapped: { event in
-                                            handleNodeSelection(node: node, commandPressed: event.modifierFlags.contains(.command))
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                        .padding(16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color(NSColor.controlBackgroundColor))
-                                .stroke(
-                                    boardSelectedLayerIds.contains(layerGroup.layer.id) 
-                                        ? Color.blue.opacity(0.5)
-                                        : Color.gray.opacity(0.2), 
-                                    lineWidth: boardSelectedLayerIds.contains(layerGroup.layer.id) ? 2 : 1
-                                )
-                        )
-                    }
-                    
-                    if nodesByLayer.isEmpty {
-                        VStack(spacing: 16) {
-                            Image(systemName: "doc.text")
-                                .font(.largeTitle)
-                                .foregroundColor(.gray)
-                            
-                            Text("没有找到匹配的节点")
-                                .font(.title3)
-                                .foregroundColor(.secondary)
-                            
-                            if !boardSelectedNodeIds.isEmpty || !boardSelectedLayerIds.isEmpty {
-                                Text("当前筛选条件下没有节点")
-                                    .font(.body)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, minHeight: 200)
-                    }
-                }
-                .padding()
-            }
-            .background(Color(NSColor.controlBackgroundColor))
+            // WebView
+            NodeBoardWebView(viewModel: webViewModel)
         }
         .onAppear {
-            // 节点看板永远显示所有数据，清空所有筛选状态
-            boardSelectedNodeIds.removeAll() // 不应用任何节点筛选
-            boardSelectedLayerIds.removeAll() // 不应用任何层级筛选
-            searchText = "" // 清空节点搜索
-            layerSearchText = "" // 清空层级搜索
+            webViewModel.loadNodeData(nodeStore: nodeStore)
         }
-    }
-    
-    // MARK: - 选择处理函数
-    
-    private func handleLayerSelection(layer: Layer, nodes: [Node], commandPressed: Bool) {
-        let layerId = layer.id
-        let nodeIds = Set(nodes.map { $0.id })
-        
-        if commandPressed {
-            // Command+点击：多选层级
-            if boardSelectedLayerIds.contains(layerId) {
-                // 取消选择该层级和其所有节点
-                boardSelectedLayerIds.remove(layerId)
-                boardSelectedNodeIds.subtract(nodeIds)
-                print("🔄 取消选择层级: \(layer.displayName) (\(nodes.count)个节点)")
-            } else {
-                // 添加选择该层级和其所有节点
-                boardSelectedLayerIds.insert(layerId)
-                boardSelectedNodeIds.formUnion(nodeIds)
-                print("✅ 多选添加层级: \(layer.displayName) (\(nodes.count)个节点)")
-            }
-        } else {
-            // 普通点击：单选层级
-            boardSelectedLayerIds.removeAll()
-            boardSelectedNodeIds.removeAll()
-            boardSelectedLayerIds.insert(layerId)
-            boardSelectedNodeIds.formUnion(nodeIds)
-            print("🎯 单选层级: \(layer.displayName) (\(nodes.count)个节点)")
-        }
-        
-        // 通知主应用选择状态变化
-        notifySelectionChange()
-    }
-    
-    private func handleNodeSelection(node: Node, commandPressed: Bool) {
-        let nodeId = node.id
-        
-        if commandPressed {
-            // Command+点击：多选节点
-            if boardSelectedNodeIds.contains(nodeId) {
-                boardSelectedNodeIds.remove(nodeId)
-                print("🔄 取消选择节点: \(node.text)")
-            } else {
-                boardSelectedNodeIds.insert(nodeId)
-                print("✅ 多选添加节点: \(node.text)")
-            }
-        } else {
-            // 普通点击：单选节点并选中主应用中的节点
-            store.selectNode(node)
-            boardSelectedNodeIds.removeAll()
-            boardSelectedNodeIds.insert(nodeId)
-            print("🎯 单选节点: \(node.text)")
-        }
-        
-        // 通知主应用选择状态变化
-        notifySelectionChange()
-    }
-    
-    private func notifySelectionChange() {
-        print("📤 节点看板选择状态变化:")
-        print("   - 选中节点: \(boardSelectedNodeIds.count) 个")
-        print("   - 选中层级: \(boardSelectedLayerIds.count) 个")
-        
-        print("📤 [节点看板] 发送全局选择变化通知")
-        // 向后兼容：发送通知给主界面的GraphView更新选择状态
-        NotificationCenter.default.post(
-            name: Notification.Name("NodeBoardSelectionChanged"),
-            object: nil,
-            userInfo: [
-                "selectedNodeIds": Array(boardSelectedNodeIds),
-                "selectedLayerIds": Array(boardSelectedLayerIds)
-            ]
-        )
-    }
-}
-
-// MARK: - 层级分组标题
-struct LayerSectionHeader: View {
-    let layer: Layer
-    let nodeCount: Int
-    let isSelected: Bool
-    let onLayerTapped: (NSEvent) -> Void
-    
-    @State private var isHovered = false
-    
-    var body: some View {
-        HStack(spacing: 8) {
-            // 选中状态指示器
-            Image(systemName: isSelected ? "checkmark.square.fill" : "square")
-                .font(.title3)
-                .foregroundColor(isSelected ? .blue : .secondary)
-            
-            // 层级颜色指示器
-            Circle()
-                .fill(Color.from(layer.color))
-                .frame(width: 16, height: 16)
-                .shadow(radius: 1)
-            
-            Text(layer.displayName)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(isSelected ? .blue : .primary)
-            
-            Text("(\(nodeCount))")
-                .font(.system(size: 13))
-                .foregroundColor(.secondary)
-            
-            if layer.isCompound {
-                Image(systemName: "square.stack.3d.up")
-                    .font(.caption)
-                    .foregroundColor(.blue)
-            }
-            
-            Spacer()
-        }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(isSelected ? Color.blue.opacity(0.1) : (isHovered ? Color.primary.opacity(0.05) : Color.clear))
-        )
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.2)) {
-                isHovered = hovering
-            }
-        }
-        .onTapGesture {
-            // 由于无法直接获取NSEvent，我们创建一个模拟事件
-            let currentEvent = NSApp.currentEvent ?? NSEvent()
-            onLayerTapped(currentEvent)
+        .onChange(of: nodeStore.nodes) {
+            webViewModel.loadNodeData(nodeStore: nodeStore)
         }
     }
 }
 
-// MARK: - 紧凑节点卡片
-struct CompactNodeCard: View {
-    let node: Node
-    let layer: Layer
-    let isSelected: Bool
-    let onNodeTapped: (NSEvent) -> Void
-    @EnvironmentObject private var store: NodeStore
+// MARK: - WebView包装器
+struct NodeBoardWebView: NSViewRepresentable {
+    let viewModel: NodeBoardWebViewModel
     
-    @State private var isHovered = false
+    func makeNSView(context: Context) -> WKWebView {
+        return viewModel.webView
+    }
     
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            // 节点名称和选中状态
-            HStack {
-                Text(node.text)
-                    .font(.system(size: 16, weight: .medium))  // 增大字体从13到16
-                    .foregroundColor(isSelected ? .blue : .primary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
+    func updateNSView(_ nsView: WKWebView, context: Context) {
+        // WebView更新由ViewModel管理
+    }
+}
+
+// MARK: - WebView数据管理器
+class NodeBoardWebViewModel: NSObject, ObservableObject {
+    let webView: WKWebView
+    private var isWebViewReady = false
+    private var pendingData: [NodeItem]?
+    private weak var nodeStore: NodeStore?
+    private let associatedDataManager: NodeGraphDataManager?  // 🆕 关联的数据管理器，模仿标签看板
+    private let instanceId = UUID().uuidString.prefix(8)     // 🆕 实例标识符
+    
+    init(associatedDataManager: NodeGraphDataManager? = nil) {
+        self.associatedDataManager = associatedDataManager
+        let config = WKWebViewConfiguration()
+        config.userContentController = WKUserContentController()
+        
+        webView = WKWebView(frame: .zero, configuration: config)
+        super.init()
+        
+        setupWebView()
+        print("🏗️ [节点看板WebView-\(instanceId)] 初始化，关联数据管理器: \(associatedDataManager != nil)")
+    }
+    
+    private func setupWebView() {
+        webView.navigationDelegate = self
+        webView.configuration.userContentController.add(self, name: "nodeBoard")
+        
+        loadHTMLContent()
+    }
+    
+    @MainActor
+    func loadNodeData(nodeStore: NodeStore) {
+        self.nodeStore = nodeStore
+        let nodeItems = convertToNodeItems(nodeStore: nodeStore)
+        
+        if isWebViewReady {
+            sendDataToWebView(nodeItems)
+        } else {
+            pendingData = nodeItems
+        }
+    }
+    
+    private func sendDataToWebView(_ nodeItems: [NodeItem]) {
+        do {
+            let jsonData = try JSONEncoder().encode(nodeItems)
+            if let jsonString = String(data: jsonData, encoding: .utf8) {
+                let script = "window.updateNodeData(\(jsonString))"
                 
-                Spacer()
-                
-                // 选中状态指示器
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 14))  // 增大图标
-                        .foregroundColor(.blue)
+                webView.evaluateJavaScript(script) { result, error in
+                    if let error = error {
+                        print("❌ [节点看板] 发送数据失败: \(error)")
+                    } else {
+                        print("✅ [节点看板] 数据已发送到WebView")
+                    }
                 }
             }
+        } catch {
+            print("❌ [节点看板] JSON编码失败: \(error)")
+        }
+    }
+    
+    private func loadHTMLContent() {
+        let html = """
+        <!doctype html>
+        <html lang="zh-CN">
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>节点看板</title>
+            <style>
+                /* Light theme (default) */
+                :root {
+                    --bg: #ffffff; 
+                    --card: #f8f9fa; 
+                    --text: #1d1d1f; 
+                    --muted: #6e6e73;
+                    --accent: #007aff; 
+                    --border: #e1e5e9;
+                }
+                
+                /* Dark theme */
+                @media (prefers-color-scheme: dark) {
+                    :root {
+                        --bg: #1e1e1e; 
+                        --card: #2a2a2a; 
+                        --text: #ffffff; 
+                        --muted: #a0a0a0;
+                        --accent: #007aff; 
+                        --border: #3c3c3c;
+                    }
+                }
+                * { box-sizing: border-box; }
+                body {
+                    margin: 0;
+                    background: var(--bg);
+                    color: var(--text);
+                    font: 14px/1.5 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+                    padding: 20px;
+                }
+                .header {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    margin-bottom: 16px;
+                    padding-bottom: 12px;
+                    border-bottom: 1px solid var(--border);
+                }
+                .header {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                }
+                .header h1 {
+                    margin: 0;
+                    font-size: 18px;
+                }
+                .header-right {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                }
+                .node-count {
+                    font-size: 12px;
+                    color: var(--muted);
+                    font-weight: normal;
+                }
+                .selected-count {
+                    font-size: 12px;
+                    color: #007AFF;
+                    font-weight: normal;
+                }
+                .clear-btn {
+                    font-size: 12px;
+                    padding: 4px 8px;
+                    height: 24px;
+                    background: var(--card);
+                    color: var(--text);
+                    border: 1px solid var(--border);
+                    border-radius: 4px;
+                    cursor: pointer;
+                }
+                .clear-btn:hover {
+                    background: var(--accent);
+                    color: white;
+                    border-color: var(--accent);
+                }
+                .hint {
+                    color: var(--muted);
+                    font-size: 12px;
+                }
+                .controls {
+                    display: flex;
+                    gap: 10px;
+                    align-items: center;
+                    margin-bottom: 16px;
+                }
+                input, select, button {
+                    height: 36px;
+                    border: 1px solid var(--border);
+                    background: var(--card);
+                    color: var(--text);
+                    border-radius: 6px;
+                    padding: 0 12px;
+                    outline: none;
+                    cursor: pointer;
+                    font-size: 16px;
+                }
+                input:focus, select:focus {
+                    border-color: var(--accent);
+                }
+                button {
+                    background: var(--accent);
+                    color: white;
+                    border: none;
+                    font-weight: 500;
+                }
+                button:hover {
+                    opacity: 0.9;
+                }
+                .grid {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 8px;
+                    align-items: flex-start;
+                }
+                .chip {
+                    display: flex;
+                    gap: 8px;
+                    align-items: flex-start;
+                    padding: 8px 12px;
+                    border-radius: 6px;
+                    background: var(--card);
+                    border: 1px solid var(--border);
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                    user-select: none;
+                    min-width: 120px;
+                    flex-shrink: 0;
+                }
+                .chip:hover {
+                    transform: translateY(-1px);
+                    border-color: var(--accent);
+                }
+                .chip.selected {
+                    border-color: var(--accent);
+                    box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.3);
+                }
+                .chip-bar {
+                    width: 3px;
+                    height: 100%;
+                    border-radius: 2px;
+                    background: var(--accent);
+                    flex-shrink: 0;
+                }
+                .chip-content {
+                    flex: 1;
+                    min-width: 0;
+                }
+                .chip-title {
+                    font-weight: 500;
+                    margin-bottom: 2px;
+                    font-size: 13px;
+                    line-height: 1.2;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+                .chip-meta {
+                    display: flex;
+                    gap: 4px;
+                    flex-wrap: wrap;
+                }
+                .badge {
+                    font-size: 10px;
+                    padding: 1px 4px;
+                    border-radius: 3px;
+                    background: var(--border);
+                    color: var(--muted);
+                    white-space: nowrap;
+                    flex-shrink: 0;
+                }
+                .empty {
+                    text-align: center;
+                    padding: 40px;
+                    color: var(--muted);
+                }
+                .group-section {
+                    margin-bottom: 20px;
+                    border: 1px solid var(--border);
+                    border-radius: 8px;
+                    background: var(--card);
+                    padding: 16px;
+                    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+                }
+                .group-header {
+                    font-size: 16px;
+                    font-weight: 600;
+                    margin: -16px -16px 12px -16px;
+                    padding: 12px 16px;
+                    background: transparent;
+                    color: var(--text);
+                    border-radius: 7px 7px 0 0;
+                    margin-bottom: 16px;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                    user-select: none;
+                }
+                .group-header:hover {
+                    background: rgba(0, 122, 255, 0.1);
+                    color: var(--accent);
+                }
+                .group-header.selected {
+                    background: var(--accent);
+                    color: white;
+                }
+                .group-content .grid {
+                    margin-bottom: 0;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <div class="header-right">
+                    <span id="selectedCount" class="selected-count"></span>
+                    <button id="clearSelection" class="clear-btn" style="display: none;">清除选择</button>
+                </div>
+            </div>
             
-            // 节点含义
-            if let meaning = node.meaning {
-                Text(meaning)
-                    .font(.system(size: 14))  // 增大字体从12到14
-                    .foregroundColor(.secondary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-            }
+            <div class="controls">
+                <input id="layerSearch" type="text" placeholder="搜索层级名称...">
+                <input id="nodeSearch" type="text" placeholder="搜索节点内容...">
+                <select id="groupBy" style="font-size: 16px;">
+                    <option value="layer">按层级分组</option>
+                    <option value="none">不分组</option>
+                </select>
+                <button id="clearFilters">清除筛选</button>
+                <button id="refreshData">刷新数据</button>
+            </div>
             
-            // 显示主要标签
-            if !node.tags.isEmpty {
-                let displayTags = Array(node.tags.prefix(3))  // 显示前3个标签
-                LazyVGrid(columns: [
-                    GridItem(.flexible()),
-                    GridItem(.flexible())
-                ], spacing: 4) {
-                    ForEach(displayTags.indices, id: \.self) { index in
-                        let tag = displayTags[index]
-                        HStack(spacing: 2) {
-                            Text(tag.type.displayName)
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundColor(.blue)
-                                .lineLimit(1)
-                            Text(tag.value)
-                                .font(.system(size: 11))
-                                .foregroundColor(.primary)
-                                .lineLimit(1)
+            <div id="nodeBoard" class="grid">
+                <div class="empty">正在加载数据...</div>
+            </div>
+            
+            <script>
+            console.log("🚀 节点看板 JavaScript 初始化");
+            
+            let DATA = [];
+            let ALL_LAYERS = new Set();
+            const selectedItems = new Set();
+            const selectedGroupHeaders = new Set();  // 选中的组头部（层级）
+            
+            // 数据更新函数
+            window.updateNodeData = function(nodeData) {
+                try {
+                    console.log("📦 [节点看板] 收到数据类型:", typeof nodeData);
+                    
+                    let data;
+                    if (typeof nodeData === 'string') {
+                        data = JSON.parse(nodeData);
+                    } else {
+                        data = nodeData;
+                    }
+                    
+                    DATA = Array.isArray(data) ? data : [];
+                    console.log("✅ [节点看板] 数据解析成功，项目数:", DATA.length);
+                    
+                    // 收集所有层级
+                    ALL_LAYERS.clear();
+                    DATA.forEach(item => {
+                        if (item.layer && item.layer.displayName) {
+                            ALL_LAYERS.add(item.layer.displayName);
                         }
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(Color.blue.opacity(0.1))
-                        )
-                    }
+                    });
+                    console.log("📋 收集到层级:", Array.from(ALL_LAYERS));
+                    
+                    renderBoard();
+                    return "success";
+                } catch (e) {
+                    console.error("❌ [节点看板] 数据解析错误:", e);
+                    document.getElementById('nodeBoard').innerHTML = '<div class="empty">数据解析错误</div>';
+                    return "error";
+                }
+            };
+            
+            // 渲染看板
+            function renderBoard() {
+                const board = document.getElementById('nodeBoard');
+                const layerSearchTerm = document.getElementById('layerSearch').value.toLowerCase();
+                const nodeSearchTerm = document.getElementById('nodeSearch').value.toLowerCase();
+                const groupBy = document.getElementById('groupBy').value;
+                
+                // 过滤数据
+                let filtered = DATA.filter(item => {
+                    // 层级搜索过滤
+                    const matchesLayerSearch = !layerSearchTerm || 
+                        (item.layer && item.layer.displayName.toLowerCase().includes(layerSearchTerm));
+                    
+                    // 节点搜索过滤
+                    const matchesNodeSearch = !nodeSearchTerm || 
+                        item.text.toLowerCase().includes(nodeSearchTerm) || 
+                        (item.meaning && item.meaning.toLowerCase().includes(nodeSearchTerm));
+                    
+                    return matchesLayerSearch && matchesNodeSearch;
+                });
+                
+                if (filtered.length === 0) {
+                    board.innerHTML = '<div class="empty">无匹配数据</div>';
+                    return;
+                }
+                
+                // 根据分组方式渲染
+                if (groupBy === 'none') {
+                    // 不分组时按层级排序
+                    filtered.sort((a, b) => {
+                        if (a.layer && b.layer) {
+                            return a.layer.displayName.localeCompare(b.layer.displayName);
+                        }
+                        return 0;
+                    });
+                    board.innerHTML = '<div class="grid">' + filtered.map(renderChip).join('') + '</div>';
+                    // 更新节点计数
+                    updateNodeCount(filtered.length);
+                } else if (groupBy === 'layer') {
+                    renderGroupedByLayer(board, filtered);
+                }
+                
+                // 更新选中状态显示
+                updateSelectionDisplay();
+            }
+            
+            // 渲染单个节点芯片
+            function renderChip(item) {
+                const itemId = item.id;
+                const isSelected = selectedItems.has(itemId);
+                
+                return `
+                    <div class="chip ${isSelected ? 'selected' : ''}" data-id="${itemId}" onclick="toggleSelection('${itemId}', event)">
+                        <div class="chip-bar"></div>
+                        <div class="chip-content">
+                            <div class="chip-title">${escapeHtml(item.text)}</div>
+                            <div class="chip-meta">
+                                <span class="badge">${escapeHtml(item.layer?.displayName || '无层级')}</span>
+                                <span class="badge">${item.tagCount}个标签</span>
+                                ${item.isCompound ? '<span class="badge">📦复合</span>' : ''}
+                                ${item.meaning ? '<span class="badge">💭含义</span>' : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // 按层级分组渲染
+            function renderGroupedByLayer(board, data) {
+                const groups = {};
+                data.forEach(item => {
+                    const layerName = item.layer?.displayName || '无层级';
+                    if (!groups[layerName]) groups[layerName] = [];
+                    groups[layerName].push(item);
+                });
+                
+                // 层级搜索过滤：如果有层级搜索，只显示匹配的层级
+                const layerSearchTerm = document.getElementById('layerSearch').value.toLowerCase();
+                let filteredGroups = groups;
+                if (layerSearchTerm) {
+                    filteredGroups = {};
+                    Object.keys(groups).forEach(groupName => {
+                        if (groupName.toLowerCase().includes(layerSearchTerm)) {
+                            filteredGroups[groupName] = groups[groupName];
+                        }
+                    });
+                }
+                
+                let html = '';
+                Object.keys(filteredGroups).sort().forEach(groupName => {
+                    const groupId = 'group_' + groupName;
+                    const isGroupSelected = selectedGroupHeaders.has(groupName);
+                    html += `<div class="group-section">
+                        <div class="group-header ${isGroupSelected ? 'selected' : ''}" 
+                             data-group="${escapeHtml(groupName)}" 
+                             onclick="toggleGroupSelection('${escapeHtml(groupName)}', event)">
+                            ${escapeHtml(groupName)} (${filteredGroups[groupName].length})
+                        </div>
+                        <div class="group-content">
+                            <div class="grid">
+                                ${filteredGroups[groupName].map(renderChip).join('')}
+                            </div>
+                        </div>
+                    </div>`;
+                });
+                
+                board.innerHTML = html;
+                
+                // 更新节点计数
+                updateNodeCount(data.length);
+            }
+            
+            // 更新节点计数显示
+            function updateNodeCount(count) {
+                // 节点计数显示已移除，保持与标签看板一致
+            }
+            
+            // 更新选中状态显示
+            function updateSelectionDisplay() {
+                const selectedCountElement = document.getElementById('selectedCount');
+                const clearButton = document.getElementById('clearSelection');
+                const selectedCount = selectedItems.size;
+                
+                if (selectedCount > 0) {
+                    selectedCountElement.textContent = `${selectedCount} 个节点已选中`;
+                    selectedCountElement.style.display = 'inline';
+                    clearButton.style.display = 'inline-block';
+                } else {
+                    selectedCountElement.style.display = 'none';
+                    clearButton.style.display = 'none';
                 }
             }
             
-            Spacer()
+            // 切换选择状态
+            function toggleSelection(itemId, event) {
+                console.log("🖱️ [节点看板] 点击节点 START:", itemId);
+                console.log("   - 事件类型:", event.type);
+                console.log("   - metaKey:", event.metaKey, "ctrlKey:", event.ctrlKey);
+                console.log("   - 当前选中项:", Array.from(selectedItems));
+                
+                if (event.metaKey || event.ctrlKey) {
+                    // Command/Ctrl+点击: 多选
+                    if (selectedItems.has(itemId)) {
+                        selectedItems.delete(itemId);
+                        console.log("   - 多选模式: 取消选择", itemId);
+                    } else {
+                        selectedItems.add(itemId);
+                        console.log("   - 多选模式: 添加选择", itemId);
+                    }
+                } else {
+                    // 普通点击: 单选
+                    selectedItems.clear();
+                    selectedItems.add(itemId);
+                    console.log("   - 单选模式: 设置选择", itemId);
+                }
+                
+                console.log("   - 更新后选中项:", Array.from(selectedItems));
+                
+                renderBoard();
+                notifySelectionChange();
+                console.log("🖱️ [节点看板] 点击节点 END");
+            }
             
-            // 底部信息栏
-            HStack {
-                // 标签总数指示器
-                if !node.tags.isEmpty {
-                    HStack(spacing: 4) {
-                        Image(systemName: "tag")
-                            .font(.system(size: 12))  // 增大图标
-                            .foregroundColor(.blue)
-                        Text("\(node.tags.count)")
-                            .font(.system(size: 12))  // 增大字体从10到12
-                            .foregroundColor(.secondary)
+            // 切换组（层级）选择
+            function toggleGroupSelection(groupName, event) {
+                console.log("🎯 切换层级选择:", groupName);
+                
+                if (event.metaKey || event.ctrlKey) {
+                    // Command/Ctrl+点击: 多选组
+                    if (selectedGroupHeaders.has(groupName)) {
+                        selectedGroupHeaders.delete(groupName);
+                        // 取消选择该组下的所有节点
+                        const groupItems = DATA.filter(item => 
+                            item.layer?.displayName === groupName
+                        );
+                        groupItems.forEach(item => {
+                            selectedItems.delete(item.id);
+                        });
+                    } else {
+                        selectedGroupHeaders.add(groupName);
+                        // 选择该组下的所有节点
+                        const groupItems = DATA.filter(item => 
+                            item.layer?.displayName === groupName
+                        );
+                        groupItems.forEach(item => {
+                            selectedItems.add(item.id);
+                        });
                     }
+                } else {
+                    // 普通点击: 单选组
+                    selectedGroupHeaders.clear();
+                    selectedItems.clear();
+                    
+                    selectedGroupHeaders.add(groupName);
+                    // 选择该组下的所有节点
+                    const groupItems = DATA.filter(item => 
+                        item.layer?.displayName === groupName
+                    );
+                    groupItems.forEach(item => {
+                        selectedItems.add(item.id);
+                    });
                 }
                 
-                Spacer()
+                renderBoard();
+                notifySelectionChange();
+            }
+            
+            // 通知选择变化
+            function notifySelectionChange() {
+                console.log("📤 [节点看板] 通知选择变化 START");
+                console.log("   - 选中项:", Array.from(selectedItems));
                 
-                // 节点类型指示器
-                if node.isCompound {
-                    HStack(spacing: 2) {
-                        Image(systemName: "square.stack.3d.up")
-                            .font(.system(size: 12))  // 增大图标
-                            .foregroundColor(.purple)
-                        Text("复合")
-                            .font(.system(size: 11))
-                            .foregroundColor(.purple)
+                const selectedNodeIds = Array.from(selectedItems);
+                console.log("   - 最终选择数据:", selectedNodeIds);
+                
+                // 检查messageHandler是否可用
+                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nodeBoard) {
+                    console.log("   - messageHandler 可用，发送消息...");
+                    try {
+                        const message = {
+                            type: 'selectionChanged',
+                            selectedNodes: selectedNodeIds
+                        };
+                        console.log("   - 发送的消息:", message);
+                        window.webkit.messageHandlers.nodeBoard.postMessage(message);
+                        console.log("   - 消息发送成功");
+                    } catch (e) {
+                        console.error("❌ [节点看板] 发送消息异常:", e);
                     }
+                } else {
+                    console.error("❌ [节点看板] messageHandler 不可用");
+                    console.log("   - window.webkit:", !!window.webkit);
+                    console.log("   - messageHandlers:", !!window.webkit?.messageHandlers);
+                    console.log("   - nodeBoard:", !!window.webkit?.messageHandlers?.nodeBoard);
+                }
+                
+                console.log("📤 [节点看板] 通知选择变化 END");
+            }
+            
+            // 工具函数
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+            
+            // 清除筛选功能
+            function clearAllFilters() {
+                console.log("🧹 清除所有筛选条件");
+                
+                // 清除搜索
+                document.getElementById('layerSearch').value = '';
+                document.getElementById('nodeSearch').value = '';
+                
+                // 清除选择
+                selectedItems.clear();
+                selectedGroupHeaders.clear();
+                
+                // 重新渲染
+                renderBoard();
+                notifySelectionChange();
+            }
+            
+            // 刷新数据功能
+            function refreshDataFromWebView() {
+                console.log("🔄 从WebView触发刷新数据");
+                
+                // 通过消息处理器通知Swift端刷新数据
+                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nodeBoard) {
+                    try {
+                        const message = {
+                            type: 'refreshData'
+                        };
+                        window.webkit.messageHandlers.nodeBoard.postMessage(message);
+                        console.log("✅ 刷新数据消息发送成功");
+                    } catch (e) {
+                        console.error("❌ 发送刷新数据消息异常:", e);
+                    }
+                } else {
+                    console.error("❌ messageHandler 不可用，无法刷新数据");
                 }
             }
-        }
-        .padding(14)  // 增大内边距
-        .frame(minHeight: 140, maxHeight: 160)  // 增大卡片高度
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(isSelected ? Color.blue.opacity(0.1) : (isHovered ? Color.blue.opacity(0.05) : Color(NSColor.controlBackgroundColor)))
-                .stroke(
-                    isSelected ? Color.blue : (isHovered ? Color.blue.opacity(0.3) : Color.gray.opacity(0.2)),
-                    lineWidth: isSelected ? 2 : (isHovered ? 1.5 : 1)
-                )
-        )
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.2)) {
-                isHovered = hovering
-            }
-        }
-        .onTapGesture {
-            let currentEvent = NSApp.currentEvent ?? NSEvent()
-            onNodeTapped(currentEvent)
-        }
-        .help(buildTooltipWithSelection())
+            
+            // 事件监听
+            document.getElementById('layerSearch').addEventListener('input', renderBoard);
+            document.getElementById('nodeSearch').addEventListener('input', renderBoard);
+            document.getElementById('groupBy').addEventListener('change', renderBoard);
+            document.getElementById('clearFilters').addEventListener('click', clearAllFilters);
+            document.getElementById('refreshData').addEventListener('click', refreshDataFromWebView);
+            
+            // 清除选择按钮
+            document.getElementById('clearSelection').addEventListener('click', () => {
+                selectedItems.clear();
+                selectedGroupHeaders.clear();
+                renderBoard();
+                notifySelectionChange();
+            });
+            
+            // 标记为就绪
+            console.log("✅ [节点看板] JavaScript 初始化完成");
+            window.jsReady = true;
+            </script>
+        </body>
+        </html>
+        """
+        
+        webView.loadHTMLString(html, baseURL: nil)
     }
     
-    private func buildTooltipWithSelection() -> String {
-        var tooltip = node.text
-        if let meaning = node.meaning {
-            tooltip += "\n\n\(meaning)"
+    @MainActor
+    private func convertToNodeItems(nodeStore: NodeStore) -> [NodeItem] {
+        let allLayers = nodeStore.layers
+        
+        return nodeStore.nodes.map { node in
+            let layer = allLayers.first { $0.id == node.layerId }
+            
+            return NodeItem(
+                id: node.id.uuidString,
+                text: node.text,
+                meaning: node.meaning,
+                layerId: node.layerId.uuidString,
+                layer: LayerInfo(
+                    id: layer?.id.uuidString ?? "",
+                    displayName: layer?.displayName ?? "未知层级",
+                    color: layer?.color ?? "#666666"
+                ),
+                tagCount: node.tags.count,
+                isCompound: node.isCompound
+            )
         }
-        tooltip += "\n\n层级: \(layer.displayName)"
-        if !node.tags.isEmpty {
-            tooltip += "\n标签数量: \(node.tags.count)"
+    }
+    
+    @MainActor
+    private func updateNodeSelection(selectedNodeIds: [String]) {
+        print("🔄 [节点看板] 开始处理节点选中: \(selectedNodeIds)")
+        
+        guard let nodeStore = nodeStore else { 
+            print("❌ [节点看板] NodeStore 为空")
+            return 
         }
-        tooltip += "\n\n点击选择节点 • ⌘+点击多选"
-        if isSelected {
-            tooltip += "\n✅ 当前已选中"
+        
+        // 将字符串 ID 转换为 UUID
+        let selectedUUIDs = selectedNodeIds.compactMap { UUID(uuidString: $0) }
+        print("🎯 [节点看板] 转换后的 UUID: \(selectedUUIDs)")
+        
+        // 处理多节点选择 - 模仿标签看板的方式
+        if !selectedUUIDs.isEmpty {
+            let selectedNodes = nodeStore.nodes.filter { selectedUUIDs.contains($0.id) }
+            print("✅ [节点看板-\(instanceId)] 找到节点: \(selectedNodes.count)个")
+            selectedNodes.forEach { print("  - \($0.text)") }
+            
+            // 选中第一个节点作为主要节点（与主界面同步）
+            if let firstNode = selectedNodes.first {
+                nodeStore.selectNode(firstNode)
+            }
+            
+            // 🆕 如果有关联的数据管理器，直接更新它；否则不做任何操作（模仿标签看板）
+            if let dataManager = associatedDataManager {
+                print("📤 [节点看板-\(instanceId)] 更新关联数据管理器")
+                print("   - 选中节点: \(selectedUUIDs.count)个")
+                print("   - 选中层级: \(Set(selectedNodes.map { $0.layerId }).count)个")
+                
+                dataManager.updateSelectedNodes(Set(selectedUUIDs))
+                dataManager.updateSelectedLayers(Set(selectedNodes.map { $0.layerId }))
+                
+                print("🔄 [节点看板-\(instanceId)] 数据管理器已更新（不使用通知）")
+            } else {
+                print("📤 [节点看板-\(instanceId)] 无关联数据管理器，跳过图谱更新")
+            }
+        } else if selectedNodeIds.isEmpty {
+            // 清除选中状态
+            nodeStore.selectNode(nil)
+            
+            if let dataManager = associatedDataManager {
+                print("🧹 [节点看板-\(instanceId)] 清除数据管理器选择")
+                dataManager.updateSelectedNodes(Set())
+                dataManager.updateSelectedLayers(Set())
+            }
+            print("🧹 [节点看板-\(instanceId)] 已清除节点选择")
+        } else {
+            print("❌ [节点看板] 未找到对应的节点")
         }
-        return tooltip
+    }
+}
+
+// MARK: - 数据模型
+struct NodeItem: Codable {
+    let id: String
+    let text: String
+    let meaning: String?
+    let layerId: String
+    let layer: LayerInfo
+    let tagCount: Int
+    let isCompound: Bool
+}
+
+struct LayerInfo: Codable {
+    let id: String
+    let displayName: String
+    let color: String
+}
+
+// MARK: - WebView委托
+extension NodeBoardWebViewModel: WKNavigationDelegate {
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        print("✅ [节点看板] WebView加载完成")
+        isWebViewReady = true
+        
+        if let pendingData = pendingData {
+            sendDataToWebView(pendingData)
+            self.pendingData = nil
+        }
+    }
+    
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        print("❌ [节点看板] WebView加载失败: \(error)")
+    }
+}
+
+extension NodeBoardWebViewModel: WKScriptMessageHandler {
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        print("📨 [节点看板] 收到 WebView 消息: \(message.body)")
+        
+        guard let messageBody = message.body as? [String: Any] else { 
+            print("❌ [节点看板] 消息格式错误: \(message.body)")
+            return 
+        }
+        
+        if let type = messageBody["type"] as? String {
+            print("📝 [节点看板] 消息类型: \(type)")
+            switch type {
+            case "selectionChanged":
+                if let selectedNodeIds = messageBody["selectedNodes"] as? [String] {
+                    print("🎯 [节点看板] 接收到选中变化: \(selectedNodeIds)")
+                    Task { @MainActor in
+                        self.updateNodeSelection(selectedNodeIds: selectedNodeIds)
+                    }
+                } else {
+                    print("❌ [节点看板] selectedNodes 字段格式错误")
+                }
+            case "refreshData":
+                print("🔄 [节点看板] 接收到刷新数据请求")
+                Task { @MainActor in
+                    self.handleRefreshData()
+                }
+            default:
+                print("⚠️ [节点看板] 未知消息类型: \(type)")
+                break
+            }
+        } else {
+            print("❌ [节点看板] 消息缺少 type 字段")
+        }
+    }
+    
+    @MainActor
+    private func handleRefreshData() {
+        print("🔄 [节点看板-\(instanceId)] 处理刷新数据请求")
+        
+        // 通过NodeStore刷新数据
+        if let nodeStore = nodeStore {
+            loadNodeData(nodeStore: nodeStore)
+            print("✅ [节点看板-\(instanceId)] 数据刷新完成")
+        } else {
+            print("❌ [节点看板-\(instanceId)] 无法获取NodeStore实例")
+        }
+    }
+}
+
+
+// MARK: - 窗口关闭委托
+class NodeBoardWindowCloseDelegate: NSObject, NSWindowDelegate {
+    private let onClose: () -> Void
+    
+    init(onClose: @escaping () -> Void) {
+        self.onClose = onClose
+        super.init()
+    }
+    
+    func windowWillClose(_ notification: Notification) {
+        onClose()
     }
 }

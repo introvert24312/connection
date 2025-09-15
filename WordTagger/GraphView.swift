@@ -8,6 +8,7 @@ struct GraphView: View {
     @State private var cachedNodes: [NodeGraphNode] = []
     @State private var cachedEdges: [NodeGraphEdge] = []
     @State private var showingNodeSelector = false
+    private let instanceId = UUID().uuidString.prefix(8)  // 🆕 实例标识符
     
     // 层级筛选状态
     @State private var showingLayerSelector = false
@@ -194,22 +195,18 @@ struct GraphView: View {
         .onChange(of: store.expandedTagTypes) {
             updateGraphData()
         }
-        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("NodeBoardSelectionChanged"))) { notification in
-            if let userInfo = notification.userInfo,
-               let nodeIds = userInfo["selectedNodeIds"] as? [UUID],
-               let layerIds = userInfo["selectedLayerIds"] as? [UUID] {
-                
-                print("🔄 GraphView: 收到节点看板选择变化通知")
-                print("   - 节点: \(nodeIds.count) 个")
-                print("   - 层级: \(layerIds.count) 个")
-                
-                // 更新数据管理器的选择状态
-                dataManager.updateSelectedNodes(Set(nodeIds))
-                dataManager.updateSelectedLayers(Set(layerIds))
-                
-                // 强制更新图谱数据
-                updateGraphData()
+        .onReceive(dataManager.$selectedNodeIds.combineLatest(dataManager.$selectedLayerIds)) { nodeIds, layerIds in
+            print("🔄 [全局节点图谱-\(instanceId)] 数据管理器变化，准备重新加载数据")
+            print("   新的选择条件: 节点=\(nodeIds.count), 层级=\(layerIds.count)")
+            
+            // 🔒 如果图谱被锁定，忽略所有数据更新
+            guard !dataManager.isLocked else {
+                print("🔒 [全局节点图谱-\(instanceId)] 图谱已锁定，忽略数据管理器变化")
+                return
             }
+            
+            // 更新图谱数据（模仿全局标签图谱的方式）
+            updateGraphData()
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("compoundNodeRefreshed"))) { notification in
             print("📨 [GraphView] 收到复合节点刷新通知！")
@@ -284,26 +281,9 @@ struct GraphView: View {
     // MARK: - 预设和看板功能
     
     private func showNodeBoardWindow() {
-        // 创建节点看板窗口
-        let nodeBoardView = NodeBoardView()
-        .environmentObject(store)
-        
-        let hostingView = NSHostingView(rootView: nodeBoardView)
-        
-        let newWindow = NSWindow(
-            contentRect: NSRect(x: 200, y: 200, width: 1000, height: 700),
-            styleMask: [.titled, .closable, .resizable, .miniaturizable],
-            backing: .buffered,
-            defer: false
-        )
-        
-        newWindow.contentView = hostingView
-        newWindow.title = "节点看板"
-        newWindow.setFrameAutosaveName("NodeBoardWindow")
-        newWindow.isReleasedWhenClosed = false
-        newWindow.makeKeyAndOrderFront(nil)
-        
-        print("🪟 [节点看板] 窗口已创建")
+        // 创建与当前图谱配对的节点看板窗口
+        NodeBoardWindowManager.shared.showPairedNodeBoardWindow(with: dataManager)
+        print("🔗 [全局节点图谱-\(instanceId)] 创建配对的节点看板窗口")
     }
     
     private func saveCurrentAsPreset() {

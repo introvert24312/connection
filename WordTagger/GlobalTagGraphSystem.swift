@@ -700,6 +700,7 @@ struct GraphPresetCollection: Codable {
 
 extension NSNotification.Name {
     static let tagIndexSelectionChanged = NSNotification.Name("tagIndexSelectionChanged")
+    static let nodeSelectionChanged = NSNotification.Name("nodeSelectionChanged")
 }
 
 // MARK: - 标签索引选择模型

@@ -79,7 +79,8 @@
       "Bash(sips:*)",
       "Bash(zip:*)",
       "Bash(gh release create:*)",
-      "Bash(/Users/Patronum/Desktop/Connection/create_dmg.sh:*)"
+      "Bash(/Users/Patronum/Desktop/Connection/create_dmg.sh:*)",
+      "Bash(/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -typecheck WordTagger/NodeBoardView.swift -I /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bhactxeabaanpsgrwffqabngxjck/Build/Products/Debug -F /Users/Patronum/Library/Developer/Xcode/DerivedData/WordTagger-bhactxeabaanpsgrwffqabngxjck/Build/Products/Debug)"
     ],
     "deny": []
   }

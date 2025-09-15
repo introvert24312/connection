@@ -256,6 +256,34 @@ struct ContentViewModifier: ViewModifier {
                     }
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: .nodeSelectionChanged)) { notification in
+                print("📋 ContentView: 收到节点选择变化通知")
+                print("📋 ContentView: userInfo: \(notification.userInfo ?? [:])")
+                
+                guard let userInfo = notification.userInfo,
+                      let selectedNode = userInfo["selectedNode"] as? Node,
+                      let source = userInfo["source"] as? String else {
+                    // Handle node deselection
+                    if let userInfo = notification.userInfo,
+                       userInfo["selectedNode"] is NSNull {
+                        print("🧹 ContentView: 清除节点选择")
+                        DispatchQueue.main.async {
+                            self.selectedNode = nil
+                        }
+                    }
+                    return
+                }
+                
+                print("📋 ContentView: 节点选择来源: \(source), 节点: \(selectedNode.text)")
+                
+                // Only update if the selection came from node board to avoid circular updates
+                if source == "nodeBoard" {
+                    DispatchQueue.main.async {
+                        self.selectedNode = selectedNode
+                        print("📋 ContentView: 已更新选中节点: \(selectedNode.text)")
+                    }
+                }
+            }
             .toolbar {
                 toolbarContent
             }
