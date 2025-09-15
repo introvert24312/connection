@@ -403,7 +403,6 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                     padding: 8px;
                     border-radius: 6px;
                     background: var(--border);
-                    border-left: 3px solid var(--accent);
                 }
                 .type-subgroup:last-child {
                     margin-bottom: 0;
