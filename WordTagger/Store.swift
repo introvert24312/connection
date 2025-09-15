@@ -2040,6 +2040,10 @@ public final class NodeStore: ObservableObject {
     public func addExpandedTagType(_ tagType: Tag.TagType) {
         expandedTagTypes.insert(tagType)
         showAllTagTypeNodes = !expandedTagTypes.isEmpty
+        // 🔧 清除选中的标签，避免焦点排序
+        if selectedTag?.type == tagType {
+            selectedTag = nil
+        }
         print("📂 Store.addExpandedTagType: 添加展开标签类型 \(tagType.displayName)")
     }
     

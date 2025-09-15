@@ -446,14 +446,14 @@ struct TagSidebarView: View {
                 print("🖱️ TagSidebarView: 标签类型按钮被点击 - \(tagType.displayName)")
                 print("🖱️ TagSidebarView: 当前展开状态: \(isExpanded)")
                 
-                // 总是切换展开/折叠状态
-                store.toggleExpandedTagType(tagType)
-                
-                // 如果展开了，选择标签类型显示该类型下的所有节点
+                // 统一操作：只使用expandedTagTypes，不设置焦点标签
                 if !isExpanded {
-                    store.selectTagType(tagType)
-                    print("🏷️ 展开并选择标签类型: \(tagType.displayName)，显示该类型下的所有节点")
+                    // 展开：只添加到展开列表，不设置焦点
+                    store.addExpandedTagType(tagType)
+                    print("🏷️ 展开标签类型: \(tagType.displayName)，显示该类型下的所有节点")
                 } else {
+                    // 折叠：移除展开状态
+                    store.removeExpandedTagType(tagType)
                     print("🏷️ 折叠标签类型: \(tagType.displayName)")
                 }
             }) {
@@ -608,9 +608,8 @@ struct TagSidebarView: View {
                                         isAlreadySelected: store.expandedTagTypes.contains(type),
                                         isHighlighted: searchFocusMode == .tagTypes && selectedSearchTypeIndex == index,
                                         onAdd: {
-                                            // 🆕 沿用标签筛选逻辑，不是添加到选中列表
-                                            store.selectTagType(type)
-                                            store.toggleExpandedTagType(type)
+                                            // 只添加到展开列表，不设置焦点
+                                            store.addExpandedTagType(type)
                                             
                                             // 清空搜索框，但保持在标签搜索模式
                                             tagTypeSearchQuery = ""
@@ -1457,8 +1456,8 @@ struct TagSidebarView: View {
     /// 选择标签类型
     private func selectTagType(_ type: Tag.TagType) {
         print("🎯 选择标签类型: \(type.displayName)")
-        store.selectTagType(type)
-        store.toggleExpandedTagType(type)
+        // 只添加到展开列表，不设置焦点
+        store.addExpandedTagType(type)
         
         // 清空搜索框并重置焦点状态
         tagTypeSearchQuery = ""

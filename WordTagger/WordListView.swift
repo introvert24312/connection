@@ -202,13 +202,13 @@ struct NodeListView: View {
         
         if !store.searchQuery.isEmpty {
             filteredNodes = store.searchResults
+        } else if !store.expandedTagTypes.isEmpty {
+            // 🔧 优先处理展开的标签类型，不需要selectedTag
+            filteredNodes = store.nodesInCurrentLayer(withTagTypes: store.expandedTagTypes)
         } else if let selectedTag = store.selectedTag {
+            // 处理选中的具体标签
             if store.showAllTagTypeNodes {
-                if store.expandedTagTypes.count > 1 {
-                    filteredNodes = store.nodesInCurrentLayer(withTagTypes: store.expandedTagTypes)
-                } else {
-                    filteredNodes = store.nodesInCurrentLayer(withTagType: selectedTag.type)
-                }
+                filteredNodes = store.nodesInCurrentLayer(withTagType: selectedTag.type)
             } else {
                 filteredNodes = store.nodesInCurrentLayer(withTag: selectedTag)
             }
@@ -249,28 +249,46 @@ struct NodeListView: View {
     // 删除复杂的状态处理方法，现在直接使用store数据
     
     private func sortNodes(_ nodes: [Node]) -> [Node] {
-        // 如果有选中的标签并且是焦点模式，优先排序焦点节点
-        if let selectedTag = store.selectedTag, store.showAllTagTypeNodes {
+        // 🆕 如果有展开的标签类型，按标签类型分组排序
+        if !store.expandedTagTypes.isEmpty {
+            print("📊 按展开的标签类型分组排序: \(nodes.count) 个节点")
+            print("   展开的类型: \(store.expandedTagTypes.map { $0.displayName })")
+            
+            let sorted = nodes.sorted { node1, node2 in
+                // 获取节点的标签类型（优先使用展开类型中的）
+                let node1Types = node1.tags.map { $0.type }.filter { store.expandedTagTypes.contains($0) }
+                let node2Types = node2.tags.map { $0.type }.filter { store.expandedTagTypes.contains($0) }
+                
+                // 获取第一个展开的标签类型（用于排序）
+                let node1FirstType = node1Types.first?.displayName ?? ""
+                let node2FirstType = node2Types.first?.displayName ?? ""
+                
+                // 按标签类型名称分组
+                if node1FirstType != node2FirstType {
+                    return node1FirstType < node2FirstType
+                }
+                
+                // 同一标签类型内按节点名称排序
+                return node1.text < node2.text
+            }
+            
+            return sorted
+        } else if let selectedTag = store.selectedTag, store.showAllTagTypeNodes {
+            // 保留原有的焦点排序逻辑（用于选中具体标签值时）
             print("🎯 应用焦点排序 - 标签: \(selectedTag.type.displayName) - '\(selectedTag.value)'")
             
             let sorted = nodes.sorted { node1, node2 in
                 let node1HasFocusTag = node1.hasTag(selectedTag)
                 let node2HasFocusTag = node2.hasTag(selectedTag)
                 
-                // 🆕 焦点节点排在最后（底部），让新节点从底部"长出来"
                 if node1HasFocusTag && !node2HasFocusTag {
                     return false  // node1 排在后面（底部）
                 } else if !node1HasFocusTag && node2HasFocusTag {
                     return true   // node2 排在后面（底部）
                 } else {
-                    // 如果都包含或都不包含焦点标签，按标签数量排序
                     return node1.tags.count > node2.tags.count
                 }
             }
-            
-            // 统计焦点节点数量
-            let focusNodesCount = sorted.filter { $0.hasTag(selectedTag) }.count
-            print("🎯 焦点排序完成: \(focusNodesCount) 个焦点节点排在最底部（容易看到）")
             
             return sorted
         } else {
@@ -279,9 +297,6 @@ struct NodeListView: View {
             case .tagCount:
                 let sorted = nodes.sorted { $0.tags.count > $1.tags.count }
                 print("📊 按标签数量排序: \(nodes.count) 个节点")
-                for (index, node) in sorted.prefix(5).enumerated() {
-                    print("  排序结果[\(index)]: '\(node.text)' - 标签数: \(node.tags.count)")
-                }
                 return sorted
             }
         }
