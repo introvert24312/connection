@@ -245,15 +245,11 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                 .header {
                     display: flex;
                     align-items: center;
+                    justify-content: space-between;
                     gap: 12px;
                     margin-bottom: 16px;
                     padding-bottom: 12px;
                     border-bottom: 1px solid var(--border);
-                }
-                .header {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
                 }
                 .header h1 {
                     margin: 0;

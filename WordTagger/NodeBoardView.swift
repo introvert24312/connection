@@ -214,15 +214,11 @@ class NodeBoardWebViewModel: NSObject, ObservableObject {
                 .header {
                     display: flex;
                     align-items: center;
+                    justify-content: space-between;
                     gap: 12px;
                     margin-bottom: 16px;
                     padding-bottom: 12px;
                     border-bottom: 1px solid var(--border);
-                }
-                .header {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
                 }
                 .header h1 {
                     margin: 0;
@@ -370,6 +366,36 @@ class NodeBoardWebViewModel: NSObject, ObservableObject {
                 }
                 .group-content .grid {
                     margin-bottom: 0;
+                }
+                .type-subgroup {
+                    margin-bottom: 16px;
+                    padding: 8px;
+                    border-radius: 6px;
+                    background: var(--border);
+                    border-left: 3px solid var(--accent);
+                }
+                .type-subgroup:last-child {
+                    margin-bottom: 0;
+                }
+                .type-header {
+                    font-weight: 500;
+                    margin: 0 0 8px 0;
+                    color: var(--accent);
+                    font-size: 13px;
+                    padding-left: 4px;
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                    user-select: none;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                }
+                .type-header:hover {
+                    background: rgba(0, 122, 255, 0.1);
+                    color: white;
+                }
+                .type-header.selected {
+                    background: var(--accent);
+                    color: white;
                 }
             </style>
         </head>
