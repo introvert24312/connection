@@ -18,7 +18,7 @@ struct LayerGraphWindowView: View {
     // UI状态
     @State private var showingPresetSaveDialog = false
     @State private var newPresetName = ""
-    @State private var showingPresetMenu = false
+    @State private var showingPresetManagerWindow = false
     
     // 层搜索/创建状态
     @State private var layerSearchText = ""
@@ -116,14 +116,11 @@ struct LayerGraphWindowView: View {
             
             HStack(spacing: 8) {
                 // 层预设按钮组
-                Button("层预设") {
-                    showingPresetMenu.toggle()
+                Button("预设管理") {
+                    showLayerGraphPresetManagerWindow()
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .popover(isPresented: $showingPresetMenu, arrowEdge: .bottom) {
-                    presetMenuView
-                }
                 
                 Button("保存为预设") {
                     showingPresetSaveDialog = true
@@ -542,90 +539,28 @@ struct LayerGraphWindowView: View {
         .frame(maxHeight: 30)
     }
     
-    // MARK: - 预设菜单视图
-    private var presetMenuView: some View {
-        VStack(spacing: 0) {
-            // 标题栏（更明显的样式区别）
-            HStack {
-                Text("🔧 层预设菜单")
-                    .font(.title3)
-                    .fontWeight(.bold)
-                    .foregroundColor(.blue)
-                Spacer()
-                Button {
-                    showingPresetMenu = false
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 18))
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(PlainButtonStyle())
-                .help("关闭")
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .background(Color.blue.opacity(0.1))
-            
-            Divider()
-            
-            // 预设列表
-            ScrollView {
-                LazyVStack(spacing: 8) {
-                    // 默认预设
-                    let defaultPreset = presetManager.getDefaultPreset(allLayers: store.layers)
-                    let isDefaultSelected = presetManager.currentPreset?.id == defaultPreset.id
-                    SimplePresetRow(
-                        preset: defaultPreset,
-                        isSelected: isDefaultSelected,
-                        isDefault: true,
-                        onSelect: { 
-                            print("🔍 手动选择默认预设")
-                            print("   - defaultPreset.id: \(defaultPreset.id)")
-                            print("   - 当前选中状态: \(isDefaultSelected)")
-                            loadPreset(defaultPreset)
-                            showingPresetMenu = false
-                        }
-                    )
-                    
-                    if !presetManager.presets.isEmpty {
-                        Divider()
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 4)
-                    }
-                    
-                    // 用户预设
-                    ForEach(presetManager.presets.sorted(by: { $0.lastUsedAt > $1.lastUsedAt })) { preset in
-                        SimplePresetRow(
-                            preset: preset,
-                            isSelected: presetManager.currentPreset?.id == preset.id,
-                            isDefault: false,
-                            onSelect: { 
-                                loadPreset(preset)
-                                showingPresetMenu = false
-                            },
-                            onDelete: { 
-                                presetManager.deletePreset(preset)
-                            }
-                        )
-                    }
-                    
-                    if presetManager.presets.isEmpty {
-                        VStack(spacing: 12) {
-                            Image(systemName: "bookmark.slash")
-                                .font(.system(size: 28))
-                                .foregroundColor(.secondary)
-                            Text("暂无自定义预设")
-                                .font(.body)
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.vertical, 32)
-                    }
-                }
-                .padding(.vertical, 16)
-            }
-            .frame(maxHeight: 540)
-        }
-        .frame(width: 320, height: 540)
+    private func showLayerGraphPresetManagerWindow() {
+        let presetManagerView = LayerGraphPresetManagerView(
+            filteredLayerIds: $filteredLayerIds
+        )
+        .environmentObject(store)
+        
+        let hostingView = NSHostingView(rootView: presetManagerView)
+        
+        let newWindow = NSWindow(
+            contentRect: NSRect(x: 200, y: 200, width: 800, height: 600),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        
+        newWindow.contentView = hostingView
+        newWindow.title = "图谱预设管理"
+        newWindow.setFrameAutosaveName("LayerGraphPresetManagerWindow")
+        newWindow.isReleasedWhenClosed = false
+        newWindow.makeKeyAndOrderFront(nil)
+        
+        print("🪟 [预设管理] 窗口已创建")
     }
     
     // MARK: - 辅助方法
@@ -1086,7 +1021,7 @@ struct EditLayerDialogView: View {
                 isFocused = true
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     if let window = NSApplication.shared.keyWindow,
-                       let fieldEditor = window.fieldEditor(false, for: nil) as? NSText {
+                       let fieldEditor = window.fieldEditor(false, for: nil) {
                         fieldEditor.selectAll(nil)
                     }
                 }
@@ -1290,339 +1225,7 @@ struct LayerSelectionCard: View {
     }
 }
 
-// MARK: - 层预设管理视图
-struct LayerPresetManagerView: View {
-    @ObservedObject var presetManager: LayerGraphPresetManager
-    let store: NodeStore
-    let onPresetSelected: (LayerGraphPreset) -> Void
-    
-    @State private var searchText = ""
-    
-    private var filteredPresets: [LayerGraphPreset] {
-        let allPresets = presetManager.presets
-        if searchText.isEmpty {
-            return allPresets.sorted(by: { $0.lastUsedAt > $1.lastUsedAt })
-        }
-        return allPresets.filter { preset in
-            preset.name.localizedCaseInsensitiveContains(searchText)
-        }.sorted(by: { $0.lastUsedAt > $1.lastUsedAt })
-    }
-    
-    var body: some View {
-        VStack(spacing: 12) {
-            // 标题
-            HStack {
-                Text("层预设管理")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                
-                Spacer()
-            }
-            .padding(.horizontal)
-            
-            // 搜索框
-            HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.secondary)
-                TextField("搜索预设...", text: $searchText)
-                    .textFieldStyle(PlainTextFieldStyle())
-                
-                if !searchText.isEmpty {
-                    Button {
-                        searchText = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(8)
-            .padding(.horizontal)
-            
-            Divider()
-            
-            // 预设列表
-            ScrollView {
-                LazyVStack(spacing: 8) {
-                    // 默认预设
-                    let defaultPreset = presetManager.getDefaultPreset(allLayers: store.layers)
-                    if searchText.isEmpty || defaultPreset.name.localizedCaseInsensitiveContains(searchText) {
-                        ModernPresetRow(
-                            preset: defaultPreset,
-                            isSelected: presetManager.currentPreset?.id == defaultPreset.id,
-                            isDefault: true,
-                            onSelect: { onPresetSelected(defaultPreset) }
-                        )
-                    }
-                    
-                    let shouldShowDivider = !filteredPresets.isEmpty && (searchText.isEmpty || !defaultPreset.name.localizedCaseInsensitiveContains(searchText))
-                    if shouldShowDivider {
-                        Divider()
-                            .padding(.horizontal)
-                    }
-                    
-                    // 用户预设
-                    ForEach(filteredPresets) { preset in
-                        ModernPresetRow(
-                            preset: preset,
-                            isSelected: presetManager.currentPreset?.id == preset.id,
-                            isDefault: false,
-                            onSelect: { onPresetSelected(preset) },
-                            onDelete: { presetManager.deletePreset(preset) }
-                        )
-                    }
-                    
-                    if filteredPresets.isEmpty && !searchText.isEmpty {
-                        VStack(spacing: 12) {
-                            Image(systemName: "magnifyingglass")
-                                .font(.system(size: 28))
-                                .foregroundColor(.secondary)
-                            
-                            Text("未找到匹配的预设")
-                                .font(.headline)
-                                .foregroundColor(.secondary)
-                            
-                            Text("尝试使用不同的关键词搜索")
-                                .font(.caption)
-                                .foregroundColor(.secondary.opacity(0.8))
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 32)
-                    }
-                }
-                .padding(.horizontal)
-            }
-            
-            if searchText.isEmpty && presetManager.presets.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "bookmark.slash")
-                        .font(.system(size: 28))
-                        .foregroundColor(.secondary)
-                    
-                    Text("暂无自定义预设")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                    
-                    Text("选择层级后点击\"保存为预设\"")
-                        .font(.caption)
-                        .foregroundColor(.secondary.opacity(0.8))
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 24)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.vertical, 16)
-    }
-}
 
-// MARK: - 简单预设行
-struct SimplePresetRow: View {
-    let preset: LayerGraphPreset
-    let isSelected: Bool
-    let isDefault: Bool
-    let onSelect: () -> Void
-    var onDelete: (() -> Void)? = nil
-    
-    @State private var isHovered = false
-    @State private var showingDeleteAlert = false
-    
-    var body: some View {
-        Button(action: onSelect) {
-            HStack(spacing: 12) {
-                // 选中状态指示器
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 14))
-                    .foregroundColor(isSelected ? .blue : .secondary)
-                
-                // 预设信息
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text(preset.name)
-                            .font(.system(size: 14, weight: isSelected ? .semibold : .medium))
-                            .foregroundColor(isSelected ? .blue : .primary)
-                        
-                        if isDefault {
-                            Text("默认")
-                                .font(.system(size: 10))
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.blue.opacity(0.2))
-                                .foregroundColor(.blue)
-                                .cornerRadius(4)
-                        }
-                        
-                        Spacer()
-                        
-                        Text("\(preset.filteredLayerIds.count) 层")
-                            .font(.system(size: 11))
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    if !isDefault {
-                        Text("上次使用: \(formatDate(preset.lastUsedAt))")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary.opacity(0.8))
-                    }
-                }
-                
-                // 删除按钮
-                if !isDefault, onDelete != nil, isHovered {
-                    Button {
-                        showingDeleteAlert = true
-                    } label: {
-                        Image(systemName: "trash")
-                            .font(.system(size: 12))
-                            .foregroundColor(.red.opacity(0.7))
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .transition(.opacity)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(isSelected ? Color.blue.opacity(0.1) : (isHovered ? Color.primary.opacity(0.05) : Color.clear))
-            )
-        }
-        .buttonStyle(PlainButtonStyle())
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                isHovered = hovering
-            }
-        }
-        .alert("删除预设", isPresented: $showingDeleteAlert) {
-            Button("删除", role: .destructive) {
-                onDelete?()
-            }
-            Button("取消", role: .cancel) { }
-        } message: {
-            Text("确定要删除预设 \"\(preset.name)\" 吗？此操作无法撤销。")
-        }
-    }
-    
-    private func formatDate(_ date: Date) -> String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: date, relativeTo: Date())
-    }
-}
-
-// MARK: - 现代化预设行
-struct ModernPresetRow: View {
-    let preset: LayerGraphPreset
-    let isSelected: Bool
-    let isDefault: Bool
-    let onSelect: () -> Void
-    var onDelete: (() -> Void)? = nil
-    
-    @State private var showingDeleteAlert = false
-    @State private var isHovered = false
-    
-    var body: some View {
-        Button(action: onSelect) {
-            HStack(spacing: 12) {
-                // 选中状态指示器
-                ZStack {
-                    Circle()
-                        .fill(isSelected ? Color.blue : Color.clear)
-                        .frame(width: 20, height: 20)
-                    
-                    Circle()
-                        .stroke(isSelected ? Color.blue : Color.secondary, lineWidth: 2)
-                        .frame(width: 20, height: 20)
-                    
-                    if isSelected {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(.white)
-                    }
-                }
-                
-                // 预设信息
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text(preset.name)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(.primary)
-                        
-                        if isDefault {
-                            Text("默认")
-                                .font(.system(size: 10))
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 1)
-                                .background(Color.blue.opacity(0.2))
-                                .foregroundColor(.blue)
-                                .cornerRadius(8)
-                        }
-                        
-                        Spacer()
-                        
-                        // 层级数量
-                        Text("\(preset.filteredLayerIds.count) 层")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    if !isDefault {
-                        Text("上次使用: \(formatDate(preset.lastUsedAt))")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary.opacity(0.8))
-                    }
-                }
-                
-                // 删除按钮（仅对用户创建的预设显示）
-                if !isDefault, onDelete != nil, isHovered {
-                    Button {
-                        showingDeleteAlert = true
-                    } label: {
-                        Image(systemName: "trash")
-                            .font(.system(size: 12))
-                            .foregroundColor(.red.opacity(0.8))
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .help("删除预设")
-                    .transition(.opacity)
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isSelected ? Color.blue.opacity(0.08) : (isHovered ? Color.primary.opacity(0.05) : Color.clear))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? Color.blue.opacity(0.3) : Color.clear, lineWidth: 1)
-            )
-        }
-        .buttonStyle(PlainButtonStyle())
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.2)) {
-                isHovered = hovering
-            }
-        }
-        .alert("删除预设", isPresented: $showingDeleteAlert) {
-            Button("删除", role: .destructive) {
-                onDelete?()
-            }
-            Button("取消", role: .cancel) { }
-        } message: {
-            Text("确定要删除预设 \"\(preset.name)\" 吗？此操作无法撤销。")
-        }
-    }
-    
-    private func formatDate(_ date: Date) -> String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: date, relativeTo: Date())
-    }
-}
 
 // MARK: - 层下拉框项目
 struct LayerDropdownItem: View {

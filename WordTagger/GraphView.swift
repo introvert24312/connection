@@ -17,7 +17,6 @@ struct GraphView: View {
     @State private var showingPresetManager = false
     @State private var showingSavePresetDialog = false
     @State private var newPresetName = ""
-    @State private var newPresetDescription = ""
     
     // 🆕 使用数据管理器生成图谱数据
     private func updateGraphData() {
@@ -138,33 +137,29 @@ struct GraphView: View {
                 .frame(width: 600, height: 500)
                 .background(LayerWindowAccessor())
         }
-        .sheet(isPresented: $showingPresetManager) {
-            NodeGraphPresetManagerView(
-                selectedNodeIds: $dataManager.selectedNodeIds,
-                selectedLayerIds: $dataManager.selectedLayerIds
-            )
-            .environmentObject(store)
-            .frame(width: 800, height: 600)
+        .onChange(of: showingPresetManager) { _, isShowing in
+            if isShowing {
+                // 使用新的预设管理系统，创建独立窗口
+                showNodeGraphPresetManager()
+                showingPresetManager = false
+            }
         }
         .alert("保存节点图谱预设", isPresented: $showingSavePresetDialog) {
             TextField("预设名称", text: $newPresetName)
-            TextField("描述（可选）", text: $newPresetDescription)
             
             Button("保存") {
                 if !newPresetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     saveCurrentAsPreset()
                     newPresetName = ""
-                    newPresetDescription = ""
                 }
             }
             .disabled(newPresetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             
             Button("取消", role: .cancel) {
                 newPresetName = ""
-                newPresetDescription = ""
             }
         } message: {
-            Text("为当前的节点和层级筛选状态创建一个预设，以便后续快速加载。")
+            Text("为当前的节点和层级筛选状态创建一个预设。")
         }
         .onKeyPress(.init("k"), phases: .down) { _ in
             NotificationCenter.default.post(name: Notification.Name("fitGraph"), object: nil)
@@ -280,6 +275,37 @@ struct GraphView: View {
     
     // MARK: - 预设和看板功能
     
+    private func showNodeGraphPresetManager() {
+        print("📚 [全局节点图谱] 打开新的预设管理系统")
+        
+        // 使用正确的NodeGraphPresetManagerView
+        let contentView = NodeGraphPresetManagerView(
+            selectedNodeIds: $dataManager.selectedNodeIds,
+            selectedLayerIds: $dataManager.selectedLayerIds
+        )
+        .environmentObject(NodeStore.shared)
+        
+        let hostingView = NSHostingView(rootView: contentView)
+        
+        let newWindow = NSWindow(
+            contentRect: NSRect(x: 300, y: 300, width: 800, height: 600),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        
+        newWindow.contentView = hostingView
+        newWindow.title = "图谱预设管理"
+        newWindow.setFrameAutosaveName("GraphPresetManagerWindow")
+        newWindow.isReleasedWhenClosed = false  // 修复内存问题
+        
+        // 窗口关闭处理
+        let delegate = NodeGraphPresetWindowDelegate()
+        newWindow.delegate = delegate
+        
+        newWindow.makeKeyAndOrderFront(nil)
+    }
+    
     private func showNodeBoardWindow() {
         // 创建与当前图谱配对的节点看板窗口
         NodeBoardWindowManager.shared.showPairedNodeBoardWindow(with: dataManager)
@@ -288,26 +314,20 @@ struct GraphView: View {
     
     private func saveCurrentAsPreset() {
         let name = newPresetName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let description = newPresetDescription.trimmingCharacters(in: .whitespacesAndNewlines)
         
         guard !name.isEmpty else { return }
         
-        // 创建并保存节点图谱预设
-        let preset = NodeGraphPreset(
+        // 使用新的saveCurrentAsPreset方法，不传递description
+        NodeGraphPresetManager.shared.saveCurrentAsPreset(
             name: name,
-            description: description.isEmpty ? nil : description,
+            description: nil,
             selectedNodeIds: dataManager.selectedNodeIds,
-            selectedLayerIds: dataManager.selectedLayerIds,
-            createdAt: Date(),
-            lastUsed: Date()
+            selectedLayerIds: dataManager.selectedLayerIds
         )
-        
-        NodeGraphPresetManager.shared.savePreset(preset)
         
         print("💾 保存节点图谱预设: \(name)")
         print("   - 选中节点数: \(dataManager.selectedNodeIds.count)")
         print("   - 选中层数: \(dataManager.selectedLayerIds.count)")
-        print("   - 描述: \(description.isEmpty ? "无" : description)")
     }
     
 }
@@ -383,6 +403,14 @@ class NodeGraphWindowManager: ObservableObject {
         newWindow.makeKeyAndOrderFront(nil)
         
         print("✅ [节点图谱窗口管理器] 新窗口已创建并显示")
+    }
+}
+
+// MARK: - 窗口委托
+
+private class NodeGraphPresetWindowDelegate: NSObject, NSWindowDelegate {
+    func windowWillClose(_ notification: Notification) {
+        print("🗑️ [节点图谱预设管理] 窗口已关闭")
     }
 }
 

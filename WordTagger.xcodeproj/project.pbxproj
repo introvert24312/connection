@@ -10,6 +10,7 @@
 		54209B7C2E3F248300388A1B /* ExternalDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54209B7B2E3F248300388A1B /* ExternalDataService.swift */; };
 		54209B7D2E3F248300388A1B /* ExternalDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54209B7A2E3F248300388A1B /* ExternalDataManager.swift */; };
 		543A3C992E741C5500B8AE06 /* NodeFolderManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 543A3C982E741C5500B8AE06 /* NodeFolderManager.swift */; };
+		547AE60B2E7813F200A8EFAC /* LayerGraphPresetManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 547AE60A2E7813F200A8EFAC /* LayerGraphPresetManagerView.swift */; };
 		54831DBD2E64470E00CD4724 /* TagBatchManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54831DBC2E64470E00CD4724 /* TagBatchManagementView.swift */; };
 		54831DBF2E64473500CD4724 /* TagUsageVisualizationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54831DBE2E64473500CD4724 /* TagUsageVisualizationView.swift */; };
 		54831DC42E64D09600CD4724 /* TagTypeGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54831DC32E64D09600CD4724 /* TagTypeGraphView.swift */; };
@@ -61,6 +62,7 @@
 		54209B7A2E3F248300388A1B /* ExternalDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalDataManager.swift; sourceTree = "<group>"; };
 		54209B7B2E3F248300388A1B /* ExternalDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalDataService.swift; sourceTree = "<group>"; };
 		543A3C982E741C5500B8AE06 /* NodeFolderManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeFolderManager.swift; sourceTree = "<group>"; };
+		547AE60A2E7813F200A8EFAC /* LayerGraphPresetManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayerGraphPresetManagerView.swift; sourceTree = "<group>"; };
 		54831DBC2E64470E00CD4724 /* TagBatchManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagBatchManagementView.swift; sourceTree = "<group>"; };
 		54831DBE2E64473500CD4724 /* TagUsageVisualizationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagUsageVisualizationView.swift; sourceTree = "<group>"; };
 		54831DC32E64D09600CD4724 /* TagTypeGraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagTypeGraphView.swift; sourceTree = "<group>"; };
@@ -141,6 +143,7 @@
 		E302 /* WordTagger */ = {
 			isa = PBXGroup;
 			children = (
+				547AE60A2E7813F200A8EFAC /* LayerGraphPresetManagerView.swift */,
 				54831DBE2E64473500CD4724 /* TagUsageVisualizationView.swift */,
 				G3586Z8DANM2G65L0T6DV8ET /* GlobalTagGraphSystem.swift */,
 				6U00WS1Z0BEM1E0G3PQC7O8V /* GlobalTagGraphView.swift */,
@@ -275,6 +278,7 @@
 				N003 /* NodeBoardView.swift in Sources */,
 				N004 /* NodeSelectorView.swift in Sources */,
 				N005 /* LayerSelectorView.swift in Sources */,
+				547AE60B2E7813F200A8EFAC /* LayerGraphPresetManagerView.swift in Sources */,
 				N006 /* NodeGraphPresetManagerView.swift in Sources */,
 				A001 /* WordTaggerApp.swift in Sources */,
 				A004 /* Models.swift in Sources */,

@@ -131,7 +131,7 @@ public class NodeFolderManager: ObservableObject {
             let oldMarkdownFileName = "\(sanitizeFolderName(oldNode.text)).md"
             let newMarkdownFileName = "\(sanitizeFolderName(newNode.text)).md"
             let oldMarkdownFile = oldPath.appendingPathComponent(oldMarkdownFileName)
-            let newMarkdownFile = newPath.appendingPathComponent(newMarkdownFileName)
+            let _ = newPath.appendingPathComponent(newMarkdownFileName)
             
             // 检查是否有MD文档需要处理
             let hasMarkdownFile = fileManager.fileExists(atPath: oldMarkdownFile.path)

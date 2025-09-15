@@ -169,24 +169,38 @@ struct GlobalTagGraphView: View {
             dismiss()
             return .handled
         }
-        .sheet(isPresented: $showingPresetSheet) {
-            GraphPresetManagerView(dataManager: dataManager)
+        .onChange(of: showingPresetSheet) { _, isShowing in
+            if isShowing {
+                showGlobalTagGraphPresetManager()
+                showingPresetSheet = false
+            }
         }
         .alert("保存图谱预设", isPresented: $showingSavePresetDialog) {
             TextField("预设名称", text: $newPresetName)
             TextField("描述（可选）", text: $newPresetDescription)
             
             Button("保存") {
-                if !newPresetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                let trimmedName = newPresetName.trimmingCharacters(in: .whitespacesAndNewlines)
+                print("🚀 [全局标签图谱] 保存按钮点击 - 预设名称: '\(trimmedName)'")
+                print("🔍 [全局标签图谱] 当前过滤状态:")
+                print("   - 层级: \(dataManager.filteredLayers)")
+                print("   - 标签类型: \(dataManager.filteredTagTypes)")
+                print("   - 标签值: \(dataManager.filteredTagValues)")
+                
+                if !trimmedName.isEmpty {
                     let description = newPresetDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+                    print("📝 [全局标签图谱] 开始调用saveCurrentAsPreset...")
                     dataManager.saveCurrentAsPreset(
-                        name: newPresetName.trimmingCharacters(in: .whitespacesAndNewlines),
+                        name: trimmedName,
                         description: description.isEmpty ? nil : description
                     )
+                    print("✅ [全局标签图谱] saveCurrentAsPreset调用完成")
                     
                     // 清空输入框
                     newPresetName = ""
                     newPresetDescription = ""
+                } else {
+                    print("⚠️ [全局标签图谱] 预设名称为空，跳过保存")
                 }
             }
             .disabled(newPresetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -212,8 +226,13 @@ struct GlobalTagGraphView: View {
             HStack(spacing: 8) {
                 // 🆕 图谱预设按钮组
                 Button("图谱预设") {
-                    showingPresetSheet = true
                     print("📚 [全局标签图谱] 打开预设管理")
+                    print("🔍 [全局标签图谱] 当前DataManager状态:")
+                    print("   - 层级: \(dataManager.filteredLayers)")
+                    print("   - 标签类型: \(dataManager.filteredTagTypes.map { $0.displayName })")
+                    print("   - 标签值: \(dataManager.filteredTagValues)")
+                    print("   - 预设数量: \(dataManager.graphPresets.count)")
+                    showingPresetSheet = true
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
@@ -307,6 +326,34 @@ struct GlobalTagGraphView: View {
         .frame(maxHeight: 30) // 限制最大高度
     }
     
+    private func showGlobalTagGraphPresetManager() {
+        print("📚 [全局标签图谱] 打开专用的预设管理系统")
+        
+        // 使用匹配的NewGlobalTagGraphPresetManagerView  
+        let contentView = NewGlobalTagGraphPresetManagerView(dataManager: dataManager)
+            .environmentObject(NodeStore.shared)
+        
+        let hostingView = NSHostingView(rootView: contentView)
+        
+        let newWindow = NSWindow(
+            contentRect: NSRect(x: 300, y: 300, width: 800, height: 600),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        
+        newWindow.contentView = hostingView
+        newWindow.title = "全局标签图谱预设管理"
+        newWindow.setFrameAutosaveName("GlobalTagGraphPresetManagerWindow")
+        newWindow.isReleasedWhenClosed = false
+        
+        // 窗口关闭处理
+        let delegate = GlobalTagGraphPresetWindowDelegate()
+        newWindow.delegate = delegate
+        
+        newWindow.makeKeyAndOrderFront(nil)
+    }
+
     private func buildFilterText() -> String {
         var parts: [String] = []
         
@@ -859,6 +906,14 @@ struct ModernGraphPresetRow: View {
     }
 }
 
+// MARK: - 全局标签图谱预设管理窗口委托
+
+private class GlobalTagGraphPresetWindowDelegate: NSObject, NSWindowDelegate {
+    func windowWillClose(_ notification: Notification) {
+        print("🗑️ [全局标签图谱预设管理] 窗口已关闭")
+    }
+}
+
 // MARK: - 全局标签图谱窗口委托
 
 private class GlobalTagGraphWindowDelegate: NSObject, NSWindowDelegate {
@@ -924,5 +979,263 @@ class GlobalTagGraphWindowManager: ObservableObject {
         window?.close()
         window = nil
         windowDelegate = nil
+    }
+}
+
+// MARK: - 新的全局标签图谱预设管理视图
+
+struct NewGlobalTagGraphPresetManagerView: View {
+    @ObservedObject var dataManager: GlobalTagDataManager
+    @EnvironmentObject private var store: NodeStore
+    @Environment(\.dismiss) private var dismiss
+    
+    @State private var searchText = ""
+    @State private var showingDeleteAlert = false
+    @State private var presetToDelete: GraphPreset?
+    
+    private var filteredPresets: [GraphPreset] {
+        if searchText.isEmpty {
+            return dataManager.graphPresets.sorted(by: { $0.lastUsed > $1.lastUsed })
+        }
+        return dataManager.graphPresets.filter { preset in
+            preset.name.localizedCaseInsensitiveContains(searchText) ||
+            (preset.description?.localizedCaseInsensitiveContains(searchText) ?? false)
+        }.sorted(by: { $0.lastUsed > $1.lastUsed })
+    }
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            HStack {
+                Text("全局标签图谱预设管理")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+                
+                Text("(\(dataManager.graphPresets.count) 个预设)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                Button("关闭") {
+                    dismiss()
+                }
+                .buttonStyle(.borderless)
+            }
+            
+            // 搜索框
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.secondary)
+                TextField("搜索预设...", text: $searchText)
+                    .textFieldStyle(PlainTextFieldStyle())
+                
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color(NSColor.controlBackgroundColor))
+            .cornerRadius(8)
+            
+            // 预设列表
+            if filteredPresets.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: searchText.isEmpty ? "bookmark.slash" : "magnifyingglass")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary)
+                    
+                    Text(searchText.isEmpty ? "暂无保存的标签图谱预设" : "没有找到匹配的预设")
+                        .font(.headline)
+                        .foregroundColor(.secondary)
+                    
+                    if searchText.isEmpty {
+                        Text("在全局标签图谱中选择标签后，点击\"保存为预设\"来创建您的第一个预设。")
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(filteredPresets) { preset in
+                            NewGlobalTagGraphPresetRowView(
+                                preset: preset,
+                                isCurrent: dataManager.currentPreset?.id == preset.id,
+                                onLoad: {
+                                    loadPreset(preset)
+                                    dismiss()
+                                },
+                                onDelete: {
+                                    presetToDelete = preset
+                                    showingDeleteAlert = true
+                                }
+                            )
+                        }
+                    }
+                    .padding()
+                }
+            }
+        }
+        .padding()
+        .frame(width: 800, height: 600)
+        .onAppear {
+            print("🔍 [全局标签图谱预设管理] 视图出现")
+            print("   - 收到的dataManager状态:")
+            print("     - 层级: \(dataManager.filteredLayers)")
+            print("     - 标签类型: \(dataManager.filteredTagTypes.map { $0.displayName })")
+            print("     - 标签值: \(dataManager.filteredTagValues)")
+            print("     - 预设数量: \(dataManager.graphPresets.count)")
+        }
+        .alert("删除预设", isPresented: $showingDeleteAlert, presenting: presetToDelete) { preset in
+            Button("删除", role: .destructive) {
+                dataManager.deletePreset(preset)
+                presetToDelete = nil
+            }
+            Button("取消", role: .cancel) {
+                presetToDelete = nil
+            }
+        } message: { preset in
+            Text("确定要删除预设 \"\(preset.name)\" 吗？此操作无法撤销。")
+        }
+    }
+    
+    private func loadPreset(_ preset: GraphPreset) {
+        print("📖 [全局标签图谱预设管理] 开始加载预设: \(preset.name)")
+        print("   - 预设内容: 层级=\(preset.filteredLayers), 类型=\(preset.filteredTagTypes), 值=\(preset.filteredTagValues)")
+        dataManager.loadPreset(preset)
+        print("✅ [全局标签图谱预设管理] 加载预设完成")
+    }
+}
+
+// MARK: - 新的全局标签图谱预设行视图
+
+struct NewGlobalTagGraphPresetRowView: View {
+    let preset: GraphPreset
+    let isCurrent: Bool
+    let onLoad: () -> Void
+    let onDelete: () -> Void
+    
+    @State private var isHovered = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // 预设标题行
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(preset.name)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.primary)
+                        
+                        if isCurrent {
+                            Text("当前")
+                                .font(.caption)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.green.opacity(0.2))
+                                .foregroundColor(.green)
+                                .cornerRadius(4)
+                        }
+                        
+                        Spacer()
+                    }
+                    
+                    if let description = preset.description {
+                        Text(description)
+                            .font(.system(size: 13))
+                            .foregroundColor(.secondary)
+                            .lineLimit(2)
+                    }
+                }
+                
+                Spacer()
+                
+                // 操作按钮
+                HStack(spacing: 8) {
+                    Button("加载") {
+                        onLoad()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    
+                    if isHovered {
+                        Button {
+                            onDelete()
+                        } label: {
+                            Image(systemName: "trash")
+                                .foregroundColor(.red)
+                        }
+                        .buttonStyle(.borderless)
+                        .controlSize(.small)
+                        .help("删除预设")
+                    }
+                }
+            }
+            
+            // 预设内容概览
+            HStack(spacing: 20) {
+                // 过滤条件信息
+                HStack(spacing: 12) {
+                    if !preset.filteredLayers.isEmpty {
+                        Label("\(preset.filteredLayers.count) 层级", systemImage: "folder")
+                    }
+                    if !preset.filteredTagTypes.isEmpty {
+                        Label("\(preset.filteredTagTypes.count) 类型", systemImage: "tag")
+                    }
+                    if !preset.filteredTagValues.isEmpty {
+                        Label("\(preset.filteredTagValues.count) 标签", systemImage: "bookmark")
+                    }
+                }
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
+                
+                Spacer()
+                
+                // 时间信息
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("创建: \(preset.createdAt, formatter: dateFormatter)")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                    
+                    Text("使用: \(preset.lastUsed, formatter: dateFormatter)")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(isCurrent ? Color.green.opacity(0.05) : Color(NSColor.controlBackgroundColor))
+                .stroke(
+                    isCurrent ? Color.green.opacity(0.3) : (isHovered ? Color.blue.opacity(0.3) : Color.gray.opacity(0.2)),
+                    lineWidth: isCurrent ? 2 : (isHovered ? 1.5 : 1)
+                )
+        )
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isHovered = hovering
+            }
+        }
+        .onTapGesture {
+            // 单击加载预设
+            onLoad()
+        }
+    }
+    
+    private var dateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter
     }
 }
