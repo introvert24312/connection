@@ -194,9 +194,29 @@ struct GraphView: View {
     }
     
     private func showNodeBoardWindow() {
-        // 🆕 简化配对：直接打开节点看板，通过共享的NodeStore实现"配对"
-        NodeBoardWindowManager.shared.showNodeBoardWindow()
-        print("🔗 [全局节点图谱-\(instanceId)] 打开节点看板")
+        // 🆕 完全照抄GlobalTagGraphView.showAssociatedTagIndexWindow的逻辑
+        let associatedNodeBoardView = NodeBoardView(
+            associatedDataManager: dataManager  // 传递当前窗口的数据管理器
+        )
+        .environmentObject(NodeStore.shared)
+        
+        let hostingView = NSHostingView(rootView: associatedNodeBoardView)
+        
+        let newWindow = NSWindow(
+            contentRect: NSRect(x: 200, y: 200, width: 1200, height: 800),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        
+        newWindow.contentView = hostingView
+        newWindow.title = "节点看板"
+        newWindow.setFrameAutosaveName("AssociatedNodeBoardWindow")
+        newWindow.isReleasedWhenClosed = false
+        newWindow.makeKeyAndOrderFront(nil)
+        
+        print("🪟 [节点看板] 关联窗口已创建")
+        print("🔗 [全局节点图谱-\(instanceId)] 打开关联节点看板")
     }
 }
 

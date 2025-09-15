@@ -51,7 +51,12 @@ class NodeBoardWindowManager: ObservableObject {
 // MARK: - 节点看板主视图
 struct NodeBoardView: View {
     @EnvironmentObject var nodeStore: NodeStore
-    @StateObject private var webViewModel = NodeBoardWebViewModel()  // 🆕 简化：每个窗口独立
+    @StateObject private var webViewModel: NodeBoardWebViewModel
+    
+    // 🆕 完全照抄NewTagIndexBoardView的初始化器逻辑
+    init(associatedDataManager: NodeGraphDataManager? = nil) {
+        self._webViewModel = StateObject(wrappedValue: NodeBoardWebViewModel(associatedDataManager: associatedDataManager))
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -86,9 +91,11 @@ class NodeBoardWebViewModel: NSObject, ObservableObject {
     private var isWebViewReady = false
     private var pendingData: [NodeItem]?
     private weak var nodeStore: NodeStore?
+    private let associatedDataManager: NodeGraphDataManager?  // 🆕 完全照抄NewTagIndexWebViewModel的逻辑
     private let instanceId = UUID().uuidString.prefix(8)     // 🆕 实例标识符
     
-    override init() {
+    init(associatedDataManager: NodeGraphDataManager? = nil) {
+        self.associatedDataManager = associatedDataManager
         let config = WKWebViewConfiguration()
         config.userContentController = WKUserContentController()
         
@@ -96,7 +103,7 @@ class NodeBoardWebViewModel: NSObject, ObservableObject {
         super.init()
         
         setupWebView()
-        print("🏗️ [节点看板WebView-\(instanceId)] 初始化（独立模式）")
+        print("🏗️ [节点看板WebView-\(instanceId)] 初始化，关联数据管理器: \(associatedDataManager != nil)")
     }
     
     private func setupWebView() {
@@ -762,11 +769,28 @@ class NodeBoardWebViewModel: NSObject, ObservableObject {
                 nodeStore.selectNode(firstNode)
             }
             
-            // 🆕 简化：独立模式，只更新主界面的节点选择
-            print("📤 [节点看板-\(instanceId)] 独立模式，节点选择已同步到主界面")
+            // 🆕 完全照抄NewTagIndexWebViewModel的关联数据管理器逻辑
+            if let dataManager = associatedDataManager {
+                print("📤 [节点看板-\(instanceId)] 更新关联数据管理器")
+                print("   - 选中节点: \(selectedUUIDs.count)个")
+                print("   - 选中层级: \(Set(selectedNodes.map { $0.layerId }).count)个")
+                
+                dataManager.updateSelectedNodes(Set(selectedUUIDs))
+                dataManager.updateSelectedLayers(Set(selectedNodes.map { $0.layerId }))
+                
+                print("🔄 [节点看板-\(instanceId)] 数据管理器已更新（关联模式）")
+            } else {
+                print("📤 [节点看板-\(instanceId)] 无关联数据管理器，独立模式")
+            }
         } else if selectedNodeIds.isEmpty {
             // 清除选中状态
             nodeStore.selectNode(nil)
+            
+            if let dataManager = associatedDataManager {
+                print("🧹 [节点看板-\(instanceId)] 清除关联数据管理器选择")
+                dataManager.updateSelectedNodes(Set())
+                dataManager.updateSelectedLayers(Set())
+            }
             print("🧹 [节点看板-\(instanceId)] 已清除节点选择")
         } else {
             print("❌ [节点看板] 未找到对应的节点")
