@@ -238,26 +238,7 @@ class NodeBoardWebViewModel: NSObject, ObservableObject {
                     color: var(--muted);
                     font-weight: normal;
                 }
-                .selected-count {
-                    font-size: 12px;
-                    color: #007AFF;
-                    font-weight: normal;
-                }
-                .clear-btn {
-                    font-size: 12px;
-                    padding: 4px 8px;
-                    height: 24px;
-                    background: var(--card);
-                    color: var(--text);
-                    border: 1px solid var(--border);
-                    border-radius: 4px;
-                    cursor: pointer;
-                }
-                .clear-btn:hover {
-                    background: var(--accent);
-                    color: white;
-                    border-color: var(--accent);
-                }
+                /* 已移除选中计数和清除按钮样式 */
                 .hint {
                     color: var(--muted);
                     font-size: 12px;
@@ -394,10 +375,7 @@ class NodeBoardWebViewModel: NSObject, ObservableObject {
         </head>
         <body>
             <div class="header">
-                <div class="header-right">
-                    <span id="selectedCount" class="selected-count"></span>
-                    <button id="clearSelection" class="clear-btn" style="display: none;">清除选择</button>
-                </div>
+                <!-- 移除选中计数和清除选择按钮 -->
             </div>
             
             <div class="controls">
@@ -573,20 +551,9 @@ class NodeBoardWebViewModel: NSObject, ObservableObject {
                 // 节点计数显示已移除，保持与标签看板一致
             }
             
-            // 更新选中状态显示
+            // 更新选中状态显示（已移除）
             function updateSelectionDisplay() {
-                const selectedCountElement = document.getElementById('selectedCount');
-                const clearButton = document.getElementById('clearSelection');
-                const selectedCount = selectedItems.size;
-                
-                if (selectedCount > 0) {
-                    selectedCountElement.textContent = `${selectedCount} 个节点已选中`;
-                    selectedCountElement.style.display = 'inline';
-                    clearButton.style.display = 'inline-block';
-                } else {
-                    selectedCountElement.style.display = 'none';
-                    clearButton.style.display = 'none';
-                }
+                // 选中状态显示已移除
             }
             
             // 切换选择状态
@@ -746,13 +713,7 @@ class NodeBoardWebViewModel: NSObject, ObservableObject {
             document.getElementById('clearFilters').addEventListener('click', clearAllFilters);
             document.getElementById('refreshData').addEventListener('click', refreshDataFromWebView);
             
-            // 清除选择按钮
-            document.getElementById('clearSelection').addEventListener('click', () => {
-                selectedItems.clear();
-                selectedGroupHeaders.clear();
-                renderBoard();
-                notifySelectionChange();
-            });
+            // 清除选择按钮事件监听已移除
             
             // 标记为就绪
             console.log("✅ [节点看板] JavaScript 初始化完成");

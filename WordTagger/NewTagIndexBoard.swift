@@ -269,26 +269,7 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                     color: var(--muted);
                     font-weight: normal;
                 }
-                .selected-count {
-                    font-size: 12px;
-                    color: #007AFF;
-                    font-weight: normal;
-                }
-                .clear-btn {
-                    font-size: 12px;
-                    padding: 4px 8px;
-                    height: 24px;
-                    background: var(--card);
-                    color: var(--text);
-                    border: 1px solid var(--border);
-                    border-radius: 4px;
-                    cursor: pointer;
-                }
-                .clear-btn:hover {
-                    background: var(--accent);
-                    color: white;
-                    border-color: var(--accent);
-                }
+                /* 已移除选中计数和清除按钮样式 */
                 .hint {
                     color: var(--muted);
                     font-size: 12px;
@@ -455,10 +436,7 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
         </head>
         <body>
             <div class="header">
-                <div class="header-right">
-                    <span id="selectedCount" class="selected-count"></span>
-                    <button id="clearSelection" class="clear-btn" style="display: none;">清除选择</button>
-                </div>
+                <!-- 移除选中计数和清除选择按钮 -->
             </div>
             
             <div class="controls">
@@ -699,20 +677,9 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                 // 标签计数显示已移除
             }
             
-            // 更新选中状态显示
+            // 更新选中状态显示（已移除）
             function updateSelectionDisplay() {
-                const selectedCountElement = document.getElementById('selectedCount');
-                const clearButton = document.getElementById('clearSelection');
-                const selectedCount = selectedItems.size;
-                
-                if (selectedCount > 0) {
-                    selectedCountElement.textContent = `${selectedCount} 个标签已选中`;
-                    selectedCountElement.style.display = 'inline';
-                    clearButton.style.display = 'inline-block';
-                } else {
-                    selectedCountElement.style.display = 'none';
-                    clearButton.style.display = 'none';
-                }
+                // 选中状态显示已移除
             }
             
             // 切换选择状态
@@ -771,33 +738,57 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                     return; // 提前返回，不执行原有逻辑
                 }
                 
-                // 原有逻辑：层级分组模式或多选模式
+                // 🔧 修复多选逻辑：分别处理标签类型分组和层级分组的多选
                 if (event.metaKey || event.ctrlKey) {
-                    // Command/Ctrl+点击: 多选组
-                    if (selectedGroupHeaders.has(groupName)) {
-                        selectedGroupHeaders.delete(groupName);
-                        // 取消选择该组下的所有标签
-                        const groupItems = DATA.filter(item => 
-                            isTagTypeGrouping ? 
-                                item.type === groupName :
-                                (item.layers && item.layers.includes(groupName))
-                        );
-                        groupItems.forEach(item => {
-                            const itemId = item.type + ':' + item.name;
-                            selectedItems.delete(itemId);
-                        });
+                    if (isTagTypeGrouping) {
+                        // 🆕 标签类型分组模式下的多选：处理标签类型多选
+                        console.log("🏷️ 标签类型分组模式：Command+点击进行标签类型多选");
+                        
+                        if (selectedGroupHeaders.has(groupName)) {
+                            selectedGroupHeaders.delete(groupName);
+                            console.log("🔄 取消多选标签类型:", groupName);
+                        } else {
+                            selectedGroupHeaders.add(groupName);
+                            console.log("✅ 添加多选标签类型:", groupName);
+                        }
+                        
+                        // 收集所有选中的标签类型并发送
+                        const selectedTypes = Array.from(selectedGroupHeaders);
+                        console.log("🎯 当前选中的标签类型:", selectedTypes);
+                        
+                        // 发送多标签类型选择通知
+                        if (selectedTypes.length > 0) {
+                            notifySelectionChangeForTagType(null); // 让函数内部收集所有选中类型
+                        } else {
+                            // 如果没有选中任何类型，发送空选择
+                            notifySelectionChange();
+                        }
+                        
+                        renderBoard();
+                        return; // 提前返回，不执行后续逻辑
                     } else {
-                        selectedGroupHeaders.add(groupName);
-                        // 选择该组下的所有标签
-                        const groupItems = DATA.filter(item => 
-                            isTagTypeGrouping ? 
-                                item.type === groupName :
+                        // 层级分组模式下的多选：原有逻辑
+                        if (selectedGroupHeaders.has(groupName)) {
+                            selectedGroupHeaders.delete(groupName);
+                            // 取消选择该组下的所有标签
+                            const groupItems = DATA.filter(item => 
                                 (item.layers && item.layers.includes(groupName))
-                        );
-                        groupItems.forEach(item => {
-                            const itemId = item.type + ':' + item.name;
-                            selectedItems.add(itemId);
-                        });
+                            );
+                            groupItems.forEach(item => {
+                                const itemId = item.type + ':' + item.name;
+                                selectedItems.delete(itemId);
+                            });
+                        } else {
+                            selectedGroupHeaders.add(groupName);
+                            // 选择该组下的所有标签
+                            const groupItems = DATA.filter(item => 
+                                (item.layers && item.layers.includes(groupName))
+                            );
+                            groupItems.forEach(item => {
+                                const itemId = item.type + ':' + item.name;
+                                selectedItems.add(itemId);
+                            });
+                        }
                     }
                 } else {
                     // 普通点击: 单选组（层级分组模式）
@@ -859,14 +850,20 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                         });
                     }
                 } else {
-                    // 🔧 普通点击类型头部：清除个别标签选择，只选择标签类型
-                    selectedGroupHeaders.clear();
-                    selectedTypeHeaders.clear();
-                    selectedItems.clear(); // 清空个别标签选择
-                    
-                    selectedTypeHeaders.add(typeId);
-                    // 不选择具体的标签值，让Swift端处理标签类型过滤
-                    console.log("🏷️ 标签类型选择模式: 只选择类型头部，不选择具体标签");
+                    // 🔧 普通点击类型头部：单选模式，但支持多次点击不同类型
+                    if (selectedTypeHeaders.has(typeId)) {
+                        // 如果已经选中，则取消选中
+                        selectedTypeHeaders.delete(typeId);
+                        console.log("🏷️ 取消选择标签类型:", actualTypeName);
+                    } else {
+                        // 如果当前没有选中，则进行单选（清除其他选择，只保留当前）
+                        selectedGroupHeaders.clear();
+                        selectedTypeHeaders.clear();
+                        selectedItems.clear(); // 清空个别标签选择
+                        
+                        selectedTypeHeaders.add(typeId);
+                        console.log("🏷️ 单选标签类型:", actualTypeName);
+                    }
                 }
                 
                 console.log("🔧 选择结果: 标签类型选择，将由Swift端处理过滤");
@@ -875,18 +872,47 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                 notifySelectionChangeForTagType(actualTypeName); // 使用新的通知函数
             }
             
-            // 🆕 通知标签类型选择变化 - 专门用于标签类型头部点击
+            // 🆕 通知标签类型选择变化 - 支持多选
             function notifySelectionChangeForTagType(typeName) {
                 console.log("📤 [新版] 通知标签类型选择变化 START");
-                console.log("   - 选中标签类型:", typeName);
+                
+                // 🔧 收集所有选中的标签类型
+                const selectedTypeNames = [];
+                
+                // 🆕 优先从selectedGroupHeaders收集（适用于组头部点击）
+                if (selectedGroupHeaders.size > 0) {
+                    selectedGroupHeaders.forEach(groupName => {
+                        selectedTypeNames.push(groupName);
+                    });
+                    console.log("🎯 从组头部收集标签类型:", selectedTypeNames);
+                } else {
+                    // 从selectedTypeHeaders收集（适用于类型头部点击）
+                    selectedTypeHeaders.forEach(typeId => {
+                        // 从typeId解析出类型名称
+                        const parts = typeId.split('_');
+                        if (parts.length >= 2) {
+                            const actualTypeName = parts.slice(1).join('_'); // 重新组合，防止类型名本身包含下划线
+                            selectedTypeNames.push(actualTypeName);
+                        }
+                    });
+                    console.log("🎯 从类型头部收集标签类型:", selectedTypeNames);
+                }
+                
+                // 如果没有选中的类型，添加当前类型（兜底逻辑）
+                if (selectedTypeNames.length === 0 && typeName) {
+                    selectedTypeNames.push(typeName);
+                    console.log("🔄 使用兜底类型:", typeName);
+                }
+                
+                console.log("   - 选中标签类型列表:", selectedTypeNames);
                 
                 // 检查messageHandler是否可用
                 if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.tagIndexBoard) {
                     console.log("   - messageHandler 可用，发送标签类型选择消息...");
                     try {
                         const message = {
-                            action: 'tagTypeSelected', // 使用新的action类型
-                            tagType: typeName,
+                            action: 'tagTypesSelected', // 🆕 使用复数形式表示多选
+                            tagTypes: selectedTypeNames, // 🆕 发送标签类型数组
                             selectedLayers: []
                         };
                         console.log("   - 发送的标签类型消息:", message);
@@ -980,13 +1006,7 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
             document.getElementById('clearFilters').addEventListener('click', clearAllFilters);
             document.getElementById('refreshData').addEventListener('click', refreshDataFromWebView);
             
-            // 清除选择按钮
-            document.getElementById('clearSelection').addEventListener('click', () => {
-                selectedItems.clear();
-                selectedTypeHeaders.clear();
-                renderBoard();
-                notifySelectionChange();
-            });
+            // 清除选择按钮事件监听已移除
             
             // 🆕 刷新数据功能
             function refreshDataFromWebView() {
@@ -1068,6 +1088,8 @@ extension NewTagIndexWebViewModel: WKScriptMessageHandler {
             handleSelectionChanged(messageBody)
         case "tagTypeSelected":
             handleTagTypeSelected(messageBody)
+        case "tagTypesSelected": // 🆕 支持多标签类型选择
+            handleTagTypesSelected(messageBody)
         case "refreshData":
             handleRefreshData()
         default:
@@ -1173,6 +1195,48 @@ extension NewTagIndexWebViewModel: WKScriptMessageHandler {
                 userInfo: [
                     "selectedLayers": selectedLayersSet,
                     "selectedTagTypes": Set([tagType]),     // 发送标签类型
+                    "selectedTagValues": Set<String>()      // 清空标签值
+                ]
+            )
+        }
+    }
+    
+    @MainActor
+    private func handleTagTypesSelected(_ messageBody: [String: Any]) {
+        guard let tagTypeNames = messageBody["tagTypes"] as? [String] else {
+            print("❌ [标签索引-\(instanceId)] 无效的多标签类型数据")
+            return
+        }
+        
+        // 获取选中的层级（可选）
+        let selectedLayerNames = messageBody["selectedLayers"] as? [String] ?? []
+        let selectedLayersSet = Set(selectedLayerNames)
+        
+        print("🏷️ [标签索引-\(instanceId)] 处理多标签类型选择: \(tagTypeNames)")
+        print("   - 关联层级: \(selectedLayersSet)")
+        
+        // 将标签类型名称转换为Tag.TagType enum集合
+        let tagTypes = Set(tagTypeNames.map { convertToTagType($0) })
+        print("   - 转换后的枚举: \(tagTypes.map { $0.displayName })")
+        
+        // 🆕 如果有关联的数据管理器，直接更新它；否则发送全局通知
+        if let dataManager = associatedDataManager {
+            print("📤 [标签索引-\(instanceId)] 更新关联数据管理器（多标签类型选择）")
+            
+            dataManager.filteredLayers = selectedLayersSet
+            dataManager.filteredTagTypes = tagTypes  // 🔧 设置多个标签类型过滤
+            dataManager.filteredTagValues = Set<String>()  // 清空标签值过滤
+            
+            print("🔄 [标签索引-\(instanceId)] 多标签类型过滤已更新（不自动保存）")
+        } else {
+            print("📤 [标签索引-\(instanceId)] 发送全局多标签类型选择通知")
+            
+            NotificationCenter.default.post(
+                name: .tagIndexSelectionChanged,
+                object: nil,
+                userInfo: [
+                    "selectedLayers": selectedLayersSet,
+                    "selectedTagTypes": tagTypes,     // 🔧 发送多个标签类型
                     "selectedTagValues": Set<String>()      // 清空标签值
                 ]
             )
