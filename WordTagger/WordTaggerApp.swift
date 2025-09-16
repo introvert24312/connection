@@ -5549,14 +5549,13 @@ struct IndependentWindowModifier: ViewModifier {
                 if let windowType = notification.object as? String {
                     print("✅ 独立窗口: 收到executeOpenWindow通知 - windowType: \(windowType)")
                     
-                    // 🔧 对于层图谱窗口，使用原子性检查和预留
+                    // 🔧 对于层图谱窗口，使用全局唯一检查
                     if windowType == "layerGraph" {
-                        let currentWindowId = windowId.uuidString
-                        if !WindowFocusManager.shared.reserveLayerGraphWindow(for: currentWindowId) {
-                            print("⚠️ 独立窗口: 已有层图谱窗口，尝试激活已存在的窗口")
+                        if !WindowFocusManager.shared.reserveGlobalLayerGraphWindow() {
+                            print("⚠️ 独立窗口: 全局层图谱窗口已存在，尝试激活")
                             // 获取已存在的层图谱窗口ID
-                            if let existingLayerGraphId = WindowFocusManager.shared.getLayerGraphWindow(for: currentWindowId) {
-                                print("🔄 独立窗口: 找到层图谱窗口ID: \(existingLayerGraphId.prefix(8))")
+                            if let existingLayerGraphId = WindowFocusManager.shared.getGlobalLayerGraphWindowId() {
+                                print("🔄 独立窗口: 找到全局层图谱窗口ID: \(existingLayerGraphId.prefix(8))")
                                 // 发送通知激活层图谱窗口
                                 NotificationCenter.default.post(
                                     name: NSNotification.Name("focusLayerGraphWindow"),

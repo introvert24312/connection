@@ -41,6 +41,11 @@ struct LayerGraphWindowView: View {
             graphContent
         }
         .registerWindow(windowId, type: .graph, displayName: "层结构图谱")
+        .onDisappear {
+            // 窗口关闭时清理全局层图谱窗口记录
+            WindowFocusManager.shared.clearGlobalLayerGraphWindow()
+            print("🧹 LayerGraphWindow: 清理全局层图谱窗口记录")
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("focusLayerGraphWindow"))) { notification in
             // 🔧 处理激活层图谱窗口的通知
             if let userInfo = notification.userInfo,
@@ -311,27 +316,9 @@ struct LayerGraphWindowView: View {
     }
     
     private func setupWindow() {
-        // 🔧 建立窗口映射关系 - 将当前的层图谱窗口映射到启动它的主窗口
-        // 从激活历史中找到最近的主窗口（在层图谱窗口打开之前的活跃主窗口）
-        let targetMainWindowId = findSourceMainWindow()
-        
-        if let sourceWindowId = targetMainWindowId {
-            // 建立常规窗口映射
-            WindowFocusManager.shared.createWindowMapping(
-                childWindowId: windowId.uuidString,
-                sourceWindowId: sourceWindowId
-            )
-            
-            // 🔧 注册层图谱窗口映射（一对一关系）
-            WindowFocusManager.shared.registerLayerGraphWindow(
-                mainWindowId: sourceWindowId,
-                layerGraphWindowId: windowId.uuidString
-            )
-            
-            print("🔗 LayerGraphWindow: 建立窗口映射 - 图谱窗口(\(windowId.uuidString.prefix(8))) <- 启动主窗口(\(sourceWindowId.prefix(8)))")
-        } else {
-            print("⚠️ LayerGraphWindow: 无法找到任何主窗口进行映射")
-        }
+        // 🔧 注册为全局唯一的层图谱窗口
+        WindowFocusManager.shared.registerGlobalLayerGraphWindow(windowId.uuidString)
+        print("🔗 LayerGraphWindow: 注册为全局层图谱窗口 - (\(windowId.uuidString.prefix(8)))")
         
         // 调试当前状态
         print("🔍 LayerGraphWindow: setupWindow starting")

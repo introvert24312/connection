@@ -24,8 +24,8 @@ class WindowFocusManager: ObservableObject {
     // 窗口映射系统 - 记录子窗口与源窗口的关系
     private var windowMappings: [String: String] = [:] // childWindowId -> sourceWindowId
     
-    // 层图谱窗口管理 - 记录每个主窗口的层图谱窗口
-    private var layerGraphWindows: [String: String] = [:] // mainWindowId -> layerGraphWindowId
+    // 层图谱窗口管理 - 全局唯一的层图谱窗口
+    private var globalLayerGraphWindowId: String? = nil
     
     // 窗口激活历史 - 用于确定源窗口
     private var windowActivationHistory: [String] = [] // 按时间顺序记录窗口激活
@@ -1116,70 +1116,59 @@ extension WindowFocusManager {
         // 如果这个窗口是其他窗口的源窗口，也要清理
         windowMappings = windowMappings.filter { $0.value != windowId }
         
-        // 🔧 同时清理层图谱窗口映射
-        if let mainWindowId = layerGraphWindows.first(where: { $0.value == windowId })?.key {
-            layerGraphWindows.removeValue(forKey: mainWindowId)
-            print("🧹 WindowFocusManager: 清理层图谱窗口映射 - 主窗口(\(mainWindowId.prefix(8))) -> 层图谱(\(windowId.prefix(8)))")
+        // 🔧 如果是全局层图谱窗口关闭，清理全局记录
+        if globalLayerGraphWindowId == windowId {
+            clearGlobalLayerGraphWindow()
         }
-        
-        // 🔧 如果是主窗口关闭，也要清理它的层图谱窗口预留/映射
-        layerGraphWindows.removeValue(forKey: windowId)
         
         print("🧹 WindowFocusManager: 清理窗口映射 - \\(windowId.prefix(8))")
     }
     
-    /// 检查主窗口是否已有层图谱窗口
-    /// - Parameter mainWindowId: 主窗口ID
+    /// 检查是否已有全局层图谱窗口
     /// - Returns: 如果已有层图谱窗口返回true
-    func hasLayerGraphWindow(for mainWindowId: String) -> Bool {
-        return layerGraphWindows[mainWindowId] != nil
+    func hasGlobalLayerGraphWindow() -> Bool {
+        return globalLayerGraphWindowId != nil
     }
     
-    /// 原子性地检查并预留层图谱窗口位置
-    /// - Parameter mainWindowId: 主窗口ID
+    /// 原子性地检查并预留层图谱窗口位置（全局唯一）
     /// - Returns: 如果成功预留返回true，如果已存在返回false
-    func reserveLayerGraphWindow(for mainWindowId: String) -> Bool {
-        if layerGraphWindows[mainWindowId] != nil {
-            print("🚫 WindowFocusManager: 层图谱窗口已存在，拒绝预留 - 主窗口(\(mainWindowId.prefix(8)))")
+    func reserveGlobalLayerGraphWindow() -> Bool {
+        if globalLayerGraphWindowId != nil {
+            print("🚫 WindowFocusManager: 全局层图谱窗口已存在，拒绝预留")
             return false
         }
         
         // 预留位置，使用占位符
-        layerGraphWindows[mainWindowId] = "RESERVED"
-        print("🔒 WindowFocusManager: 预留层图谱窗口位置 - 主窗口(\(mainWindowId.prefix(8)))")
+        globalLayerGraphWindowId = "RESERVED"
+        print("🔒 WindowFocusManager: 预留全局层图谱窗口位置")
         return true
     }
     
-    /// 为主窗口注册层图谱窗口
-    /// - Parameters:
-    ///   - mainWindowId: 主窗口ID
-    ///   - layerGraphWindowId: 层图谱窗口ID
-    func registerLayerGraphWindow(mainWindowId: String, layerGraphWindowId: String) {
-        let previousValue = layerGraphWindows[mainWindowId]
-        layerGraphWindows[mainWindowId] = layerGraphWindowId
+    /// 注册全局层图谱窗口
+    /// - Parameter layerGraphWindowId: 层图谱窗口ID
+    func registerGlobalLayerGraphWindow(_ layerGraphWindowId: String) {
+        let previousValue = globalLayerGraphWindowId
+        globalLayerGraphWindowId = layerGraphWindowId
         
         if previousValue == "RESERVED" {
-            print("🔗 WindowFocusManager: 层图谱窗口注册成功（预留位置） - 主窗口(\(mainWindowId.prefix(8))) -> 层图谱(\(layerGraphWindowId.prefix(8)))")
+            print("🔗 WindowFocusManager: 全局层图谱窗口注册成功（预留位置） - 层图谱(\(layerGraphWindowId.prefix(8)))")
         } else {
-            print("🔗 WindowFocusManager: 注册层图谱窗口映射 - 主窗口(\(mainWindowId.prefix(8))) -> 层图谱(\(layerGraphWindowId.prefix(8)))")
+            print("🔗 WindowFocusManager: 注册全局层图谱窗口 - 层图谱(\(layerGraphWindowId.prefix(8)))")
         }
     }
     
-    /// 获取主窗口的层图谱窗口ID
-    /// - Parameter mainWindowId: 主窗口ID
+    /// 获取全局层图谱窗口ID
     /// - Returns: 层图谱窗口ID，如果没有则返回nil
-    func getLayerGraphWindow(for mainWindowId: String) -> String? {
-        let value = layerGraphWindows[mainWindowId]
+    func getGlobalLayerGraphWindowId() -> String? {
         // 如果是预留状态，返回nil
-        return value == "RESERVED" ? nil : value
+        return globalLayerGraphWindowId == "RESERVED" ? nil : globalLayerGraphWindowId
     }
     
-    /// 清理预留的层图谱窗口位置（用于窗口创建失败时的清理）
-    /// - Parameter mainWindowId: 主窗口ID
-    func clearReservedLayerGraphWindow(for mainWindowId: String) {
-        if layerGraphWindows[mainWindowId] == "RESERVED" {
-            layerGraphWindows.removeValue(forKey: mainWindowId)
-            print("🧹 WindowFocusManager: 清理预留的层图谱窗口位置 - 主窗口(\(mainWindowId.prefix(8)))")
+    /// 清理全局层图谱窗口（用于窗口关闭时）
+    func clearGlobalLayerGraphWindow() {
+        if let windowId = globalLayerGraphWindowId {
+            print("🧹 WindowFocusManager: 清理全局层图谱窗口 - (\(windowId.prefix(8)))")
+            globalLayerGraphWindowId = nil
         }
     }
     
