@@ -13,8 +13,7 @@ struct GraphView: View {
     // 层级筛选状态
     @State private var showingLayerSelector = false
     
-    // 预设和看板状态
-    @State private var showingPresetManager = false
+    // 保存预设对话框状态
     @State private var showingSavePresetDialog = false
     @State private var newPresetName = ""
     
@@ -44,9 +43,6 @@ struct GraphView: View {
             mainContent
         }
         .navigationTitle("全局节点图谱")
-        .sheet(isPresented: $showingPresetManager) {
-            presetManagerSheet
-        }
         .alert("保存节点图谱预设", isPresented: $showingSavePresetDialog) {
             savePresetAlert
         } message: {
@@ -151,7 +147,7 @@ struct GraphView: View {
         Group {
             // 图谱预设按钮
             Button("图谱预设") {
-                showingPresetManager = true
+                showPresetManagerWindow()
                 print("📚 [全局节点图谱] 打开预设管理")
             }
             .buttonStyle(.bordered)
@@ -199,23 +195,7 @@ struct GraphView: View {
         }
     }
     
-    // MARK: - Sheet 和 Alert 内容
-    
-    @ViewBuilder
-    private var presetManagerSheet: some View {
-        NodeGraphPresetManagerView(
-            selectedNodeIds: Binding(
-                get: { dataManager.selectedNodeIds },
-                set: { dataManager.selectedNodeIds = $0 }
-            ),
-            selectedLayerIds: Binding(
-                get: { dataManager.selectedLayerIds },
-                set: { dataManager.selectedLayerIds = $0 }
-            )
-        )
-        .environmentObject(store)
-        .frame(width: 800, height: 600)
-    }
+    // MARK: - Alert 内容
     
     @ViewBuilder
     private var savePresetAlert: some View {
@@ -236,6 +216,37 @@ struct GraphView: View {
                 }
             }
         }
+    }
+    
+    private func showPresetManagerWindow() {
+        let presetManagerView = NodeGraphPresetManagerView(
+            selectedNodeIds: Binding(
+                get: { dataManager.selectedNodeIds },
+                set: { dataManager.selectedNodeIds = $0 }
+            ),
+            selectedLayerIds: Binding(
+                get: { dataManager.selectedLayerIds },
+                set: { dataManager.selectedLayerIds = $0 }
+            )
+        )
+        .environmentObject(store)
+        
+        let hostingView = NSHostingView(rootView: presetManagerView)
+        
+        let newWindow = NSWindow(
+            contentRect: NSRect(x: 200, y: 200, width: 800, height: 600),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        
+        newWindow.contentView = hostingView
+        newWindow.title = "节点图谱预设管理"
+        newWindow.setFrameAutosaveName("NodeGraphPresetManagerWindow")
+        newWindow.isReleasedWhenClosed = false
+        newWindow.makeKeyAndOrderFront(nil)
+        
+        print("🪟 [节点图谱预设管理] 窗口已创建")
     }
 }
 
