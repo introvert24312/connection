@@ -147,6 +147,39 @@ struct GraphView: View {
         .onChange(of: dataManager.selectedLayerIds) {
             updateGraphData()
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("nodeSelectionChangedFromBoard"))) { notification in
+            // 🆕 接收节点看板的广播选择（一对多模式）
+            print("📡 [全局节点图谱-\(instanceId)] 收到节点看板广播通知")
+            
+            guard let userInfo = notification.userInfo,
+                  let sourceInstance = userInfo["sourceInstance"] as? String else {
+                print("❌ [全局节点图谱-\(instanceId)] 无效的广播通知格式")
+                return
+            }
+            
+            print("📡 [全局节点图谱-\(instanceId)] 广播来源: \(sourceInstance)")
+            
+            // 🆕 只有在解锁状态时才接收广播（按你的要求）
+            if dataManager.isLocked {
+                print("🔒 [全局节点图谱-\(instanceId)] 图谱已锁定，忽略节点看板广播")
+                return
+            }
+            
+            if let selectedNodeIdStrings = userInfo["selectedNodeIds"] as? [String],
+               let selectedLayerIdStrings = userInfo["selectedLayerIds"] as? [String] {
+                
+                let selectedNodeIds = Set(selectedNodeIdStrings.compactMap { UUID(uuidString: $0) })
+                let selectedLayerIds = Set(selectedLayerIdStrings.compactMap { UUID(uuidString: $0) })
+                
+                print("📡 [全局节点图谱-\(instanceId)] 应用广播选择: 节点=\(selectedNodeIds.count), 层级=\(selectedLayerIds.count)")
+                
+                DispatchQueue.main.async {
+                    dataManager.updateSelectedNodes(selectedNodeIds)
+                    dataManager.updateSelectedLayers(selectedLayerIds)
+                    updateGraphData()
+                }
+            }
+        }
         .navigationTitle("全局节点图谱")
     }
     

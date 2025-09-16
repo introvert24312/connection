@@ -758,7 +758,7 @@ class NodeBoardWebViewModel: NSObject, ObservableObject {
         let selectedUUIDs = selectedNodeIds.compactMap { UUID(uuidString: $0) }
         print("🎯 [节点看板] 转换后的 UUID: \(selectedUUIDs)")
         
-        // 处理多节点选择 - 模仿标签看板的方式
+        // 处理多节点选择
         if !selectedUUIDs.isEmpty {
             let selectedNodes = nodeStore.nodes.filter { selectedUUIDs.contains($0.id) }
             print("✅ [节点看板-\(instanceId)] 找到节点: \(selectedNodes.count)个")
@@ -769,27 +769,55 @@ class NodeBoardWebViewModel: NSObject, ObservableObject {
                 nodeStore.selectNode(firstNode)
             }
             
-            // 🆕 完全照抄NewTagIndexWebViewModel的关联数据管理器逻辑
+            // 🆕 双模式处理逻辑
             if let dataManager = associatedDataManager {
-                print("📤 [节点看板-\(instanceId)] 更新关联数据管理器")
+                // 🔗 一对一配对模式：只更新关联的数据管理器
+                print("📤 [节点看板-\(instanceId)] 一对一配对模式：更新关联数据管理器")
                 print("   - 选中节点: \(selectedUUIDs.count)个")
                 print("   - 选中层级: \(Set(selectedNodes.map { $0.layerId }).count)个")
                 
                 dataManager.updateSelectedNodes(Set(selectedUUIDs))
                 dataManager.updateSelectedLayers(Set(selectedNodes.map { $0.layerId }))
                 
-                print("🔄 [节点看板-\(instanceId)] 数据管理器已更新（关联模式）")
+                print("🔄 [节点看板-\(instanceId)] 一对一模式：数据管理器已更新")
             } else {
-                print("📤 [节点看板-\(instanceId)] 无关联数据管理器，独立模式")
+                // 📡 一对多广播模式：通过通知系统广播给所有图谱窗口
+                print("📡 [节点看板-\(instanceId)] 一对多广播模式：发送节点选择通知")
+                
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("nodeSelectionChangedFromBoard"),
+                    object: nil,
+                    userInfo: [
+                        "selectedNodeIds": selectedUUIDs.map { $0.uuidString },
+                        "selectedLayerIds": Set(selectedNodes.map { $0.layerId }).map { $0.uuidString },
+                        "source": "nodeBoard",
+                        "sourceInstance": instanceId
+                    ]
+                )
+                print("📡 [节点看板-\(instanceId)] 广播通知已发送给所有图谱窗口")
             }
         } else if selectedNodeIds.isEmpty {
             // 清除选中状态
             nodeStore.selectNode(nil)
             
             if let dataManager = associatedDataManager {
-                print("🧹 [节点看板-\(instanceId)] 清除关联数据管理器选择")
+                // 一对一模式：清除关联数据管理器
+                print("🧹 [节点看板-\(instanceId)] 一对一模式：清除关联数据管理器选择")
                 dataManager.updateSelectedNodes(Set())
                 dataManager.updateSelectedLayers(Set())
+            } else {
+                // 一对多模式：广播清除消息
+                print("📡 [节点看板-\(instanceId)] 一对多模式：广播清除选择")
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("nodeSelectionChangedFromBoard"),
+                    object: nil,
+                    userInfo: [
+                        "selectedNodeIds": [],
+                        "selectedLayerIds": [],
+                        "source": "nodeBoard", 
+                        "sourceInstance": instanceId
+                    ]
+                )
             }
             print("🧹 [节点看板-\(instanceId)] 已清除节点选择")
         } else {
