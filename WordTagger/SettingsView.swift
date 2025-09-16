@@ -336,13 +336,13 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
     
     private func startPeriodicSync() {
         periodicSyncTimer?.invalidate()
-        periodicSyncTimer = Timer.scheduledTimer(withTimeInterval: 300.0, repeats: true) { [weak self] _ in
-            print("⏰ GitAutoSyncManager: 定时同步触发 (5分钟)")
+        periodicSyncTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
+            print("⏰ GitAutoSyncManager: 定时同步触发 (30秒)")
             Task { @MainActor in
                 self?.scheduleAutoSync(reason: "定时同步")
             }
         }
-        print("🔄 GitAutoSyncManager: 定时同步计时器已启动 (每5分钟)")
+        print("🔄 GitAutoSyncManager: 定时同步计时器已启动 (每30秒)")
     }
     
     private func checkConfigurationChanges() {
@@ -623,8 +623,8 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
             pendingSync = true  // 保持待同步状态，这样下次定时器触发时会重试
             
             // 重新安排重试
-            DispatchQueue.main.asyncAfter(deadline: .now() + 30.0) { [weak self] in
-                print("🔄 GitAutoSyncManager: 30秒后重试网络同步")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 40.0) { [weak self] in
+                print("🔄 GitAutoSyncManager: 40秒后重试网络同步")
                 self?.scheduleAutoSync(reason: "网络恢复重试 - \(reason)")
             }
         }
