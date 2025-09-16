@@ -194,7 +194,6 @@ struct GlobalTagGraphView: View {
     private func showSavePresetAlert() {
         let alert = NSAlert()
         alert.messageText = "保存图谱预设"
-        alert.informativeText = "为当前的标签过滤状态创建一个预设，以便后续快速加载。"
         alert.alertStyle = .informational
         
         // 创建输入框

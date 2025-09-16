@@ -45,8 +45,6 @@ struct GraphView: View {
         .navigationTitle("全局节点图谱")
         .alert("保存节点图谱预设", isPresented: $showingSavePresetDialog) {
             savePresetAlert
-        } message: {
-            Text("为当前的节点和层级选择创建一个预设")
         }
         .modifier(EventHandlersModifier(
             instanceId: instanceId,
