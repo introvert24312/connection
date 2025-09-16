@@ -159,12 +159,6 @@ struct TagSidebarView: View {
             openTagTypeGraphShortcut()
             return .handled
         })
-        .onKeyPress(.escape) {
-            // 按ESC键隐藏标签管理侧边栏
-            print("🔑 TagSidebarView: ESC键按下，隐藏标签管理")
-            NotificationCenter.default.post(name: Notification.Name("toggleSidebar"), object: nil)
-            return .handled
-        }
         .onAppear {
             print("🔑 TagSidebarView 出现")
             // TagSidebarView 是主窗口的组件，不需要单独注册窗口
