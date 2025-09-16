@@ -99,8 +99,7 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
     private var suspensionReason: String?
     private var lastSuccessfulSync: Date?
     private var pendingOperationsQueue: [PendingGitOperation] = []
-    private var keepAliveTimer: Timer?
-    private var networkStatusObserver: NSObjectProtocol?
+    // Network monitoring variables removed - no longer needed
     
     nonisolated public static let shared = GitAutoSyncManager()
     
@@ -136,15 +135,7 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
     // MARK: - Network Monitoring
     
     private func setupNetworkObserver() {
-        networkStatusObserver = NotificationCenter.default.addObserver(
-            forName: .networkStatusChanged,
-            object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            if let isConnected = notification.userInfo?["isConnected"] as? Bool {
-                // Network status changes no longer handled explicitly
-            }
-        }
+        // Network observer setup removed - no longer needed
     }
     
     // Network status changes are now handled naturally through Git operation failures
@@ -400,12 +391,7 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
         periodicSyncTimer?.invalidate()  // 停止定时同步
         periodicSyncTimer = nil
         
-        // Stop keep-alive and network monitoring
-        stopKeepAliveMode()
-        if let observer = networkStatusObserver {
-            NotificationCenter.default.removeObserver(observer)
-            networkStatusObserver = nil
-        }
+        // Network monitoring no longer needed - handled naturally
         
         // Clear state
         isServiceSuspended = false
