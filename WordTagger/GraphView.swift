@@ -314,6 +314,66 @@ struct EmptyGraphView: View {
     }
 }
 
+// MARK: - 全局节点图谱窗口管理器
+
+/// 全局节点图谱窗口管理器，支持多开模式
+@MainActor
+class NodeGraphWindowManager: ObservableObject {
+    static let shared = NodeGraphWindowManager()
+    
+    private init() {
+        print("🏗️ [节点图谱窗口管理器] 初始化，支持多开模式")
+    }
+    
+    /// 显示全局节点图谱窗口 - 支持多开
+    func showNodeGraphWindow() {
+        print("🪟 [节点图谱窗口管理器] 创建新的节点图谱窗口")
+        
+        // 每次都创建新的GraphView实例，每个实例都有独立的数据管理器
+        let contentView = GraphView()
+            .environmentObject(NodeStore.shared)
+        
+        let hostingView = NSHostingView(rootView: contentView)
+        
+        let newWindow = NSWindow(
+            contentRect: NSRect(x: 200, y: 200, width: 1200, height: 800),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        
+        newWindow.contentView = hostingView
+        newWindow.title = "全局节点图谱"
+        newWindow.setFrameAutosaveName("NodeGraphWindow")
+        newWindow.isReleasedWhenClosed = false
+        
+        // 窗口关闭处理
+        let delegate = NodeGraphWindowDelegate {
+            print("🗑️ [节点图谱窗口] 窗口已关闭")
+        }
+        newWindow.delegate = delegate
+        
+        newWindow.makeKeyAndOrderFront(nil)
+        
+        print("✅ [节点图谱窗口管理器] 新窗口已创建并显示")
+    }
+}
+
+// MARK: - 节点图谱窗口委托
+
+private class NodeGraphWindowDelegate: NSObject, NSWindowDelegate {
+    let onClose: () -> Void
+    
+    init(onClose: @escaping () -> Void) {
+        self.onClose = onClose
+        super.init()
+    }
+    
+    func windowWillClose(_ notification: Notification) {
+        onClose()
+    }
+}
+
 #Preview {
     GraphView()
         .environmentObject(NodeStore.shared)
