@@ -174,7 +174,7 @@ struct GlobalTagGraphView: View {
                 showingPresetSheet = false
             }
         }
-        .alert("保存图谱预设", isPresented: $showingSavePresetDialog) {
+        .alert("保存标签图谱预设", isPresented: $showingSavePresetDialog) {
             TextField("预设名称", text: $newPresetName)
             Button("取消", role: .cancel) {
                 newPresetName = ""
