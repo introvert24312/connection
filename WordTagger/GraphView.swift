@@ -111,6 +111,7 @@ struct GraphView: View {
            let selectedNode = selectedGraphNode.node {
             store.selectNode(selectedNode)
         }
+    }
     
     // MARK: - 工具栏视图
     
@@ -247,6 +248,75 @@ struct GraphView: View {
         newWindow.makeKeyAndOrderFront(nil)
         
         print("🪟 [节点图谱预设管理] 窗口已创建")
+    }
+    
+    // MARK: - 过滤信息显示
+    
+    @ViewBuilder
+    private func buildFilterInfoView() -> some View {
+        if dataManager.isLocked {
+            // 🔒 锁定状态显示
+            HStack(spacing: 8) {
+                Image(systemName: "lock.fill")
+                    .foregroundColor(.orange)
+                    .font(.caption)
+                
+                Text("图谱已锁定")
+                    .font(.caption)
+                    .foregroundColor(.orange)
+                    .fontWeight(.medium)
+                
+                Text("(\(dataManager.lockedNodes?.count ?? 0) 个节点)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        } else if dataManager.hasActiveFilters {
+            HStack(spacing: 8) {
+                Image(systemName: "line.3.horizontal.decrease.circle")
+                    .foregroundColor(.secondary)
+                    .font(.caption)
+                
+                Text(dataManager.buildFilterDescription(with: store))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        } else {
+            HStack(spacing: 8) {
+                Image(systemName: "circle.hexagonpath")
+                    .foregroundColor(.secondary)
+                    .font(.caption)
+                
+                Text("节点: \(store.nodes.count) | 层级: \(store.layers.count)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+    
+    private func showNodeBoardWindow() {
+        // 🆕 完全照抄GlobalTagGraphView.showAssociatedTagIndexWindow的逻辑
+        let associatedNodeBoardView = NodeBoardView(
+            associatedDataManager: dataManager  // 传递当前窗口的数据管理器
+        )
+        .environmentObject(NodeStore.shared)
+        
+        let hostingView = NSHostingView(rootView: associatedNodeBoardView)
+        
+        let newWindow = NSWindow(
+            contentRect: NSRect(x: 200, y: 200, width: 1200, height: 800),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        
+        newWindow.contentView = hostingView
+        newWindow.title = "节点看板"
+        newWindow.setFrameAutosaveName("AssociatedNodeBoardWindow")
+        newWindow.isReleasedWhenClosed = false
+        newWindow.makeKeyAndOrderFront(nil)
+        
+        print("🪟 [节点看板] 关联窗口已创建")
+        print("🔗 [全局节点图谱-\(instanceId)] 打开关联节点看板")
     }
 }
 
