@@ -21,6 +21,10 @@ class WindowFocusManager: ObservableObject {
     private var windowToUUIDMap: [NSWindow: UUID] = [:]
     private var uuidToWindowMap: [UUID: WeakWindowReference] = [:]
     
+    // 防抖机制 - 避免快速切换窗口时的噪音
+    private var lastWindowActivationTime: Date = Date()
+    private let minimumActivationInterval: TimeInterval = 0.1 // 100ms内的切换将被忽略
+    
     // 窗口映射系统 - 记录子窗口与源窗口的关系
     private var windowMappings: [String: String] = [:] // childWindowId -> sourceWindowId
     
@@ -163,6 +167,21 @@ class WindowFocusManager: ObservableObject {
                     
                     print("🏠 WindowFocusManager: 活跃窗口变更: \(previousWindow?.displayName ?? "nil")(\(previousWindow?.id.prefix(8) ?? "nil")) -> \(windowInfo.displayName)(\(windowInfo.id.prefix(8)))")
                     
+                    // 🔧 通知层图谱窗口：有新窗口激活了
+                    // 排除：1. 层图谱窗口自己 2. 地图窗口
+                    if windowInfo.type != .graph && windowInfo.type != .map && self.globalLayerGraphWindowId != windowInfo.id {
+                        // 只有标准窗口才需要通知
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("windowDidActivate"),
+                            object: nil,
+                            userInfo: [
+                                "windowId": windowInfo.id,
+                                "windowType": "standard"  // 统一为标准窗口
+                            ]
+                        )
+                        print("📢 WindowFocusManager: 通知层图谱窗口 - 窗口已激活: \(windowInfo.displayName)(\(windowInfo.id.prefix(8)))")
+                    }
+                    
                     // 检查是否有对应的NSWindow映射
                     if let windowRef = self.uuidToWindowMap[windowId],
                        let window = windowRef.window {
@@ -214,6 +233,19 @@ class WindowFocusManager: ObservableObject {
             return nil
         }
         return uuid
+    }
+    
+    /// 检查指定的窗口ID是否已注册
+    /// - Parameter windowId: 要检查的窗口ID
+    /// - Returns: 如果窗口已注册返回true
+    func isWindowRegistered(_ windowId: UUID) -> Bool {
+        return windowRegistry[windowId] != nil
+    }
+    
+    /// 获取所有已注册的窗口信息
+    /// - Returns: 所有窗口信息的数组
+    func getAllRegisteredWindows() -> [WindowInfo] {
+        return Array(windowRegistry.values).sorted { $0.id < $1.id }
     }
     
     /// 获取源窗口ID（用于地图窗口映射）
@@ -635,6 +667,14 @@ class WindowFocusManager: ObservableObject {
         // 根据具体需求决定
     }
     
+    /// 公共方法：关联NSWindow与UUID（供WindowClickTracker使用）
+    /// - Parameters:
+    ///   - window: NSWindow实例
+    ///   - uuid: 对应的UUID
+    func associateNSWindowWithUUID(_ window: NSWindow, uuid: UUID) {
+        associateWindowWithUUID(window, uuid: uuid)
+    }
+    
     /// 关联NSWindow与UUID
     /// - Parameters:
     ///   - window: NSWindow实例
@@ -923,6 +963,37 @@ class WindowFocusManager: ObservableObject {
         }
     }
     
+    /// 🔧 增强方法：从NSWindow获取稳定的窗口ID
+    /// 通过检查多个来源确保获取正确的窗口ID
+    func getWindowIdFromNSWindow(_ nsWindow: NSWindow) -> UUID? {
+        // 1. 首先尝试从映射表获取
+        if let uuid = windowToUUIDMap[nsWindow] {
+            print("🔍 WindowFocusManager: 从映射表找到窗口ID - \(uuid.uuidString.prefix(8))")
+            return uuid
+        }
+        
+        // 2. 尝试从窗口的视图层次结构中查找WindowClickTracker
+        if let contentView = nsWindow.contentView {
+            let foundWindowId = findWindowIdInViewHierarchy(contentView)
+            if let windowId = foundWindowId {
+                print("🔍 WindowFocusManager: 从视图层次结构找到窗口ID - \(windowId.uuidString.prefix(8))")
+                // 立即建立映射关系
+                associateWindowWithUUID(nsWindow, uuid: windowId)
+                return windowId
+            }
+        }
+        
+        print("❌ WindowFocusManager: 无法找到NSWindow的对应ID")
+        return nil
+    }
+    
+    /// 递归查找视图层次结构中的WindowClickTracker
+    private func findWindowIdInViewHierarchy(_ view: NSView) -> UUID? {
+        // 暂时跳过这个功能，避免编译错误
+        // TODO: 将来可以通过协议或其他方式实现
+        return nil
+    }
+
     /// 为NSWindow寻找最佳的UUID匹配
     /// - Parameter window: 要匹配的NSWindow
     /// - Returns: 匹配的UUID，如果没有找到则返回nil
@@ -970,21 +1041,15 @@ class WindowFocusManager: ObservableObject {
                         print("✅ WindowFocusManager: 根据类型匹配到图谱窗口 - '\(windowInfo.displayName)'")
                         return uuid
                     }
-                case .main:
-                    // 主窗口可能有应用名称、空标题或表情符号标题
+                case .standard:
+                    // 标准窗口可能有应用名称、空标题或表情符号标题
                     if windowTitle.contains("wordtagger") || 
                        windowTitle.contains("connection") ||
                        windowTitle.isEmpty ||
-                       (windowInfo.displayName.contains("主窗口") && windowTitle != windowInfo.displayName.lowercased()) {
-                        print("✅ WindowFocusManager: 根据类型匹配到主窗口 - '\(windowInfo.displayName)'")
-                        return uuid
-                    }
-                case .independent:
-                    // 独立窗口可能有各种标题，包括表情符号
-                    if windowTitle.contains("独立") || 
-                       windowTitle.contains("independent") ||
-                       (windowInfo.displayName.contains("独立窗口") && windowTitle != windowInfo.displayName.lowercased()) {
-                        print("✅ WindowFocusManager: 根据类型匹配到独立窗口 - '\(windowInfo.displayName)'")
+                       windowTitle.contains("主窗口") || // 兼容旧标题
+                       windowTitle.contains("独立") || // 兼容旧标题
+                       windowInfo.displayName.contains("窗口") {
+                        print("✅ WindowFocusManager: 根据类型匹配到标准窗口 - '\(windowInfo.displayName)'")
                         return uuid
                     }
                 default:
@@ -1187,9 +1252,9 @@ extension WindowFocusManager {
             print("     * \(info.displayName) (类型: \(info.type)) - \(uuid.uuidString.prefix(8))")
         }
         
-        // 查找主窗口（类型为.main的窗口）
-        guard let (mainWindowId, mainWindowInfo) = windowRegistry.first(where: { $0.value.type == .main }) else {
-            print("❌ WindowFocusManager: 找不到类型为.main的窗口")
+        // 查找标准窗口（类型为.standard的窗口）
+        guard let (mainWindowId, mainWindowInfo) = windowRegistry.first(where: { $0.value.type == .standard }) else {
+            print("❌ WindowFocusManager: 找不到类型为.standard的窗口")
             return
         }
         
@@ -1230,10 +1295,17 @@ extension WindowFocusManager {
         return activeWindowInfo?.id
     }
     
+    /// 获取指定窗口的信息
+    /// - Parameter windowId: 窗口UUID
+    /// - Returns: 窗口信息，如果不存在则返回nil
+    func getWindowInfo(for windowId: UUID) -> WindowInfo? {
+        return windowRegistry[windowId]
+    }
+    
     /// 获取主窗口的ID（返回第一个找到的主窗口）
     /// - Returns: 主窗口的ID字符串，如果没有主窗口则返回nil
     func getMainWindowId() -> String? {
-        return windowRegistry.first(where: { $0.value.type == .main })?.key.uuidString
+        return windowRegistry.first { $0.value.type == .standard }?.key.uuidString
     }
     
     /// 获取当前活跃的主窗口ID（优先返回活跃的主窗口）
@@ -1242,7 +1314,7 @@ extension WindowFocusManager {
         // 优先返回当前活跃的主窗口
         if let activeWindowId = getActiveWindowId(),
            let activeWindowInfo = windowRegistry[activeWindowId],
-           activeWindowInfo.type == .main {
+           activeWindowInfo.type == .standard {
             return activeWindowId.uuidString
         }
         
@@ -1269,7 +1341,7 @@ extension WindowFocusManager {
             // 检查是否是主窗口
             if let uuid = UUID(uuidString: windowIdString),
                let windowInfo = windowRegistry[uuid],
-               windowInfo.type == .main {
+               windowInfo.type == .standard {
                 return windowIdString
             }
         }

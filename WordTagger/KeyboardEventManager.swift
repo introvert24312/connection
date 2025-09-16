@@ -13,19 +13,17 @@ import Combine
 
 /// 窗口类型枚举
 enum WindowType: Hashable {
-    case main
-    case independent
-    case map
-    case graph
-    case fullscreenGraph
-    case nodeManager
-    case settings
-    case custom(String)
+    case standard        // 标准窗口（原来的主窗口和独立窗口）
+    case map            // 地图窗口
+    case graph          // 图谱窗口
+    case fullscreenGraph // 全屏图谱
+    case nodeManager    // 节点管理
+    case settings       // 设置
+    case custom(String) // 自定义类型
     
     var displayName: String {
         switch self {
-        case .main: return "主窗口"
-        case .independent: return "独立窗口"
+        case .standard: return "窗口"
         case .map: return "地图窗口"
         case .graph: return "图谱窗口"
         case .fullscreenGraph: return "全屏图谱"

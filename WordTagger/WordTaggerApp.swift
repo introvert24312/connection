@@ -3660,9 +3660,10 @@ struct WordTaggerApp: App {
                     .environmentObject(store)
                     .onAppear {
                         // 为主窗口注册窗口焦点管理
-                        WindowFocusManager.shared.registerWindow(mainWindowId, type: .main, displayName: "主窗口")
+                        WindowFocusManager.shared.registerWindow(mainWindowId, type: .standard, displayName: "窗口")
                         WindowFocusManager.shared.setActiveWindow(mainWindowId)
                     }
+                    .background(WindowClickTracker(windowId: mainWindowId))
                 
                 if showPalette {
                     ZStack {
@@ -5285,9 +5286,10 @@ struct IndependentWindowWrapper: View {
         ZStack {
             ContentView(windowId: windowId)
                 .environmentObject(store)
+                .background(WindowClickTracker(windowId: windowId))
                 .onAppear {
                     // 🔧 为独立窗口注册窗口焦点管理 - 注册为主窗口类型，支持层图谱映射
-                    WindowFocusManager.shared.registerWindow(windowId, type: .main, displayName: "独立窗口")
+                    WindowFocusManager.shared.registerWindow(windowId, type: .standard, displayName: "窗口")
                     WindowFocusManager.shared.setActiveWindow(windowId)
                 }
                 .onDisappear {
@@ -6120,6 +6122,106 @@ struct GlobalCommands: Commands {
             }
             .keyboardShortcut("n", modifiers: [.command])
             .disabled(openNewWindow == nil)
+        }
+    }
+}
+
+// MARK: - Window Click Tracker
+
+/// A view that tracks actual mouse clicks on its window and distinguishes them from system-generated focus changes
+struct WindowClickTracker: NSViewRepresentable {
+    let windowId: UUID
+    
+    func makeNSView(context: Context) -> NSView {
+        let view = ClickDetectorView(windowId: windowId)
+        return view
+    }
+    
+    func updateNSView(_ nsView: NSView, context: Context) {
+        // No updates needed
+    }
+    
+    class ClickDetectorView: NSView {
+        let windowId: UUID
+        private var mouseDownTime: Date?
+        private var lastClickNotificationTime: Date = Date.distantPast
+        private let clickNotificationCooldown: TimeInterval = 0.5 // 防止重复通知
+        
+        init(windowId: UUID) {
+            self.windowId = windowId
+            super.init(frame: .zero)
+        }
+        
+        required init?(coder: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
+        }
+        
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if let window = window {
+                // 监听窗口的鼠标按下事件
+                window.acceptsMouseMovedEvents = true
+            }
+        }
+        
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            // 让事件穿透，不影响正常的UI交互
+            return nil
+        }
+        
+        override func viewWillMove(toWindow newWindow: NSWindow?) {
+            super.viewWillMove(toWindow: newWindow)
+            
+            if let window = newWindow {
+                // 使用responder chain来检测窗口上的鼠标点击
+                NotificationCenter.default.addObserver(
+                    self,
+                    selector: #selector(windowDidBecomeKey(_:)),
+                    name: NSWindow.didBecomeKeyNotification,
+                    object: window
+                )
+            } else if let window = window {
+                NotificationCenter.default.removeObserver(
+                    self,
+                    name: NSWindow.didBecomeKeyNotification,
+                    object: window
+                )
+            }
+        }
+        
+        @objc private func windowDidBecomeKey(_ notification: Notification) {
+            // 检查是否是由鼠标事件触发的窗口激活
+            if let event = NSApp.currentEvent,
+               event.type == .leftMouseDown || event.type == .rightMouseDown {
+                // 这是真正的用户点击
+                let now = Date()
+                if now.timeIntervalSince(lastClickNotificationTime) > clickNotificationCooldown {
+                    lastClickNotificationTime = now
+                    
+                    DispatchQueue.main.async {
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("userClickedWindow"),
+                            object: nil,
+                            userInfo: [
+                                "windowId": self.windowId.uuidString,
+                                "windowType": "standard",
+                                "isRealClick": true
+                            ]
+                        )
+                        print("🖱️ 检测到真实用户点击窗口 - \(self.windowId.uuidString.prefix(8))")
+                    }
+                }
+            }
+        }
+        
+        deinit {
+            if let window = window {
+                NotificationCenter.default.removeObserver(
+                    self,
+                    name: NSWindow.didBecomeKeyNotification,
+                    object: window
+                )
+            }
         }
     }
 }
