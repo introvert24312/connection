@@ -105,7 +105,8 @@ struct NodeGraphPresetManagerView: View {
                                     let result = presetManager.loadPreset(preset)
                                     selectedNodeIds = result.selectedNodeIds
                                     selectedLayerIds = result.selectedLayerIds
-                                    dismiss()
+                                    // 不再自动关闭窗口，让用户可以继续选择其他预设
+                                    // dismiss()
                                 },
                                 onDelete: {
                                     presetToDelete = preset
