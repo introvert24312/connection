@@ -5,50 +5,9 @@ import UniformTypeIdentifiers
 import Network
 import SystemConfiguration
 
-// MARK: - Network Connection Monitor
-
-@MainActor
-public final class NetworkConnectionMonitor: ObservableObject {
-    @Published public var isConnected: Bool = true
-    @Published public var connectionType: NWInterface.InterfaceType = .other
-    @Published public var lastConnectionChange: Date = Date()
-    
-    private let monitor = NWPathMonitor()
-    private let queue = DispatchQueue(label: "NetworkMonitor")
-    
-    public static let shared = NetworkConnectionMonitor()
-
-    private init() {
-        startMonitoring()
-    }
-    
-    private func startMonitoring() {
-        monitor.pathUpdateHandler = { [weak self] path in
-            DispatchQueue.main.async {
-                let wasConnected = self?.isConnected ?? false
-                self?.isConnected = path.status == .satisfied
-                self?.connectionType = path.availableInterfaces.first?.type ?? .other
-                
-                if wasConnected != self?.isConnected {
-                    self?.lastConnectionChange = Date()
-                    print("🌐 Network status changed: \(self?.isConnected == true ? "Connected" : "Disconnected")")
-                    
-                    // Notify Git sync manager about network changes
-                    NotificationCenter.default.post(
-                        name: .networkStatusChanged,
-                        object: self,
-                        userInfo: ["isConnected": self?.isConnected ?? false]
-                    )
-                }
-            }
-        }
-        monitor.start(queue: queue)
-    }
-    
-    deinit {
-        monitor.cancel()
-    }
-}
+// MARK: - Network monitoring removed
+// Network status is now detected naturally through Git operation failures
+// The system will automatically retry when network is restored
 
 // MARK: - Pending Git Operations
 
@@ -131,10 +90,7 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
     private var lastSyncAttempt: Date?
     private var periodicSyncTimer: Timer?  // 30秒定时同步计时器
     
-    // Network resilience properties
-    private var networkMonitor: NetworkConnectionMonitor {
-        NetworkConnectionMonitor.shared
-    }
+    // 简单的网络连接检查 - 不需要复杂的监控器
     private var consecutiveFailures = 0
     private var maxRetryAttempts = 5
     private var baseRetryInterval: TimeInterval = 2.0  // Start with 2 seconds
@@ -160,16 +116,14 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
         let isGitEnabled = userDefaults.bool(forKey: "WordTagger_GitEnabled")
         let autoSyncEnabled = userDefaults.object(forKey: "WordTagger_AutoSyncEnabled") as? Bool ?? true
         let serviceHealth = getServiceHealthStatus()
-        return (isMonitoring, isGitEnabled, autoSyncEnabled, networkMonitor.isConnected, serviceHealth)
+        return (isMonitoring, isGitEnabled, autoSyncEnabled, true, serviceHealth)
     }
     
     private func getServiceHealthStatus() -> String {
         if isServiceSuspended {
             return "Suspended: \(suspensionReason ?? "Unknown")"
         }
-        if !networkMonitor.isConnected {
-            return "Network Offline"
-        }
+        // 简化：不检查网络状态
         if consecutiveFailures > 0 {
             return "Recovering (\(consecutiveFailures) failures)"
         }
@@ -188,104 +142,20 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
             queue: .main
         ) { [weak self] notification in
             if let isConnected = notification.userInfo?["isConnected"] as? Bool {
-                Task { @MainActor in
-                    self?.handleNetworkStatusChange(isConnected: isConnected)
-                }
+                // Network status changes no longer handled explicitly
             }
         }
     }
     
-    private func handleNetworkStatusChange(isConnected: Bool) {
-        print("🌐 GitAutoSyncManager: Network status changed to \(isConnected ? "connected" : "disconnected")")
-        
-        if isConnected {
-            handleNetworkReconnected()
-        } else {
-            handleNetworkDisconnected()
-        }
-    }
+    // Network status changes are now handled naturally through Git operation failures
     
-    private func handleNetworkDisconnected() {
-        print("🔴 GitAutoSyncManager: Network disconnected - entering keep-alive mode")
-        
-        // Don't stop monitoring, but suspend active sync operations
-        isServiceSuspended = false  // Keep service running in background
-        suspensionReason = nil
-        
-        // If currently syncing, let it fail naturally and queue for retry
-        if isCurrentlySyncing {
-            print("📝 GitAutoSyncManager: Active sync operation will be retried when network returns")
-        }
-        
-        // Start keep-alive mechanism
-        startKeepAliveMode()
-    }
+    // Network disconnection is handled naturally through Git operation failures
     
-    private func handleNetworkReconnected() {
-        print("🟢 GitAutoSyncManager: Network reconnected - resuming operations")
-        
-        // Resume service if it was suspended
-        if isServiceSuspended {
-            isServiceSuspended = false
-            suspensionReason = nil
-            print("✅ GitAutoSyncManager: Service resumed after network reconnection")
-        }
-        
-        // Stop keep-alive mode
-        stopKeepAliveMode()
-        
-        // Reset failure count on successful reconnection
-        consecutiveFailures = 0
-        
-        // Process any pending operations
-        processPendingOperations()
-        
-        // Schedule immediate sync if we missed sync opportunities
-        if let lastSync = lastSuccessfulSync {
-            let timeSinceLastSync = Date().timeIntervalSince(lastSync)
-            if timeSinceLastSync > 120 { // More than 2 minutes
-                print("🔄 GitAutoSyncManager: Scheduling catch-up sync after \(Int(timeSinceLastSync))s offline")
-                scheduleAutoSync(reason: "Network reconnection catch-up")
-            }
-        } else {
-            // No previous sync, schedule one
-            scheduleAutoSync(reason: "Initial sync after network reconnection")
-        }
-    }
+    // Network reconnection is handled naturally through Git operation retries
     
-    private func startKeepAliveMode() {
-        print("💓 GitAutoSyncManager: Starting keep-alive mode")
-        
-        keepAliveTimer?.invalidate()
-        keepAliveTimer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.performKeepAliveCheck()
-            }
-        }
-    }
+    // Keep-alive mode no longer needed - Git operations handle network state naturally
     
-    private func stopKeepAliveMode() {
-        print("💓 GitAutoSyncManager: Stopping keep-alive mode")
-        keepAliveTimer?.invalidate()
-        keepAliveTimer = nil
-    }
-    
-    private func performKeepAliveCheck() {
-        print("💓 GitAutoSyncManager: Keep-alive check - Network: \(networkMonitor.isConnected), Service: \(isServiceSuspended ? "Suspended" : "Active")")
-        
-        // Verify service is still configured
-        guard isMonitoring else {
-            print("⚠️ GitAutoSyncManager: Keep-alive detected monitoring stopped, stopping keep-alive")
-            stopKeepAliveMode()
-            return
-        }
-        
-        // Check if network is back and we should resume
-        if networkMonitor.isConnected && !isCurrentlySyncing {
-            print("🔄 GitAutoSyncManager: Network available during keep-alive, attempting reconnection")
-            handleNetworkReconnected()
-        }
-    }
+    // Keep-alive check no longer needed
     
     private func processPendingOperations() {
         guard !pendingOperationsQueue.isEmpty else { return }
@@ -623,13 +493,8 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
         let timestamp = Date()
         print("🔄 GitAutoSyncManager.performAutoSync() 开始 - 触发原因: \(reason) [\(timestamp)]")
         
-        // Check network connectivity first
-        guard networkMonitor.isConnected else {
-            print("🔴 GitAutoSyncManager: Network disconnected, queueing sync operation")
-            queuePendingOperation(type: .sync, reason: reason)
-            pendingSync = false
-            return
-        }
+        // 简单的网络检查逻辑：如果执行失败是因为网络，就保持pendingSync状态
+        // 这样网络恢复后会自动重试
         
         guard isMonitoring else {
             print("⚠️ GitAutoSyncManager: 监听已停止，取消自动同步 - 触发原因: \(reason)")
@@ -677,7 +542,7 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
         print("   - autoSyncEnabled: \(autoSyncEnabled)")
         print("   - gitRemoteURL: '\(gitRemoteURL)'")
         print("   - consecutiveFailures: \(consecutiveFailures)")
-        print("   - networkConnected: \(networkMonitor.isConnected)")
+        print("   - 网络状态由实际请求结果决定")
         
         guard isGitEnabled && autoSyncEnabled else {
             print("❌ GitAutoSyncManager: Git配置已变更，停止自动同步 - Git启用: \(isGitEnabled), 自动同步: \(autoSyncEnabled)")
@@ -766,9 +631,16 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
         // Determine if this is a network-related error
         let isNetworkError = isNetworkRelatedError(error)
         
-        if isNetworkError && !networkMonitor.isConnected {
-            print("🌐 GitAutoSyncManager: 网络错误且当前离线，不增加失败计数")
-            consecutiveFailures = max(0, consecutiveFailures - 1)  // Don't count network failures when offline
+        if isNetworkError {
+            print("🌐 GitAutoSyncManager: 网络错误，保持pendingSync状态，等待网络恢复后自动重试")
+            consecutiveFailures = max(0, consecutiveFailures - 1)  // 不计算网络错误
+            pendingSync = true  // 保持待同步状态，这样下次定时器触发时会重试
+            
+            // 重新安排重试
+            DispatchQueue.main.asyncAfter(deadline: .now() + 30.0) { [weak self] in
+                print("🔄 GitAutoSyncManager: 30秒后重试网络同步")
+                self?.scheduleAutoSync(reason: "网络恢复重试 - \(reason)")
+            }
         }
         
         // If too many failures, suspend service temporarily
@@ -830,10 +702,8 @@ public final class GitAutoSyncManager: ObservableObject, @unchecked Sendable {
         suspensionReason = nil
         consecutiveFailures = max(0, consecutiveFailures - 2)  // Reduce failure count
         
-        // Try a sync if network is available
-        if networkMonitor.isConnected {
-            scheduleAutoSync(reason: "服务恢复后重试")
-        }
+        // 总是尝试同步，让实际请求来判断网络状态
+        scheduleAutoSync(reason: "服务恢复后重试")
     }
     
     private func queuePendingOperation(type: PendingOperationType, reason: String) {
@@ -1110,10 +980,6 @@ enum GitSyncError: Error {
 class ResilientGitSyncHelper: GitSyncHelper {
     private let maxRetryAttempts = 3
     private let baseRetryInterval: TimeInterval = 1.0
-    @MainActor
-    private var networkMonitor: NetworkConnectionMonitor {
-        NetworkConnectionMonitor.shared
-    }
     
     override func performSync() async throws {
         // Use the resilient version
@@ -1127,11 +993,8 @@ class ResilientGitSyncHelper: GitSyncHelper {
             do {
                 print("🔄 ResilientGitSyncHelper: Sync attempt \(attempt)/\(maxRetryAttempts)")
                 
-                // Check network before attempting sync
-                guard await MainActor.run(body: { self.networkMonitor.isConnected }) else {
-                    print("🔴 ResilientGitSyncHelper: Network unavailable, skipping attempt \(attempt)")
-                    throw GitSyncError.networkUnavailable
-                }
+                // Let Git operations naturally fail if network is down
+                // The error handling will detect network issues and retry automatically
                 
                 // Perform the actual sync using parent class implementation
                 try await super.performSync()
@@ -1392,7 +1255,7 @@ public class GitSyncStatusManager: ObservableObject {
 
 struct GitSyncStatusIndicator: View {
     @ObservedObject private var statusManager = GitSyncStatusManager.shared
-    @ObservedObject private var networkMonitor = NetworkConnectionMonitor.shared
+    // Removed networkMonitor - network checking happens naturally during Git operations
     @State private var showingTooltip = false
     
     // 修复：总是显示指示器，根据状态显示不同颜色
@@ -1429,10 +1292,7 @@ struct GitSyncStatusIndicator: View {
         // 未配置Git时显示红色
         guard isGitConfigured else { return .red }
         
-        // 网络断开时显示红色
-        if !networkMonitor.isConnected {
-            return .red
-        }
+        // 网络状态由Git操作自然检测，不再预先判断
         
         // 如果有错误，显示红色
         if statusManager.lastError != nil {
@@ -1464,7 +1324,7 @@ struct GitSyncStatusIndicator: View {
         // 增强的状态信息，包含网络状态
         var statusInfo = "Git状态监控:\n"
         statusInfo += "• Git配置: \(isGitConfigured ? "✓ 完整" : "✗ 不完整")\n"
-        statusInfo += "• 网络状态: \(networkMonitor.isConnected ? "✓ 已连接" : "✗ 断开连接")\n"
+        statusInfo += "• 网络状态: 通过Git操作自动检测\n"
         
         if !isGitConfigured {
             statusInfo += "• 配置检查:\n"
@@ -1475,10 +1335,7 @@ struct GitSyncStatusIndicator: View {
             return statusInfo + "请在设置中完成Git配置"
         }
         
-        // 网络状态检查（优先显示）
-        if !networkMonitor.isConnected {
-            return statusInfo + "• 状态: ⚠️ 网络断开\n\n网络连接断开时无法进行Git同步\n请检查网络连接"
-        }
+        // 网络状态由Git操作自然检测，错误时会自动重试
         
         if statusManager.isWorking {
             return statusInfo + "• 状态: 🔄 正在同步\n\n正在进行Git同步操作..."
@@ -1527,7 +1384,7 @@ struct GitSyncStatusIndicator: View {
                     GitSyncStatusPopover()
                 }
                 .onAppear {
-                    print("🎯 GitSyncStatusIndicator 已显示！状态: \(indicatorColor), 网络: \(networkMonitor.isConnected)")
+                    print("🎯 GitSyncStatusIndicator 已显示！状态: \(indicatorColor)")
                 }
             } else {
                 // 不显示任何指示器（隐形状态）
