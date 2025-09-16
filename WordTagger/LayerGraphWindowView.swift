@@ -377,21 +377,37 @@ struct LayerGraphWindowView: View {
         let windowManager = WindowFocusManager.shared
         let activationHistory = windowManager.getWindowActivationHistory()
         
-        print("🔄 LayerGraphWindow: 准备切换到层 '\(layer.displayName)'")
+        print("\n🔄 LayerGraphWindow: 准备切换到层 '\(layer.displayName)'")
         print("   - 当前层图谱窗口ID: \(windowId.uuidString.prefix(8))")
         print("   - 窗口激活历史: [\(activationHistory.prefix(5).map { $0.prefix(8) }.joined(separator: ", "))]")
+        
+        // 打印所有注册的窗口信息（用于调试）
+        print("   - 调试信息: 所有注册的窗口")
+        if let debugInfo = windowManager.getDebugInfo() as? [String: Any],
+           let windowList = debugInfo["windowList"] as? [String] {
+            for window in windowList {
+                print("     * \(window)")
+            }
+        }
         
         // 从激活历史中查找最近的主窗口（排除当前层图谱窗口）
         var targetWindowId: String? = nil
         
-        for windowIdString in activationHistory {
+        print("   - 开始从激活历史中查找主窗口...")
+        for (index, windowIdString) in activationHistory.enumerated() {
+            print("     [\(index)] 检查窗口: \(windowIdString.prefix(8))")
+            
             // 跳过当前层图谱窗口
             if windowIdString == windowId.uuidString {
+                print("        -> 跳过: 这是当前层图谱窗口")
                 continue
             }
             
             // 检查是否是主窗口
-            if windowManager.isMainWindow(windowIdString) {
+            let isMain = windowManager.isMainWindow(windowIdString)
+            print("        -> 是主窗口: \(isMain)")
+            
+            if isMain {
                 targetWindowId = windowIdString
                 print("✅ LayerGraphWindow: 从激活历史找到最近的主窗口 - (\(windowIdString.prefix(8)))")
                 break
@@ -400,21 +416,27 @@ struct LayerGraphWindowView: View {
         
         // 如果没找到，使用原有的映射关系作为回退
         if targetWindowId == nil {
+            print("   - 从激活历史中未找到主窗口，尝试使用映射关系...")
             targetWindowId = windowManager.getSourceWindowId(for: windowId.uuidString)
             if let fallbackId = targetWindowId {
                 print("⚠️ LayerGraphWindow: 使用映射关系作为回退 - (\(fallbackId.prefix(8)))")
+            } else {
+                print("   - 映射关系也没有找到")
             }
         }
         
         // 如果还是没有，尝试获取任意一个主窗口
         if targetWindowId == nil {
+            print("   - 尝试获取任意一个主窗口...")
             targetWindowId = windowManager.getMainWindowId()
             if let lastResortId = targetWindowId {
                 print("⚠️ LayerGraphWindow: 使用第一个主窗口作为最后手段 - (\(lastResortId.prefix(8)))")
+            } else {
+                print("❌ LayerGraphWindow: 无法找到任何主窗口！")
             }
         }
         
-        print("📡 LayerGraphWindow: 发送层切换通知到主窗口 - 目标: \(targetWindowId?.prefix(8) ?? "无")")
+        print("📡 LayerGraphWindow: 发送层切换通知到主窗口 - 目标: \(targetWindowId?.prefix(8) ?? "无")\n")
         
         // 通知目标主窗口切换层
         NotificationCenter.default.post(
