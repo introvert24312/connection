@@ -1074,7 +1074,8 @@ struct NewGlobalTagGraphPresetManagerView: View {
                                 isCurrent: dataManager.currentPreset?.id == preset.id,
                                 onLoad: {
                                     loadPreset(preset)
-                                    dismiss()
+                                    // 不再自动关闭窗口，让用户可以继续选择其他预设
+                                    // dismiss()
                                 },
                                 onDelete: {
                                     presetToDelete = preset
