@@ -41,6 +41,18 @@ struct LayerGraphWindowView: View {
             graphContent
         }
         .registerWindow(windowId, type: .graph, displayName: "层结构图谱")
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("focusLayerGraphWindow"))) { notification in
+            // 🔧 处理激活层图谱窗口的通知
+            if let userInfo = notification.userInfo,
+               let targetWindowId = userInfo["windowId"] as? String {
+                // 检查是否是发给当前窗口的通知
+                if targetWindowId == windowId.uuidString {
+                    print("🎯 LayerGraphWindow: 收到激活窗口通知")
+                    // 使用 WindowFocusManager 激活窗口
+                    WindowFocusManager.shared.activateWindow(windowId)
+                }
+            }
+        }
         .onAppear {
             setupWindow()
             // 设置输入框焦点

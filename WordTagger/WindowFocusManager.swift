@@ -1294,16 +1294,34 @@ extension WindowFocusManager {
         // 检查UUID格式的窗口ID
         if let uuid = UUID(uuidString: windowId),
            let windowInfo = windowRegistry[uuid] {
-            return windowInfo.type == .main
-        }
-        
-        // 检查windowMappings中是否有这个ID对应主窗口
-        for (registeredUUID, info) in windowRegistry {
-            if info.type == .main && registeredUUID.uuidString == windowId {
-                return true
+            // 只有类型为.main的窗口才是主窗口，独立窗口(.independent)不是主窗口
+            let result = windowInfo.type == .main
+            if result {
+                print("✅ WindowFocusManager.isMainWindow: 确认是主窗口 - \(windowInfo.displayName) (\(windowId.prefix(8)))")
             }
+            return result
         }
         
         return false
+    }
+    
+    /// 激活指定的窗口
+    /// - Parameter windowId: 要激活的窗口UUID
+    func activateWindow(_ windowId: UUID) {
+        print("🔄 WindowFocusManager: 尝试激活窗口 - \(windowId.uuidString.prefix(8))")
+        
+        // 查找窗口映射
+        if let windowRef = uuidToWindowMap[windowId],
+           let window = windowRef.window {
+            print("✅ WindowFocusManager: 找到窗口映射，激活窗口")
+            DispatchQueue.main.async {
+                window.makeKeyAndOrderFront(nil)
+                NSApplication.shared.activate(ignoringOtherApps: true)
+                // 同时设置为活跃窗口
+                self.setActiveWindow(windowId)
+            }
+        } else {
+            print("❌ WindowFocusManager: 无法找到窗口映射 - \(windowId.uuidString.prefix(8))")
+        }
     }
 }

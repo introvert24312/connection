@@ -5553,7 +5553,17 @@ struct IndependentWindowModifier: ViewModifier {
                     if windowType == "layerGraph" {
                         let currentWindowId = windowId.uuidString
                         if !WindowFocusManager.shared.reserveLayerGraphWindow(for: currentWindowId) {
-                            print("⚠️ 独立窗口: 已有层图谱窗口，忽略重复打开请求")
+                            print("⚠️ 独立窗口: 已有层图谱窗口，尝试激活已存在的窗口")
+                            // 获取已存在的层图谱窗口ID
+                            if let existingLayerGraphId = WindowFocusManager.shared.getLayerGraphWindow(for: currentWindowId) {
+                                print("🔄 独立窗口: 找到层图谱窗口ID: \(existingLayerGraphId.prefix(8))")
+                                // 发送通知激活层图谱窗口
+                                NotificationCenter.default.post(
+                                    name: NSNotification.Name("focusLayerGraphWindow"),
+                                    object: nil,
+                                    userInfo: ["windowId": existingLayerGraphId]
+                                )
+                            }
                             return
                         }
                     }
