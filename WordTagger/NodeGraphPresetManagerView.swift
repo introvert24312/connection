@@ -265,90 +265,81 @@ struct PresetRowView: View {
     
     // 预设内容概览
     private var contentOverviewView: some View {
-        HStack(spacing: 20) {
-            if !preset.selectedNodeIds.isEmpty {
-                nodeInfoView
+        VStack(alignment: .leading, spacing: 8) {
+            // 层级和节点信息 - 2栏布局
+            HStack(alignment: .top, spacing: 20) {
+                // 节点栏（左边）
+                if !preset.selectedNodeIds.isEmpty {
+                    let nodeUUIDs = Set(preset.selectedNodeIds.compactMap { UUID(uuidString: $0) })
+                    let nodeNames = getNodeNames(for: nodeUUIDs)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "circle.fill")
+                                .font(.system(size: 11))
+                                .foregroundColor(.orange)
+                            Text("节点 (\(preset.selectedNodeIds.count))")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.secondary)
+                        }
+                        Text(nodeNames.prefix(3).joined(separator: ", ") + (nodeNames.count > 3 ? "..." : ""))
+                            .font(.system(size: 10))
+                            .foregroundColor(.primary)
+                            .lineLimit(2)
+                            .truncationMode(.tail)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                
+                // 层级栏（右边）
+                if !preset.selectedLayerIds.isEmpty {
+                    let layerUUIDs = Set(preset.selectedLayerIds.compactMap { UUID(uuidString: $0) })
+                    let layerNames = getLayerNames(for: layerUUIDs)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "folder.fill")
+                                .font(.system(size: 11))
+                                .foregroundColor(.blue)
+                            Text("层级 (\(preset.selectedLayerIds.count))")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.secondary)
+                        }
+                        Text(layerNames.isEmpty ? "无层级名称" : layerNames.joined(separator: ", "))
+                            .font(.system(size: 10))
+                            .foregroundColor(.primary)
+                            .lineLimit(2)
+                            .truncationMode(.tail)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
             
-            if !preset.selectedLayerIds.isEmpty {
-                layerInfoView
-            }
-            
-            Spacer()
-            timeInfoView
-        }
-    }
-    
-    // 节点信息视图
-    private var nodeInfoView: some View {
-        VStack(alignment: .leading, spacing: 4) {
+            // 底部信息栏
             HStack {
-                Image(systemName: "circle")
-                    .font(.system(size: 12))
-                    .foregroundColor(.blue)
-                Text("节点 (\(preset.selectedNodeIds.count))")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.blue)
+                // 数量统计
+                HStack(spacing: 8) {
+                    if !preset.selectedLayerIds.isEmpty {
+                        Text("\(preset.selectedLayerIds.count) 层")
+                            .font(.system(size: 9))
+                            .foregroundColor(.secondary)
+                    }
+                    if !preset.selectedNodeIds.isEmpty {
+                        Text("\(preset.selectedNodeIds.count) 节点")
+                            .font(.system(size: 9))
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                Spacer()
+                
+                // 最后使用时间
+                Text("使用: \(formatRelativeDate(preset.lastUsed))")
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
             }
-            
-            nodeNamesText
         }
     }
     
-    // 节点名称文本
-    private var nodeNamesText: some View {
-        let nodeUUIDs = Set(preset.selectedNodeIds.compactMap { UUID(uuidString: $0) })
-        let nodeNames = getNodeNames(for: nodeUUIDs)
-        let displayedNodeNames = nodeNames.prefix(3).joined(separator: ", ")
-        let nodeNamesText = nodeNames.count > 3 ? displayedNodeNames + "..." : displayedNodeNames
-        
-        return Text(nodeNamesText)
-            .font(.system(size: 11))
-            .foregroundColor(.secondary)
-            .lineLimit(1)
-    }
-    
-    // 层级信息视图
-    private var layerInfoView: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Image(systemName: "square.stack")
-                    .font(.system(size: 12))
-                    .foregroundColor(.green)
-                Text("层级 (\(preset.selectedLayerIds.count))")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.green)
-            }
-            
-            layerNamesText
-        }
-    }
-    
-    // 层级名称文本
-    private var layerNamesText: some View {
-        let layerUUIDs = Set(preset.selectedLayerIds.compactMap { UUID(uuidString: $0) })
-        let layerNames = getLayerNames(for: layerUUIDs)
-        let displayedLayerNames = layerNames.prefix(3).joined(separator: ", ")
-        let layerNamesText = layerNames.count > 3 ? displayedLayerNames + "..." : displayedLayerNames
-        
-        return Text(layerNamesText)
-            .font(.system(size: 11))
-            .foregroundColor(.secondary)
-            .lineLimit(1)
-    }
-    
-    // 时间信息视图
-    private var timeInfoView: some View {
-        VStack(alignment: .trailing, spacing: 2) {
-            Text("创建: \(preset.createdAt, formatter: dateFormatter)")
-                .font(.system(size: 10))
-                .foregroundColor(.secondary)
-            
-            Text("使用: \(preset.lastUsed, formatter: dateFormatter)")
-                .font(.system(size: 10))
-                .foregroundColor(.secondary)
-        }
-    }
+    // 已移除单独的节点和层级视图，整合到contentOverviewView中
     
     // 背景样式
     private var backgroundView: some View {
@@ -404,5 +395,11 @@ struct PresetRowView: View {
         formatter.dateStyle = .short
         formatter.timeStyle = .short
         return formatter
+    }
+    
+    private func formatRelativeDate(_ date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: date, relativeTo: Date())
     }
 }

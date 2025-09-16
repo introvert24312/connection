@@ -908,7 +908,7 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                         const message = {
                             action: 'tagTypesSelected', // 🆕 使用复数形式表示多选
                             tagTypes: selectedTypeNames, // 🆕 发送标签类型数组
-                            selectedLayers: []
+                            selectedLayers: []  // 层级信息将在Swift端计算
                         };
                         console.log("   - 发送的标签类型消息:", message);
                         window.webkit.messageHandlers.tagIndexBoard.postMessage(message);
@@ -950,7 +950,7 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                         const message = {
                             action: 'selectionChanged',
                             selections: selections,
-                            selectedLayers: []
+                            selectedLayers: []  // 层级信息将在Swift端计算
                         };
                         console.log("   - 发送的消息:", message);
                         window.webkit.messageHandlers.tagIndexBoard.postMessage(message);
@@ -1114,17 +1114,28 @@ extension NewTagIndexWebViewModel: WKScriptMessageHandler {
         
         // 获取选中的层级（新增功能）
         let selectedLayerNames = messageBody["selectedLayers"] as? [String] ?? []
-        let selectedLayersSet = Set(selectedLayerNames)
+        var selectedLayersSet = Set(selectedLayerNames)
         
         print("🔄 [标签索引-\(instanceId)] 处理选择变化: \(selections.count) 项标签值, \(selectedLayersSet.count) 个层级")
         
         // 转换选择数据
         var selectedTagValues: Set<String> = []
+        var selectedTagTypes: Set<String> = []
         
         for selection in selections {
             if let value = selection["value"] as? String {
                 selectedTagValues.insert(value)
             }
+            if let tagType = selection["tagType"] as? String {
+                selectedTagTypes.insert(tagType)
+            }
+        }
+        
+        // 🆕 自动计算标签值对应的节点所在层级
+        if selectedLayersSet.isEmpty && !selectedTagValues.isEmpty {
+            print("🔍 [标签索引-\(instanceId)] 自动计算标签值对应的层级")
+            selectedLayersSet = calculateLayersForTagValues(selectedTagValues, selectedTagTypes)
+            print("   - 计算得到的层级: \(selectedLayersSet)")
         }
         
         // 🆕 如果有关联的数据管理器，直接更新它；否则发送全局通知
@@ -1163,7 +1174,7 @@ extension NewTagIndexWebViewModel: WKScriptMessageHandler {
         
         // 获取选中的层级（可选）
         let selectedLayerNames = messageBody["selectedLayers"] as? [String] ?? []
-        let selectedLayersSet = Set(selectedLayerNames)
+        var selectedLayersSet = Set(selectedLayerNames)
         
         print("🏷️ [标签索引-\(instanceId)] 处理标签类型选择: \(tagTypeName)")
         print("   - 关联层级: \(selectedLayersSet)")
@@ -1171,6 +1182,13 @@ extension NewTagIndexWebViewModel: WKScriptMessageHandler {
         // 将标签类型名称转换为Tag.TagType enum
         let tagType = convertToTagType(tagTypeName)
         print("   - 转换后的枚举: \(tagType.displayName)")
+        
+        // 🆕 自动计算标签类型对应的节点所在层级
+        if selectedLayersSet.isEmpty {
+            print("🔍 [标签索引-\(instanceId)] 自动计算标签类型对应的层级")
+            selectedLayersSet = calculateLayersForTagTypes(Set([tagType]))
+            print("   - 计算得到的层级: \(selectedLayersSet)")
+        }
         
         // 🆕 如果有关联的数据管理器，直接更新它；否则发送全局通知
         if let dataManager = associatedDataManager {
@@ -1205,7 +1223,7 @@ extension NewTagIndexWebViewModel: WKScriptMessageHandler {
         
         // 获取选中的层级（可选）
         let selectedLayerNames = messageBody["selectedLayers"] as? [String] ?? []
-        let selectedLayersSet = Set(selectedLayerNames)
+        var selectedLayersSet = Set(selectedLayerNames)
         
         print("🏷️ [标签索引-\(instanceId)] 处理多标签类型选择: \(tagTypeNames)")
         print("   - 关联层级: \(selectedLayersSet)")
@@ -1213,6 +1231,13 @@ extension NewTagIndexWebViewModel: WKScriptMessageHandler {
         // 将标签类型名称转换为Tag.TagType enum集合
         let tagTypes = Set(tagTypeNames.map { convertToTagType($0) })
         print("   - 转换后的枚举: \(tagTypes.map { $0.displayName })")
+        
+        // 🆕 自动计算标签类型对应的节点所在层级
+        if selectedLayersSet.isEmpty && !tagTypes.isEmpty {
+            print("🔍 [标签索引-\(instanceId)] 自动计算标签类型对应的层级")
+            selectedLayersSet = calculateLayersForTagTypes(tagTypes)
+            print("   - 计算得到的层级: \(selectedLayersSet)")
+        }
         
         // 🆕 如果有关联的数据管理器，直接更新它；否则发送全局通知
         if let dataManager = associatedDataManager {
@@ -1236,6 +1261,65 @@ extension NewTagIndexWebViewModel: WKScriptMessageHandler {
                 ]
             )
         }
+    }
+    
+    // MARK: - 层级计算辅助方法
+    
+    /// 计算包含指定标签值的节点所在的层级
+    @MainActor
+    private func calculateLayersForTagValues(_ tagValues: Set<String>, _ tagTypes: Set<String>) -> Set<String> {
+        guard let nodeStore = NodeStore.shared as NodeStore? else {
+            return []
+        }
+        
+        var layers = Set<String>()
+        
+        // 遍历所有节点，找出包含这些标签值的节点
+        for node in nodeStore.nodes {
+            for tag in node.tags {
+                // 检查标签值是否匹配
+                if tagValues.contains(tag.value) {
+                    // 同时检查标签类型是否匹配（如果有指定）
+                    if tagTypes.isEmpty || tagTypes.contains(tag.type.displayName) {
+                        // 找到节点所在的层级
+                        if let layer = nodeStore.layers.first(where: { $0.id == node.layerId }) {
+                            layers.insert(layer.displayName)
+                        }
+                        break
+                    }
+                }
+            }
+        }
+        
+        print("🔍 计算标签值对应层级: 标签值=\(tagValues), 找到层级=\(layers)")
+        return layers
+    }
+    
+    /// 计算包含指定标签类型的节点所在的层级
+    @MainActor
+    private func calculateLayersForTagTypes(_ tagTypes: Set<Tag.TagType>) -> Set<String> {
+        guard let nodeStore = NodeStore.shared as NodeStore? else {
+            return []
+        }
+        
+        var layers = Set<String>()
+        
+        // 遍历所有节点，找出包含这些标签类型的节点
+        for node in nodeStore.nodes {
+            for tag in node.tags {
+                // 检查标签类型是否匹配
+                if tagTypes.contains(tag.type) {
+                    // 找到节点所在的层级
+                    if let layer = nodeStore.layers.first(where: { $0.id == node.layerId }) {
+                        layers.insert(layer.displayName)
+                    }
+                    break
+                }
+            }
+        }
+        
+        print("🔍 计算标签类型对应层级: 标签类型=\(tagTypes.map { $0.displayName }), 找到层级=\(layers)")
+        return layers
     }
     
     @MainActor

@@ -177,7 +177,7 @@ struct GlobalTagGraphView: View {
         }
         .alert("保存图谱预设", isPresented: $showingSavePresetDialog) {
             TextField("预设名称", text: $newPresetName)
-            TextField("描述（可选）", text: $newPresetDescription)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
             
             Button("保存") {
                 let trimmedName = newPresetName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -188,17 +188,15 @@ struct GlobalTagGraphView: View {
                 print("   - 标签值: \(dataManager.filteredTagValues)")
                 
                 if !trimmedName.isEmpty {
-                    let description = newPresetDescription.trimmingCharacters(in: .whitespacesAndNewlines)
                     print("📝 [全局标签图谱] 开始调用saveCurrentAsPreset...")
                     dataManager.saveCurrentAsPreset(
                         name: trimmedName,
-                        description: description.isEmpty ? nil : description
+                        description: nil
                     )
                     print("✅ [全局标签图谱] saveCurrentAsPreset调用完成")
                     
                     // 清空输入框
                     newPresetName = ""
-                    newPresetDescription = ""
                 } else {
                     print("⚠️ [全局标签图谱] 预设名称为空，跳过保存")
                 }
@@ -207,7 +205,6 @@ struct GlobalTagGraphView: View {
             
             Button("取消", role: .cancel) {
                 newPresetName = ""
-                newPresetDescription = ""
             }
         } message: {
             Text("为当前的标签过滤状态创建一个预设，以便后续快速加载。")
@@ -1214,52 +1211,56 @@ struct NewGlobalTagGraphPresetRowView: View {
             
             // 预设内容概览
             VStack(alignment: .leading, spacing: 8) {
-                // 层级信息
-                if !preset.filteredLayers.isEmpty {
-                    HStack(alignment: .top, spacing: 4) {
-                        Image(systemName: "folder.fill")
-                            .font(.system(size: 11))
-                            .foregroundColor(.blue)
-                        Text("层级:")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(.secondary)
-                        Text(preset.filteredLayers.joined(separator: ", "))
-                            .font(.system(size: 11))
-                            .foregroundColor(.primary)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
+                // 第一行: 标签和层级 - 2栏布局
+                HStack(alignment: .top, spacing: 20) {
+                    // 标签栏（左边）
+                    if !preset.filteredTagValues.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "bookmark.fill")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.orange)
+                                Text("标签 (\(preset.filteredTagValues.count))")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(.secondary)
+                            }
+                            Text(Array(preset.filteredTagValues).prefix(5).joined(separator: ", ") + (preset.filteredTagValues.count > 5 ? "..." : ""))
+                                .font(.system(size: 10))
+                                .foregroundColor(.primary)
+                                .lineLimit(2)
+                                .truncationMode(.tail)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                }
-                
-                // 标签值信息
-                if !preset.filteredTagValues.isEmpty {
-                    HStack(alignment: .top, spacing: 4) {
-                        Image(systemName: "bookmark.fill")
-                            .font(.system(size: 11))
-                            .foregroundColor(.orange)
-                        Text("标签:")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(.secondary)
-                        Text(Array(preset.filteredTagValues).prefix(5).joined(separator: ", ") + (preset.filteredTagValues.count > 5 ? "..." : ""))
-                            .font(.system(size: 11))
-                            .foregroundColor(.primary)
+                    
+                    // 层级栏（右边）
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "folder.fill")
+                                .font(.system(size: 11))
+                                .foregroundColor(.blue)
+                            Text("层级 (\(preset.filteredLayers.isEmpty ? "全部" : "\(preset.filteredLayers.count)"))")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.secondary)
+                        }
+                        Text(preset.filteredLayers.isEmpty ? "所有层级" : preset.filteredLayers.joined(separator: ", "))
+                            .font(.system(size: 10))
+                            .foregroundColor(preset.filteredLayers.isEmpty ? .secondary : .primary)
                             .lineLimit(2)
                             .truncationMode(.tail)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 
                 // 标签类型信息（如果有）
                 if !preset.filteredTagTypes.isEmpty {
-                    HStack(alignment: .top, spacing: 4) {
+                    HStack(spacing: 4) {
                         Image(systemName: "tag.fill")
                             .font(.system(size: 11))
                             .foregroundColor(.green)
-                        Text("类型:")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(.secondary)
-                        Text(preset.filteredTagTypes.joined(separator: ", "))
+                        Text("类型: " + preset.filteredTagTypes.joined(separator: ", "))
                             .font(.system(size: 11))
-                            .foregroundColor(.primary)
+                            .foregroundColor(.secondary)
                             .lineLimit(1)
                             .truncationMode(.tail)
                     }
