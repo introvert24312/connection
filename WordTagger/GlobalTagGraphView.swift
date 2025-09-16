@@ -174,62 +174,19 @@ struct GlobalTagGraphView: View {
                 showingPresetSheet = false
             }
         }
-        .onAppear {
-            if showingSavePresetDialog {
-                // 使用 NSAlert 来显示带输入框的对话框
-                showSavePresetAlert()
-                showingSavePresetDialog = false
+        .alert("保存图谱预设", isPresented: $showingSavePresetDialog) {
+            TextField("预设名称", text: $newPresetName)
+            Button("取消", role: .cancel) {
+                newPresetName = ""
             }
-        }
-        .onChange(of: showingSavePresetDialog) { _, newValue in
-            if newValue {
-                showSavePresetAlert()
-                showingSavePresetDialog = false
-            }
-        }
-    }
-    
-    // MARK: - 保存预设对话框
-    
-    private func showSavePresetAlert() {
-        let alert = NSAlert()
-        alert.messageText = "保存图谱预设"
-        alert.alertStyle = .informational
-        
-        // 创建输入框
-        let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
-        textField.placeholderString = "预设名称"
-        textField.bezelStyle = .roundedBezel
-        alert.accessoryView = textField
-        
-        // 添加按钮
-        alert.addButton(withTitle: "保存")
-        alert.addButton(withTitle: "取消")
-        
-        // 让输入框获得焦点
-        DispatchQueue.main.async {
-            textField.becomeFirstResponder()
-        }
-        
-        // 显示对话框
-        let response = alert.runModal()
-        
-        if response == .alertFirstButtonReturn {
-            let trimmedName = textField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            
-            if !trimmedName.isEmpty {
-                print("🚀 [全局标签图谱] 保存按钮点击 - 预设名称: '\(trimmedName)'")
-                print("🔍 [全局标签图谱] 当前过滤状态:")
-                print("   - 层级: \(dataManager.filteredLayers)")
-                print("   - 标签类型: \(dataManager.filteredTagTypes)")
-                print("   - 标签值: \(dataManager.filteredTagValues)")
-                
-                print("📝 [全局标签图谱] 开始调用saveCurrentAsPreset...")
-                dataManager.saveCurrentAsPreset(
-                    name: trimmedName,
-                    description: nil
-                )
-                print("✅ [全局标签图谱] saveCurrentAsPreset调用完成")
+            Button("保存") {
+                if !newPresetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    dataManager.saveCurrentAsPreset(
+                        name: newPresetName.trimmingCharacters(in: .whitespacesAndNewlines),
+                        description: nil
+                    )
+                    newPresetName = ""
+                }
             }
         }
     }
