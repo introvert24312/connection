@@ -1009,33 +1009,7 @@ struct NewGlobalTagGraphPresetManagerView: View {
     
     var body: some View {
         VStack(spacing: 20) {
-            HStack {
-                Text("全局标签图谱预设管理")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                
-                Spacer()
-                
-                Text("(\(dataManager.graphPresets.count) 个预设)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                // 批量删除按钮
-                if !selectedPresetIds.isEmpty {
-                    Button {
-                        showingBatchDeleteAlert = true
-                    } label: {
-                        Label("删除选中 (\(selectedPresetIds.count))", systemImage: "trash")
-                            .foregroundColor(.red)
-                    }
-                    .buttonStyle(.bordered)
-                }
-                
-                Button("关闭") {
-                    dismiss()
-                }
-                .buttonStyle(.borderless)
-            }
+            // 删除了标题行，直接从搜索框开始
             
             // 搜索框和选择控制
             HStack {
@@ -1072,6 +1046,17 @@ struct NewGlobalTagGraphPresetManagerView: View {
                     } label: {
                         Label(selectedPresetIds.count == filteredPresets.count ? "取消全选" : "全选",
                               systemImage: selectedPresetIds.count == filteredPresets.count ? "square" : "checkmark.square")
+                    }
+                    .buttonStyle(.bordered)
+                }
+                
+                // 批量删除按钮
+                if !selectedPresetIds.isEmpty {
+                    Button {
+                        showingBatchDeleteAlert = true
+                    } label: {
+                        Label("删除选中 (\(selectedPresetIds.count))", systemImage: "trash")
+                            .foregroundColor(.red)
                     }
                     .buttonStyle(.bordered)
                 }
