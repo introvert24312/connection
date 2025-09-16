@@ -1225,27 +1225,6 @@ struct NewGlobalTagGraphPresetRowView: View {
                 }
                 
                 Spacer()
-                
-                // 操作按钮
-                HStack(spacing: 8) {
-                    Button("加载") {
-                        onLoad()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-                    
-                    if isHovered {
-                        Button {
-                            onDelete()
-                        } label: {
-                            Image(systemName: "trash")
-                                .foregroundColor(.red)
-                        }
-                        .buttonStyle(.borderless)
-                        .controlSize(.small)
-                        .help("删除预设")
-                    }
-                }
             }
             
             // 预设内容概览
@@ -1293,10 +1272,11 @@ struct NewGlobalTagGraphPresetRowView: View {
                 isHovered = hovering
             }
         }
-        .onTapGesture {
-            // 单击加载预设
+        .onTapGesture(count: 2) {
+            // 双击加载预设
             onLoad()
         }
+        .help("双击加载预设")
     }
     
     private var dateFormatter: DateFormatter {
