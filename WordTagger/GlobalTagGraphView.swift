@@ -994,7 +994,7 @@ struct NewGlobalTagGraphPresetManagerView: View {
     @State private var searchText = ""
     @State private var showingDeleteAlert = false
     @State private var presetToDelete: GraphPreset?
-    @State private var selectedPresetIds: Set<UUID> = []
+    @State private var selectedPresetIds: Set<String> = []
     @State private var showingBatchDeleteAlert = false
     
     private var filteredPresets: [GraphPreset] {
