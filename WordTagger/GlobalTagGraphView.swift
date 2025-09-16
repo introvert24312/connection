@@ -994,6 +994,8 @@ struct NewGlobalTagGraphPresetManagerView: View {
     @State private var searchText = ""
     @State private var showingDeleteAlert = false
     @State private var presetToDelete: GraphPreset?
+    @State private var selectedPresetIds: Set<UUID> = []
+    @State private var showingBatchDeleteAlert = false
     
     private var filteredPresets: [GraphPreset] {
         if searchText.isEmpty {
@@ -1018,33 +1020,62 @@ struct NewGlobalTagGraphPresetManagerView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                 
+                // 批量删除按钮
+                if !selectedPresetIds.isEmpty {
+                    Button {
+                        showingBatchDeleteAlert = true
+                    } label: {
+                        Label("删除选中 (\(selectedPresetIds.count))", systemImage: "trash")
+                            .foregroundColor(.red)
+                    }
+                    .buttonStyle(.bordered)
+                }
+                
                 Button("关闭") {
                     dismiss()
                 }
                 .buttonStyle(.borderless)
             }
             
-            // 搜索框
+            // 搜索框和选择控制
             HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.secondary)
-                TextField("搜索预设...", text: $searchText)
-                    .textFieldStyle(PlainTextFieldStyle())
-                
-                if !searchText.isEmpty {
-                    Button {
-                        searchText = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
+                // 搜索框
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.secondary)
+                    TextField("搜索预设...", text: $searchText)
+                        .textFieldStyle(PlainTextFieldStyle())
+                    
+                    if !searchText.isEmpty {
+                        Button {
+                            searchText = ""
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(PlainButtonStyle())
                     }
-                    .buttonStyle(PlainButtonStyle())
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(8)
+                
+                // 全选/取消全选按钮
+                if !filteredPresets.isEmpty {
+                    Button {
+                        if selectedPresetIds.count == filteredPresets.count {
+                            selectedPresetIds.removeAll()
+                        } else {
+                            selectedPresetIds = Set(filteredPresets.map { $0.id })
+                        }
+                    } label: {
+                        Label(selectedPresetIds.count == filteredPresets.count ? "取消全选" : "全选",
+                              systemImage: selectedPresetIds.count == filteredPresets.count ? "square" : "checkmark.square")
+                    }
+                    .buttonStyle(.bordered)
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(8)
             
             // 预设列表
             if filteredPresets.isEmpty {
@@ -1072,6 +1103,7 @@ struct NewGlobalTagGraphPresetManagerView: View {
                             NewGlobalTagGraphPresetRowView(
                                 preset: preset,
                                 isCurrent: dataManager.currentPreset?.id == preset.id,
+                                isSelected: selectedPresetIds.contains(preset.id),
                                 onLoad: {
                                     loadPreset(preset)
                                     // 不再自动关闭窗口，让用户可以继续选择其他预设
@@ -1080,6 +1112,13 @@ struct NewGlobalTagGraphPresetManagerView: View {
                                 onDelete: {
                                     presetToDelete = preset
                                     showingDeleteAlert = true
+                                },
+                                onToggleSelection: {
+                                    if selectedPresetIds.contains(preset.id) {
+                                        selectedPresetIds.remove(preset.id)
+                                    } else {
+                                        selectedPresetIds.insert(preset.id)
+                                    }
                                 }
                             )
                         }
@@ -1109,6 +1148,21 @@ struct NewGlobalTagGraphPresetManagerView: View {
         } message: { preset in
             Text("确定要删除预设 \"\(preset.name)\" 吗？此操作无法撤销。")
         }
+        .alert("批量删除预设", isPresented: $showingBatchDeleteAlert) {
+            Button("删除", role: .destructive) {
+                // 批量删除选中的预设
+                let presetsToDelete = dataManager.graphPresets.filter { selectedPresetIds.contains($0.id) }
+                for preset in presetsToDelete {
+                    dataManager.deletePreset(preset)
+                }
+                selectedPresetIds.removeAll()
+            }
+            Button("取消", role: .cancel) {
+                // 不做任何操作
+            }
+        } message: {
+            Text("确定要删除选中的 \(selectedPresetIds.count) 个预设吗？此操作无法撤销。")
+        }
     }
     
     private func loadPreset(_ preset: GraphPreset) {
@@ -1124,8 +1178,10 @@ struct NewGlobalTagGraphPresetManagerView: View {
 struct NewGlobalTagGraphPresetRowView: View {
     let preset: GraphPreset
     let isCurrent: Bool
+    let isSelected: Bool
     let onLoad: () -> Void
     let onDelete: () -> Void
+    let onToggleSelection: () -> Void
     
     @State private var isHovered = false
     
@@ -1133,6 +1189,14 @@ struct NewGlobalTagGraphPresetRowView: View {
         VStack(alignment: .leading, spacing: 12) {
             // 预设标题行
             HStack {
+                // 复选框
+                Button(action: onToggleSelection) {
+                    Image(systemName: isSelected ? "checkmark.square.fill" : "square")
+                        .font(.system(size: 16))
+                        .foregroundColor(isSelected ? .accentColor : .secondary)
+                }
+                .buttonStyle(.plain)
+                
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text(preset.name)
