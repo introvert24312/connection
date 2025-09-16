@@ -467,16 +467,70 @@ class GlobalTagDataManager: ObservableObject {
         }
     }
     
+    // MARK: - 层级计算辅助方法
+    
+    /// 根据当前的标签过滤条件计算相关的层级
+    @MainActor
+    private func calculateLayersForCurrentFilters() -> Set<String> {
+        guard let nodeStore = NodeStore.shared as NodeStore? else {
+            return []
+        }
+        
+        var layers = Set<String>()
+        
+        // 遍历所有节点，找出符合过滤条件的节点
+        for node in nodeStore.nodes {
+            var nodeMatches = false
+            
+            // 检查节点是否包含选中的标签值
+            if !filteredTagValues.isEmpty {
+                for tag in node.tags {
+                    if filteredTagValues.contains(tag.value) {
+                        nodeMatches = true
+                        break
+                    }
+                }
+            }
+            
+            // 检查节点是否包含选中的标签类型
+            if !nodeMatches && !filteredTagTypes.isEmpty {
+                for tag in node.tags {
+                    if filteredTagTypes.contains(tag.type) {
+                        nodeMatches = true
+                        break
+                    }
+                }
+            }
+            
+            // 如果节点匹配，添加其所在层级
+            if nodeMatches {
+                if let layer = nodeStore.layers.first(where: { $0.id == node.layerId }) {
+                    layers.insert(layer.displayName)
+                }
+            }
+        }
+        
+        return layers
+    }
+    
     // MARK: - 🆕 图谱预设管理
     
     /// 保存当前过滤状态为新预设
     func saveCurrentAsPreset(name: String, description: String? = nil) {
         print("💾 [全局标签管理器-\(instanceId)] 保存当前状态为预设: \(name)")
         
+        // 🆕 如果没有选择层级但有标签过滤，自动计算相关层级
+        var layersToSave = filteredLayers
+        if layersToSave.isEmpty && (!filteredTagTypes.isEmpty || !filteredTagValues.isEmpty) {
+            print("🔍 [全局标签管理器-\(instanceId)] 自动计算标签对应的层级")
+            layersToSave = calculateLayersForCurrentFilters()
+            print("   - 计算得到的层级: \(layersToSave)")
+        }
+        
         let preset = GraphPreset(
             name: name,
             description: description,
-            filteredLayers: Array(filteredLayers),
+            filteredLayers: Array(layersToSave),
             filteredTagTypes: filteredTagTypes.map { tagTypeToString($0) },
             filteredTagValues: Array(filteredTagValues)
         )

@@ -21,7 +21,6 @@ struct GlobalTagGraphView: View {
     @State private var showingPresetSheet = false
     @State private var showingSavePresetDialog = false
     @State private var newPresetName = ""
-    @State private var newPresetDescription = ""
     
     // 🔒 计算属性：根据锁定状态决定显示哪个数据
     private var displayGraphData: (nodes: [GlobalTagGraphNode], edges: [GlobalTagGraphEdge])? {
@@ -175,39 +174,64 @@ struct GlobalTagGraphView: View {
                 showingPresetSheet = false
             }
         }
-        .alert("保存图谱预设", isPresented: $showingSavePresetDialog) {
-            TextField("预设名称", text: $newPresetName)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
+        .onAppear {
+            if showingSavePresetDialog {
+                // 使用 NSAlert 来显示带输入框的对话框
+                showSavePresetAlert()
+                showingSavePresetDialog = false
+            }
+        }
+        .onChange(of: showingSavePresetDialog) { _, newValue in
+            if newValue {
+                showSavePresetAlert()
+                showingSavePresetDialog = false
+            }
+        }
+    }
+    
+    // MARK: - 保存预设对话框
+    
+    private func showSavePresetAlert() {
+        let alert = NSAlert()
+        alert.messageText = "保存图谱预设"
+        alert.informativeText = "为当前的标签过滤状态创建一个预设，以便后续快速加载。"
+        alert.alertStyle = .informational
+        
+        // 创建输入框
+        let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
+        textField.placeholderString = "预设名称"
+        textField.bezelStyle = .roundedBezel
+        alert.accessoryView = textField
+        
+        // 添加按钮
+        alert.addButton(withTitle: "保存")
+        alert.addButton(withTitle: "取消")
+        
+        // 让输入框获得焦点
+        DispatchQueue.main.async {
+            textField.becomeFirstResponder()
+        }
+        
+        // 显示对话框
+        let response = alert.runModal()
+        
+        if response == .alertFirstButtonReturn {
+            let trimmedName = textField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
             
-            Button("保存") {
-                let trimmedName = newPresetName.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmedName.isEmpty {
                 print("🚀 [全局标签图谱] 保存按钮点击 - 预设名称: '\(trimmedName)'")
                 print("🔍 [全局标签图谱] 当前过滤状态:")
                 print("   - 层级: \(dataManager.filteredLayers)")
                 print("   - 标签类型: \(dataManager.filteredTagTypes)")
                 print("   - 标签值: \(dataManager.filteredTagValues)")
                 
-                if !trimmedName.isEmpty {
-                    print("📝 [全局标签图谱] 开始调用saveCurrentAsPreset...")
-                    dataManager.saveCurrentAsPreset(
-                        name: trimmedName,
-                        description: nil
-                    )
-                    print("✅ [全局标签图谱] saveCurrentAsPreset调用完成")
-                    
-                    // 清空输入框
-                    newPresetName = ""
-                } else {
-                    print("⚠️ [全局标签图谱] 预设名称为空，跳过保存")
-                }
+                print("📝 [全局标签图谱] 开始调用saveCurrentAsPreset...")
+                dataManager.saveCurrentAsPreset(
+                    name: trimmedName,
+                    description: nil
+                )
+                print("✅ [全局标签图谱] saveCurrentAsPreset调用完成")
             }
-            .disabled(newPresetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            
-            Button("取消", role: .cancel) {
-                newPresetName = ""
-            }
-        } message: {
-            Text("为当前的标签过滤状态创建一个预设，以便后续快速加载。")
         }
     }
     
