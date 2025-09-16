@@ -12,6 +12,8 @@ struct LayerGraphPresetManagerView: View {
     @State private var searchText = ""
     @State private var showingDeleteAlert = false
     @State private var presetToDelete: LayerGraphPreset?
+    @State private var selectedPresetIds: Set<UUID> = []
+    @State private var showingBatchDeleteAlert = false
     
     private var filteredPresets: [LayerGraphPreset] {
         if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -25,44 +27,58 @@ struct LayerGraphPresetManagerView: View {
     
     var body: some View {
         VStack(spacing: 20) {
-            HStack {
-                Text("图谱预设管理")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                
-                Spacer()
-                
-                Text("(\(presetManager.presets.count) 个预设)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                Button("关闭") {
-                    dismiss()
-                }
-                .buttonStyle(.borderless)
-            }
+            // 删除了标题行，直接从搜索框开始
             
-            // 搜索框
+            // 搜索框和控制按钮
             HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.secondary)
-                TextField("搜索预设...", text: $searchText)
-                    .textFieldStyle(PlainTextFieldStyle())
-                
-                if !searchText.isEmpty {
-                    Button {
-                        searchText = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
+                // 搜索框
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.secondary)
+                    TextField("搜索预设...", text: $searchText)
+                        .textFieldStyle(PlainTextFieldStyle())
+                    
+                    if !searchText.isEmpty {
+                        Button {
+                            searchText = ""
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(PlainButtonStyle())
                     }
-                    .buttonStyle(PlainButtonStyle())
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(8)
+                
+                // 全选/取消全选按钮
+                if !filteredPresets.isEmpty {
+                    Button {
+                        if selectedPresetIds.count == filteredPresets.count {
+                            selectedPresetIds.removeAll()
+                        } else {
+                            selectedPresetIds = Set(filteredPresets.map { $0.id })
+                        }
+                    } label: {
+                        Label(selectedPresetIds.count == filteredPresets.count ? "取消全选" : "全选",
+                              systemImage: selectedPresetIds.count == filteredPresets.count ? "square" : "checkmark.square")
+                    }
+                    .buttonStyle(.bordered)
+                }
+                
+                // 批量删除按钮
+                if !selectedPresetIds.isEmpty {
+                    Button {
+                        showingBatchDeleteAlert = true
+                    } label: {
+                        Label("删除选中 (\(selectedPresetIds.count))", systemImage: "trash")
+                            .foregroundColor(.red)
+                    }
+                    .buttonStyle(.bordered)
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(8)
             
             // 预设列表
             if filteredPresets.isEmpty && presetManager.presets.isEmpty {
@@ -86,38 +102,29 @@ struct LayerGraphPresetManagerView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 12) {
-                        // 默认预设
-                        let defaultPreset = presetManager.getDefaultPreset(allLayers: store.layers)
-                        if searchText.isEmpty || defaultPreset.name.localizedCaseInsensitiveContains(searchText) {
-                            LayerPresetRowView(
-                                preset: defaultPreset,
-                                isCurrentPreset: presetManager.currentPreset?.id == defaultPreset.id,
-                                isDefault: true,
-                                store: store,
-                                onLoad: {
-                                    presetManager.loadPreset(defaultPreset)
-                                    filteredLayerIds = defaultPreset.filteredLayerIds
-                                    dismiss()
-                                },
-                                onDelete: nil // 默认预设不能删除
-                            )
-                        }
-                        
-                        // 用户预设
+                        // 只显示用户预设，不再显示默认预设
                         ForEach(filteredPresets) { preset in
                             LayerPresetRowView(
                                 preset: preset,
                                 isCurrentPreset: presetManager.currentPreset?.id == preset.id,
                                 isDefault: false,
+                                isSelected: selectedPresetIds.contains(preset.id),
                                 store: store,
                                 onLoad: {
                                     presetManager.loadPreset(preset)
                                     filteredLayerIds = preset.filteredLayerIds
-                                    dismiss()
+                                    // 不再自动关闭窗口
                                 },
                                 onDelete: {
                                     presetToDelete = preset
                                     showingDeleteAlert = true
+                                },
+                                onToggleSelection: {
+                                    if selectedPresetIds.contains(preset.id) {
+                                        selectedPresetIds.remove(preset.id)
+                                    } else {
+                                        selectedPresetIds.insert(preset.id)
+                                    }
                                 }
                             )
                         }
@@ -127,7 +134,7 @@ struct LayerGraphPresetManagerView: View {
             }
         }
         .padding()
-        .frame(minWidth: 600, minHeight: 400)
+        .frame(minWidth: 270, minHeight: 450)
         .alert("删除预设", isPresented: $showingDeleteAlert, presenting: presetToDelete) { preset in
             Button("删除", role: .destructive) {
                 presetManager.deletePreset(preset)
@@ -139,6 +146,21 @@ struct LayerGraphPresetManagerView: View {
         } message: { preset in
             Text("确定要删除预设 \"\(preset.name)\" 吗？此操作无法撤销。")
         }
+        .alert("批量删除预设", isPresented: $showingBatchDeleteAlert) {
+            Button("删除", role: .destructive) {
+                // 批量删除选中的预设
+                let presetsToDelete = presetManager.presets.filter { selectedPresetIds.contains($0.id) }
+                for preset in presetsToDelete {
+                    presetManager.deletePreset(preset)
+                }
+                selectedPresetIds.removeAll()
+            }
+            Button("取消", role: .cancel) {
+                // 不做任何操作
+            }
+        } message: {
+            Text("确定要删除选中的 \(selectedPresetIds.count) 个预设吗？此操作无法撤销。")
+        }
     }
 }
 
@@ -148,9 +170,11 @@ struct LayerPresetRowView: View {
     let preset: LayerGraphPreset
     let isCurrentPreset: Bool
     let isDefault: Bool
+    let isSelected: Bool
     let store: NodeStore
     let onLoad: () -> Void
     let onDelete: (() -> Void)?
+    let onToggleSelection: (() -> Void)?
     
     @State private var isHovered = false
     
@@ -176,8 +200,8 @@ struct LayerPresetRowView: View {
                                 .font(.caption)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Color.green.opacity(0.2))
-                                .foregroundColor(.green)
+                                .background(Color.blue.opacity(0.2))
+                                .foregroundColor(.blue)
                                 .cornerRadius(4)
                         }
                         
@@ -194,91 +218,96 @@ struct LayerPresetRowView: View {
                         Spacer()
                     }
                     
-                    Text("包含 \(preset.filteredLayerIds.count) 个层")
-                        .font(.system(size: 13))
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
+                    // 移除了"包含x个层"的显示
                 }
                 
                 Spacer()
                 
-                // 操作按钮
-                HStack(spacing: 8) {
-                    Button("加载") {
-                        onLoad()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-                    
-                    if isHovered && onDelete != nil {
-                        Button {
-                            onDelete?()
-                        } label: {
-                            Image(systemName: "trash")
-                                .foregroundColor(.red)
-                        }
-                        .buttonStyle(.borderless)
-                        .controlSize(.small)
-                        .help("删除预设")
-                    }
-                }
+                // 移除了单个删除按钮，仅保留批量删除功能
             }
             
             // 预设内容概览
             HStack(spacing: 20) {
-                // 层级信息
-                if !preset.filteredLayerIds.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Image(systemName: "square.stack")
-                                .font(.system(size: 12))
-                                .foregroundColor(.blue)
-                            Text("层级 (\(preset.filteredLayerIds.count))")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(.blue)
-                        }
-                        
-                        let layerNames = getLayerNames(for: preset.filteredLayerIds)
-                        Text(layerNames.prefix(3).joined(separator: ", ") + (layerNames.count > 3 ? "..." : ""))
-                            .font(.system(size: 11))
+                // 层信息 - 左侧显示数量
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Image(systemName: "square.stack")
+                            .font(.system(size: 12))
+                            .foregroundColor(.blue)
+                        Text("包含 \(preset.filteredLayerIds.count) 个层")
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundColor(.secondary)
-                            .lineLimit(1)
                     }
                 }
                 
                 Spacer()
                 
-                // 时间信息
-                if !isDefault {
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text("创建: \(preset.createdAt, formatter: dateFormatter)")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
-                        
-                        Text("使用: \(preset.lastUsedAt, formatter: dateFormatter)")
-                            .font(.system(size: 10))
-                            .foregroundColor(.secondary)
-                    }
+                // 层名称 - 右侧显示
+                if !preset.filteredLayerIds.isEmpty {
+                    let layerNames = getLayerNames(for: preset.filteredLayerIds)
+                    Text(layerNames.joined(separator: ", "))
+                        .font(.system(size: 13))
+                        .foregroundColor(.primary)
+                        .multilineTextAlignment(.trailing)
+                        .lineLimit(2)
                 }
             }
         }
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(isCurrentPreset ? Color.green.opacity(0.05) : Color(NSColor.controlBackgroundColor))
-                .stroke(
-                    isCurrentPreset ? Color.green.opacity(0.3) : (isHovered ? Color.blue.opacity(0.3) : Color.gray.opacity(0.2)),
-                    lineWidth: isCurrentPreset ? 2 : (isHovered ? 1.5 : 1)
-                )
+                .fill(fillColor)
+                .stroke(strokeColor, lineWidth: strokeWidth)
         )
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.2)) {
                 isHovered = hovering
             }
         }
-        .onTapGesture {
-            // 单击加载预设
+        .onTapGesture(count: 2) {
+            // 双击加载预设
             onLoad()
+        }
+        .simultaneousGesture(
+            TapGesture(count: 1)
+                .modifiers(.command)
+                .onEnded { _ in
+                    // Command+点击进行多选
+                    onToggleSelection?()
+                }
+        )
+        .help("双击加载预设，Command+点击多选")
+    }
+    
+    private var fillColor: Color {
+        if isCurrentPreset {
+            return Color.blue.opacity(0.05)
+        } else if isSelected {
+            return Color.blue.opacity(0.1)
+        } else {
+            return Color(NSColor.controlBackgroundColor)
+        }
+    }
+    
+    private var strokeColor: Color {
+        if isCurrentPreset {
+            return Color.blue.opacity(0.3)
+        } else if isSelected {
+            return Color.blue.opacity(0.5)
+        } else if isHovered {
+            return Color.blue.opacity(0.3)
+        } else {
+            return Color.gray.opacity(0.2)
+        }
+    }
+    
+    private var strokeWidth: CGFloat {
+        if isCurrentPreset || isSelected {
+            return 2
+        } else if isHovered {
+            return 1.5
+        } else {
+            return 1
         }
     }
     

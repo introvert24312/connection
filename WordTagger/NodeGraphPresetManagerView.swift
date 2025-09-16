@@ -144,7 +144,7 @@ struct NodeGraphPresetManagerView: View {
             }
         }
         .padding()
-        .frame(minWidth: 600, minHeight: 400)
+        .frame(minWidth: 540, minHeight: 450)
         .alert("删除预设", isPresented: $showingDeleteAlert, presenting: presetToDelete) { preset in
             Button("删除", role: .destructive) {
                 presetManager.deletePreset(preset)
@@ -256,8 +256,8 @@ struct PresetRowView: View {
             .font(.caption)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background(Color.green.opacity(0.2))
-            .foregroundColor(.green)
+            .background(Color.blue.opacity(0.2))
+            .foregroundColor(.blue)
             .cornerRadius(4)
     }
     
@@ -349,12 +349,12 @@ struct PresetRowView: View {
     }
     
     private var fillColor: Color {
-        isCurrentPreset ? Color.green.opacity(0.05) : Color(NSColor.controlBackgroundColor)
+        isCurrentPreset ? Color.blue.opacity(0.05) : Color(NSColor.controlBackgroundColor)
     }
     
     private var strokeColor: Color {
         if isCurrentPreset {
-            return Color.green.opacity(0.3)
+            return Color.blue.opacity(0.3)
         } else if isHovered {
             return Color.blue.opacity(0.3)
         } else {

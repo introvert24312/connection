@@ -233,12 +233,13 @@ struct GraphView: View {
         let hostingView = NSHostingView(rootView: presetManagerView)
         
         let newWindow = NSWindow(
-            contentRect: NSRect(x: 200, y: 200, width: 800, height: 600),
+            contentRect: NSRect(x: 200, y: 200, width: 600, height: 525),
             styleMask: [.titled, .closable, .resizable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
         
+        newWindow.minSize = NSSize(width: 540, height: 300)
         newWindow.contentView = hostingView
         newWindow.title = "节点图谱预设管理"
         newWindow.setFrameAutosaveName("NodeGraphPresetManagerWindow")

@@ -63,6 +63,10 @@ struct LayerGraphWindowView: View {
         }
         .onAppear {
             setupWindow()
+            // 默认加载所有层
+            if filteredLayerIds.isEmpty {
+                filteredLayerIds = Set(store.layers.map { $0.id })
+            }
             // 设置输入框焦点
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 isSearchFieldFocused = true
@@ -113,7 +117,7 @@ struct LayerGraphWindowView: View {
                 newPresetName = ""
             }
         } message: {
-            Text("为当前的层选择状态创建一个预设，以便后续快速加载。")
+            // 已删除预设描述文本
         }
         .background {
             Button("") {
@@ -624,14 +628,14 @@ struct LayerGraphWindowView: View {
         let hostingView = NSHostingView(rootView: presetManagerView)
         
         let newWindow = NSWindow(
-            contentRect: NSRect(x: 200, y: 200, width: 800, height: 600),
+            contentRect: NSRect(x: 200, y: 200, width: 300, height: 525),
             styleMask: [.titled, .closable, .resizable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
         
-        // 设置窗口最小尺寸，允许用户调整大小
-        newWindow.minSize = NSSize(width: 600, height: 400)
+        // 移除最小尺寸限制，允许用户自由调整大小
+        newWindow.minSize = NSSize(width: 270, height: 300)
         newWindow.contentView = hostingView
         newWindow.title = "图谱预设管理"
         newWindow.setFrameAutosaveName("LayerGraphPresetManagerWindow")

@@ -313,14 +313,14 @@ struct GlobalTagGraphView: View {
         let hostingView = NSHostingView(rootView: contentView)
         
         let newWindow = NSWindow(
-            contentRect: NSRect(x: 300, y: 300, width: 800, height: 600),
+            contentRect: NSRect(x: 300, y: 300, width: 600, height: 525),
             styleMask: [.titled, .closable, .resizable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
         
-        // 设置窗口最小尺寸，允许用户调整大小
-        newWindow.minSize = NSSize(width: 600, height: 400)
+        // 移除最小尺寸限制，允许用户自由调整大小
+        newWindow.minSize = NSSize(width: 540, height: 300)
         newWindow.contentView = hostingView
         newWindow.title = "全局标签图谱预设管理"
         newWindow.setFrameAutosaveName("GlobalTagGraphPresetManagerWindow")
@@ -1090,7 +1090,7 @@ struct NewGlobalTagGraphPresetManagerView: View {
             }
         }
         .padding()
-        .frame(minWidth: 600, minHeight: 400)
+        .frame(minWidth: 540, minHeight: 450)
         .onAppear {
             print("🔍 [全局标签图谱预设管理] 视图出现")
             print("   - 收到的dataManager状态:")
@@ -1170,8 +1170,8 @@ struct NewGlobalTagGraphPresetRowView: View {
                                 .font(.caption)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Color.green.opacity(0.2))
-                                .foregroundColor(.green)
+                                .background(Color.blue.opacity(0.2))
+                                .foregroundColor(.blue)
                                 .cornerRadius(4)
                         }
                         
@@ -1274,9 +1274,9 @@ struct NewGlobalTagGraphPresetRowView: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(isCurrent ? Color.green.opacity(0.05) : Color(NSColor.controlBackgroundColor))
+                .fill(isCurrent ? Color.blue.opacity(0.05) : Color(NSColor.controlBackgroundColor))
                 .stroke(
-                    isCurrent ? Color.green.opacity(0.3) : (isHovered ? Color.blue.opacity(0.3) : Color.gray.opacity(0.2)),
+                    isCurrent ? Color.blue.opacity(0.3) : (isHovered ? Color.blue.opacity(0.3) : Color.gray.opacity(0.2)),
                     lineWidth: isCurrent ? 2 : (isHovered ? 1.5 : 1)
                 )
         )
