@@ -22,13 +22,21 @@ struct GraphView: View {
     private func updateGraphData() {
         // 🔒 如果图谱被锁定，不更新数据
         guard !dataManager.isLocked else {
-            print("🔒 [全局节点图谱] 图谱已锁定，跳过数据更新")
+            print("🔒 [全局节点图谱-\(instanceId)] 图谱已锁定，跳过数据更新")
             return
         }
+        
+        print("📊 [全局节点图谱-\(instanceId)] 开始更新图谱数据")
+        print("   - 选中节点: \(dataManager.selectedNodeIds.count)个")
+        print("   - 选中层级: \(dataManager.selectedLayerIds.count)个")
         
         let data = dataManager.generateGraphData(from: store)
         cachedNodes = data.nodes
         cachedEdges = data.edges
+        
+        print("📊 [全局节点图谱-\(instanceId)] 图谱数据更新完成")
+        print("   - 生成节点: \(cachedNodes.count)个")
+        print("   - 生成边: \(cachedEdges.count)条")
     }
     
     var body: some View {
@@ -142,9 +150,11 @@ struct GraphView: View {
             updateGraphData()
         }
         .onChange(of: dataManager.selectedNodeIds) {
+            print("📊 [全局节点图谱-\(instanceId)] 检测到selectedNodeIds变化: \(dataManager.selectedNodeIds.count)个")
             updateGraphData()
         }
         .onChange(of: dataManager.selectedLayerIds) {
+            print("📊 [全局节点图谱-\(instanceId)] 检测到selectedLayerIds变化: \(dataManager.selectedLayerIds.count)个")
             updateGraphData()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("nodeSelectionChangedFromBoard"))) { notification in

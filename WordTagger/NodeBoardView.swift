@@ -55,6 +55,7 @@ struct NodeBoardView: View {
     
     // 🆕 完全照抄NewTagIndexBoardView的初始化器逻辑
     init(associatedDataManager: NodeGraphDataManager? = nil) {
+        print("🏗️ [节点看板视图] 初始化，关联数据管理器: \(associatedDataManager != nil ? "有" : "无")")
         self._webViewModel = StateObject(wrappedValue: NodeBoardWebViewModel(associatedDataManager: associatedDataManager))
     }
     
@@ -775,11 +776,21 @@ class NodeBoardWebViewModel: NSObject, ObservableObject {
                 print("📤 [节点看板-\(instanceId)] 一对一配对模式：更新关联数据管理器")
                 print("   - 选中节点: \(selectedUUIDs.count)个")
                 print("   - 选中层级: \(Set(selectedNodes.map { $0.layerId }).count)个")
+                print("   - 数据管理器实例: \(type(of: dataManager))")
+                print("   - 数据管理器当前选中节点: \(dataManager.selectedNodeIds.count)个")
+                print("   - 数据管理器当前选中层级: \(dataManager.selectedLayerIds.count)个")
+                
+                let oldSelectedNodes = dataManager.selectedNodeIds
+                let oldSelectedLayers = dataManager.selectedLayerIds
                 
                 dataManager.updateSelectedNodes(Set(selectedUUIDs))
                 dataManager.updateSelectedLayers(Set(selectedNodes.map { $0.layerId }))
                 
                 print("🔄 [节点看板-\(instanceId)] 一对一模式：数据管理器已更新")
+                print("   - 节点选择是否改变: \(oldSelectedNodes != dataManager.selectedNodeIds)")
+                print("   - 层级选择是否改变: \(oldSelectedLayers != dataManager.selectedLayerIds)")
+                print("   - 更新后选中节点: \(dataManager.selectedNodeIds.count)个")
+                print("   - 更新后选中层级: \(dataManager.selectedLayerIds.count)个")
             } else {
                 // 📡 一对多广播模式：通过通知系统广播给所有图谱窗口
                 print("📡 [节点看板-\(instanceId)] 一对多广播模式：发送节点选择通知")

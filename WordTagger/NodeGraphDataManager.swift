@@ -212,13 +212,19 @@ class NodeGraphDataManager: ObservableObject {
     /// 更新节点选择
     func updateSelectedNodes(_ nodeIds: Set<UUID>) {
         print("🔄 [节点图谱管理器-\(instanceId)] 更新选中节点: \(nodeIds.count)个")
+        print("   - 旧值: \(selectedNodeIds.count)个")
+        print("   - 新值: \(nodeIds.map { $0.uuidString.prefix(8) })")
         selectedNodeIds = nodeIds
+        print("   - 更新完成，应该触发UI刷新")
     }
     
     /// 更新层级选择
     func updateSelectedLayers(_ layerIds: Set<UUID>) {
         print("🔄 [节点图谱管理器-\(instanceId)] 更新选中层级: \(layerIds.count)个")
+        print("   - 旧值: \(selectedLayerIds.count)个")
+        print("   - 新值: \(layerIds.map { $0.uuidString.prefix(8) })")
         selectedLayerIds = layerIds
+        print("   - 更新完成，应该触发UI刷新")
     }
     
     /// 更新搜索查询
