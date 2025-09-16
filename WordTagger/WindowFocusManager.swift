@@ -1276,19 +1276,19 @@ extension WindowFocusManager {
         return nil
     }
     
-    /// 检查给定的窗口ID是否是主窗口
-    /// - Parameter windowId: 要检查的窗口ID
-    /// - Returns: 如果是主窗口返回true，否则返回false
-    func isMainWindow(_ windowId: String) -> Bool {
-        // 检查UUID格式的窗口ID
+    /// 检查给定的窗口ID是否是有效窗口（非层图谱窗口）
+    /// - Parameter windowId: 要检查的窗口ID  
+    /// - Returns: 如果是有效的目标窗口返回true
+    func isValidTargetWindow(_ windowId: String) -> Bool {
+        // 排除层图谱窗口
+        if windowId == globalLayerGraphWindowId {
+            return false
+        }
+        
+        // 检查是否是注册的窗口
         if let uuid = UUID(uuidString: windowId),
-           let windowInfo = windowRegistry[uuid] {
-            // 只有类型为.main的窗口才是主窗口，独立窗口(.independent)不是主窗口
-            let result = windowInfo.type == .main
-            if result {
-                print("✅ WindowFocusManager.isMainWindow: 确认是主窗口 - \(windowInfo.displayName) (\(windowId.prefix(8)))")
-            }
-            return result
+           let _ = windowRegistry[uuid] {
+            return true
         }
         
         return false

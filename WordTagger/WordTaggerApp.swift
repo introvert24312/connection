@@ -3658,7 +3658,6 @@ struct WordTaggerApp: App {
             ZStack {
                 ContentView(windowId: mainWindowId)
                     .environmentObject(store)
-                    .frame(minWidth: 900, minHeight: 520)
                     .onAppear {
                         // 为主窗口注册窗口焦点管理
                         WindowFocusManager.shared.registerWindow(mainWindowId, type: .main, displayName: "主窗口")
@@ -4211,6 +4210,7 @@ struct WordTaggerApp: App {
             // 全局命令处理器
             GlobalCommands()
         }
+        .defaultSize(width: 1200, height: 800)
         
         // 🗺️ 地图窗口 - 显示节点的地理位置和地点标签
         // 使用通用WindowGroup，通过sourceWindowId进行智能路由
