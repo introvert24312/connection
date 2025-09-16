@@ -373,14 +373,50 @@ struct LayerGraphWindowView: View {
     }
     
     private func switchToLayerInMainWindow(_ layer: Layer) {
-        // 使用窗口映射关系找到对应的主窗口，支持多主窗口环境
-        let targetWindowId = WindowFocusManager.shared.getSourceWindowId(for: windowId.uuidString)
+        // 🔧 智能窗口选择：从窗口激活历史中找到最近的主窗口
+        let windowManager = WindowFocusManager.shared
+        let activationHistory = windowManager.getWindowActivationHistory()
         
-        print("🔄 LayerGraphWindow: 切换到层 '\(layer.displayName)'")
+        print("🔄 LayerGraphWindow: 准备切换到层 '\(layer.displayName)'")
         print("   - 当前层图谱窗口ID: \(windowId.uuidString.prefix(8))")
-        print("   - 映射的目标主窗口ID: \(targetWindowId?.prefix(8) ?? "未找到")")
+        print("   - 窗口激活历史: [\(activationHistory.prefix(5).map { $0.prefix(8) }.joined(separator: ", "))]")
         
-        // 通知映射的主窗口切换层
+        // 从激活历史中查找最近的主窗口（排除当前层图谱窗口）
+        var targetWindowId: String? = nil
+        
+        for windowIdString in activationHistory {
+            // 跳过当前层图谱窗口
+            if windowIdString == windowId.uuidString {
+                continue
+            }
+            
+            // 检查是否是主窗口
+            if windowManager.isMainWindow(windowIdString) {
+                targetWindowId = windowIdString
+                print("✅ LayerGraphWindow: 从激活历史找到最近的主窗口 - (\(windowIdString.prefix(8)))")
+                break
+            }
+        }
+        
+        // 如果没找到，使用原有的映射关系作为回退
+        if targetWindowId == nil {
+            targetWindowId = windowManager.getSourceWindowId(for: windowId.uuidString)
+            if let fallbackId = targetWindowId {
+                print("⚠️ LayerGraphWindow: 使用映射关系作为回退 - (\(fallbackId.prefix(8)))")
+            }
+        }
+        
+        // 如果还是没有，尝试获取任意一个主窗口
+        if targetWindowId == nil {
+            targetWindowId = windowManager.getMainWindowId()
+            if let lastResortId = targetWindowId {
+                print("⚠️ LayerGraphWindow: 使用第一个主窗口作为最后手段 - (\(lastResortId.prefix(8)))")
+            }
+        }
+        
+        print("📡 LayerGraphWindow: 发送层切换通知到主窗口 - 目标: \(targetWindowId?.prefix(8) ?? "无")")
+        
+        // 通知目标主窗口切换层
         NotificationCenter.default.post(
             name: NSNotification.Name("switchToLayer"),
             object: layer,
@@ -646,7 +682,7 @@ struct LayerGraphWindowView: View {
         if let layer = matchingLayer {
             // 切换到匹配的层
             switchToLayerInMainWindow(layer)
-            print("🔄 切换到层: \(layer.displayName)")
+            print("🔄 从输入框切换到层: \(layer.displayName)")
             // 清空输入框
             layerSearchText = ""
             matchedLayers = []
