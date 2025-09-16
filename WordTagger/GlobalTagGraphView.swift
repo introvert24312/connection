@@ -1228,32 +1228,79 @@ struct NewGlobalTagGraphPresetRowView: View {
             }
             
             // 预设内容概览
-            HStack(spacing: 20) {
-                // 过滤条件信息
-                HStack(spacing: 12) {
-                    if !preset.filteredLayers.isEmpty {
-                        Label("\(preset.filteredLayers.count) 层级", systemImage: "folder")
-                    }
-                    if !preset.filteredTagTypes.isEmpty {
-                        Label("\(preset.filteredTagTypes.count) 类型", systemImage: "tag")
-                    }
-                    if !preset.filteredTagValues.isEmpty {
-                        Label("\(preset.filteredTagValues.count) 标签", systemImage: "bookmark")
+            VStack(alignment: .leading, spacing: 8) {
+                // 层级信息
+                if !preset.filteredLayers.isEmpty {
+                    HStack(alignment: .top, spacing: 4) {
+                        Image(systemName: "folder.fill")
+                            .font(.system(size: 11))
+                            .foregroundColor(.blue)
+                        Text("层级:")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.secondary)
+                        Text(preset.filteredLayers.joined(separator: ", "))
+                            .font(.system(size: 11))
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
                     }
                 }
-                .font(.system(size: 10))
-                .foregroundColor(.secondary)
                 
-                Spacer()
+                // 标签值信息
+                if !preset.filteredTagValues.isEmpty {
+                    HStack(alignment: .top, spacing: 4) {
+                        Image(systemName: "bookmark.fill")
+                            .font(.system(size: 11))
+                            .foregroundColor(.orange)
+                        Text("标签:")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.secondary)
+                        Text(Array(preset.filteredTagValues).prefix(5).joined(separator: ", ") + (preset.filteredTagValues.count > 5 ? "..." : ""))
+                            .font(.system(size: 11))
+                            .foregroundColor(.primary)
+                            .lineLimit(2)
+                            .truncationMode(.tail)
+                    }
+                }
                 
-                // 时间信息
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("创建: \(preset.createdAt, formatter: dateFormatter)")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
+                // 标签类型信息（如果有）
+                if !preset.filteredTagTypes.isEmpty {
+                    HStack(alignment: .top, spacing: 4) {
+                        Image(systemName: "tag.fill")
+                            .font(.system(size: 11))
+                            .foregroundColor(.green)
+                        Text("类型:")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.secondary)
+                        Text(preset.filteredTagTypes.joined(separator: ", "))
+                            .font(.system(size: 11))
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
+                }
+                
+                // 底部信息栏
+                HStack {
+                    // 数量统计
+                    HStack(spacing: 8) {
+                        if !preset.filteredLayers.isEmpty {
+                            Text("\(preset.filteredLayers.count) 层")
+                                .font(.system(size: 9))
+                                .foregroundColor(.secondary)
+                        }
+                        if !preset.filteredTagValues.isEmpty {
+                            Text("\(preset.filteredTagValues.count) 标签")
+                                .font(.system(size: 9))
+                                .foregroundColor(.secondary)
+                        }
+                    }
                     
-                    Text("使用: \(preset.lastUsed, formatter: dateFormatter)")
-                        .font(.system(size: 10))
+                    Spacer()
+                    
+                    // 最后使用时间
+                    Text("使用: \(formatRelativeDate(preset.lastUsed))")
+                        .font(.system(size: 9))
                         .foregroundColor(.secondary)
                 }
             }
@@ -1284,5 +1331,11 @@ struct NewGlobalTagGraphPresetRowView: View {
         formatter.dateStyle = .short
         formatter.timeStyle = .short
         return formatter
+    }
+    
+    private func formatRelativeDate(_ date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: date, relativeTo: Date())
     }
 }
