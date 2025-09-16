@@ -3639,15 +3639,15 @@ struct WordTaggerApp: App {
             print("🔧 WordTaggerApp: 延迟启动Git自动同步监听")
             GitAutoSyncManager.shared.debugStatus()
             GitAutoSyncManager.shared.startMonitoring()
-        }
-        
-        // 延迟执行启动时Git自动提交推送，确保数据加载完成
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            print("🚀🚀🚀 WordTaggerApp: 准备启动Git启动时自动提交推送 - \(Date())")
-            Task { @MainActor in
-                print("🚀🚀🚀 WordTaggerApp: 开始执行GitStartupAutoCommitManager.performStartupCommitAndPush()")
-                await GitStartupAutoCommitManager.shared.performStartupCommitAndPush()
-                print("🚀🚀🚀 WordTaggerApp: GitStartupAutoCommitManager.performStartupCommitAndPush() 执行完成")
+            
+            // 确保监听启动后再执行启动时的自动提交
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                print("🚀🚀🚀 WordTaggerApp: 准备启动Git启动时自动提交推送 - \(Date())")
+                Task { @MainActor in
+                    print("🚀🚀🚀 WordTaggerApp: 开始执行GitStartupAutoCommitManager.performStartupCommitAndPush()")
+                    await GitStartupAutoCommitManager.shared.performStartupCommitAndPush()
+                    print("🚀🚀🚀 WordTaggerApp: GitStartupAutoCommitManager.performStartupCommitAndPush() 执行完成")
+                }
             }
         }
     }
