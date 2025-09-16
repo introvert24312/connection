@@ -197,6 +197,43 @@ struct GraphView: View {
             }
         }
         .navigationTitle("全局节点图谱")
+        .alert("保存节点图谱预设", isPresented: $showingSavePresetDialog) {
+            TextField("预设名称", text: $newPresetName)
+            
+            Button("保存") {
+                let trimmedName = newPresetName.trimmingCharacters(in: .whitespacesAndNewlines)
+                print("🚀 [全局节点图谱-\(instanceId)] 保存按钮点击 - 预设名称: '\(trimmedName)'")
+                print("🔍 [全局节点图谱-\(instanceId)] 当前选择状态:")
+                print("   - 选中节点: \(dataManager.selectedNodeIds.count)个")
+                print("   - 选中层级: \(dataManager.selectedLayerIds.count)个")
+                
+                if !trimmedName.isEmpty {
+                    print("📝 [全局节点图谱-\(instanceId)] 开始调用saveCurrentAsPreset...")
+                    NodeGraphPresetManager.shared.saveCurrentAsPreset(
+                        name: trimmedName,
+                        selectedNodeIds: dataManager.selectedNodeIds,
+                        selectedLayerIds: dataManager.selectedLayerIds
+                    )
+                    print("✅ [全局节点图谱-\(instanceId)] saveCurrentAsPreset调用完成")
+                    
+                    // 清空输入框
+                    newPresetName = ""
+                } else {
+                    print("⚠️ [全局节点图谱-\(instanceId)] 预设名称为空，跳过保存")
+                }
+            }
+            .disabled(newPresetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            
+            Button("取消", role: .cancel) {
+                newPresetName = ""
+            }
+        } message: {
+            Text("请输入预设名称，保存当前的节点和层级选择状态。")
+        }
+        .sheet(isPresented: $showingPresetManager) {
+            NodeGraphPresetManagerView()
+                .frame(minWidth: 600, minHeight: 400)
+        }
     }
     
     // MARK: - 过滤信息显示
