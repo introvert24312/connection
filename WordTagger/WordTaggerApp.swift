@@ -6064,17 +6064,20 @@ struct GlobalCommands: Commands {
             .keyboardShortcut("m", modifiers: [.command])
             .disabled(openMapWindow == nil)
             
-            Button("打开图谱") {
-                openGraphWindow?()
+            Button("节点图谱") {
+                NodeGraphWindowManager.shared.showNodeGraphWindow()
             }
             .keyboardShortcut("g", modifiers: [.command])
-            .disabled(openGraphWindow == nil)
             
-            // 🆕 全局标签功能菜单项
             Button("全局标签图谱") {
                 GlobalTagGraphWindowManager.shared.showGlobalTagGraphWindow()
             }
             .keyboardShortcut("g", modifiers: [.command, .shift])
+            
+            Button("节点看板") {
+                NodeBoardWindowManager.shared.showNodeBoardWindow()
+            }
+            .keyboardShortcut("b", modifiers: [.command])
             
             Button("标签索引看板") {
                 NewTagIndexWindowManager.shared.showTagIndexWindow()

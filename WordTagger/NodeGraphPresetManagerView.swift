@@ -119,7 +119,7 @@ struct NodeGraphPresetManagerView: View {
             }
         }
         .padding()
-        .frame(width: 800, height: 600)
+        .frame(minWidth: 600, minHeight: 400)
         .alert("删除预设", isPresented: $showingDeleteAlert, presenting: presetToDelete) { preset in
             Button("删除", role: .destructive) {
                 presetManager.deletePreset(preset)

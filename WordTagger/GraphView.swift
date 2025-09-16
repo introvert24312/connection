@@ -8,7 +8,7 @@ struct GraphView: View {
     @State private var cachedNodes: [NodeGraphNode] = []
     @State private var cachedEdges: [NodeGraphEdge] = []
     @State private var showingNodeSelector = false
-    private let instanceId = UUID().uuidString.prefix(8)
+    private let instanceId = String(UUID().uuidString.prefix(8))
     
     // 层级筛选状态
     @State private var showingLayerSelector = false
@@ -151,9 +151,15 @@ struct GraphView: View {
             // 🆕 接收节点看板的广播选择（一对多模式）
             print("📡 [全局节点图谱-\(instanceId)] 收到节点看板广播通知")
             
-            guard let userInfo = notification.userInfo,
-                  let sourceInstance = userInfo["sourceInstance"] as? String else {
-                print("❌ [全局节点图谱-\(instanceId)] 无效的广播通知格式")
+            guard let userInfo = notification.userInfo else {
+                print("❌ [全局节点图谱-\(instanceId)] 通知没有userInfo")
+                return
+            }
+            
+            print("📡 [全局节点图谱-\(instanceId)] 收到通知userInfo: \(userInfo)")
+            
+            guard let sourceInstance = userInfo["sourceInstance"] as? String else {
+                print("❌ [全局节点图谱-\(instanceId)] 无法解析sourceInstance，类型: \(type(of: userInfo["sourceInstance"]))")
                 return
             }
             

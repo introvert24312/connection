@@ -342,6 +342,8 @@ struct GlobalTagGraphView: View {
             defer: false
         )
         
+        // 设置窗口最小尺寸，允许用户调整大小
+        newWindow.minSize = NSSize(width: 600, height: 400)
         newWindow.contentView = hostingView
         newWindow.title = "全局标签图谱预设管理"
         newWindow.setFrameAutosaveName("GlobalTagGraphPresetManagerWindow")
@@ -1086,7 +1088,7 @@ struct NewGlobalTagGraphPresetManagerView: View {
             }
         }
         .padding()
-        .frame(width: 800, height: 600)
+        .frame(minWidth: 600, minHeight: 400)
         .onAppear {
             print("🔍 [全局标签图谱预设管理] 视图出现")
             print("   - 收到的dataManager状态:")

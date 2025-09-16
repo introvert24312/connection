@@ -64,8 +64,8 @@ class NodeGraphPresetManager: ObservableObject {
     private init() {
         print("🏗️ [节点图谱预设管理器-\(instanceId)] 创建新实例")
         loadPresets()
-        // 🚫 全局节点图谱默认不加载任何预设
-        // loadLastUsedPreset()
+        // 🆕 全局节点图谱自动加载上次使用的预设
+        loadLastUsedPreset()
     }
     
     // MARK: - 🆕 预设管理 - 完全照抄GlobalTagGraphSystem的逻辑
@@ -242,6 +242,26 @@ class NodeGraphPresetManager: ObservableObject {
     private func saveAsLastUsedPreset(_ preset: NodeGraphPreset) {
         UserDefaults.standard.set(preset.id, forKey: Self.lastUsedPresetKey)
         print("💾 [节点图谱预设管理器-\(instanceId)] 保存上次使用的预设: \(preset.name) (ID: \(preset.id))")
+    }
+    
+    /// 获取并应用上次使用的预设到数据管理器 - 供GraphView使用
+    func applyLastUsedPresetIfAvailable() -> (selectedNodeIds: Set<UUID>, selectedLayerIds: Set<UUID>)? {
+        guard let currentPreset = currentPreset else {
+            print("ℹ️ [节点图谱预设管理器-\(instanceId)] 没有当前预设可应用")
+            return nil
+        }
+        
+        print("🔄 [节点图谱预设管理器-\(instanceId)] 应用上次使用的预设: \(currentPreset.name)")
+        
+        // 转换字符串回UUID
+        let nodeIds = Set(currentPreset.selectedNodeIds.compactMap { UUID(uuidString: $0) })
+        let layerIds = Set(currentPreset.selectedLayerIds.compactMap { UUID(uuidString: $0) })
+        
+        print("✅ [节点图谱预设管理器-\(instanceId)] 预设应用完成")
+        print("   - 节点: \(nodeIds.count) 个")
+        print("   - 层级: \(layerIds.count) 个")
+        
+        return (selectedNodeIds: nodeIds, selectedLayerIds: layerIds)
     }
     
     /// 加载上次使用的预设 - 完全照抄GlobalTagGraphSystem.loadLastUsedPreset

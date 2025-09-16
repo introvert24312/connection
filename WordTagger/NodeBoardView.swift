@@ -92,7 +92,7 @@ class NodeBoardWebViewModel: NSObject, ObservableObject {
     private var pendingData: [NodeItem]?
     private weak var nodeStore: NodeStore?
     private let associatedDataManager: NodeGraphDataManager?  // 🆕 完全照抄NewTagIndexWebViewModel的逻辑
-    private let instanceId = UUID().uuidString.prefix(8)     // 🆕 实例标识符
+    private let instanceId = String(UUID().uuidString.prefix(8))     // 🆕 实例标识符
     
     init(associatedDataManager: NodeGraphDataManager? = nil) {
         self.associatedDataManager = associatedDataManager
@@ -784,15 +784,19 @@ class NodeBoardWebViewModel: NSObject, ObservableObject {
                 // 📡 一对多广播模式：通过通知系统广播给所有图谱窗口
                 print("📡 [节点看板-\(instanceId)] 一对多广播模式：发送节点选择通知")
                 
+                let userInfo: [String: Any] = [
+                    "selectedNodeIds": selectedUUIDs.map { $0.uuidString },
+                    "selectedLayerIds": Array(Set(selectedNodes.map { $0.layerId }).map { $0.uuidString }),
+                    "source": "nodeBoard",
+                    "sourceInstance": String(instanceId)
+                ]
+                
+                print("📡 [节点看板-\(instanceId)] 发送广播通知，userInfo: \(userInfo)")
+                
                 NotificationCenter.default.post(
                     name: NSNotification.Name("nodeSelectionChangedFromBoard"),
                     object: nil,
-                    userInfo: [
-                        "selectedNodeIds": selectedUUIDs.map { $0.uuidString },
-                        "selectedLayerIds": Set(selectedNodes.map { $0.layerId }).map { $0.uuidString },
-                        "source": "nodeBoard",
-                        "sourceInstance": instanceId
-                    ]
+                    userInfo: userInfo
                 )
                 print("📡 [节点看板-\(instanceId)] 广播通知已发送给所有图谱窗口")
             }
@@ -808,15 +812,16 @@ class NodeBoardWebViewModel: NSObject, ObservableObject {
             } else {
                 // 一对多模式：广播清除消息
                 print("📡 [节点看板-\(instanceId)] 一对多模式：广播清除选择")
+                let clearUserInfo: [String: Any] = [
+                    "selectedNodeIds": [],
+                    "selectedLayerIds": [],
+                    "source": "nodeBoard", 
+                    "sourceInstance": String(instanceId)
+                ]
                 NotificationCenter.default.post(
                     name: NSNotification.Name("nodeSelectionChangedFromBoard"),
                     object: nil,
-                    userInfo: [
-                        "selectedNodeIds": [],
-                        "selectedLayerIds": [],
-                        "source": "nodeBoard", 
-                        "sourceInstance": instanceId
-                    ]
+                    userInfo: clearUserInfo
                 )
             }
             print("🧹 [节点看板-\(instanceId)] 已清除节点选择")
