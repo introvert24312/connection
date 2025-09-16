@@ -13,6 +13,8 @@ struct NodeGraphPresetManagerView: View {
     @State private var searchText = ""
     @State private var showingDeleteAlert = false
     @State private var presetToDelete: NodeGraphPreset?
+    @State private var selectedPresetIds: Set<UUID> = []
+    @State private var showingBatchDeleteAlert = false
     
     private var filteredPresets: [NodeGraphPreset] {
         let presets = presetManager.presets
@@ -35,44 +37,58 @@ struct NodeGraphPresetManagerView: View {
     
     var body: some View {
         VStack(spacing: 20) {
-            HStack {
-                Text("节点图谱预设管理")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                
-                Spacer()
-                
-                Text("(\(presetManager.presets.count) 个预设)")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                Button("关闭") {
-                    dismiss()
-                }
-                .buttonStyle(.borderless)
-            }
+            // 删除了标题行，直接从搜索框开始
             
-            // 搜索框
+            // 搜索框和控制按钮
             HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.secondary)
-                TextField("搜索预设...", text: $searchText)
-                    .textFieldStyle(PlainTextFieldStyle())
-                
-                if !searchText.isEmpty {
-                    Button {
-                        searchText = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
+                // 搜索框
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.secondary)
+                    TextField("搜索预设...", text: $searchText)
+                        .textFieldStyle(PlainTextFieldStyle())
+                    
+                    if !searchText.isEmpty {
+                        Button {
+                            searchText = ""
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(PlainButtonStyle())
                     }
-                    .buttonStyle(PlainButtonStyle())
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(8)
+                
+                // 全选/取消全选按钮
+                if !filteredPresets.isEmpty {
+                    Button {
+                        if selectedPresetIds.count == filteredPresets.count {
+                            selectedPresetIds.removeAll()
+                        } else {
+                            selectedPresetIds = Set(filteredPresets.map { $0.id })
+                        }
+                    } label: {
+                        Label(selectedPresetIds.count == filteredPresets.count ? "取消全选" : "全选",
+                              systemImage: selectedPresetIds.count == filteredPresets.count ? "square" : "checkmark.square")
+                    }
+                    .buttonStyle(.bordered)
+                }
+                
+                // 批量删除按钮
+                if !selectedPresetIds.isEmpty {
+                    Button {
+                        showingBatchDeleteAlert = true
+                    } label: {
+                        Label("删除选中 (\(selectedPresetIds.count))", systemImage: "trash")
+                            .foregroundColor(.red)
+                    }
+                    .buttonStyle(.bordered)
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Color(NSColor.controlBackgroundColor))
-            .cornerRadius(8)
             
             // 预设列表
             if filteredPresets.isEmpty {
@@ -100,6 +116,7 @@ struct NodeGraphPresetManagerView: View {
                             PresetRowView(
                                 preset: preset,
                                 isCurrentPreset: presetManager.currentPreset?.id == preset.id,
+                                isSelected: selectedPresetIds.contains(preset.id),
                                 store: store,
                                 onLoad: {
                                     let result = presetManager.loadPreset(preset)
@@ -111,6 +128,13 @@ struct NodeGraphPresetManagerView: View {
                                 onDelete: {
                                     presetToDelete = preset
                                     showingDeleteAlert = true
+                                },
+                                onToggleSelection: {
+                                    if selectedPresetIds.contains(preset.id) {
+                                        selectedPresetIds.remove(preset.id)
+                                    } else {
+                                        selectedPresetIds.insert(preset.id)
+                                    }
                                 }
                             )
                         }
@@ -132,6 +156,21 @@ struct NodeGraphPresetManagerView: View {
         } message: { preset in
             Text("确定要删除预设 \"\(preset.name)\" 吗？此操作无法撤销。")
         }
+        .alert("批量删除预设", isPresented: $showingBatchDeleteAlert) {
+            Button("删除", role: .destructive) {
+                // 批量删除选中的预设
+                let presetsToDelete = presetManager.presets.filter { selectedPresetIds.contains($0.id) }
+                for preset in presetsToDelete {
+                    presetManager.deletePreset(preset)
+                }
+                selectedPresetIds.removeAll()
+            }
+            Button("取消", role: .cancel) {
+                // 不做任何操作
+            }
+        } message: {
+            Text("确定要删除选中的 \(selectedPresetIds.count) 个预设吗？此操作无法撤销。")
+        }
         .onAppear {
             print("🔍 [NodeGraphPresetManagerView] onAppear: 强制刷新预设列表")
             print("🔍 [NodeGraphPresetManagerView] onAppear: 当前预设数量: \(presetManager.presets.count)")
@@ -149,9 +188,11 @@ struct NodeGraphPresetManagerView: View {
 struct PresetRowView: View {
     let preset: NodeGraphPreset
     let isCurrentPreset: Bool
+    let isSelected: Bool
     let store: NodeStore
     let onLoad: () -> Void
     let onDelete: () -> Void
+    let onToggleSelection: () -> Void
     
     @State private var isHovered = false
     
@@ -172,9 +213,16 @@ struct PresetRowView: View {
     // 预设标题行视图
     private var headerView: some View {
         HStack {
+            // 复选框
+            Button(action: onToggleSelection) {
+                Image(systemName: isSelected ? "checkmark.square.fill" : "square")
+                    .font(.system(size: 16))
+                    .foregroundColor(isSelected ? .accentColor : .secondary)
+            }
+            .buttonStyle(.plain)
+            
             presetTitleView
             Spacer()
-            actionButtonsView
         }
     }
     
@@ -213,33 +261,7 @@ struct PresetRowView: View {
             .cornerRadius(4)
     }
     
-    // 操作按钮组
-    private var actionButtonsView: some View {
-        HStack(spacing: 8) {
-            Button("加载") {
-                onLoad()
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.small)
-            
-            if isHovered {
-                deleteButton
-            }
-        }
-    }
-    
-    // 删除按钮
-    private var deleteButton: some View {
-        Button {
-            onDelete()
-        } label: {
-            Image(systemName: "trash")
-                .foregroundColor(.red)
-        }
-        .buttonStyle(.borderless)
-        .controlSize(.small)
-        .help("删除预设")
-    }
+    // 已移除操作按钮，使用双击加载和多选删除
     
     // 预设内容概览
     private var contentOverviewView: some View {
@@ -371,9 +393,10 @@ struct PresetRowView: View {
                 isHovered = hovering
             }
         }
-        .onTapGesture {
+        .onTapGesture(count: 2) {
             onLoad()
         }
+        .help("双击加载预设")
     }
     
     private var dateFormatter: DateFormatter {
