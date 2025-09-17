@@ -778,7 +778,7 @@ struct NodeMapView: View {
                 Map(position: $cameraPosition) {
                     ForEach(Array(locationTags.enumerated()), id: \.0) { _, tag in
                         Annotation(
-                            tag.value,
+                            "",
                             coordinate: CLLocationCoordinate2D(
                                 latitude: tag.latitude!,
                                 longitude: tag.longitude!
@@ -894,27 +894,37 @@ struct NodeMapView: View {
 struct MapPinView: View {
     let tag: Tag
     
+    private var markerColor: Color {
+        // 使用与LocationMarkerView相同的颜色逻辑
+        return Color.from(tagType: tag.type)
+    }
+    
     var body: some View {
         VStack(spacing: 4) {
             ZStack {
                 Circle()
-                    .fill(Color.red)
+                    .fill(markerColor)
                     .frame(width: 24, height: 24)
+                    .shadow(radius: 4)
                 
-                Image(systemName: "location.fill")
+                Text(String(tag.value.prefix(1)))
                     .font(.caption)
+                    .fontWeight(.bold)
                     .foregroundColor(.white)
             }
             
             Text(tag.value)
                 .font(.caption2)
-                .padding(.horizontal, 6)
+                .fontWeight(.medium)
+                .foregroundColor(.primary)
+                .padding(.horizontal, 4)
                 .padding(.vertical, 2)
                 .background(
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.white.opacity(0.9))
+                        .fill(.ultraThinMaterial)
                         .shadow(radius: 2)
                 )
+                .lineLimit(1)
         }
     }
 }
