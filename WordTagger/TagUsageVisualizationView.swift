@@ -224,7 +224,7 @@ struct EnhancedTagUsageView: View {
             }
         }
         .frame(width: 700, height: 450)
-        .background(Color(NSColor.windowBackgroundColor))
+        .background(.regularMaterial)
         .sheet(isPresented: $showingNodeList) {
             if let usage = selectedUsageInfo {
                 TagNodeListView(usage: usage)

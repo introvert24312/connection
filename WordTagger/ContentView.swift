@@ -25,7 +25,6 @@ struct ContentView: View {
     @State private var showCommandPalette = false
     @State private var showQuickSearch = false
     @State private var showQuickAdd = false
-    @State private var showTagManager = false
     
     // 集中的防重复执行机制
     @State private var commandCooldowns: [String: Date] = [:]
@@ -73,7 +72,6 @@ struct ContentView: View {
                 showingDataSetup: $showingDataSetup,
                 showCommandPalette: $showCommandPalette,
                 showQuickAdd: $showQuickAdd,
-                showTagManager: $showTagManager,
                 showQuickSearch: $showQuickSearch,
                 store: store,
                 dataManager: dataManager,
@@ -142,7 +140,6 @@ struct ContentViewModifier: ViewModifier {
     @Binding var showingDataSetup: Bool
     @Binding var showCommandPalette: Bool
     @Binding var showQuickAdd: Bool
-    @Binding var showTagManager: Bool
     @Binding var showQuickSearch: Bool
     let store: NodeStore
     let dataManager: ExternalDataManager
@@ -154,21 +151,18 @@ struct ContentViewModifier: ViewModifier {
             .modifier(ContentViewKeyboardModifier(
                 showSidebar: $showSidebar,
                 selectedNode: $selectedNode,
-                showTagManager: $showTagManager,
                 store: store
             ))
             .modifier(ContentViewSheetModifier(
                 showingDataSetup: $showingDataSetup,
                 showCommandPalette: $showCommandPalette,
                 showQuickAdd: $showQuickAdd,
-                showTagManager: $showTagManager,
                 store: store
             ))
             .modifier(ContentViewFocusedValueModifier(
                 showSidebar: $showSidebar,
                 showCommandPalette: $showCommandPalette,
                 showQuickAdd: $showQuickAdd,
-                showTagManager: $showTagManager,
                 showQuickSearch: $showQuickSearch,
                 openWindow: openWindow,
                 windowId: windowId
@@ -383,7 +377,6 @@ struct ContentViewModifier: ViewModifier {
 struct ContentViewKeyboardModifier: ViewModifier {
     @Binding var showSidebar: Bool
     @Binding var selectedNode: Node?
-    @Binding var showTagManager: Bool
     let store: NodeStore
     
     func body(content: Content) -> some View {
@@ -409,12 +402,6 @@ struct ContentViewKeyboardModifier: ViewModifier {
     }
     
     private func handleEscapeKey() -> KeyPress.Result {
-        // 首先检查是否有TagManager打开
-        if showTagManager {
-            showTagManager = false
-            return .handled
-        }
-        
         // 🔧 修复：ESC键不应该关闭侧边栏（那是Command+E的功能）
         // ESC键应该只用于：
         // 1. 关闭弹出窗口/对话框
@@ -441,7 +428,6 @@ struct ContentViewSheetModifier: ViewModifier {
     @Binding var showingDataSetup: Bool
     @Binding var showCommandPalette: Bool
     @Binding var showQuickAdd: Bool
-    @Binding var showTagManager: Bool
     let store: NodeStore
     
     func body(content: Content) -> some View {
@@ -459,12 +445,6 @@ struct ContentViewSheetModifier: ViewModifier {
                         .environmentObject(store)
                 }
             
-            // TagManager overlay显示
-            if showTagManager {
-                TagManagerView {
-                    showTagManager = false
-                }
-            }
         }
     }
 }
@@ -473,7 +453,6 @@ struct ContentViewFocusedValueModifier: ViewModifier {
     @Binding var showSidebar: Bool
     @Binding var showCommandPalette: Bool
     @Binding var showQuickAdd: Bool
-    @Binding var showTagManager: Bool
     @Binding var showQuickSearch: Bool
     let openWindow: OpenWindowAction
     let windowId: UUID  // 从ContentView传入的实际窗口ID
@@ -513,7 +492,7 @@ struct ContentViewFocusedValueModifier: ViewModifier {
                 }
             })
             .focusedSceneValue(\.openTagManager, ShowCardAction {
-                showTagManager = true
+                openWindow(id: "tagManager")
             })
             .focusedSceneValue(\.openNodeManager, ShowCardAction {
                 openWindow(id: "nodeManager")
@@ -789,20 +768,20 @@ struct CommandPaletteSheetView: View {
     }
 }
 
-// MARK: - Tag Manager Sheet View
+// MARK: - Tag Manager Sheet View (已废除，改为独立窗口)
 
-struct TagManagerSheetView: View {
-    @Binding var isPresented: Bool
-    
-    var body: some View {
-        TagManagerView {
-            isPresented = false
-        }
-        .frame(width: 700, height: 600)
-        .presentationBackground(.clear)
-        .presentationCornerRadius(0)
-    }
-}
+// struct TagManagerSheetView: View {
+//     @Binding var isPresented: Bool
+//     
+//     var body: some View {
+//         TagManagerView {
+//             isPresented = false
+//         }
+//         .frame(width: 700, height: 600)
+//         .presentationBackground(.clear)
+//         .presentationCornerRadius(0)
+//     }
+// }
 
 #Preview {
     ContentView()

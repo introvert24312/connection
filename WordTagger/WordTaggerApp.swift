@@ -3606,10 +3606,10 @@ struct WordTaggerApp: App {
     @State private var showPalette = false
     @State private var showQuickAdd = false
     @State private var showQuickSearch = false
-    @State private var showTagManager = false
     @State private var showCompoundNodeAdd = false
     @State private var nodeToEditInManager: Node? = nil
     @State private var tagTypeForGraph: Tag.TagType?
+    @Environment(\.openWindow) private var openWindow
     
     // 主窗口的唯一标识符
     private let mainWindowId = UUID()
@@ -3623,7 +3623,6 @@ struct WordTaggerApp: App {
         showPalette = false
         showQuickAdd = false
         showQuickSearch = false
-        showTagManager = false
         showCompoundNodeAdd = false
         nodeToEditInManager = nil
         tagTypeForGraph = nil
@@ -3744,24 +3743,13 @@ struct WordTaggerApp: App {
                     // 移除动画效果，直接显示
                 }
                 
-                if showTagManager {
-                    TagManagerView {
-                        showTagManager = false
-                    }
-                    .transition(.asymmetric(insertion: AnyTransition.scale.combined(with: .opacity), removal: .opacity))
-                }
             }
             .animation(.easeInOut(duration: 0.2), value: showPalette)
             // QuickSearch 不使用动画，直接显示
-            .animation(.easeInOut(duration: 0.2), value: showTagManager)
             .onChange(of: showQuickSearch) { _, newValue in
                 print("🔍 WordTaggerApp: showQuickSearch 状态变化: \(newValue)")
             }
             .onKeyPress(.escape) {
-                if showTagManager {
-                    showTagManager = false
-                    return .handled
-                }
                 if showPalette {
                     showPalette = false
                     return .handled
@@ -3946,8 +3934,9 @@ struct WordTaggerApp: App {
                     return
                 }
                 
-                print("✅ 主窗口: 处理openTagManager通知 - 打开标签管理")
-                showTagManager = true
+                print("✅ 主窗口: 处理openTagManager通知 - 打开标签管理窗口")
+                // 改为打开独立窗口
+                openWindow(id: "tagManager")
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openNodeManager"))) { _ in
                 // openNodeManager 是全局命令，只在当前key窗口处理
@@ -4344,6 +4333,13 @@ struct WordTaggerApp: App {
         }
         .defaultSize(width: 1200, height: 800)
         
+        // 🏷️ 标签管理窗口 - 管理标签映射和配置
+        WindowGroup(WINDOW_TITLE, id: "tagManager") {
+            TagManagerWindowView()
+                .environmentObject(store)
+        }
+        .defaultSize(width: 700, height: 600)
+        
         // ⚙️ 应用设置窗口 - 管理应用全局配置和偏好设置
         Settings {
             SettingsView()
@@ -4599,10 +4595,6 @@ struct TagManagerView: View {
                                     newTypeName = mapping.typeName
                                     showingTagEditSheet = true
                                     print("   - 表单已填充: newKey=\(newKey), newTypeName=\(newTypeName)")
-                                },
-                                onDelete: {
-                                    print("🗑️ TagManagerView: 删除映射 id=\(mapping.id)")
-                                    tagManager.deleteMapping(withId: mapping.id)
                                 }
                             )
                             .id("\(mapping.id)-\(mapping.typeName)")
@@ -4649,6 +4641,8 @@ struct TagEditFormView: View {
     @Binding var newTypeName: String
     @Binding var editingMapping: TagMapping?
     @Environment(\.dismiss) private var dismiss
+    @FocusState private var isKeyFieldFocused: Bool
+    @FocusState private var isTypeNameFieldFocused: Bool
     
     let onSave: () -> Void
     let onCancel: () -> Void
@@ -4670,6 +4664,11 @@ struct TagEditFormView: View {
                         TextField("例如: root", text: $newKey)
                             .textFieldStyle(.roundedBorder)
                             .font(.body)
+                            .focused($isKeyFieldFocused)
+                            .onSubmit {
+                                // Tab到下一个字段
+                                isTypeNameFieldFocused = true
+                            }
                     }
                     
                     VStack(alignment: .leading, spacing: 8) {
@@ -4679,25 +4678,30 @@ struct TagEditFormView: View {
                         TextField("例如: 词根", text: $newTypeName)
                             .textFieldStyle(.roundedBorder)
                             .font(.body)
+                            .focused($isTypeNameFieldFocused)
+                            .onSubmit {
+                                // 回车保存
+                                handleSave()
+                            }
                     }
                 }
                 
                 // 按钮区域
                 HStack(spacing: 16) {
                     Button("取消") {
-                        onCancel()
-                        dismiss()
+                        handleCancel()
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.large)
+                    .keyboardShortcut(.escape)
                     
                     Button(editingMapping != nil ? "保存" : "添加") {
-                        onSave()
-                        dismiss()
+                        handleSave()
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
                     .disabled(newKey.isEmpty || newTypeName.isEmpty)
+                    .keyboardShortcut(.return)
                 }
                 .padding(.top, 8)
             }
@@ -4706,6 +4710,35 @@ struct TagEditFormView: View {
             Spacer()
         }
         .frame(width: 400, height: 300)
+        .onKeyPress(.escape) {
+            handleCancel()
+            return .handled
+        }
+        .onAppear {
+            // 自动聚焦第一个字段
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                if newKey.isEmpty {
+                    isKeyFieldFocused = true
+                } else {
+                    isTypeNameFieldFocused = true
+                }
+            }
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func handleSave() {
+        guard !newKey.isEmpty && !newTypeName.isEmpty else {
+            return
+        }
+        onSave()
+        dismiss()
+    }
+    
+    private func handleCancel() {
+        onCancel()
+        dismiss()
     }
 }
 
@@ -4759,7 +4792,6 @@ extension TagManagerView {
 struct TagMappingRow: View {
     let mapping: TagMapping
     let onEdit: () -> Void
-    let onDelete: () -> Void
     
     private var isBuiltInCore: Bool {
         TagMappingManager.shared.isBuiltInCoreTag(mapping.key)
@@ -4814,14 +4846,6 @@ struct TagMappingRow: View {
                     .font(.caption)
                     .foregroundColor(isBuiltInCore ? .gray : .blue)
                 
-                // 删除按钮保持独立（避免误删）
-                Button(action: onDelete) {
-                    Image(systemName: "trash")
-                        .font(.caption)
-                        .foregroundColor(isBuiltInCore ? .gray : .red)
-                }
-                .buttonStyle(.plain)
-                .disabled(isBuiltInCore)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 8)
@@ -4831,6 +4855,18 @@ struct TagMappingRow: View {
         .buttonStyle(.plain)
         .disabled(isBuiltInCore)
         .help(isBuiltInCore ? "系统标签不可编辑" : "点击编辑标签映射")
+    }
+}
+
+// MARK: - Tag Manager Window Wrapper
+
+struct TagManagerWindowView: View {
+    var body: some View {
+        TagManagerView {
+            // 窗口模式下不需要onDismiss回调，因为用户可以直接关闭窗口
+        }
+        .frame(minWidth: 600, minHeight: 500)
+        .navigationTitle("标签管理")
     }
 }
 
@@ -5285,7 +5321,6 @@ struct IndependentWindowWrapper: View {
     @State private var showPalette = false
     @State private var showQuickAdd = false
     @State private var showQuickSearch = false
-    @State private var showTagManager = false
     @State private var showCompoundNodeAdd = false
     @State private var nodeToEditInManager: Node? = nil
     @State private var isOpeningWindow = false
@@ -5306,7 +5341,6 @@ struct IndependentWindowWrapper: View {
                 showPalette: $showPalette,
                 showQuickAdd: $showQuickAdd,
                 showQuickSearch: $showQuickSearch,
-                showTagManager: $showTagManager,
                 showCompoundNodeAdd: $showCompoundNodeAdd,
                 showCommandPalette: $showCommandPalette,
                 nodeToEditInManager: $nodeToEditInManager,
@@ -5395,25 +5429,12 @@ struct IndependentWindowWrapper: View {
                     print("🔍 IndependentWindow: QuickSearchView 出现")
                 }
             }
-            
-            if showTagManager {
-                TagManagerView {
-                    showTagManager = false
-                }
-                .environmentObject(store)
-                .transition(.asymmetric(insertion: AnyTransition.scale.combined(with: .opacity), removal: .opacity))
-            }
         }
         .animation(.easeInOut(duration: 0.2), value: showPalette)
-        .animation(.easeInOut(duration: 0.2), value: showTagManager)
         .onChange(of: showQuickSearch) { _, newValue in
             print("🔍 IndependentWindow: showQuickSearch 状态变化: \(newValue)")
         }
         .onKeyPress(.escape) {
-            if showTagManager {
-                showTagManager = false
-                return .handled
-            }
             if showPalette {
                 showPalette = false
                 return .handled
@@ -5433,7 +5454,6 @@ struct IndependentWindowModifier: ViewModifier {
     @Binding var showPalette: Bool
     @Binding var showQuickAdd: Bool
     @Binding var showQuickSearch: Bool
-    @Binding var showTagManager: Bool
     @Binding var showCompoundNodeAdd: Bool
     @Binding var showCommandPalette: Bool
     @Binding var nodeToEditInManager: Node?
@@ -5470,7 +5490,7 @@ struct IndependentWindowModifier: ViewModifier {
                 showQuickSearch = true
             })
             .focusedSceneValue(\.openTagManager, ShowCardAction {
-                showTagManager = true
+                openWindow(id: "tagManager")
             })
             .focusedSceneValue(\.openNodeManager, ShowCardAction {
                 openWindow(id: "nodeManager")
@@ -5792,8 +5812,8 @@ struct IndependentWindowModifier: ViewModifier {
                     print("🚫 独立窗口: 忽略openTagManager通知 - 非key窗口或冷却期")
                     return
                 }
-                print("✅ 独立窗口: 处理openTagManager通知 - 打开标签管理")
-                showTagManager = true
+                print("✅ 独立窗口: 处理openTagManager通知 - 打开标签管理窗口")
+                openWindow(id: "tagManager")
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openNodeManager"))) { _ in
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "openNodeManager") else {
