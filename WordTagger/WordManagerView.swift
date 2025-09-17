@@ -643,6 +643,10 @@ struct NodeManagerView: View {
             }
         }
         .navigationTitle("节点管理")
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("clearTagFilterFromKeyboard"))) { _ in
+            print("🔑 NodeManagerView: 收到Command+T清除筛选器通知")
+            clearAllFilters()
+        }
         .sheet(item: Binding<Node?>(
             get: { showingCommandPalette ? commandPaletteNode : nil },
             set: { newValue in
@@ -702,6 +706,22 @@ struct NodeManagerView: View {
             store.deleteNode(nodeId)
         }
         selectedNodes.removeAll()
+    }
+    
+    // 清除所有筛选器
+    private func clearAllFilters() {
+        selectedLayerIds.removeAll()
+        selectedTagTypes.removeAll()
+        selectedTagValues.removeAll()
+        localSearchQuery = ""
+        store.selectTag(nil)
+        
+        // 清除搜索查询
+        layerSearchQuery = ""
+        tagTypeSearchQuery = ""
+        tagValueSearchQuery = ""
+        
+        print("🧹 已清除所有筛选器")
     }
 }
 
