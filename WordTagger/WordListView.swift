@@ -12,6 +12,11 @@ struct NodeListView: View {
     @FocusState private var isSearchFieldFocused: Bool
     @State private var localSearchQuery: String = ""
     
+    // 🆕 按展开顺序累积的节点状态管理
+    @State private var accumulatedNodes: [Node] = []        // 按展开顺序累积的节点
+    @State private var displayedNodeIds: Set<UUID> = []     // 已显示节点的ID集合
+    @State private var lastExpandedTagTypes: Set<Tag.TagType> = [] // 上次的展开状态
+    
     // 简化状态管理，直接使用store数据
     
     // 命令行编辑器状态
@@ -166,15 +171,16 @@ struct NodeListView: View {
                         return .handled
                     }
                     .onChange(of: displayNodes) { _, newNodes in
-                        // 不自动选中第一个结果，只确保索引不越界
+                        // 🆕 简化逻辑：只确保索引不越界
                         if selectedIndex >= newNodes.count {
-                            selectedIndex = newNodes.count - 1
+                            selectedIndex = max(0, newNodes.count - 1)
                         }
                         if newNodes.isEmpty {
                             selectedIndex = -1  // 没有结果时设为-1
                         }
                         
-                        // 新节点现在从底部出现，用户可以立即看到，不需要滚动动画
+                        // 🎯 展开模式下新节点从底部增量出现，保持当前滚动位置
+                        // 搜索模式和其他模式保持原有行为
                     }
                     // 移除标签展开的滚动动画 - 新节点从底部自然出现，无需滚动
                     .onAppear {
@@ -191,32 +197,46 @@ struct NodeListView: View {
         .onAppear {
             setupView()
         }
-        // 删除复杂的onChange处理器，现在通过.id()直接响应数据变化
-        .id(store.nodes.count) // 当节点数量变化时强制重新渲染整个视图
+        // 🆕 监听标签展开状态变化，实现增量添加逻辑
+        .onChange(of: store.expandedTagTypes) { _, newExpandedTypes in
+            handleExpandedTagTypesChange(newExpandedTypes)
+        }
+        // 🆕 监听层级变化，重置累积状态
+        .onChange(of: store.currentLayer?.id) { _, _ in
+            resetAccumulatedNodes()
+        }
+        // 🆕 监听搜索状态变化，清理累积状态
+        .onChange(of: store.searchQuery) { _, newQuery in
+            if !newQuery.isEmpty {
+                // 进入搜索模式时，清理累积状态
+                resetAccumulatedNodes()
+            }
+        }
         // 节点编辑现在通过节点管理窗口处理
     }
     
     private var displayNodes: [Node] {
-        // 直接从store获取并过滤，不使用缓存
-        let filteredNodes: [Node]
+        // 🆕 新的展开逻辑：根据不同情况返回不同的节点列表
         
         if !store.searchQuery.isEmpty {
-            filteredNodes = store.searchResults
+            // 搜索模式：直接返回搜索结果
+            return sortNodes(store.searchResults)
         } else if !store.expandedTagTypes.isEmpty {
-            // 🔧 优先处理展开的标签类型，不需要selectedTag
-            filteredNodes = store.nodesInCurrentLayer(withTagTypes: store.expandedTagTypes)
+            // 🎯 标签展开模式：使用累积的节点（按展开顺序）
+            return accumulatedNodes
         } else if let selectedTag = store.selectedTag {
-            // 处理选中的具体标签
+            // 具体标签选中模式：处理选中的具体标签
+            let filteredNodes: [Node]
             if store.showAllTagTypeNodes {
                 filteredNodes = store.nodesInCurrentLayer(withTagType: selectedTag.type)
             } else {
                 filteredNodes = store.nodesInCurrentLayer(withTag: selectedTag)
             }
+            return sortNodes(filteredNodes)
         } else {
-            filteredNodes = store.getNodesInCurrentLayer()
+            // 默认模式：显示当前层的所有节点
+            return sortNodes(store.getNodesInCurrentLayer())
         }
-        
-        return sortNodes(filteredNodes)
     }
     
     
@@ -239,6 +259,9 @@ struct NodeListView: View {
         // 初始化时同步搜索查询和设置焦点
         localSearchQuery = store.searchQuery
         
+        // 🆕 初始化累积状态
+        resetAccumulatedNodes()
+        
         // 延迟设置焦点，确保TextField已经渲染完成
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             print("🎯 setupView delayed: setting isSearchFieldFocused = true")
@@ -246,34 +269,86 @@ struct NodeListView: View {
         }
     }
     
+    // MARK: - 🆕 标签展开增量逻辑
+    
+    /// 处理标签展开状态变化
+    private func handleExpandedTagTypesChange(_ newExpandedTypes: Set<Tag.TagType>) {
+        print("🎯 [NodeListView] 标签展开状态变化:")
+        print("   - 之前展开: \(lastExpandedTagTypes.map { $0.displayName })")
+        print("   - 现在展开: \(newExpandedTypes.map { $0.displayName })")
+        
+        // 如果完全清空了展开状态，重置累积节点
+        if newExpandedTypes.isEmpty {
+            print("🧹 [NodeListView] 展开状态已清空，重置累积节点")
+            resetAccumulatedNodes()
+            lastExpandedTagTypes = newExpandedTypes
+            return
+        }
+        
+        // 找出新增的标签类型
+        let newlyExpandedTypes = newExpandedTypes.subtracting(lastExpandedTagTypes)
+        
+        if !newlyExpandedTypes.isEmpty {
+            print("📈 [NodeListView] 发现新展开的标签类型: \(newlyExpandedTypes.map { $0.displayName })")
+            
+            // 为每个新展开的标签类型添加节点
+            for tagType in newlyExpandedTypes {
+                addNodesForTagType(tagType)
+            }
+        }
+        
+        // 检查是否有被移除的标签类型
+        let removedTypes = lastExpandedTagTypes.subtracting(newExpandedTypes)
+        if !removedTypes.isEmpty {
+            print("🗑️ [NodeListView] 发现被移除的标签类型: \(removedTypes.map { $0.displayName })")
+            // 注意：这里我们不移除节点，因为用户可能想保留已展开的内容
+            // 如果需要移除功能，可以在这里实现
+        }
+        
+        lastExpandedTagTypes = newExpandedTypes
+    }
+    
+    /// 为特定标签类型添加节点（增量添加，去重）
+    private func addNodesForTagType(_ tagType: Tag.TagType) {
+        print("📝 [NodeListView] 为标签类型添加节点: \(tagType.displayName)")
+        
+        // 获取该标签类型对应的节点
+        let tagTypeNodes = store.nodesInCurrentLayer(withTagType: tagType)
+        print("   - 标签类型节点数: \(tagTypeNodes.count)")
+        
+        // 过滤掉已经显示的节点（去重）
+        let newNodes = tagTypeNodes.filter { node in
+            !displayedNodeIds.contains(node.id)
+        }
+        
+        print("   - 过滤后新增节点数: \(newNodes.count)")
+        
+        // 将新节点添加到累积列表末尾
+        accumulatedNodes.append(contentsOf: newNodes)
+        
+        // 更新已显示节点ID集合
+        for node in newNodes {
+            displayedNodeIds.insert(node.id)
+        }
+        
+        print("✅ [NodeListView] 累积节点总数: \(accumulatedNodes.count)")
+        print("   - 已显示节点ID数量: \(displayedNodeIds.count)")
+    }
+    
+    /// 重置累积节点状态
+    private func resetAccumulatedNodes() {
+        print("🔄 [NodeListView] 重置累积节点状态")
+        accumulatedNodes.removeAll()
+        displayedNodeIds.removeAll()
+        lastExpandedTagTypes.removeAll()
+    }
+    
     // 删除复杂的状态处理方法，现在直接使用store数据
     
     private func sortNodes(_ nodes: [Node]) -> [Node] {
-        // 🆕 如果有展开的标签类型，按标签类型分组排序
-        if !store.expandedTagTypes.isEmpty {
-            print("📊 按展开的标签类型分组排序: \(nodes.count) 个节点")
-            print("   展开的类型: \(store.expandedTagTypes.map { $0.displayName })")
-            
-            let sorted = nodes.sorted { node1, node2 in
-                // 获取节点的标签类型（优先使用展开类型中的）
-                let node1Types = node1.tags.map { $0.type }.filter { store.expandedTagTypes.contains($0) }
-                let node2Types = node2.tags.map { $0.type }.filter { store.expandedTagTypes.contains($0) }
-                
-                // 获取第一个展开的标签类型（用于排序）
-                let node1FirstType = node1Types.first?.displayName ?? ""
-                let node2FirstType = node2Types.first?.displayName ?? ""
-                
-                // 按标签类型名称分组
-                if node1FirstType != node2FirstType {
-                    return node1FirstType < node2FirstType
-                }
-                
-                // 同一标签类型内按节点名称排序
-                return node1.text < node2.text
-            }
-            
-            return sorted
-        } else if let selectedTag = store.selectedTag, store.showAllTagTypeNodes {
+        // 🆕 注意：展开模式现在使用累积节点，不再走这个排序方法
+        
+        if let selectedTag = store.selectedTag, store.showAllTagTypeNodes {
             // 保留原有的焦点排序逻辑（用于选中具体标签值时）
             print("🎯 应用焦点排序 - 标签: \(selectedTag.type.displayName) - '\(selectedTag.value)'")
             
