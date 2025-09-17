@@ -669,7 +669,7 @@ struct WelcomeView: View {
             .frame(maxWidth: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(NSColor.windowBackgroundColor))
+        .background(.regularMaterial)
     }
 }
 
