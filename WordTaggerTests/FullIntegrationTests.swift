@@ -39,7 +39,6 @@ final class FullIntegrationTests: XCTestCase {
             meaning: "A node for integration testing",
             layerId: UUID(),
             tags: [],
-            isCompound: false,
             markdown: "# Integration Test Node\nThis is a test node for integration testing."
         )
         

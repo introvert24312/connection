@@ -101,7 +101,6 @@ struct NodeContextMenuView: View {
             meaning: "A test node",
             layerId: UUID(),
             tags: [],
-            isCompound: false,
             markdown: "# Sample Node\nThis is a test node."
         ),
         onEditCommand: {

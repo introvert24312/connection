@@ -114,7 +114,7 @@ struct NodeSelectorView: View {
                             NodeSelectorRow(
                                 node: node,
                                 isSelected: tempSelectedIds.contains(node.id),
-                                isCompound: true
+                                isCompound: node.isCompound
                             ) {
                                 toggleNode(node)
                             }
@@ -132,7 +132,7 @@ struct NodeSelectorView: View {
                             NodeSelectorRow(
                                 node: node,
                                 isSelected: tempSelectedIds.contains(node.id),
-                                isCompound: false
+                                isCompound: node.isCompound
                             ) {
                                 toggleNode(node)
                             }

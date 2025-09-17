@@ -214,7 +214,6 @@ struct NodeContextGraphView<Node: UniversalGraphNode, Edge: UniversalGraphEdge>:
             meaning: graphNode.subtitle,
             layerId: UUID(), // This will need to be handled properly
             tags: [],
-            isCompound: false,
             markdown: ""
         )
     }

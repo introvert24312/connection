@@ -1390,8 +1390,7 @@ struct QuickAddSheetView: View {
             phonetic: nil,
             meaning: "\(currentDepth)级复合节点",
             layerId: layerId,
-            tags: compoundTags,
-            isCompound: true
+            tags: compoundTags
         )
         
         // 确保子节点存在
@@ -2240,8 +2239,7 @@ struct QuickAddSheetView: View {
             phonetic: nil,
             meaning: "\(childDepth + 1)级复合节点",
             layerId: layerId,
-            tags: compoundTags,
-            isCompound: true
+            tags: compoundTags
         )
         
         // 创建或确保子节点存在
@@ -5277,8 +5275,7 @@ struct CompoundNodeAddSheetView: View {
             phonetic: nil,
             meaning: "复合节点：包含 \(childNames.joined(separator: ", "))",
             layerId: layerId,
-            tags: compoundTags,
-            isCompound: true
+            tags: compoundTags
         )
         
         // 创建或确保子节点存在

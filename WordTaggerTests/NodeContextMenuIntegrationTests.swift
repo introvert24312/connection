@@ -27,7 +27,6 @@ final class NodeContextMenuIntegrationTests: XCTestCase {
             meaning: "A test node for integration testing",
             layerId: UUID(),
             tags: [],
-            isCompound: false,
             markdown: "# Test Node\nThis is a test node for integration testing."
         )
         
@@ -499,8 +498,8 @@ final class NodeContextMenuIntegrationTests: XCTestCase {
     
     func testInvalidNodeDataHandling() throws {
         let invalidNodes = [
-            Node(text: "", phonetic: nil, meaning: nil, layerId: UUID(), tags: [], isCompound: false, markdown: ""), // Empty name
-            Node(text: String(repeating: "a", count: 300), phonetic: nil, meaning: nil, layerId: UUID(), tags: [], isCompound: false, markdown: "") // Too long name
+            Node(text: "", phonetic: nil, meaning: nil, layerId: UUID(), tags: [], markdown: ""), // Empty name
+            Node(text: String(repeating: "a", count: 300), phonetic: nil, meaning: nil, layerId: UUID(), tags: [], markdown: "") // Too long name
         ]
         
         for invalidNode in invalidNodes {
@@ -620,7 +619,6 @@ extension Node {
             meaning: "A test node",
             layerId: UUID(),
             tags: [],
-            isCompound: false,
             markdown: "# \(text)\nTest node for integration testing."
         )
     }

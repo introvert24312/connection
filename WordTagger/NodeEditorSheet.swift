@@ -635,7 +635,6 @@ struct ValidationError {
         meaning: "A test node for preview",
         layerId: UUID(),
         tags: [],
-        isCompound: false,
         markdown: "# Sample Node\nThis is a test node."
     )
     
