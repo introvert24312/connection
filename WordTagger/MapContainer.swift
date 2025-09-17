@@ -203,7 +203,7 @@ struct MapContainer: View {
                 }
             }
         }
-        .focusable(false)
+        .focusable(true)
         .onKeyPress(.return) {
             if isLocationSelectionMode && selectedLocation != nil {
                 confirmLocationSelection()
@@ -270,17 +270,13 @@ struct MapContainer: View {
                     HStack {
                         Image(systemName: "location.fill")
                             .foregroundColor(.blue)
-                        if let coordinate = selectedLocation {
-                            // 一行显示选中的位置信息
+                        if selectedLocation != nil {
+                            // 一行显示选中的位置信息（显示地名，但插入时使用坐标）
                             HStack(spacing: 8) {
-                                Text(selectedLocationName)
+                                Text(selectedLocationName.isEmpty ? "选中位置" : selectedLocationName)
                                     .font(.body)
                                     .fontWeight(.medium)
                                     .foregroundColor(.primary)
-                                
-                                Text("\(String(format: "%.6f", coordinate.latitude)), \(String(format: "%.6f", coordinate.longitude))")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
                                 
                                 Text("• 按回车键确认添加")
                                     .font(.caption)
@@ -294,21 +290,6 @@ struct MapContainer: View {
                         Spacer()
                     }
                     
-                    if let _ = selectedLocation {
-                        if isPreviewingLocation {
-                            // 预览模式：只显示确认按钮
-                            Button(action: {
-                                confirmLocationSelection()
-                            }) {
-                                HStack {
-                                    Image(systemName: "checkmark.circle.fill")
-                                    Text("确认添加此位置")
-                                }
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .keyboardShortcut(.return, modifiers: [])
-                        }
-                    }
                 }
                 .padding()
                 .background(.ultraThinMaterial)
@@ -347,8 +328,12 @@ struct MapContainer: View {
             TextField("搜索地点或单词...", text: $searchQuery)
                 .textFieldStyle(.plain)
                 .frame(width: 200)
+                .disabled(isLocationSelectionMode) // 在位置选择模式时禁用搜索框
                 .onSubmit {
-                    showSearchResults()
+                    // 在位置选择模式时，不处理搜索提交，让地图处理回车键
+                    if !isLocationSelectionMode {
+                        showSearchResults()
+                    }
                 }
                 .onChange(of: searchQuery) { _, newValue in
                     if !newValue.isEmpty {
@@ -675,11 +660,12 @@ struct MapContainer: View {
                         "(\(String(format: "%.4f", coordinate.latitude)), \(String(format: "%.4f", coordinate.longitude)))" :
                         locationComponents.joined(separator: ", ")
                     
-                    // 因为是struct，我们不能直接修改selectedLocationName
-                    // 这个函数主要用于调试输出
+                    // 设置地名用于显示
+                    self.selectedLocationName = locationName
                     print("✅ Location name: \(locationName)")
                 } else {
                     let locationName = "(\(String(format: "%.4f", coordinate.latitude)), \(String(format: "%.4f", coordinate.longitude)))"
+                    self.selectedLocationName = locationName
                     print("✅ Location name: \(locationName)")
                 }
             }
