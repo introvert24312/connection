@@ -415,13 +415,24 @@ struct ContentViewKeyboardModifier: ViewModifier {
             return .handled
         }
         
-        // 然后检查sidebar
-        if showSidebar {
-            withAnimation(.easeInOut(duration: 0.3)) {
-                showSidebar = false
-            }
+        // 🔧 修复：ESC键不应该关闭侧边栏（那是Command+E的功能）
+        // ESC键应该只用于：
+        // 1. 关闭弹出窗口/对话框
+        // 2. 清除搜索状态（由各个组件内部处理）
+        // 3. 取消选择等UI状态重置
+        
+        // 发送ESC键事件给可能需要处理的组件（如搜索框）
+        NotificationCenter.default.post(
+            name: NSNotification.Name("escapeKeyPressed"), 
+            object: nil
+        )
+        
+        // 清除当前选择的节点（如果有的话）
+        if selectedNode != nil {
+            selectedNode = nil
             return .handled
         }
+        
         return .ignored
     }
 }

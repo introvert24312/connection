@@ -82,15 +82,12 @@ struct TagSidebarView: View {
                 Button(action: { currentMode = .tagFiltering }) {
                     HStack(spacing: 6) {
                         Image(systemName: "tag.fill")
-                        VStack(spacing: 0) {
-                            Text("标签")
-                            Text("筛选")
-                        }
+                        Text("标签筛选")
                     }
                     .font(.system(size: 14, weight: currentMode == .tagFiltering ? .semibold : .regular))
                     .foregroundColor(currentMode == .tagFiltering ? .blue : .secondary)
                     .padding(.horizontal, 12)
-                    .padding(.vertical, 3)
+                    .padding(.vertical, 8)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
                             .fill(currentMode == .tagFiltering ? Color.blue.opacity(0.1) : Color.clear)
@@ -102,15 +99,12 @@ struct TagSidebarView: View {
                 Button(action: { currentMode = .tagSearch }) {
                     HStack(spacing: 6) {
                         Image(systemName: "magnifyingglass")
-                        VStack(spacing: 0) {
-                            Text("标签")
-                            Text("搜索")
-                        }
+                        Text("标签搜索")
                     }
                     .font(.system(size: 14, weight: currentMode == .tagSearch ? .semibold : .regular))
                     .foregroundColor(currentMode == .tagSearch ? .blue : .secondary)
                     .padding(.horizontal, 12)
-                    .padding(.vertical, 3)
+                    .padding(.vertical, 8)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
                             .fill(currentMode == .tagSearch ? Color.blue.opacity(0.1) : Color.clear)
@@ -159,6 +153,27 @@ struct TagSidebarView: View {
             openTagTypeGraphShortcut()
             return .handled
         })
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("escapeKeyPressed"))) { _ in
+            // 🔧 修复：ESC键只用于清除搜索状态，不影响侧边栏显示
+            print("🔑 TagSidebarView: 收到ESC键通知 - 清除搜索状态")
+            
+            // 清除标签筛选模块的搜索
+            if currentMode == .tagFiltering && !filter.isEmpty {
+                filter = ""
+                isFilterFocused = false
+                print("🔍 清除标签筛选搜索框")
+            }
+            
+            // 清除标签搜索模块的搜索
+            if currentMode == .tagSearch && !tagTypeSearchQuery.isEmpty {
+                tagTypeSearchQuery = ""
+                isTagTypeSearchFocused = false
+                selectedSearchTypeIndex = -1
+                selectedSearchValueIndex = -1
+                searchFocusMode = .none
+                print("🔍 清除标签搜索状态")
+            }
+        }
         .onAppear {
             print("🔑 TagSidebarView 出现")
             // TagSidebarView 是主窗口的组件，不需要单独注册窗口
