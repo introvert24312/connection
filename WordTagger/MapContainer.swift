@@ -29,6 +29,7 @@ struct MapContainer: View {
     @State private var mapViewSize: CGSize = CGSize(width: 800, height: 600)
     @State private var currentHeading: Double = 0
     @State private var currentPitch: Double = 0
+    @State private var mapSelection: MKMapItem?
     
     var body: some View {
         ZStack {
@@ -115,6 +116,11 @@ struct MapContainer: View {
                 focusOnNode(node)
             }
         }
+        .onChange(of: mapSelection) { _, newSelection in
+            if let mapItem = newSelection {
+                handleMapItemSelection(mapItem)
+            }
+        }
         .onChange(of: isLocationSelectionMode) { _, newValue in
             print("MapContainer (中间层): ⚠️ isLocationSelectionMode changed to \(newValue)")
             if newValue {
@@ -129,7 +135,7 @@ struct MapContainer: View {
         ZStack {
             MapReader { proxy in
                 GeometryReader { geometry in
-                    Map(position: $cameraPosition) {
+                    Map(position: $cameraPosition, selection: $mapSelection) {
                         ForEach(locationAnnotations, id: \.id) { annotation in
                             Annotation(
                                 "", // Remove title to avoid duplicate labels
@@ -240,33 +246,74 @@ struct MapContainer: View {
             toolbarView
             searchResultsView
             
-            // 搜索位置或预览位置提示信息
+            // 地图元素选择或搜索位置提示信息
             if selectedLocation != nil && !isLocationSelectionMode && !selectedLocationName.isEmpty {
-                VStack {
+                VStack(spacing: 8) {
                     HStack {
                         Image(systemName: selectedLocationName.contains("搜索位置") ? "info.circle.fill" : "location.circle.fill")
                             .foregroundColor(.blue)
                         
-                        if selectedLocationName.contains("搜索位置") {
-                            Text("搜索位置: \(selectedLocationName)")
-                                .font(.caption)
-                            Text("(5秒后自动消失)")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        } else {
-                            Text("预览位置: \(selectedLocationName)")
-                                .font(.caption)
-                            Text("(3秒后自动消失)")
-                                .font(.caption2)
+                        VStack(alignment: .leading, spacing: 4) {
+                            if selectedLocationName.contains("搜索位置") {
+                                Text("搜索位置: \(selectedLocationName)")
+                                    .font(.caption)
+                                Text("(5秒后自动消失)")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            } else {
+                                Text("地图地点: \(selectedLocationName)")
+                                    .font(.body)
+                                    .fontWeight(.medium)
+                                if let coordinate = selectedLocation {
+                                    Text("坐标: \(String(format: "%.6f", coordinate.latitude)), \(String(format: "%.6f", coordinate.longitude))")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                Text("(5秒后自动消失，或点击空白区域关闭)")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        Button(action: {
+                            selectedLocation = nil
+                            selectedLocationName = ""
+                        }) {
+                            Image(systemName: "xmark.circle.fill")
                                 .foregroundColor(.secondary)
                         }
+                        .buttonStyle(.plain)
+                    }
+                    
+                    // 如果是地图地点，添加一个"选择此位置"按钮
+                    if !selectedLocationName.contains("搜索位置") && !selectedLocationName.isEmpty {
+                        Button(action: {
+                            if let coordinate = selectedLocation {
+                                isLocationSelectionMode = true
+                                selectedLocation = coordinate
+                                selectedLocationName = selectedLocationName
+                                isPreviewingLocation = true
+                            }
+                        }) {
+                            HStack {
+                                Image(systemName: "location.fill")
+                                Text("选择此位置添加到单词")
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
                     }
                 }
-                .padding(8)
+                .padding(12)
                 .background(.ultraThinMaterial)
-                .cornerRadius(8)
+                .cornerRadius(12)
                 .padding()
                 .transition(.opacity)
+                .shadow(radius: 4)
             }
             
             
@@ -863,6 +910,47 @@ struct MapContainer: View {
         
         print("✅ MapContainer (中间层): 路由完成")
         print("📋 通知内容: 节点=\(node.text), 层=\(targetLayer.displayName)")
+    }
+    
+    // MARK: - Map Item Selection Handling
+    private func handleMapItemSelection(_ mapItem: MKMapItem) {
+        print("🗺️ 地图原生元素被选中: \(mapItem.name ?? "未知地点")")
+        
+        let placemark = mapItem.placemark
+        let coordinate = placemark.coordinate
+        let locationName = mapItem.name ?? "未知地点"
+        
+        print("📍 位置信息: \(locationName) - (\(coordinate.latitude), \(coordinate.longitude))")
+        
+        if isLocationSelectionMode {
+            // 在位置选择模式下，直接使用这个位置
+            selectedLocation = coordinate
+            selectedLocationName = locationName
+            isPreviewingLocation = true
+            print("✅ 位置选择模式：已选择 \(locationName)")
+        } else {
+            // 在普通模式下，显示地点信息（可以考虑创建一个临时的 "地图元素" 详情卡片）
+            print("ℹ️ 普通模式：显示地点详情 \(locationName)")
+            // 这里可以创建一个专门的地图元素详情显示
+            showMapItemDetails(mapItem)
+        }
+    }
+    
+    private func showMapItemDetails(_ mapItem: MKMapItem) {
+        // 创建一个临时的位置标记用于显示
+        let coordinate = mapItem.placemark.coordinate
+        selectedLocation = coordinate
+        selectedLocationName = mapItem.name ?? "地图地点"
+        
+        // 设置一个临时显示，5秒后清除
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+            if !isLocationSelectionMode {
+                selectedLocation = nil
+                selectedLocationName = ""
+            }
+        }
+        
+        print("🔍 显示地图元素详情: \(mapItem.name ?? "未知") - \(coordinate)")
     }
 }
 
