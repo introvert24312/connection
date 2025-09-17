@@ -424,14 +424,70 @@ struct NodeManagerView: View {
     var body: some View {
         VStack(spacing: 0) {
             // 工具栏
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("节点管理")
-                        .font(.title2)
-                        .fontWeight(.semibold)
+            VStack(spacing: 8) {
+                // 第一行：搜索框和筛选按钮
+                HStack(alignment: .top) {
+                    // 搜索框 (灵活占用空间)
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.secondary)
+                        
+                        TextField("搜索节点、释义、音标或标签...", text: $localSearchQuery)
+                            .textFieldStyle(.plain)
+                            .focused($isSearchFieldFocused)
+                            .onChange(of: localSearchQuery) { oldValue, newValue in
+                                print("🔤 NodeManagerView: localSearchQuery changed from '\(oldValue)' to '\(newValue)'")
+                                
+                                // 取消之前的搜索任务
+                                searchTask?.cancel()
+                                
+                                // 立即更新store的搜索查询，让Store的防抖机制处理重复请求
+                                print("🔄 NodeManagerView: Immediately updating store.searchQuery to '\(newValue)'")
+                                store.searchQuery = newValue
+                                
+                                // 保持焦点在输入框
+                                DispatchQueue.main.async {
+                                    isSearchFieldFocused = true
+                                }
+                            }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color(NSColor.controlBackgroundColor))
+                    )
+                    .frame(minWidth: 150)  // 只设置最小宽度
+                    .layoutPriority(0)    // 设置为低优先级，让筛选按钮先显示
                     
-                    // 显示当前过滤状态
-                    VStack(alignment: .leading, spacing: 2) {
+                    Spacer(minLength: 8)
+                    
+                    // 筛选按钮组 (响应式换行)
+                    ViewThatFits {
+                        // 尝试单行显示
+                        HStack(spacing: 4) {
+                            filterButtons
+                        }
+                        
+                        // 空间不足时换行显示
+                        VStack(alignment: .trailing, spacing: 4) {
+                            HStack(spacing: 4) {
+                                layerButton
+                                tagTypeButton
+                                tagValueButton
+                            }
+                            HStack(spacing: 4) {
+                                sortButton
+                                modeButton
+                            }
+                        }
+                    }
+                    .layoutPriority(1)  // 给筛选按钮更高优先级，确保完整显示
+                }
+                
+                // 第二行：状态显示（仅在有状态时显示）
+                if !localSearchQuery.isEmpty || store.selectedTag != nil {
+                    HStack {
                         if !localSearchQuery.isEmpty {
                             HStack(spacing: 4) {
                                 Text("搜索: \"\(localSearchQuery)\" - 忽略标签过滤")
@@ -461,65 +517,8 @@ struct NodeManagerView: View {
                                 .help("清除标签过滤")
                             }
                         }
-                    }
-                }
-                
-                Spacer()
-                
-                // 搜索框 (可以任意压缩)
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.secondary)
-                    
-                    TextField("搜索节点、释义、音标或标签...", text: $localSearchQuery)
-                        .textFieldStyle(.plain)
-                        .focused($isSearchFieldFocused)
-                        .onChange(of: localSearchQuery) { oldValue, newValue in
-                            print("🔤 NodeManagerView: localSearchQuery changed from '\(oldValue)' to '\(newValue)'")
-                            
-                            // 取消之前的搜索任务
-                            searchTask?.cancel()
-                            
-                            // 立即更新store的搜索查询，让Store的防抖机制处理重复请求
-                            print("🔄 NodeManagerView: Immediately updating store.searchQuery to '\(newValue)'")
-                            store.searchQuery = newValue
-                            
-                            // 保持焦点在输入框
-                            DispatchQueue.main.async {
-                                isSearchFieldFocused = true
-                            }
-                        }
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(NSColor.controlBackgroundColor))
-                )
-                .frame(minWidth: 100)  // 设置最小宽度，允许任意压缩
-                .layoutPriority(-1)    // 最低优先级，优先压缩
-                
-                Spacer(minLength: 8)
-                
-                // 筛选按钮组 (支持换行)
-                ViewThatFits {
-                    // 尝试单行显示
-                    HStack(spacing: 4) {
-                        filterButtons
-                    }
-                    
-                    // 空间不足时换行显示
-                    VStack(spacing: 4) {
-                        HStack(spacing: 4) {
-                            layerButton
-                            tagTypeButton
-                            tagValueButton
-                        }
-                        HStack(spacing: 4) {
-                            sortButton
-                            modeButton
-                            Spacer()
-                        }
+                        
+                        Spacer()
                     }
                 }
             }
