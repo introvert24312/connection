@@ -215,10 +215,22 @@ struct MapContainer: View {
             if isLocationSelectionMode {
                 isLocationSelectionMode = false
                 selectedLocation = nil
+                selectedLocationName = ""
                 isPreviewingLocation = false
                 return .handled
             }
             return .ignored
+        }
+        .onKeyPress(.init("l"), phases: .down) { keyPress in
+            // L键切换位置选择模式
+            isLocationSelectionMode.toggle()
+            if !isLocationSelectionMode {
+                // 退出位置选择模式时清理状态
+                selectedLocation = nil
+                selectedLocationName = ""
+                isPreviewingLocation = false
+            }
+            return .handled
         }
     }
     
@@ -312,6 +324,29 @@ struct MapContainer: View {
             searchBoxView
             
             Spacer()
+            
+            // 位置选择切换按钮
+            Button(action: {
+                isLocationSelectionMode.toggle()
+                if !isLocationSelectionMode {
+                    // 退出位置选择模式时清理状态
+                    selectedLocation = nil
+                    selectedLocationName = ""
+                    isPreviewingLocation = false
+                }
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: isLocationSelectionMode ? "location.fill" : "location")
+                        .font(.system(size: 14))
+                    Text(isLocationSelectionMode ? "退出选择" : "选择位置")
+                        .font(.caption)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .help(isLocationSelectionMode ? "退出位置选择模式" : "进入位置选择模式")
             
             if !filteredNodesWithLocation.isEmpty {
                 MapStatsView(wordsCount: filteredNodesWithLocation.count)
