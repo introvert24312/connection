@@ -71,6 +71,28 @@ struct LayerGraphWindowView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 isSearchFieldFocused = true
             }
+            
+            // 🚀 最简单有效的窗口切换监听 - 直接监听系统通知
+            NotificationCenter.default.addObserver(
+                forName: NSWindow.didBecomeKeyNotification,
+                object: nil,
+                queue: .main
+            ) { [windowId] notification in
+                guard let window = notification.object as? NSWindow else { return }
+                let newWindowTitle = window.title
+                
+                // 过滤掉自己（层图谱窗口）
+                if newWindowTitle.contains("层结构图谱") || newWindowTitle.contains("Layer Graph") {
+                    return
+                }
+                
+                print("🔄 LayerGraphWindow: 检测到窗口切换 - '\(newWindowTitle)'")
+                
+                // 🔧 延迟处理，确保系统已完全设置好keyWindow
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    handleWindowSwitchWithWindow(window, title: newWindowTitle)
+                }
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("userClickedWindow"))) { notification in
             // 接收用户点击窗口的通知
@@ -85,6 +107,7 @@ struct LayerGraphWindowView: View {
                     if WindowFocusManager.shared.isWindowRegistered(UUID(uuidString: clickedWindowId) ?? UUID()) {
                         lastActiveTargetWindowId = clickedWindowId
                         print("🎯 LayerGraphWindow: 用户真实点击了窗口，锁定目标 - (\(clickedWindowId.prefix(8)))")
+                        print("🔒 LayerGraphWindow: 锁定用户点击目标，禁止被窗口切换覆盖")
                     } else {
                         print("⚠️ LayerGraphWindow: 忽略无效的窗口ID - (\(clickedWindowId.prefix(8)))")
                     }
@@ -313,6 +336,157 @@ struct LayerGraphWindowView: View {
     
     // MARK: - 辅助方法
     
+    /// 处理窗口切换事件 - 直接使用通知中的window参数（更可靠）
+    /// - Parameters:
+    ///   - window: 从通知中获取的NSWindow实例
+    ///   - title: 窗口标题（仅用于日志）
+    private func handleWindowSwitchWithWindow(_ window: NSWindow, title: String) {
+        print("\n🔍 === 详细调试：窗口切换分析 ===")
+        print("📋 用户看到的窗口标题: '\(title)'")
+        print("📋 NSWindow对象ID: \(ObjectIdentifier(window))")
+        print("📋 当前时间: \(Date())")
+        
+        // 🔍 详细分析当前系统状态
+        let windowManager = WindowFocusManager.shared
+        let allWindows = windowManager.getAllRegisteredWindows()
+        
+        print("\n📊 系统中所有注册窗口:")
+        for (index, windowInfo) in allWindows.enumerated() {
+            let marker = windowInfo.id == lastActiveTargetWindowId ? " ⭐️[当前记录的目标]" : ""
+            print("   [\(index)] '\(windowInfo.displayName)' - ID: \(windowInfo.id.prefix(8)) - 类型: \(windowInfo.type)\(marker)")
+        }
+        
+        // 🚨 修复关键bug：检查是否有用户真实点击的目标，如果有则不要覆盖！
+        if let currentTarget = lastActiveTargetWindowId,
+           let targetUUID = UUID(uuidString: currentTarget),
+           let targetInfo = windowManager.getWindowInfo(for: targetUUID),
+           targetInfo.type == .standard {
+            print("\n🔒 === 保护用户点击目标 ===")
+            print("   已有用户真实点击的目标: \(currentTarget.prefix(8))")
+            print("   目标窗口名: '\(targetInfo.displayName)'")
+            print("   🚫 拒绝被窗口切换事件覆盖！")
+            print("   ⚠️  这个目标将用于 Command+点击层图谱")
+            print("=================")
+            return
+        }
+        
+        // 🔧 只有在没有用户真实点击目标时，才使用 WindowFocusManager 的活跃窗口
+        if let activeWindowId = windowManager.getActiveWindowId(),
+           let activeWindowInfo = windowManager.getWindowInfo(for: activeWindowId),
+           activeWindowInfo.type == .standard,
+           activeWindowId.uuidString != windowId.uuidString {
+            
+            let previousTarget = lastActiveTargetWindowId
+            lastActiveTargetWindowId = activeWindowId.uuidString
+            
+            print("\n🎯 === 目标窗口更新（使用活跃窗口）===")
+            print("   之前的目标: \(previousTarget?.prefix(8) ?? "无")")
+            print("   新的目标: \(activeWindowId.uuidString.prefix(8))")
+            print("   目标窗口名: '\(activeWindowInfo.displayName)'")
+            print("   ✅ 使用 WindowFocusManager 的活跃窗口（无用户点击覆盖）")
+            print("   ⚠️  这个窗口将接收 Command+点击层图谱的通知")
+            print("=================")
+            return
+        }
+        
+        print("\n🔍 回退：检查NSWindow映射:")
+        if let windowUUID = windowManager.getWindowIdFromNSWindow(window) {
+            let windowIdString = windowUUID.uuidString
+            print("✅ 找到映射: NSWindow -> WindowID(\(windowIdString.prefix(8)))")
+            
+            if let windowInfo = windowManager.getWindowInfo(for: windowUUID) {
+                print("✅ 窗口信息: '\(windowInfo.displayName)' (类型: \(windowInfo.type))")
+                
+                // 确保这不是当前层图谱窗口
+                if windowIdString != windowId.uuidString {
+                    // 验证这是一个标准窗口
+                    if windowInfo.type == .standard {
+                        let previousTarget = lastActiveTargetWindowId
+                        lastActiveTargetWindowId = windowIdString
+                        
+                        print("\n🎯 === 目标窗口更新（NSWindow映射）===")
+                        print("   之前的目标: \(previousTarget?.prefix(8) ?? "无")")
+                        print("   新的目标: \(windowIdString.prefix(8))")
+                        print("   目标窗口名: '\(windowInfo.displayName)'")
+                        print("   ⚠️  请记住这个目标窗口，Command+点击层图谱时应该切换到这个窗口！")
+                        print("=================")
+                        return
+                    } else {
+                        print("🔍 跳过：窗口不是标准类型")
+                        return
+                    }
+                } else {
+                    print("🔍 跳过：这是层图谱窗口自己")
+                    return
+                }
+            } else {
+                print("❌ 错误：找到映射但获取窗口信息失败")
+            }
+        } else {
+            print("❌ 错误：NSWindow映射失败")
+        }
+        
+        print("\n🔄 回退到原方法...")
+        // 如果直接方法失败，使用回退方案
+        handleWindowSwitch(title)
+    }
+    
+    /// 处理窗口切换事件 - 通过NSWindow实例直接查找WindowID（回退方案）
+    /// - Parameter newWindowTitle: 新窗口的标题（仅用于日志）
+    private func handleWindowSwitch(_ newWindowTitle: String) {
+        print("🔄 LayerGraphWindow: 处理窗口切换 - '\(newWindowTitle)'")
+        
+        // 🚀 最可靠的方法：直接通过NSWindow实例查找对应的WindowID
+        guard let keyWindow = NSApplication.shared.keyWindow else {
+            print("❌ LayerGraphWindow: 没有key窗口")
+            return
+        }
+        
+        // 使用WindowFocusManager的getWindowIdFromNSWindow方法
+        let windowManager = WindowFocusManager.shared
+        if let windowUUID = windowManager.getWindowIdFromNSWindow(keyWindow) {
+            let windowIdString = windowUUID.uuidString
+            
+            // 确保这不是当前层图谱窗口
+            if windowIdString != windowId.uuidString {
+                // 验证这是一个标准窗口
+                if let windowInfo = windowManager.getWindowInfo(for: windowUUID),
+                   windowInfo.type == .standard {
+                    lastActiveTargetWindowId = windowIdString
+                    print("✅ LayerGraphWindow: 通过NSWindow映射找到目标窗口 - \(windowInfo.displayName) (\(windowIdString.prefix(8)))")
+                    return
+                } else {
+                    print("🔍 LayerGraphWindow: 窗口不是标准类型 - 跳过")
+                    return
+                }
+            } else {
+                print("🔍 LayerGraphWindow: 跳过自己的窗口")
+                return
+            }
+        }
+        
+        // 如果无法通过NSWindow映射找到，回退到当前活跃窗口
+        if let activeWindowId = windowManager.getActiveWindowId(),
+           let activeWindowInfo = windowManager.getWindowInfo(for: activeWindowId),
+           activeWindowInfo.type == .standard,
+           activeWindowId.uuidString != windowId.uuidString {
+            lastActiveTargetWindowId = activeWindowId.uuidString
+            print("⚠️ LayerGraphWindow: 回退使用当前活跃窗口 - \(activeWindowInfo.displayName) (\(activeWindowId.uuidString.prefix(8)))")
+            return
+        }
+        
+        // 最后的回退：使用第一个可用的标准窗口
+        let allWindows = windowManager.getAllRegisteredWindows()
+        if let firstStandardWindow = allWindows.first(where: { 
+            $0.type == .standard && $0.id != windowId.uuidString 
+        }) {
+            lastActiveTargetWindowId = firstStandardWindow.id
+            print("⚠️ LayerGraphWindow: 最终回退到第一个标准窗口 - \(firstStandardWindow.displayName) (\(firstStandardWindow.id.prefix(8)))")
+        } else {
+            print("❌ LayerGraphWindow: 无法找到任何标准窗口作为目标")
+        }
+    }
+    
     /// 查找启动层图谱的源主窗口
     /// 通过lastActiveTargetWindowId或窗口激活历史来确定是哪个主窗口打开了这个层图谱
     private func findSourceMainWindow() -> String? {
@@ -404,45 +578,61 @@ struct LayerGraphWindowView: View {
     }
     
     private func switchToLayerInMainWindow(_ layer: Layer) {
-        print("\n🔄 LayerGraphWindow: 准备切换到层 '\(layer.displayName)'")
+        print("\n🚀 === 层图谱Command+点击调试 ===")
+        print("🎯 用户Command+点击了层: '\(layer.displayName)'")
+        print("📋 层ID: \(layer.id)")
+        print("📋 点击时间: \(Date())")
         
         // 调试信息：打印所有注册的窗口
         let windowManager = WindowFocusManager.shared
-        print("📊 LayerGraphWindow: 当前注册的所有窗口:")
+        print("\n📊 系统中所有注册窗口:")
         let allWindows = windowManager.getAllRegisteredWindows()
         for (idx, windowInfo) in allWindows.enumerated() {
-            print("   [\(idx)] \(windowInfo.displayName) - ID: \(windowInfo.id.prefix(8)) - 类型: \(windowInfo.type)")
+            let marker = windowInfo.id == lastActiveTargetWindowId ? " ⭐️[目标窗口]" : ""
+            print("   [\(idx)] '\(windowInfo.displayName)' - ID: \(windowInfo.id.prefix(8)) - 类型: \(windowInfo.type)\(marker)")
         }
         
-        // 使用保存的最后激活窗口ID
+        print("\n🔍 检查记录的目标窗口:")
         if let targetId = lastActiveTargetWindowId {
-            print("📍 LayerGraphWindow: 使用保存的最后激活窗口 - (\(targetId.prefix(8)))")
+            print("✅ 找到记录的目标窗口ID: \(targetId.prefix(8))")
             
-            // 验证目标窗口是否仍然有效
+            // 获取目标窗口的详细信息
             if let targetUUID = UUID(uuidString: targetId),
-               windowManager.isWindowRegistered(targetUUID) {
-                print("✅ LayerGraphWindow: 目标窗口验证成功")
-                print("📡 LayerGraphWindow: 发送层切换通知到窗口 - (\(targetId.prefix(8)))\n")
+               let targetWindowInfo = windowManager.getWindowInfo(for: targetUUID) {
+                print("✅ 目标窗口详情:")
+                print("   - 显示名: '\(targetWindowInfo.displayName)'")
+                print("   - 类型: \(targetWindowInfo.type)")
+                print("   - 是否仍注册: \(windowManager.isWindowRegistered(targetUUID))")
                 
-                // 通知目标窗口切换层
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("switchToLayer"),
-                    object: layer,
-                    userInfo: ["sourceWindowId": targetId]
-                )
+                if windowManager.isWindowRegistered(targetUUID) {
+                    print("\n📡 === 发送层切换通知 ===")
+                    print("   目标窗口: '\(targetWindowInfo.displayName)' (\(targetId.prefix(8)))")
+                    print("   要切换的层: '\(layer.displayName)'")
+                    print("   ⚠️  注意观察：这个窗口应该会收到层切换通知并切换到指定层")
+                    print("================")
+                    
+                    // 通知目标窗口切换层
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("switchToLayer"),
+                        object: layer,
+                        userInfo: ["sourceWindowId": targetId]
+                    )
+                } else {
+                    print("❌ 目标窗口已失效，清除记录")
+                    lastActiveTargetWindowId = nil
+                    performFallbackLayerSwitch(layer)
+                }
             } else {
-                print("❌ LayerGraphWindow: 保存的目标窗口ID无效或未注册！")
-                lastActiveTargetWindowId = nil // 清除无效的ID
-                
-                // 执行回退方案
+                print("❌ 无法获取目标窗口详情")
                 performFallbackLayerSwitch(layer)
             }
         } else {
-            print("❌ LayerGraphWindow: 没有保存的目标窗口ID！")
-            
-            // 执行回退方案
+            print("❌ 没有记录的目标窗口！这不应该发生，因为用户应该先点击了某个窗口")
+            print("🔄 执行回退方案...")
             performFallbackLayerSwitch(layer)
         }
+        
+        print("\n=== 层图谱Command+点击调试结束 ===\n")
     }
     
     /// 执行回退的层切换方案

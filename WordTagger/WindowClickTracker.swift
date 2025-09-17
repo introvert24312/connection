@@ -50,7 +50,7 @@ class ClickDetectorView: NSView {
     }
     
     @objc private func windowBecameKey(_ notification: Notification) {
-        // 检查当前事件是否是鼠标点击
+        // 🔧 最简单有效的方案：只检测可靠的点击（系统控件点击）
         if let event = NSApp.currentEvent {
             let isMouseClick = event.type == .leftMouseDown || 
                              event.type == .rightMouseDown ||
@@ -58,7 +58,7 @@ class ClickDetectorView: NSView {
                              event.type == .rightMouseUp
             
             if isMouseClick {
-                // 这是真正的用户点击
+                // 只有检测到明确的鼠标事件才发送通知
                 NotificationCenter.default.post(
                     name: NSNotification.Name("userClickedWindow"),
                     object: nil,
@@ -68,44 +68,19 @@ class ClickDetectorView: NSView {
                         "isRealClick": true
                     ]
                 )
-                print("🖱️ 检测到真实的窗口点击 - \(windowId.uuidString.prefix(8))")
+                print("🖱️ 检测到可靠的窗口点击 - \(windowId.uuidString.prefix(8))")
             } else {
-                // 不是鼠标点击，但仍然记录用于调试
-                print("⚠️ 窗口成为key但不是鼠标点击 - \(windowId.uuidString.prefix(8))")
-                print("   事件类型: \(event.type.rawValue)")
+                // 不是鼠标点击，忽略（不发送通知）
+                print("⚠️ 窗口成为key但非鼠标点击 - \(windowId.uuidString.prefix(8)) (事件类型: \(event.type.rawValue))")
             }
         } else {
-            // NSApp.currentEvent为nil，尝试备用方案
-            print("⚠️ NSApp.currentEvent为nil - \(windowId.uuidString.prefix(8))")
-            
-            // 备用方案：延迟检查
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-                guard let self = self else { return }
-                if let delayedEvent = NSApp.currentEvent {
-                    let isMouseClick = delayedEvent.type == .leftMouseDown || 
-                                     delayedEvent.type == .rightMouseDown ||
-                                     delayedEvent.type == .leftMouseUp ||
-                                     delayedEvent.type == .rightMouseUp
-                    
-                    if isMouseClick {
-                        NotificationCenter.default.post(
-                            name: NSNotification.Name("userClickedWindow"),
-                            object: nil,
-                            userInfo: [
-                                "windowId": self.windowId.uuidString,
-                                "windowType": self.windowType,
-                                "isRealClick": true
-                            ]
-                        )
-                        print("🖱️ [延迟检测] 检测到真实的窗口点击 - \(self.windowId.uuidString.prefix(8))")
-                    }
-                }
-            }
+            // 没有当前事件，忽略
+            print("⚠️ 窗口成为key但NSApp.currentEvent为nil - \(windowId.uuidString.prefix(8))")
         }
     }
     
     override func hitTest(_ point: NSPoint) -> NSView? {
-        // 让点击穿透到下面的视图
+        // 让点击穿透到下面的视图，保持原有的交互体验
         return nil
     }
     

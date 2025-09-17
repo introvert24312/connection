@@ -76,15 +76,27 @@ class WindowFocusManager: ObservableObject {
         
         print("🏠 WindowFocusManager: 注册窗口 - \(info.displayName) (\(windowId.uuidString.prefix(8)))")
         
-        // 延迟关联窗口，确保NSWindow完全初始化
+        // 🔧 增强的多层次重试机制
+        // 立即尝试关联
+        attemptWindowAssociation(windowId: windowId)
+        
+        // 短延迟重试
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
             self?.attemptWindowAssociation(windowId: windowId)
         }
         
-        // 添加额外的延迟重试机制
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            self?.retryWindowAssociationIfNeeded(windowId: windowId)
+        // 中延迟重试
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            self?.attemptWindowAssociation(windowId: windowId)
         }
+        
+        // 长延迟重试
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { [weak self] in
+            self?.attemptWindowAssociation(windowId: windowId)
+        }
+        
+        // 强制重试机制 - 使用递增延迟
+        self.startAggressiveRetry(for: windowId)
     }
     
     /// 注销窗口
@@ -180,6 +192,8 @@ class WindowFocusManager: ObservableObject {
                             ]
                         )
                         print("📢 WindowFocusManager: 通知层图谱窗口 - 窗口已激活: \(windowInfo.displayName)(\(windowInfo.id.prefix(8)))")
+                        
+                        // 🔧 简化的通知机制 - 交给SimpleWindowTracker处理
                     }
                     
                     // 检查是否有对应的NSWindow映射
@@ -519,6 +533,91 @@ class WindowFocusManager: ObservableObject {
         
         print("🏠 WindowFocusManager: 执行快捷键命令 - \(command) in \(windowId.uuidString.prefix(8))")
         return true
+    }
+    
+    // MARK: - Enhanced Retry Mechanisms
+    
+    /// 启动激进的重试机制，确保窗口映射建立成功
+    /// - Parameter windowId: 要重试的窗口ID
+    private func startAggressiveRetry(for windowId: UUID) {
+        // 启动一个持续重试任务，直到映射建立成功
+        let maxAttempts = 20
+        var currentAttempt = 1
+        
+        func performRetry() {
+            guard currentAttempt <= maxAttempts else {
+                print("❌ WindowFocusManager: 强制重试达到最大次数 - \(windowId.uuidString.prefix(8))")
+                return
+            }
+            
+            // 检查是否已成功建立映射
+            if let windowRef = uuidToWindowMap[windowId], windowRef.window != nil {
+                print("✅ WindowFocusManager: 强制重试成功 - 第\(currentAttempt)次尝试 (\(windowId.uuidString.prefix(8)))")
+                
+                // 🔧 窗口映射成功，SimpleWindowTracker会自动检测
+                return
+            }
+            
+            // 尝试建立映射
+            attemptWindowAssociation(windowId: windowId)
+            
+            currentAttempt += 1
+            let delay = TimeInterval(currentAttempt) * 0.2 // 递增延迟：0.2s, 0.4s, 0.6s...
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                performRetry()
+            }
+        }
+        
+        // 开始第一次重试
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            performRetry()
+        }
+    }
+    
+    /// 强制建立窗口映射（最后手段）
+    /// - Parameter windowId: 窗口ID
+    func forceWindowAssociation(for windowId: UUID) {
+        print("🔨 WindowFocusManager: 强制建立窗口映射 - \(windowId.uuidString.prefix(8))")
+        
+        // 获取所有当前可见的窗口
+        let allWindows = NSApplication.shared.windows.filter { window in
+            window.isVisible && !window.isMiniaturized && window.canBecomeKey
+        }
+        
+        print("🔍 当前可见窗口数量: \(allWindows.count)")
+        for (index, window) in allWindows.enumerated() {
+            print("   窗口\(index): \(window.title) - keyWindow: \(window.isKeyWindow)")
+        }
+        
+        // 如果只有一个未映射的可见窗口，直接关联
+        let unmappedWindows = allWindows.filter { window in
+            windowToUUIDMap[window] == nil
+        }
+        
+        if unmappedWindows.count == 1, let targetWindow = unmappedWindows.first {
+            print("🎯 WindowFocusManager: 找到唯一未映射窗口，强制关联")
+            associateWindowWithUUID(targetWindow, uuid: windowId)
+            
+            // 如果这个窗口是key窗口，立即设置为活跃
+            if targetWindow.isKeyWindow {
+                setActiveWindow(windowId)
+                
+                // SimpleWindowTracker会自动检测窗口变化
+            }
+            return
+        }
+        
+        // 如果有多个窗口，尝试使用key窗口
+        if let keyWindow = NSApplication.shared.keyWindow,
+           allWindows.contains(keyWindow),
+           windowToUUIDMap[keyWindow] == nil {
+            print("🎯 WindowFocusManager: 使用key窗口进行强制关联")
+            associateWindowWithUUID(keyWindow, uuid: windowId)
+            setActiveWindow(windowId)
+            
+            // SimpleWindowTracker会自动检测窗口变化
+        }
     }
     
     // MARK: - Private Methods
