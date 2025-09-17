@@ -11,7 +11,7 @@ struct MapWindow: View {
     @State private var openedForBrowsingOnly = false
     
     var body: some View {
-        MapContainer(isLocationSelectionMode: $isLocationSelectionMode, sourceWindowId: sourceWindowId)
+        MapContainer(isLocationSelectionMode: $isLocationSelectionMode, sourceWindowId: sourceWindowId, allowLocationSelection: !openedForBrowsingOnly)
             .navigationTitle(isLocationSelectionMode ? "选择位置" : "地图窗口")
             .registerWindow(windowId, type: .map, displayName: "地图视图")
             .onAppear {

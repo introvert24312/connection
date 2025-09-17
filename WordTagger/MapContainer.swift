@@ -6,6 +6,7 @@ struct MapContainer: View {
     @EnvironmentObject private var store: NodeStore
     @Binding var isLocationSelectionMode: Bool
     var sourceWindowId: String? = nil
+    var allowLocationSelection: Bool = true  // 新增参数，控制是否允许位置选择功能
     @State private var region = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 39.9042, longitude: 116.4074), // 北京
         span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
@@ -194,8 +195,9 @@ struct MapContainer: View {
                                 print("🎯 Tapped coordinate (Manual): \(tappedCoordinate)")
                             }
                         } else {
-                            // 在非位置选择模式下，让节点点击事件优先处理
-                            print("🗺️ Map tapped in normal mode - allowing node clicks to handle")
+                            // 在非位置选择模式下，普通地图点击不做任何操作
+                            print("🗺️ Map tapped in normal browsing mode - no action taken")
+                            // 只在明确的位置选择上下文中才允许选择位置（例如Command+P模式）
                         }
                     }
                     .onAppear {
@@ -228,15 +230,26 @@ struct MapContainer: View {
             return .ignored
         }
         .onKeyPress(.init("l"), phases: .down) { keyPress in
-            // L键切换位置选择模式
-            isLocationSelectionMode.toggle()
-            if !isLocationSelectionMode {
-                // 退出位置选择模式时清理状态
+            // L键切换位置选择模式（仅在允许位置选择时）
+            guard allowLocationSelection else {
+                print("🚫 L键被忽略 - 当前地图不允许位置选择")
+                return .ignored
+            }
+            
+            if isLocationSelectionMode {
+                // 当前在位置选择模式，退出
+                isLocationSelectionMode = false
                 selectedLocation = nil
                 selectedLocationName = ""
                 isPreviewingLocation = false
+                print("🗺️ L键退出位置选择模式")
+                return .handled
+            } else {
+                // 当前不在位置选择模式，进入
+                isLocationSelectionMode = true
+                print("🗺️ L键进入位置选择模式")
+                return .handled
             }
-            return .handled
         }
     }
     
@@ -323,49 +336,8 @@ struct MapContainer: View {
             
             Spacer()
             
-            // 位置选择相关按钮
-            HStack(spacing: 8) {
-                // 选择位置按钮
-                if !isLocationSelectionMode {
-                    Button(action: {
-                        isLocationSelectionMode = true
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "location")
-                                .font(.system(size: 14))
-                            Text("选择位置")
-                                .font(.caption)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .help("进入位置选择模式")
-                }
-                
-                // 退出选择按钮
-                if isLocationSelectionMode {
-                    Button(action: {
-                        isLocationSelectionMode = false
-                        selectedLocation = nil
-                        selectedLocationName = ""
-                        isPreviewingLocation = false
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "location.fill")
-                                .font(.system(size: 14))
-                            Text("退出选择")
-                                .font(.caption)
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-                    .help("退出位置选择模式")
-                }
-            }
+            // 位置选择按钮组已隐藏 - 仅使用L键控制
+            // 用户要求隐藏按钮，只保留L键控制位置选择模式
             
             if !filteredNodesWithLocation.isEmpty {
                 MapStatsView(wordsCount: filteredNodesWithLocation.count)
@@ -873,13 +845,15 @@ struct MapContainer: View {
         
         print("📍 位置信息: \(locationName) - (\(coordinate.latitude), \(coordinate.longitude))")
         
-        // 直接进入位置选择模式，无论当前是什么模式
-        isLocationSelectionMode = true
-        selectedLocation = coordinate
-        selectedLocationName = locationName
-        isPreviewingLocation = true
-        
-        print("✅ 自动进入位置选择模式：已选择 \(locationName)")
+        // 只有在位置选择模式下才处理地图元素选择
+        if isLocationSelectionMode {
+            selectedLocation = coordinate
+            selectedLocationName = locationName
+            isPreviewingLocation = true
+            print("✅ 位置选择模式下选择了地图元素：\(locationName)")
+        } else {
+            print("🚫 非位置选择模式，忽略地图元素点击")
+        }
     }
 }
 
@@ -1609,6 +1583,6 @@ struct SearchLocationPinView: View {
 
 
 #Preview {
-    MapContainer(isLocationSelectionMode: .constant(false), sourceWindowId: nil)
+    MapContainer(isLocationSelectionMode: .constant(false), sourceWindowId: nil, allowLocationSelection: true)
         .environmentObject(NodeStore.shared)
 }
