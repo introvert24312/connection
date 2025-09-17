@@ -639,7 +639,7 @@ struct ValidationError {
         markdown: "# Sample Node\nThis is a test node."
     )
     
-    return NodeEditorSheet(
+    NodeEditorSheet(
         node: $sampleNode,
         onSave: { node in
             print("Saved node: \(node.text)")
