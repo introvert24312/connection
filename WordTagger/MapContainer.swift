@@ -774,6 +774,9 @@ struct MapContainer: View {
     private func handleMapNodeTap(_ node: Node) {
         print("🗺️ MapContainer: 地图节点被点击: \(node.text)")
         
+        // 首先在本地显示节点详情
+        selectedNode = node
+        
         // 1. 找到节点所属的层
         guard let targetLayer = store.layers.first(where: { $0.id == node.layerId }) else {
             print("⚠️ 未找到节点 '\(node.text)' 所属的层")
