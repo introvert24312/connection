@@ -1590,10 +1590,46 @@ struct QuickAddSheetView: View {
         }
     }
     
+    /// 智能分词函数，识别括号结构，避免破坏坐标表达式
+    private func smartTokenize(_ input: String) -> [String] {
+        let trimmedInput = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        var tokens: [String] = []
+        var currentToken = ""
+        var bracketDepth = 0
+        var i = trimmedInput.startIndex
+        
+        while i < trimmedInput.endIndex {
+            let char = trimmedInput[i]
+            
+            if char == "[" {
+                bracketDepth += 1
+                currentToken.append(char)
+            } else if char == "]" {
+                bracketDepth -= 1
+                currentToken.append(char)
+            } else if char == " " && bracketDepth == 0 {
+                // 只有在括号外的空格才作为分词依据
+                if !currentToken.isEmpty {
+                    tokens.append(currentToken)
+                    currentToken = ""
+                }
+            } else {
+                currentToken.append(char)
+            }
+            
+            i = trimmedInput.index(after: i)
+        }
+        
+        // 添加最后一个token
+        if !currentToken.isEmpty {
+            tokens.append(currentToken)
+        }
+        
+        return tokens
+    }
+    
     private func processInputSafely() throws {
-        let components = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-            .split(separator: " ", omittingEmptySubsequences: true)
-            .map(String.init)
+        let components = smartTokenize(inputText)
         
         guard !components.isEmpty else { 
             return 
