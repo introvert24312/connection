@@ -325,28 +325,49 @@ struct MapContainer: View {
             
             Spacer()
             
-            // 位置选择切换按钮
-            Button(action: {
-                isLocationSelectionMode.toggle()
+            // 位置选择相关按钮
+            HStack(spacing: 8) {
+                // 选择位置按钮
                 if !isLocationSelectionMode {
-                    // 退出位置选择模式时清理状态
-                    selectedLocation = nil
-                    selectedLocationName = ""
-                    isPreviewingLocation = false
+                    Button(action: {
+                        isLocationSelectionMode = true
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "location")
+                                .font(.system(size: 14))
+                            Text("选择位置")
+                                .font(.caption)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .help("进入位置选择模式")
                 }
-            }) {
-                HStack(spacing: 4) {
-                    Image(systemName: isLocationSelectionMode ? "location.fill" : "location")
-                        .font(.system(size: 14))
-                    Text(isLocationSelectionMode ? "退出选择" : "选择位置")
-                        .font(.caption)
+                
+                // 退出选择按钮
+                if isLocationSelectionMode {
+                    Button(action: {
+                        isLocationSelectionMode = false
+                        selectedLocation = nil
+                        selectedLocationName = ""
+                        isPreviewingLocation = false
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "location.fill")
+                                .font(.system(size: 14))
+                            Text("退出选择")
+                                .font(.caption)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .help("退出位置选择模式")
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .help(isLocationSelectionMode ? "退出位置选择模式" : "进入位置选择模式")
             
             if !filteredNodesWithLocation.isEmpty {
                 MapStatsView(wordsCount: filteredNodesWithLocation.count)
