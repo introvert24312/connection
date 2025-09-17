@@ -297,12 +297,15 @@ struct NodeListView: View {
             }
         }
         
-        // 检查是否有被移除的标签类型
+        // 检查是否有被移除的标签类型（智能折叠逻辑）
         let removedTypes = lastExpandedTagTypes.subtracting(newExpandedTypes)
         if !removedTypes.isEmpty {
             print("🗑️ [NodeListView] 发现被移除的标签类型: \(removedTypes.map { $0.displayName })")
-            // 注意：这里我们不移除节点，因为用户可能想保留已展开的内容
-            // 如果需要移除功能，可以在这里实现
+            
+            // 🎯 智能折叠：只移除不再属于任何展开标签类型的节点
+            for removedType in removedTypes {
+                removeNodesForTagType(removedType, keepIfInOtherTypes: newExpandedTypes)
+            }
         }
         
         lastExpandedTagTypes = newExpandedTypes
@@ -332,6 +335,54 @@ struct NodeListView: View {
         }
         
         print("✅ [NodeListView] 累积节点总数: \(accumulatedNodes.count)")
+        print("   - 已显示节点ID数量: \(displayedNodeIds.count)")
+    }
+    
+    /// 智能移除特定标签类型的节点（只移除不再属于其他展开类型的节点）
+    private func removeNodesForTagType(_ removedTagType: Tag.TagType, keepIfInOtherTypes remainingTypes: Set<Tag.TagType>) {
+        print("🗑️ [NodeListView] 智能移除标签类型: \(removedTagType.displayName)")
+        print("   - 剩余展开类型: \(remainingTypes.map { $0.displayName })")
+        
+        // 获取被移除标签类型对应的节点
+        let removedTypeNodes = store.nodesInCurrentLayer(withTagType: removedTagType)
+        let removedNodeIds = Set(removedTypeNodes.map { $0.id })
+        
+        print("   - 被移除类型的节点数: \(removedTypeNodes.count)")
+        
+        // 获取剩余展开类型对应的所有节点
+        var remainingNodeIds = Set<UUID>()
+        for remainingType in remainingTypes {
+            let remainingTypeNodes = store.nodesInCurrentLayer(withTagType: remainingType)
+            remainingNodeIds.formUnion(remainingTypeNodes.map { $0.id })
+        }
+        
+        print("   - 剩余类型覆盖的节点数: \(remainingNodeIds.count)")
+        
+        // 🎯 找出需要真正移除的节点：属于被移除类型，但不属于任何剩余类型
+        let nodeIdsToRemove = removedNodeIds.subtracting(remainingNodeIds)
+        
+        print("   - 需要真正移除的节点数: \(nodeIdsToRemove.count)")
+        
+        if nodeIdsToRemove.isEmpty {
+            print("✅ [NodeListView] 所有节点都被其他标签类型保留，无需移除")
+            return
+        }
+        
+        // 从累积列表中移除这些节点（保持剩余节点的原有顺序）
+        var removedCount = 0
+        accumulatedNodes.removeAll { node in
+            let shouldRemove = nodeIdsToRemove.contains(node.id)
+            if shouldRemove {
+                removedCount += 1
+                displayedNodeIds.remove(node.id)
+                print("   - 移除节点: \(node.text)")
+            }
+            return shouldRemove
+        }
+        
+        print("✅ [NodeListView] 智能移除完成:")
+        print("   - 实际移除节点数: \(removedCount)")
+        print("   - 累积节点总数: \(accumulatedNodes.count)")
         print("   - 已显示节点ID数量: \(displayedNodeIds.count)")
     }
     

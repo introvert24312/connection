@@ -1084,7 +1084,12 @@ struct TagSidebarView: View {
         expandedGroups.remove(tagType)
         // 如果移除的是搜索解析的标签类型，也要从搜索解析记录中移除
         searchParsedTagTypes.remove(tagType)
+        
+        // 🔧 关键修复：同步更新store的expandedTagTypes，触发NodeListView的智能折叠逻辑
+        store.removeExpandedTagType(tagType)
+        
         print("🗑️ 手动移除标签类型: \(tagType.displayName)")
+        print("🔄 已同步更新store.expandedTagTypes，触发智能折叠")
     }
     
     private func toggleTagType(_ tagType: Tag.TagType) {
