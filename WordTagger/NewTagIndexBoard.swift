@@ -130,6 +130,7 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
         super.init()
         print("🏗️ [标签索引WebView-\(instanceId)] 创建新实例，关联数据管理器: \(associatedDataManager != nil)")
         setupWebView()
+        setupNotificationListeners()
     }
     
     private func setupWebView() {
@@ -150,6 +151,103 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
         print("🔧 [新标签索引] WebView配置完成，navigationDelegate已设置")
         
         loadHTMLContent()
+    }
+    
+    private func setupNotificationListeners() {
+        // 🆕 监听增量展开通知
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("tagTypeIncrementallyExpanded"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            Task { @MainActor in
+                self?.handleIncrementalExpansion(notification)
+            }
+        }
+        
+        print("🔔 [标签索引-\(instanceId)] 已设置增量展开通知监听")
+    }
+    
+    deinit {
+        // 清理通知监听
+        NotificationCenter.default.removeObserver(self)
+        print("🔔 [标签索引-\(instanceId)] 已清理通知监听")
+    }
+    
+    @MainActor
+    private func handleIncrementalExpansion(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let tagType = userInfo["tagType"] as? Tag.TagType,
+              let isIncremental = userInfo["isIncremental"] as? Bool,
+              isIncremental else {
+            print("❌ [标签索引-\(instanceId)] 增量展开通知数据无效")
+            return
+        }
+        
+        print("📈 [标签索引-\(instanceId)] 处理增量展开: \(tagType.displayName)")
+        
+        // 🆕 使用增量模式发送标签类型展开数据到WebView
+        sendIncrementalTagTypeData(tagType)
+    }
+    
+    @MainActor
+    private func sendIncrementalTagTypeData(_ tagType: Tag.TagType) {
+        print("📤 [标签索引-\(instanceId)] 发送增量标签类型数据: \(tagType.displayName)")
+        
+        // 🆕 生成指定标签类型的数据
+        let tempDataManager = GlobalTagDataManager()
+        let nodeStore = NodeStore.shared
+        
+        // 过滤出指定标签类型的数据
+        let allTagItems = tempDataManager.generateTagIndexData(from: nodeStore)
+        let tagTypeItems = allTagItems.filter { item in
+            // 转换显示名称为相同的格式进行比较
+            let itemTagType = convertToTagType(item.tagType)
+            return itemTagType == tagType
+        }
+        
+        print("📤 [标签索引-\(instanceId)] 过滤得到 \(tagTypeItems.count) 个标签项")
+        
+        if isWebViewReady {
+            sendIncrementalDataToWebView(tagTypeItems, for: tagType)
+        } else {
+            print("⏳ [标签索引-\(instanceId)] WebView未就绪，将在就绪后发送增量数据")
+        }
+    }
+    
+    private func sendIncrementalDataToWebView(_ tagItems: [GlobalTagItem], for tagType: Tag.TagType) {
+        // 转换为WebView可用的格式
+        let webViewData = tagItems.map { item in
+            [
+                "name": item.tagValue,
+                "type": item.tagType,
+                "layers": item.layerNames,
+                "count": item.nodeCount,
+                "nodes": item.nodes
+            ]
+        }
+        
+        do {
+            let jsonData = try JSONSerialization.data(withJSONObject: webViewData, options: [])
+            let jsonString = String(data: jsonData, encoding: .utf8) ?? "[]"
+            
+            // 🆕 使用增量更新函数而不是完全替换
+            let script = "window.appendIncrementalData && window.appendIncrementalData(\(jsonString), '\(tagType.displayName)');"
+            
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                self.webView.evaluateJavaScript(script) { [weak self] result, error in
+                    guard let self = self else { return }
+                    if let error = error {
+                        print("❌ [标签索引-\(self.instanceId)] 增量数据JavaScript执行错误: \(error)")
+                    } else {
+                        print("✅ [标签索引-\(self.instanceId)] 增量数据已发送到WebView")
+                    }
+                }
+            }
+        } catch {
+            print("❌ [标签索引-\(instanceId)] 增量数据JSON序列化错误: \(error)")
+        }
     }
     
     @MainActor
@@ -454,6 +552,7 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
             console.log("🚀 新版标签看板 JavaScript 初始化");
             
             let DATA = [];
+            let PREVIOUS_DATA = [];  // 🆕 用于追踪之前的数据，支持增量渲染
             let ALL_LAYERS = new Set();
             const selectedItems = new Set();
             const selectedGroupHeaders = new Set();  // 新增：选中的组头部（层级）
@@ -471,8 +570,18 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                         data = jsonData;
                     }
                     
-                    DATA = Array.isArray(data) ? data : [];
+                    // 🆕 检测是否为增量更新
+                    const previousDataLength = DATA.length;
+                    const newDataArray = Array.isArray(data) ? data : [];
+                    const isIncrementalUpdate = newDataArray.length > previousDataLength && 
+                                              newDataArray.slice(0, previousDataLength).every((item, index) => 
+                                                  DATA[index] && DATA[index].type === item.type && DATA[index].name === item.name
+                                              );
+                    
+                    PREVIOUS_DATA = [...DATA];  // 保存之前的数据
+                    DATA = newDataArray;
                     console.log("✅ [新版] 数据解析成功，项目数:", DATA.length);
+                    console.log("🔄 [新版] 增量更新:", isIncrementalUpdate, "之前数量:", previousDataLength, "新数量:", DATA.length);
                     
                     // 收集所有层级
                     ALL_LAYERS.clear();
@@ -483,7 +592,15 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                     });
                     console.log("📋 收集到层级:", Array.from(ALL_LAYERS));
                     
-                    renderBoard();
+                    // 🆕 根据是否为增量更新选择渲染方式
+                    if (isIncrementalUpdate) {
+                        const newItems = DATA.slice(previousDataLength);
+                        console.log("📈 [增量渲染] 检测到增量更新，新增", newItems.length, "个项目");
+                        appendNewItemsToBoard(newItems, "增量添加");
+                    } else {
+                        console.log("🔄 [完整渲染] 执行完整重新渲染");
+                        renderBoard();
+                    }
                     return "success";
                 } catch (e) {
                     console.error("❌ [新版] 数据解析错误:", e);
@@ -491,6 +608,200 @@ class NewTagIndexWebViewModel: NSObject, ObservableObject {
                     return "error";
                 }
             };
+            
+            // 🆕 增量数据更新函数
+            window.appendIncrementalData = function(jsonData, tagTypeName) {
+                try {
+                    console.log("📈 [增量更新] 收到标签类型数据:", tagTypeName, "数据类型:", typeof jsonData);
+                    
+                    let newData;
+                    if (typeof jsonData === 'string') {
+                        newData = JSON.parse(jsonData);
+                    } else {
+                        newData = jsonData;
+                    }
+                    
+                    if (!Array.isArray(newData)) {
+                        console.error("❌ [增量更新] 数据格式错误，期望数组");
+                        return "error";
+                    }
+                    
+                    console.log("📈 [增量更新] 解析得到 " + newData.length + " 个新项目");
+                    
+                    // 🆕 检查重复并去重
+                    let addedCount = 0;
+                    newData.forEach(newItem => {
+                        // 检查是否已存在（基于type和name的组合）
+                        const exists = DATA.some(existingItem => 
+                            existingItem.type === newItem.type && existingItem.name === newItem.name
+                        );
+                        
+                        if (!exists) {
+                            DATA.push(newItem);
+                            addedCount++;
+                            
+                            // 更新层级集合
+                            if (newItem.layers && Array.isArray(newItem.layers)) {
+                                newItem.layers.forEach(layer => ALL_LAYERS.add(layer));
+                            }
+                        }
+                    });
+                    
+                    console.log("📈 [增量更新] 实际添加了 " + addedCount + " 个新项目");
+                    console.log("📈 [增量更新] 当前总数据量:", DATA.length);
+                    
+                    // 🆕 增量渲染：在当前视图末尾添加新内容，而不是完全重新渲染
+                    appendNewItemsToBoard(newData, tagTypeName);
+                    
+                    return "success";
+                } catch (e) {
+                    console.error("❌ [增量更新] 数据解析错误:", e);
+                    return "error";
+                }
+            };
+            
+            // 🆕 增量渲染函数 - 在当前视图末尾添加新内容
+            function appendNewItemsToBoard(newItems, tagTypeName) {
+                console.log("🎨 [增量渲染] 添加新项目到视图末尾，标签类型:", tagTypeName);
+                
+                const board = document.getElementById('board');
+                const groupBy = document.getElementById('groupBy').value;
+                
+                // 应用当前的过滤条件
+                const searchTerm = document.getElementById('search').value.toLowerCase();
+                const layerSearchTerm = document.getElementById('layerSearch').value.toLowerCase();
+                
+                let filteredNewItems = newItems.filter(item => {
+                    const matchesSearch = !searchTerm || 
+                        item.name.toLowerCase().includes(searchTerm) || 
+                        item.type.toLowerCase().includes(searchTerm);
+                    
+                    const matchesLayerSearch = !layerSearchTerm ||
+                        (item.layers && item.layers.some(layer => layer.toLowerCase().includes(layerSearchTerm)));
+                    
+                    return matchesSearch && matchesLayerSearch;
+                });
+                
+                if (filteredNewItems.length === 0) {
+                    console.log("🎨 [增量渲染] 过滤后无新项目需要显示");
+                    return;
+                }
+                
+                console.log("🎨 [增量渲染] 过滤后需要添加 " + filteredNewItems.length + " 个项目");
+                
+                // 根据分组方式进行增量渲染
+                if (groupBy === 'none') {
+                    // 不分组：直接在末尾添加
+                    appendItemsToSimpleGrid(board, filteredNewItems);
+                } else if (groupBy === 'layer') {
+                    // 按层级分组：添加到对应层级组或创建新组
+                    appendItemsToLayerGroups(board, filteredNewItems);
+                } else if (groupBy === 'type') {
+                    // 按标签类型分组：添加到对应类型组或创建新组
+                    appendItemsToTypeGroups(board, filteredNewItems, tagTypeName);
+                }
+            }
+            
+            // 🆕 简单网格增量添加
+            function appendItemsToSimpleGrid(board, newItems) {
+                let gridContainer = board.querySelector('.grid');
+                if (!gridContainer) {
+                    // 如果没有grid容器，创建一个
+                    gridContainer = document.createElement('div');
+                    gridContainer.className = 'grid';
+                    board.innerHTML = '';
+                    board.appendChild(gridContainer);
+                }
+                
+                newItems.forEach(item => {
+                    const chipHtml = renderChip(item);
+                    gridContainer.insertAdjacentHTML('beforeend', chipHtml);
+                });
+                
+                console.log("🎨 [增量渲染] 已添加 " + newItems.length + " 个项目到简单网格");
+            }
+            
+            // 🆕 标签类型分组增量添加
+            function appendItemsToTypeGroups(board, newItems, tagTypeName) {
+                // 查找或创建对应的标签类型分组
+                let typeSection = board.querySelector(`[data-group="${escapeHtml(tagTypeName)}"]`)?.closest('.group-section');
+                
+                if (!typeSection) {
+                    // 创建新的标签类型分组
+                    const groupHtml = `
+                        <div class="group-section">
+                            <div class="group-header" data-group="${escapeHtml(tagTypeName)}" 
+                                 onclick="toggleGroupSelection('${escapeHtml(tagTypeName)}', event)">
+                                ${escapeHtml(tagTypeName)} (${newItems.length})
+                            </div>
+                            <div class="group-content">
+                                <div class="grid">
+                                    ${newItems.map(renderChip).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    board.insertAdjacentHTML('beforeend', groupHtml);
+                    console.log("🎨 [增量渲染] 创建新的标签类型分组:", tagTypeName);
+                } else {
+                    // 添加到现有分组
+                    const gridContainer = typeSection.querySelector('.group-content .grid');
+                    if (gridContainer) {
+                        newItems.forEach(item => {
+                            const chipHtml = renderChip(item);
+                            gridContainer.insertAdjacentHTML('beforeend', chipHtml);
+                        });
+                    }
+                    
+                    // 更新分组标题中的计数
+                    const groupHeader = typeSection.querySelector('.group-header');
+                    if (groupHeader) {
+                        const currentText = groupHeader.textContent;
+                        const match = currentText.match(/^(.*?)\\s*\\((\\d+)\\)$/);
+                        if (match) {
+                            const newCount = parseInt(match[2]) + newItems.length;
+                            groupHeader.textContent = match[1] + ' (' + newCount + ')';
+                        }
+                    }
+                    
+                    console.log("🎨 [增量渲染] 已添加 " + newItems.length + " 个项目到现有标签类型分组:", tagTypeName);
+                }
+            }
+            
+            // 🆕 层级分组增量添加
+            function appendItemsToLayerGroups(board, newItems) {
+                // 按层级分组新项目
+                const layerGroups = {};
+                newItems.forEach(item => {
+                    if (item.layers && item.layers.length > 0) {
+                        item.layers.forEach(layer => {
+                            if (!layerGroups[layer]) layerGroups[layer] = [];
+                            layerGroups[layer].push(item);
+                        });
+                    } else {
+                        if (!layerGroups['无层级']) layerGroups['无层级'] = [];
+                        layerGroups['无层级'].push(item);
+                    }
+                });
+                
+                // 为每个层级添加项目
+                Object.keys(layerGroups).forEach(layerName => {
+                    let layerSection = board.querySelector(`[data-group="${escapeHtml(layerName)}"]`)?.closest('.group-section');
+                    
+                    if (!layerSection) {
+                        // 创建新的层级分组 - 这部分逻辑较复杂，暂时简化处理
+                        console.log("🎨 [增量渲染] 需要创建新层级分组:", layerName, "项目数:", layerGroups[layerName].length);
+                        // 为简化起见，暂时触发完全重新渲染
+                        renderBoard();
+                        return;
+                    } else {
+                        // 添加到现有层级分组 - 这也需要考虑标签类型子分组
+                        console.log("🎨 [增量渲染] 层级分组增量更新较复杂，暂时触发完全重新渲染");
+                        renderBoard();
+                        return;
+                    }
+                });
+            }
             
             // 渲染看板
             function renderBoard() {

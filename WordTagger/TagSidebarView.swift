@@ -207,6 +207,21 @@ struct TagSidebarView: View {
                 handleTagSearchToggle()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("clearTagFilter"))) { _ in
+            print("🧹 TagSidebarView: 收到清除标签筛选通知")
+            
+            // 清除标签搜索模块的本地状态
+            selectedTagTypes.removeAll()
+            expandedGroups.removeAll()
+            searchParsedTagTypes.removeAll()
+            tagTypeSearchQuery = ""
+            resetSearchFocusState()
+            
+            // 切换回标签筛选模式
+            currentMode = .tagFiltering
+            
+            print("✅ TagSidebarView: 标签搜索状态已清除")
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("restorePreviousTagFilterState"))) { _ in
             print("🔄 TagSidebarView: 收到恢复标签筛选状态通知")
             
@@ -602,14 +617,17 @@ struct TagSidebarView: View {
                                         isAlreadySelected: store.expandedTagTypes.contains(type),
                                         isHighlighted: searchFocusMode == .tagTypes && selectedSearchTypeIndex == index,
                                         onAdd: {
-                                            // 只添加到展开列表，不设置焦点
+                                            // 🔄 回到使用store的方法，但标记为增量展开
+                                            selectedTagTypes.insert(type)
+                                            expandedGroups.insert(type)
+                                            
+                                            // 直接使用store的方法，这样能确保节点看板响应
                                             store.addExpandedTagType(type)
                                             
                                             // 清空搜索框，但保持在标签搜索模式
                                             tagTypeSearchQuery = ""
                                             resetSearchFocusState()
-                                            // 🔄 不再自动切换到标签筛选模式
-                                            print("🔄 标签类型已选择，保持在标签搜索模式")
+                                            print("🔄 标签类型已展开，保持在标签搜索模式")
                                         }
                                     )
                                 }
@@ -1450,13 +1468,17 @@ struct TagSidebarView: View {
     /// 选择标签类型
     private func selectTagType(_ type: Tag.TagType) {
         print("🎯 选择标签类型: \(type.displayName)")
-        // 只添加到展开列表，不设置焦点
+        // 🔄 回到使用store的方法
+        selectedTagTypes.insert(type)
+        expandedGroups.insert(type)
+        
+        // 直接使用store的方法，这样能确保节点看板响应
         store.addExpandedTagType(type)
         
         // 清空搜索框并重置焦点状态
         tagTypeSearchQuery = ""
         resetSearchFocusState()
-        print("🔄 保持在标签搜索模式")
+        print("🔄 标签类型已展开，保持在标签搜索模式")
     }
     
     /// 选择标签值
