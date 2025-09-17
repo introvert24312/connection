@@ -87,19 +87,26 @@ public struct Node: Identifiable, Hashable, Codable {
     public var meaning: String?
     public var layerId: UUID
     public var tags: [Tag]
-    public var isCompound: Bool
+    // 计算属性：基于是否有child标签来判断是否为复合节点
+    public var isCompound: Bool {
+        return tags.contains { tag in
+            if case .custom(let key) = tag.type {
+                return key == "child"
+            }
+            return false
+        }
+    }
     public var markdown: String  // 新增Markdown字段
     public var createdAt: Date
     public var updatedAt: Date
     
-    public init(text: String, phonetic: String? = nil, meaning: String? = nil, layerId: UUID, tags: [Tag] = [], isCompound: Bool = false, markdown: String = "") {
+    public init(text: String, phonetic: String? = nil, meaning: String? = nil, layerId: UUID, tags: [Tag] = [], markdown: String = "") {
         self.id = UUID()
         self.text = text
         self.phonetic = phonetic
         self.meaning = meaning
         self.layerId = layerId
         self.tags = tags
-        self.isCompound = isCompound
         self.markdown = markdown  // 初始化Markdown字段
         self.createdAt = Date()
         self.updatedAt = Date()
@@ -143,7 +150,7 @@ public struct Node: Identifiable, Hashable, Codable {
             )
         }
         
-        isCompound = try container.decode(Bool.self, forKey: .isCompound)
+        // isCompound 现在是计算属性，不需要从解码器读取
         
         // 为markdown字段提供默认值，确保向后兼容
         let rawMarkdown = try container.decodeIfPresent(String.self, forKey: .markdown) ?? ""
@@ -161,7 +168,7 @@ public struct Node: Identifiable, Hashable, Codable {
     
     // 编码键
     private enum CodingKeys: String, CodingKey {
-        case id, text, phonetic, meaning, layerId, tags, isCompound, markdown, createdAt, updatedAt
+        case id, text, phonetic, meaning, layerId, tags, markdown, createdAt, updatedAt
     }
     
     public func tags(of type: Tag.TagType) -> [Tag] {
