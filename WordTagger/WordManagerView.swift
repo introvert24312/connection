@@ -10,10 +10,16 @@ struct NodeManagerView: View {
     @State private var searchTask: Task<Void, Never>?
     @State private var showingDeleteAlert = false
     @State private var sortOption: SortOption = .createdDate
-    @State private var filterOption: FilterOption = .withTags
-    @State private var selectedLayerId: UUID? = nil
-    @State private var selectedTagType: Tag.TagType? = nil
-    @State private var selectedTagValue: String? = nil
+    @State private var selectedLayerIds: Set<UUID> = []
+    @State private var selectedTagTypes: Set<Tag.TagType> = []
+    @State private var selectedTagValues: Set<String> = []
+    @State private var showingLayerPopover = false
+    @State private var showingTagTypePopover = false
+    @State private var showingTagValuePopover = false
+    @State private var showingSortPopover = false
+    @State private var layerSearchQuery = ""
+    @State private var tagTypeSearchQuery = ""
+    @State private var tagValueSearchQuery = ""
     @State private var showingCommandPalette = false
     @State private var commandPaletteNode: Node?
     @State private var isSelectionMode = false
@@ -25,13 +31,6 @@ struct NodeManagerView: View {
         case tagCount = "按标签数量"
     }
     
-    enum FilterOption: String, CaseIterable {
-        case withTags = "有标签的"
-        case withoutTags = "无标签的"
-        case withMeaning = "有释义的"
-        case withoutMeaning = "无释义的"
-    }
-    
     // 获取所有可用的标签类型
     var availableTagTypes: [Tag.TagType] {
         let allTypes = store.nodes.flatMap { $0.tags.map { $0.type } }
@@ -41,20 +40,341 @@ struct NodeManagerView: View {
     
     // 获取选中标签类型下的所有标签值
     var availableTagValues: [String] {
-        guard let selectedType = selectedTagType else { return [] }
+        guard !selectedTagTypes.isEmpty else { return [] }
         let allValues = store.nodes.flatMap { node in
-            node.tags.filter { $0.type == selectedType }.map { $0.value }
+            node.tags.filter { selectedTagTypes.contains($0.type) }.map { $0.value }
         }
         let uniqueValues = Array(Set(allValues))
         return uniqueValues.sorted()
+    }
+    
+    // 过滤后的层级列表
+    var filteredLayers: [Layer] {
+        if layerSearchQuery.isEmpty {
+            return store.layers
+        } else {
+            return store.layers.filter { layer in
+                layer.displayName.localizedCaseInsensitiveContains(layerSearchQuery)
+            }
+        }
+    }
+    
+    // 过滤后的标签类型列表
+    var filteredTagTypes: [Tag.TagType] {
+        if tagTypeSearchQuery.isEmpty {
+            return availableTagTypes
+        } else {
+            return availableTagTypes.filter { tagType in
+                tagType.displayName.localizedCaseInsensitiveContains(tagTypeSearchQuery)
+            }
+        }
+    }
+    
+    // 过滤后的标签值列表
+    var filteredTagValues: [String] {
+        if tagValueSearchQuery.isEmpty {
+            return availableTagValues
+        } else {
+            return availableTagValues.filter { value in
+                value.localizedCaseInsensitiveContains(tagValueSearchQuery)
+            }
+        }
+    }
+    
+    // 按钮组件
+    @ViewBuilder
+    var filterButtons: some View {
+        layerButton
+        tagTypeButton
+        tagValueButton
+        sortButton
+        modeButton
+    }
+    
+    @ViewBuilder
+    var layerButton: some View {
+        Button(action: {
+            showingLayerPopover.toggle()
+        }) {
+            HStack {
+                Image(systemName: "folder")
+                Text(selectedLayerIds.isEmpty ? "全部层级" : "层级(\(selectedLayerIds.count))")
+            }
+            .foregroundColor(.orange)
+        }
+        .help("层级筛选")
+        .popover(isPresented: $showingLayerPopover) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("选择层级")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                    
+                    Spacer()
+                    
+                    Button("清除所有") {
+                        selectedLayerIds.removeAll()
+                        showingLayerPopover = false
+                        layerSearchQuery = ""
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .disabled(selectedLayerIds.isEmpty)
+                }
+                .padding(.bottom, 8)
+                
+                TextField("搜索层级...", text: $layerSearchQuery)
+                    .textFieldStyle(.roundedBorder)
+                    .controlSize(.small)
+                
+                Divider()
+                
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(filteredLayers, id: \.id) { layer in
+                            Button(action: {
+                                if selectedLayerIds.contains(layer.id) {
+                                    selectedLayerIds.remove(layer.id)
+                                } else {
+                                    selectedLayerIds.insert(layer.id)
+                                }
+                            }) {
+                                HStack {
+                                    Image(systemName: selectedLayerIds.contains(layer.id) ? "checkmark.square.fill" : "square")
+                                        .foregroundColor(selectedLayerIds.contains(layer.id) ? .orange : .secondary)
+                                    Text(layer.displayName)
+                                    Spacer()
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.vertical, 2)
+                        }
+                    }
+                }
+            }
+            .padding()
+            .frame(width: 250)
+            .frame(maxHeight: 400)
+        }
+    }
+    
+    @ViewBuilder
+    var tagTypeButton: some View {
+        Button(action: {
+            showingTagTypePopover.toggle()
+        }) {
+            HStack {
+                Image(systemName: "tag")
+                Text(selectedTagTypes.isEmpty ? "标签类型" : "类型(\(selectedTagTypes.count))")
+            }
+            .foregroundColor(.blue)
+        }
+        .help("标签类型筛选")
+        .popover(isPresented: $showingTagTypePopover) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("选择标签类型")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                    
+                    Spacer()
+                    
+                    Button("清除所有") {
+                        selectedTagTypes.removeAll()
+                        selectedTagValues.removeAll()
+                        showingTagTypePopover = false
+                        tagTypeSearchQuery = ""
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .disabled(selectedTagTypes.isEmpty)
+                }
+                .padding(.bottom, 8)
+                
+                TextField("搜索标签类型...", text: $tagTypeSearchQuery)
+                    .textFieldStyle(.roundedBorder)
+                    .controlSize(.small)
+                
+                Divider()
+                
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(filteredTagTypes, id: \.rawValue) { tagType in
+                            Button(action: {
+                                if selectedTagTypes.contains(tagType) {
+                                    selectedTagTypes.remove(tagType)
+                                    if selectedTagTypes.isEmpty {
+                                        selectedTagValues.removeAll()
+                                    }
+                                } else {
+                                    selectedTagTypes.insert(tagType)
+                                }
+                            }) {
+                                HStack {
+                                    Image(systemName: selectedTagTypes.contains(tagType) ? "checkmark.square.fill" : "square")
+                                        .foregroundColor(selectedTagTypes.contains(tagType) ? .blue : .secondary)
+                                    Text(tagType.displayName)
+                                    Spacer()
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.vertical, 2)
+                        }
+                    }
+                }
+            }
+            .padding()
+            .frame(width: 250)
+            .frame(maxHeight: 400)
+        }
+    }
+    
+    @ViewBuilder
+    var tagValueButton: some View {
+        Button(action: {
+            showingTagValuePopover.toggle()
+        }) {
+            HStack {
+                Image(systemName: "textformat")
+                Text(selectedTagValues.isEmpty ? "标签值" : "值(\(selectedTagValues.count))")
+            }
+            .foregroundColor(.green)
+        }
+        .help("标签值筛选")
+        .disabled(selectedTagTypes.isEmpty)
+        .popover(isPresented: $showingTagValuePopover) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("选择标签值")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                    
+                    Spacer()
+                    
+                    Button("清除所有") {
+                        selectedTagValues.removeAll()
+                        showingTagValuePopover = false
+                        tagValueSearchQuery = ""
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .disabled(selectedTagValues.isEmpty)
+                }
+                .padding(.bottom, 8)
+                
+                TextField("搜索标签值...", text: $tagValueSearchQuery)
+                    .textFieldStyle(.roundedBorder)
+                    .controlSize(.small)
+                    .disabled(availableTagValues.isEmpty)
+                
+                Divider()
+                
+                if availableTagValues.isEmpty {
+                    Text("请先选择标签类型")
+                        .foregroundColor(.secondary)
+                        .padding()
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(filteredTagValues, id: \.self) { tagValue in
+                                Button(action: {
+                                    if selectedTagValues.contains(tagValue) {
+                                        selectedTagValues.remove(tagValue)
+                                    } else {
+                                        selectedTagValues.insert(tagValue)
+                                    }
+                                }) {
+                                    HStack {
+                                        Image(systemName: selectedTagValues.contains(tagValue) ? "checkmark.square.fill" : "square")
+                                            .foregroundColor(selectedTagValues.contains(tagValue) ? .green : .secondary)
+                                        Text(tagValue)
+                                        Spacer()
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                                .padding(.vertical, 2)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding()
+            .frame(width: 250)
+            .frame(maxHeight: 400)
+        }
+    }
+    
+    @ViewBuilder
+    var sortButton: some View {
+        Button(action: {
+            showingSortPopover.toggle()
+        }) {
+            HStack {
+                Image(systemName: "arrow.up.arrow.down")
+                Text(sortOption.rawValue)
+            }
+            .foregroundColor(.blue)
+        }
+        .help("排序选项")
+        .popover(isPresented: $showingSortPopover) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("选择排序方式")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                    
+                    Spacer()
+                }
+                .padding(.bottom, 8)
+                
+                Divider()
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(SortOption.allCases, id: \.self) { option in
+                        Button(action: {
+                            sortOption = option
+                            showingSortPopover = false
+                        }) {
+                            HStack {
+                                Image(systemName: sortOption == option ? "checkmark.circle.fill" : "circle")
+                                    .foregroundColor(sortOption == option ? .blue : .secondary)
+                                Text(option.rawValue)
+                                Spacer()
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+            .padding()
+            .frame(width: 200)
+        }
+    }
+    
+    @ViewBuilder
+    var modeButton: some View {
+        Button(action: {
+            isSelectionMode.toggle()
+            if !isSelectionMode {
+                selectedNodes.removeAll()
+            }
+        }) {
+            HStack {
+                Image(systemName: isSelectionMode ? "checkmark.circle.fill" : "cursor.rays")
+                Text(isSelectionMode ? "选择模式" : "编辑模式")
+            }
+            .foregroundColor(isSelectionMode ? .orange : .blue)
+        }
+        .help(isSelectionMode ? "点击切换到编辑模式" : "点击切换到选择模式")
     }
     
     var filteredAndSortedNodes: [Node] {
         var nodes = store.nodes
         
         // 层级筛选
-        if let layerId = selectedLayerId {
-            nodes = nodes.filter { $0.layerId == layerId }
+        if !selectedLayerIds.isEmpty {
+            nodes = nodes.filter { selectedLayerIds.contains($0.layerId) }
         }
         
         // 如果有搜索查询，优先显示搜索结果，忽略selectedTag过滤
@@ -74,29 +394,17 @@ struct NodeManagerView: View {
             nodes = nodes.filter { $0.hasTag(selectedTag) }
         }
         
-        // 应用过滤器
-        switch filterOption {
-        case .withTags:
-            nodes = nodes.filter { !$0.tags.isEmpty }
-        case .withoutTags:
-            nodes = nodes.filter { $0.tags.isEmpty }
-        case .withMeaning:
-            nodes = nodes.filter { $0.meaning != nil && !$0.meaning!.isEmpty }
-        case .withoutMeaning:
-            nodes = nodes.filter { $0.meaning == nil || $0.meaning!.isEmpty }
-        }
-        
         // 应用标签类型过滤
-        if let selectedType = selectedTagType {
+        if !selectedTagTypes.isEmpty {
             nodes = nodes.filter { node in
-                node.tags.contains { $0.type == selectedType }
+                node.tags.contains { selectedTagTypes.contains($0.type) }
             }
         }
         
         // 应用标签值过滤
-        if let selectedValue = selectedTagValue {
+        if !selectedTagValues.isEmpty {
             nodes = nodes.filter { node in
-                node.tags.contains { $0.value == selectedValue }
+                node.tags.contains { selectedTagValues.contains($0.value) }
             }
         }
         
@@ -153,69 +461,18 @@ struct NodeManagerView: View {
                                 .help("清除标签过滤")
                             }
                         }
-                        
-                        if let layerId = selectedLayerId,
-                           let layer = store.layers.first(where: { $0.id == layerId }) {
-                            HStack(spacing: 4) {
-                                Text("层级: \(layer.displayName)")
-                                    .font(.caption)
-                                    .foregroundColor(.orange)
-                                
-                                Button("✕") {
-                                    selectedLayerId = nil
-                                }
-                                .font(.caption)
-                                .foregroundColor(.orange)
-                                .buttonStyle(.plain)
-                                .help("清除层级筛选")
-                            }
-                        }
-                        
-                        if let selectedType = selectedTagType {
-                            HStack(spacing: 4) {
-                                Text("类型: \(selectedType.displayName)")
-                                    .font(.caption)
-                                    .foregroundColor(.blue)
-                                
-                                Button("✕") {
-                                    selectedTagType = nil
-                                    selectedTagValue = nil
-                                }
-                                .font(.caption)
-                                .foregroundColor(.blue)
-                                .buttonStyle(.plain)
-                                .help("清除标签类型筛选")
-                            }
-                        }
-                        
-                        if let selectedValue = selectedTagValue {
-                            HStack(spacing: 4) {
-                                Text("值: \(selectedValue)")
-                                    .font(.caption)
-                                    .foregroundColor(.green)
-                                
-                                Button("✕") {
-                                    selectedTagValue = nil
-                                }
-                                .font(.caption)
-                                .foregroundColor(.green)
-                                .buttonStyle(.plain)
-                                .help("清除标签值筛选")
-                            }
-                        }
                     }
                 }
                 
                 Spacer()
                 
-                // 搜索框
+                // 搜索框 (可以任意压缩)
                 HStack {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(.secondary)
                     
                     TextField("搜索节点、释义、音标或标签...", text: $localSearchQuery)
                         .textFieldStyle(.plain)
-                        .frame(width: 200)
                         .focused($isSearchFieldFocused)
                         .onChange(of: localSearchQuery) { oldValue, newValue in
                             print("🔤 NodeManagerView: localSearchQuery changed from '\(oldValue)' to '\(newValue)'")
@@ -239,173 +496,32 @@ struct NodeManagerView: View {
                     RoundedRectangle(cornerRadius: 8)
                         .fill(Color(NSColor.controlBackgroundColor))
                 )
+                .frame(minWidth: 100)  // 设置最小宽度，允许任意压缩
+                .layoutPriority(-1)    // 最低优先级，优先压缩
                 
-                // 过滤器
-                Menu {
-                    ForEach(FilterOption.allCases, id: \.self) { option in
-                        Button(action: {
-                            filterOption = option
-                        }) {
-                            HStack {
-                                Text(option.rawValue)
-                                if filterOption == option {
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                    }
-                } label: {
-                    HStack {
-                        Image(systemName: "line.3.horizontal.decrease.circle")
-                        Text(filterOption.rawValue)
-                    }
-                    .foregroundColor(.blue)
-                }
-                .help("过滤选项")
+                Spacer(minLength: 8)
                 
-                // 层级选择器
-                Menu {
-                    Button(action: {
-                        selectedLayerId = nil
-                    }) {
-                        HStack {
-                            Text("全部层级")
-                            if selectedLayerId == nil {
-                                Image(systemName: "checkmark")
-                            }
-                        }
+                // 筛选按钮组 (支持换行)
+                ViewThatFits {
+                    // 尝试单行显示
+                    HStack(spacing: 4) {
+                        filterButtons
                     }
                     
-                    ForEach(store.layers, id: \.id) { layer in
-                        Button(action: {
-                            selectedLayerId = layer.id
-                        }) {
-                            HStack {
-                                Text(layer.displayName)
-                                if selectedLayerId == layer.id {
-                                    Image(systemName: "checkmark")
-                                }
-                            }
+                    // 空间不足时换行显示
+                    VStack(spacing: 4) {
+                        HStack(spacing: 4) {
+                            layerButton
+                            tagTypeButton
+                            tagValueButton
+                        }
+                        HStack(spacing: 4) {
+                            sortButton
+                            modeButton
+                            Spacer()
                         }
                     }
-                } label: {
-                    HStack {
-                        Image(systemName: "folder")
-                        Text(selectedLayerId == nil ? "全部层级" : 
-                             store.layers.first { $0.id == selectedLayerId }?.displayName ?? "未知层级")
-                    }
-                    .foregroundColor(.orange)
                 }
-                .help("层级筛选")
-                
-                // 标签类型过滤器
-                Menu {
-                    Button(action: {
-                        selectedTagType = nil
-                        selectedTagValue = nil
-                    }) {
-                        HStack {
-                            Text("全部类型")
-                            if selectedTagType == nil {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                    
-                    ForEach(availableTagTypes, id: \.rawValue) { tagType in
-                        Button(action: {
-                            selectedTagType = tagType
-                            selectedTagValue = nil
-                        }) {
-                            HStack {
-                                Text(tagType.displayName)
-                                if selectedTagType == tagType {
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                    }
-                } label: {
-                    HStack {
-                        Image(systemName: "tag")
-                        Text(selectedTagType?.displayName ?? "标签类型")
-                    }
-                    .foregroundColor(.blue)
-                }
-                .help("标签类型筛选")
-                
-                // 标签值过滤器
-                Menu {
-                    Button(action: {
-                        selectedTagValue = nil
-                    }) {
-                        HStack {
-                            Text("全部值")
-                            if selectedTagValue == nil {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                    
-                    ForEach(availableTagValues, id: \.self) { tagValue in
-                        Button(action: {
-                            selectedTagValue = tagValue
-                        }) {
-                            HStack {
-                                Text(tagValue)
-                                if selectedTagValue == tagValue {
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                    }
-                } label: {
-                    HStack {
-                        Image(systemName: "textformat")
-                        Text(selectedTagValue ?? "标签值")
-                    }
-                    .foregroundColor(.green)
-                }
-                .help("标签值筛选")
-                .disabled(selectedTagType == nil)
-                
-                // 排序选项
-                Menu {
-                    ForEach(SortOption.allCases, id: \.self) { option in
-                        Button(action: {
-                            sortOption = option
-                        }) {
-                            HStack {
-                                Text(option.rawValue)
-                                if sortOption == option {
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                    }
-                } label: {
-                    HStack {
-                        Image(systemName: "arrow.up.arrow.down")
-                        Text(sortOption.rawValue)
-                    }
-                    .foregroundColor(.blue)
-                }
-                .help("排序选项")
-                
-                // 模式切换按钮
-                Button(action: {
-                    isSelectionMode.toggle()
-                    if !isSelectionMode {
-                        selectedNodes.removeAll()
-                    }
-                }) {
-                    HStack {
-                        Image(systemName: isSelectionMode ? "checkmark.circle.fill" : "cursor.rays")
-                        Text(isSelectionMode ? "选择模式" : "编辑模式")
-                    }
-                    .foregroundColor(isSelectionMode ? .orange : .blue)
-                }
-                .help(isSelectionMode ? "点击切换到编辑模式" : "点击切换到选择模式")
             }
             .padding()
             .background(Color(NSColor.controlBackgroundColor))
