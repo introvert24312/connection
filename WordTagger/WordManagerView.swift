@@ -10,8 +10,10 @@ struct NodeManagerView: View {
     @State private var searchTask: Task<Void, Never>?
     @State private var showingDeleteAlert = false
     @State private var sortOption: SortOption = .createdDate
-    @State private var filterOption: FilterOption = .all
+    @State private var filterOption: FilterOption = .withTags
     @State private var selectedLayerId: UUID? = nil
+    @State private var selectedTagType: Tag.TagType? = nil
+    @State private var selectedTagValue: String? = nil
     @State private var showingCommandPalette = false
     @State private var commandPaletteNode: Node?
     @State private var isSelectionMode = false
@@ -24,11 +26,27 @@ struct NodeManagerView: View {
     }
     
     enum FilterOption: String, CaseIterable {
-        case all = "全部节点"
         case withTags = "有标签的"
         case withoutTags = "无标签的"
         case withMeaning = "有释义的"
         case withoutMeaning = "无释义的"
+    }
+    
+    // 获取所有可用的标签类型
+    var availableTagTypes: [Tag.TagType] {
+        let allTypes = store.nodes.flatMap { $0.tags.map { $0.type } }
+        let uniqueTypes = Array(Set(allTypes))
+        return uniqueTypes.sorted { $0.displayName < $1.displayName }
+    }
+    
+    // 获取选中标签类型下的所有标签值
+    var availableTagValues: [String] {
+        guard let selectedType = selectedTagType else { return [] }
+        let allValues = store.nodes.flatMap { node in
+            node.tags.filter { $0.type == selectedType }.map { $0.value }
+        }
+        let uniqueValues = Array(Set(allValues))
+        return uniqueValues.sorted()
     }
     
     var filteredAndSortedNodes: [Node] {
@@ -45,7 +63,11 @@ struct NodeManagerView: View {
                 node.text.localizedCaseInsensitiveContains(localSearchQuery) ||
                 (node.meaning?.localizedCaseInsensitiveContains(localSearchQuery) ?? false) ||
                 (node.phonetic?.localizedCaseInsensitiveContains(localSearchQuery) ?? false) ||
-                node.tags.contains { $0.value.localizedCaseInsensitiveContains(localSearchQuery) }
+                node.tags.contains { tag in
+                    tag.value.localizedCaseInsensitiveContains(localSearchQuery) ||
+                    tag.type.displayName.localizedCaseInsensitiveContains(localSearchQuery) ||
+                    tag.type.rawValue.localizedCaseInsensitiveContains(localSearchQuery)
+                }
             }
         } else if let selectedTag = store.selectedTag {
             // 只在没有搜索查询时应用selectedTag过滤
@@ -54,8 +76,6 @@ struct NodeManagerView: View {
         
         // 应用过滤器
         switch filterOption {
-        case .all:
-            break
         case .withTags:
             nodes = nodes.filter { !$0.tags.isEmpty }
         case .withoutTags:
@@ -64,6 +84,20 @@ struct NodeManagerView: View {
             nodes = nodes.filter { $0.meaning != nil && !$0.meaning!.isEmpty }
         case .withoutMeaning:
             nodes = nodes.filter { $0.meaning == nil || $0.meaning!.isEmpty }
+        }
+        
+        // 应用标签类型过滤
+        if let selectedType = selectedTagType {
+            nodes = nodes.filter { node in
+                node.tags.contains { $0.type == selectedType }
+            }
+        }
+        
+        // 应用标签值过滤
+        if let selectedValue = selectedTagValue {
+            nodes = nodes.filter { node in
+                node.tags.contains { $0.value == selectedValue }
+            }
         }
         
         // 应用排序
@@ -123,7 +157,7 @@ struct NodeManagerView: View {
                         if let layerId = selectedLayerId,
                            let layer = store.layers.first(where: { $0.id == layerId }) {
                             HStack(spacing: 4) {
-                                Text("层级: \(layer.name)")
+                                Text("层级: \(layer.displayName)")
                                     .font(.caption)
                                     .foregroundColor(.orange)
                                 
@@ -134,6 +168,39 @@ struct NodeManagerView: View {
                                 .foregroundColor(.orange)
                                 .buttonStyle(.plain)
                                 .help("清除层级筛选")
+                            }
+                        }
+                        
+                        if let selectedType = selectedTagType {
+                            HStack(spacing: 4) {
+                                Text("类型: \(selectedType.displayName)")
+                                    .font(.caption)
+                                    .foregroundColor(.blue)
+                                
+                                Button("✕") {
+                                    selectedTagType = nil
+                                    selectedTagValue = nil
+                                }
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                                .buttonStyle(.plain)
+                                .help("清除标签类型筛选")
+                            }
+                        }
+                        
+                        if let selectedValue = selectedTagValue {
+                            HStack(spacing: 4) {
+                                Text("值: \(selectedValue)")
+                                    .font(.caption)
+                                    .foregroundColor(.green)
+                                
+                                Button("✕") {
+                                    selectedTagValue = nil
+                                }
+                                .font(.caption)
+                                .foregroundColor(.green)
+                                .buttonStyle(.plain)
+                                .help("清除标签值筛选")
                             }
                         }
                     }
@@ -214,7 +281,7 @@ struct NodeManagerView: View {
                             selectedLayerId = layer.id
                         }) {
                             HStack {
-                                Text(layer.name)
+                                Text(layer.displayName)
                                 if selectedLayerId == layer.id {
                                     Image(systemName: "checkmark")
                                 }
@@ -225,11 +292,82 @@ struct NodeManagerView: View {
                     HStack {
                         Image(systemName: "folder")
                         Text(selectedLayerId == nil ? "全部层级" : 
-                             store.layers.first { $0.id == selectedLayerId }?.name ?? "未知层级")
+                             store.layers.first { $0.id == selectedLayerId }?.displayName ?? "未知层级")
                     }
                     .foregroundColor(.orange)
                 }
                 .help("层级筛选")
+                
+                // 标签类型过滤器
+                Menu {
+                    Button(action: {
+                        selectedTagType = nil
+                        selectedTagValue = nil
+                    }) {
+                        HStack {
+                            Text("全部类型")
+                            if selectedTagType == nil {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                    
+                    ForEach(availableTagTypes, id: \.rawValue) { tagType in
+                        Button(action: {
+                            selectedTagType = tagType
+                            selectedTagValue = nil
+                        }) {
+                            HStack {
+                                Text(tagType.displayName)
+                                if selectedTagType == tagType {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "tag")
+                        Text(selectedTagType?.displayName ?? "标签类型")
+                    }
+                    .foregroundColor(.blue)
+                }
+                .help("标签类型筛选")
+                
+                // 标签值过滤器
+                Menu {
+                    Button(action: {
+                        selectedTagValue = nil
+                    }) {
+                        HStack {
+                            Text("全部值")
+                            if selectedTagValue == nil {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                    
+                    ForEach(availableTagValues, id: \.self) { tagValue in
+                        Button(action: {
+                            selectedTagValue = tagValue
+                        }) {
+                            HStack {
+                                Text(tagValue)
+                                if selectedTagValue == tagValue {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "textformat")
+                        Text(selectedTagValue ?? "标签值")
+                    }
+                    .foregroundColor(.green)
+                }
+                .help("标签值筛选")
+                .disabled(selectedTagType == nil)
                 
                 // 排序选项
                 Menu {
