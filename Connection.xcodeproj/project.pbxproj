@@ -1,0 +1,520 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		54209B7C2E3F248300388A1B /* ExternalDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54209B7B2E3F248300388A1B /* ExternalDataService.swift */; };
+		54209B7D2E3F248300388A1B /* ExternalDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54209B7A2E3F248300388A1B /* ExternalDataManager.swift */; };
+		543A3C992E741C5500B8AE06 /* NodeFolderManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 543A3C982E741C5500B8AE06 /* NodeFolderManager.swift */; };
+		547AE60B2E7813F200A8EFAC /* LayerGraphPresetManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 547AE60A2E7813F200A8EFAC /* LayerGraphPresetManagerView.swift */; };
+		54831DBD2E64470E00CD4724 /* TagBatchManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54831DBC2E64470E00CD4724 /* TagBatchManagementView.swift */; };
+		54831DBF2E64473500CD4724 /* TagUsageVisualizationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54831DBE2E64473500CD4724 /* TagUsageVisualizationView.swift */; };
+		54831DC42E64D09600CD4724 /* TagTypeGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54831DC32E64D09600CD4724 /* TagTypeGraphView.swift */; };
+		54831DC62E64E12700CD4724 /* FullscreenTagTypeGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54831DC52E64E12700CD4724 /* FullscreenTagTypeGraphView.swift */; };
+		A001 /* WordTaggerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101 /* WordTaggerApp.swift */; };
+		A002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B102 /* ContentView.swift */; };
+		A003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B103 /* Assets.xcassets */; };
+		A004 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = B104 /* Models.swift */; };
+		A005 /* Store.swift in Sources */ = {isa = PBXBuildFile; fileRef = B105 /* Store.swift */; };
+		A006 /* Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B106 /* Extensions.swift */; };
+		A007 /* SearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B107 /* SearchService.swift */; };
+		A008 /* Geocoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B108 /* Geocoder.swift */; };
+		A009 /* GraphService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B109 /* GraphService.swift */; };
+		A010 /* CommandParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B110 /* CommandParser.swift */; };
+		A011 /* GraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B111 /* GraphView.swift */; };
+		A012 /* MapContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B112 /* MapContainer.swift */; };
+		A013 /* CommandPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B113 /* CommandPaletteView.swift */; };
+		A014 /* DetailPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B114 /* DetailPanel.swift */; };
+		A015 /* TagSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B115 /* TagSidebarView.swift */; };
+		A016 /* WordListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B116 /* WordListView.swift */; };
+		A017 /* MapWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B117 /* MapWindow.swift */; };
+		A018 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B118 /* SettingsView.swift */; };
+		A020 /* UniversalRelationshipGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B121 /* UniversalRelationshipGraphView.swift */; };
+		A021 /* WordManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B122 /* WordManagerView.swift */; };
+		A022 /* KeyboardEventManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B123 /* KeyboardEventManager.swift */; };
+		A023 /* NodeContextMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B124 /* NodeContextMenuView.swift */; };
+		A024 /* NodeEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B125 /* NodeEditorSheet.swift */; };
+		A025 /* NodeExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B126 /* NodeExtensions.swift */; };
+		A026 /* NodeContextGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B127 /* NodeContextGraphView.swift */; };
+		IN1E39G6Y34HG9UURGVXCEV9 /* GlobalTagGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6U00WS1Z0BEM1E0G3PQC7O8V /* GlobalTagGraphView.swift */; };
+		L001 /* LayerGraphWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = L100 /* LayerGraphWindowView.swift */; };
+		L002 /* LayerGraphPresetManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = L101 /* LayerGraphPresetManager.swift */; };
+		MR8R1RM3FTLQLCAQRR1XGJGF /* NewTagIndexBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = XIGWDDQHBCE8WQO56X0ZQO7Z /* NewTagIndexBoard.swift */; };
+		N001 /* NodeGraphPresetManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = N100 /* NodeGraphPresetManager.swift */; };
+		N002 /* NodeGraphDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = N101 /* NodeGraphDataManager.swift */; };
+		N003 /* NodeBoardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = N102 /* NodeBoardView.swift */; };
+		N004 /* NodeSelectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = N103 /* NodeSelectorView.swift */; };
+		N005 /* LayerSelectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = N104 /* LayerSelectorView.swift */; };
+		N006 /* NodeGraphPresetManagerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = N105 /* NodeGraphPresetManagerView.swift */; };
+		OE33980ORF4VZBIIRH8YSAZ9 /* GlobalTagGraphSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = G3586Z8DANM2G65L0T6DV8ET /* GlobalTagGraphSystem.swift */; };
+		R001 /* Resources in Resources */ = {isa = PBXBuildFile; fileRef = R100 /* Resources */; };
+		R002 /* ResourceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = R101 /* ResourceManager.swift */; };
+		V001 /* VditorWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = V100 /* VditorWebView.swift */; };
+		W001 /* WindowFocusManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = W100 /* WindowFocusManager.swift */; };
+		W002 /* TagGraphWindowManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = W101 /* TagGraphWindowManager.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		54209B7A2E3F248300388A1B /* ExternalDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalDataManager.swift; sourceTree = "<group>"; };
+		54209B7B2E3F248300388A1B /* ExternalDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalDataService.swift; sourceTree = "<group>"; };
+		543A3C982E741C5500B8AE06 /* NodeFolderManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeFolderManager.swift; sourceTree = "<group>"; };
+		547AE60A2E7813F200A8EFAC /* LayerGraphPresetManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayerGraphPresetManagerView.swift; sourceTree = "<group>"; };
+		54831DBC2E64470E00CD4724 /* TagBatchManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagBatchManagementView.swift; sourceTree = "<group>"; };
+		54831DBE2E64473500CD4724 /* TagUsageVisualizationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagUsageVisualizationView.swift; sourceTree = "<group>"; };
+		54831DC32E64D09600CD4724 /* TagTypeGraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagTypeGraphView.swift; sourceTree = "<group>"; };
+		54831DC52E64E12700CD4724 /* FullscreenTagTypeGraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullscreenTagTypeGraphView.swift; sourceTree = "<group>"; };
+		6U00WS1Z0BEM1E0G3PQC7O8V /* GlobalTagGraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalTagGraphView.swift; sourceTree = "<group>"; };
+		B101 /* WordTaggerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordTaggerApp.swift; sourceTree = "<group>"; };
+		B102 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		B103 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B104 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		B105 /* Store.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Store.swift; sourceTree = "<group>"; };
+		B106 /* Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Extensions.swift; sourceTree = "<group>"; };
+		B107 /* SearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchService.swift; sourceTree = "<group>"; };
+		B108 /* Geocoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geocoder.swift; sourceTree = "<group>"; };
+		B109 /* GraphService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphService.swift; sourceTree = "<group>"; };
+		B110 /* CommandParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandParser.swift; sourceTree = "<group>"; };
+		B111 /* GraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphView.swift; sourceTree = "<group>"; };
+		B112 /* MapContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapContainer.swift; sourceTree = "<group>"; };
+		B113 /* CommandPaletteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteView.swift; sourceTree = "<group>"; };
+		B114 /* DetailPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailPanel.swift; sourceTree = "<group>"; };
+		B115 /* TagSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagSidebarView.swift; sourceTree = "<group>"; };
+		B116 /* WordListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordListView.swift; sourceTree = "<group>"; };
+		B117 /* MapWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapWindow.swift; sourceTree = "<group>"; };
+		B118 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		B120 /* WordTagger.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WordTagger.entitlements; sourceTree = "<group>"; };
+		B121 /* UniversalRelationshipGraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UniversalRelationshipGraphView.swift; sourceTree = "<group>"; };
+		B122 /* WordManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordManagerView.swift; sourceTree = "<group>"; };
+		B123 /* KeyboardEventManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardEventManager.swift; sourceTree = "<group>"; };
+		B124 /* NodeContextMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeContextMenuView.swift; sourceTree = "<group>"; };
+		B125 /* NodeEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeEditorSheet.swift; sourceTree = "<group>"; };
+		B126 /* NodeExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeExtensions.swift; sourceTree = "<group>"; };
+		B127 /* NodeContextGraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeContextGraphView.swift; sourceTree = "<group>"; };
+		C100 /* Connection.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Connection.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		G3586Z8DANM2G65L0T6DV8ET /* GlobalTagGraphSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalTagGraphSystem.swift; sourceTree = "<group>"; };
+		L100 /* LayerGraphWindowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayerGraphWindowView.swift; sourceTree = "<group>"; };
+		L101 /* LayerGraphPresetManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayerGraphPresetManager.swift; sourceTree = "<group>"; };
+		N100 /* NodeGraphPresetManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeGraphPresetManager.swift; sourceTree = "<group>"; };
+		N101 /* NodeGraphDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeGraphDataManager.swift; sourceTree = "<group>"; };
+		N102 /* NodeBoardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeBoardView.swift; sourceTree = "<group>"; };
+		N103 /* NodeSelectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeSelectorView.swift; sourceTree = "<group>"; };
+		N104 /* LayerSelectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayerSelectorView.swift; sourceTree = "<group>"; };
+		N105 /* NodeGraphPresetManagerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeGraphPresetManagerView.swift; sourceTree = "<group>"; };
+		R100 /* Resources */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Resources; sourceTree = "<group>"; };
+		R101 /* ResourceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceManager.swift; sourceTree = "<group>"; };
+		V100 /* VditorWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VditorWebView.swift; sourceTree = "<group>"; };
+		W100 /* WindowFocusManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowFocusManager.swift; sourceTree = "<group>"; };
+		W101 /* TagGraphWindowManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagGraphWindowManager.swift; sourceTree = "<group>"; };
+		XIGWDDQHBCE8WQO56X0ZQO7Z /* NewTagIndexBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewTagIndexBoard.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D200 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		E300 = {
+			isa = PBXGroup;
+			children = (
+				E302 /* WordTagger */,
+				E301 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		E301 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C100 /* Connection.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		E302 /* WordTagger */ = {
+			isa = PBXGroup;
+			children = (
+				547AE60A2E7813F200A8EFAC /* LayerGraphPresetManagerView.swift */,
+				54831DBE2E64473500CD4724 /* TagUsageVisualizationView.swift */,
+				G3586Z8DANM2G65L0T6DV8ET /* GlobalTagGraphSystem.swift */,
+				6U00WS1Z0BEM1E0G3PQC7O8V /* GlobalTagGraphView.swift */,
+				XIGWDDQHBCE8WQO56X0ZQO7Z /* NewTagIndexBoard.swift */,
+				L100 /* LayerGraphWindowView.swift */,
+				L101 /* LayerGraphPresetManager.swift */,
+				N100 /* NodeGraphPresetManager.swift */,
+				N101 /* NodeGraphDataManager.swift */,
+				N102 /* NodeBoardView.swift */,
+				N103 /* NodeSelectorView.swift */,
+				N104 /* LayerSelectorView.swift */,
+				N105 /* NodeGraphPresetManagerView.swift */,
+				54831DBC2E64470E00CD4724 /* TagBatchManagementView.swift */,
+				54209B7A2E3F248300388A1B /* ExternalDataManager.swift */,
+				54209B7B2E3F248300388A1B /* ExternalDataService.swift */,
+				B101 /* WordTaggerApp.swift */,
+				B102 /* ContentView.swift */,
+				B104 /* Models.swift */,
+				B105 /* Store.swift */,
+				B106 /* Extensions.swift */,
+				B107 /* SearchService.swift */,
+				B108 /* Geocoder.swift */,
+				B109 /* GraphService.swift */,
+				B110 /* CommandParser.swift */,
+				B111 /* GraphView.swift */,
+				B112 /* MapContainer.swift */,
+				B113 /* CommandPaletteView.swift */,
+				B114 /* DetailPanel.swift */,
+				B115 /* TagSidebarView.swift */,
+				B116 /* WordListView.swift */,
+				B117 /* MapWindow.swift */,
+				B118 /* SettingsView.swift */,
+				B121 /* UniversalRelationshipGraphView.swift */,
+				B122 /* WordManagerView.swift */,
+				B123 /* KeyboardEventManager.swift */,
+				B124 /* NodeContextMenuView.swift */,
+				B125 /* NodeEditorSheet.swift */,
+				B126 /* NodeExtensions.swift */,
+				B127 /* NodeContextGraphView.swift */,
+				W100 /* WindowFocusManager.swift */,
+				W101 /* TagGraphWindowManager.swift */,
+				B103 /* Assets.xcassets */,
+				B120 /* WordTagger.entitlements */,
+				R100 /* Resources */,
+				R101 /* ResourceManager.swift */,
+				V100 /* VditorWebView.swift */,
+				54831DC32E64D09600CD4724 /* TagTypeGraphView.swift */,
+				54831DC52E64E12700CD4724 /* FullscreenTagTypeGraphView.swift */,
+				543A3C982E741C5500B8AE06 /* NodeFolderManager.swift */,
+			);
+			path = WordTagger;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		F400 /* Connection */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = G500 /* Build configuration list for PBXNativeTarget "Connection" */;
+			buildPhases = (
+				F401 /* Sources */,
+				D200 /* Frameworks */,
+				F402 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Connection;
+			productName = Connection;
+			productReference = C100 /* Connection.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		H600 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1540;
+				LastUpgradeCheck = 1640;
+				TargetAttributes = {
+					F400 = {
+						CreatedOnToolsVersion = 15.4;
+					};
+				};
+			};
+			buildConfigurationList = H601 /* Build configuration list for PBXProject "Connection" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = E300;
+			productRefGroup = E301 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				F400 /* Connection */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		F402 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A003 /* Assets.xcassets in Resources */,
+				R001 /* Resources in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		F401 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A002 /* ContentView.swift in Sources */,
+				54831DBF2E64473500CD4724 /* TagUsageVisualizationView.swift in Sources */,
+				OE33980ORF4VZBIIRH8YSAZ9 /* GlobalTagGraphSystem.swift in Sources */,
+				IN1E39G6Y34HG9UURGVXCEV9 /* GlobalTagGraphView.swift in Sources */,
+				MR8R1RM3FTLQLCAQRR1XGJGF /* NewTagIndexBoard.swift in Sources */,
+				L001 /* LayerGraphWindowView.swift in Sources */,
+				L002 /* LayerGraphPresetManager.swift in Sources */,
+				N001 /* NodeGraphPresetManager.swift in Sources */,
+				N002 /* NodeGraphDataManager.swift in Sources */,
+				N003 /* NodeBoardView.swift in Sources */,
+				N004 /* NodeSelectorView.swift in Sources */,
+				N005 /* LayerSelectorView.swift in Sources */,
+				547AE60B2E7813F200A8EFAC /* LayerGraphPresetManagerView.swift in Sources */,
+				N006 /* NodeGraphPresetManagerView.swift in Sources */,
+				A001 /* WordTaggerApp.swift in Sources */,
+				A004 /* Models.swift in Sources */,
+				54831DBD2E64470E00CD4724 /* TagBatchManagementView.swift in Sources */,
+				A005 /* Store.swift in Sources */,
+				A006 /* Extensions.swift in Sources */,
+				A007 /* SearchService.swift in Sources */,
+				A008 /* Geocoder.swift in Sources */,
+				A009 /* GraphService.swift in Sources */,
+				A010 /* CommandParser.swift in Sources */,
+				A011 /* GraphView.swift in Sources */,
+				A012 /* MapContainer.swift in Sources */,
+				A013 /* CommandPaletteView.swift in Sources */,
+				A014 /* DetailPanel.swift in Sources */,
+				A015 /* TagSidebarView.swift in Sources */,
+				A016 /* WordListView.swift in Sources */,
+				A017 /* MapWindow.swift in Sources */,
+				A018 /* SettingsView.swift in Sources */,
+				A020 /* UniversalRelationshipGraphView.swift in Sources */,
+				543A3C992E741C5500B8AE06 /* NodeFolderManager.swift in Sources */,
+				54209B7C2E3F248300388A1B /* ExternalDataService.swift in Sources */,
+				54209B7D2E3F248300388A1B /* ExternalDataManager.swift in Sources */,
+				A021 /* WordManagerView.swift in Sources */,
+				A022 /* KeyboardEventManager.swift in Sources */,
+				A023 /* NodeContextMenuView.swift in Sources */,
+				A024 /* NodeEditorSheet.swift in Sources */,
+				A025 /* NodeExtensions.swift in Sources */,
+				A026 /* NodeContextGraphView.swift in Sources */,
+				W001 /* WindowFocusManager.swift in Sources */,
+				W002 /* TagGraphWindowManager.swift in Sources */,
+				R002 /* ResourceManager.swift in Sources */,
+				V001 /* VditorWebView.swift in Sources */,
+				54831DC42E64D09600CD4724 /* TagTypeGraphView.swift in Sources */,
+				54831DC62E64E12700CD4724 /* FullscreenTagTypeGraphView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		I502 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		I503 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		I504 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = WordTagger/WordTagger.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.Connection;
+				PRODUCT_NAME = Connection;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		I505 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = WordTagger/WordTagger.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.Connection;
+				PRODUCT_NAME = Connection;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		G500 /* Build configuration list for PBXNativeTarget "Connection" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				I504 /* Debug */,
+				I505 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		H601 /* Build configuration list for PBXProject "Connection" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				I502 /* Debug */,
+				I503 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = H600 /* Project object */;
+}
