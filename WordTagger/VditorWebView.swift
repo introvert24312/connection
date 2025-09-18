@@ -1191,10 +1191,81 @@ struct VditorWebView: NSViewRepresentable {
                     );
                     
                     if (isInEditor) {
-                      console.log('🎯 Command+K 在编辑器内使用，允许编辑器处理');
-                      // 在编辑器内部时，让 Vditor 处理 Command+K（通常用于插入链接等）
-                      // 不阻止默认行为，让编辑器自己处理
-                      return true;
+                      console.log('🎯 Command+K 在编辑器内使用，自定义插入链接格式');
+                      // 阻止 Vditor 的默认 Command+K 行为（避免插入 https://）
+                      e.preventDefault();
+                      e.stopImmediatePropagation();
+                      
+                      // 获取选中文字并插入到方括号内，模仿原版Vditor的光标定位
+                      try {
+                        // 获取当前选中的文本
+                        const selection = window.getSelection();
+                        const selectedText = selection.toString();
+                        
+                        if (window.vditor && window.vditor.insertValue) {
+                          // 如果有选中文字，先删除选中内容
+                          if (selectedText) {
+                            selection.deleteFromDocument();
+                          }
+                          
+                          // 模仿Vditor原版实现：分步插入并定位光标
+                          // 1. 先插入左方括号和选中文字
+                          window.vditor.insertValue(`[${selectedText}]`);
+                          
+                          // 2. 延迟插入括号，并在插入时定位光标
+                          setTimeout(() => {
+                            try {
+                              // 获取当前光标位置
+                              const currentSel = window.getSelection();
+                              if (currentSel.rangeCount > 0) {
+                                const range = currentSel.getRangeAt(0);
+                                
+                                // 插入()
+                                const textNode = document.createTextNode('()');
+                                range.insertNode(textNode);
+                                
+                                // 将光标定位到)之前
+                                range.setStart(textNode, 1);
+                                range.setEnd(textNode, 1);
+                                currentSel.removeAllRanges();
+                                currentSel.addRange(range);
+                                
+                                console.log('✅ 已插入链接格式并定位光标到()内');
+                              } else {
+                                // 回退到简单方法
+                                window.vditor.insertValue('()');
+                                console.log('✅ 使用简单方法插入()');
+                              }
+                            } catch(positionErr) {
+                              console.error('❌ 光标定位失败，使用简单插入:', positionErr);
+                              window.vditor.insertValue('()');
+                            }
+                          }, 10); // 很短的延迟，让DOM更新
+                          
+                        } else {
+                          // 备用方法：使用原生插入
+                          const linkFormat = `[${selectedText}]()`;
+                          if (selectedText) {
+                            selection.deleteFromDocument();
+                          }
+                          
+                          // 创建文本节点并插入
+                          const range = selection.getRangeAt(0);
+                          const textNode = document.createTextNode(linkFormat);
+                          range.insertNode(textNode);
+                          
+                          // 定位光标到)之前
+                          range.setStart(textNode, linkFormat.length - 1);
+                          range.setEnd(textNode, linkFormat.length - 1);
+                          selection.removeAllRanges();
+                          selection.addRange(range);
+                          
+                          console.log('✅ 使用备用方法插入并定位光标');
+                        }
+                      } catch(err) {
+                        console.error('❌ 插入链接格式失败:', err);
+                      }
+                      return false;
                     } else {
                       console.log('🔥 Command+K 在编辑器外使用，转发给App处理');
                       e.preventDefault();
