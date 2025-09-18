@@ -751,8 +751,7 @@ struct NodeManagerRowView: View {
                 HStack {
                     // 节点文本
                     Text(node.text)
-                        .font(.title3)
-                        .fontWeight(.semibold)
+                        .font(.system(size: 18, weight: .semibold, design: .default))
                         .foregroundColor(.primary)
                     
                     // 音标
