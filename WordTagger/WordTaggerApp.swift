@@ -1470,15 +1470,10 @@ struct QuickAddSheetView: View {
                let latitude = locationData["latitude"] as? Double,
                let longitude = locationData["longitude"] as? Double {
                 
-                if let locationName = locationData["name"] as? String {
-                    let locationCommand = "@\(latitude),\(longitude)[\(locationName)]"
-                    insertLocationIntoInput(locationCommand)
-                    print("🎯 QuickAdd: Using location with name: \(locationName)")
-                } else {
-                    let locationCommand = "@\(latitude),\(longitude)[]"
-                    insertLocationIntoInput(locationCommand)
-                    print("🎯 QuickAdd: Using coordinates only, user needs to fill name")
-                }
+                // 始终只使用坐标，保持[]为空，让用户自己输入地名
+                let locationCommand = "@\(latitude),\(longitude)[]"
+                insertLocationIntoInput(locationCommand)
+                print("🎯 QuickAdd: Using coordinates only, user needs to fill name")
             } else if let locationName = notification.object as? String {
                 insertLocationIntoInput("location \(locationName)")
             }

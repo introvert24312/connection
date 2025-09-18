@@ -1094,15 +1094,9 @@ struct TagEditCommandView: View {
                let latitude = locationData["latitude"] as? Double,
                let longitude = locationData["longitude"] as? Double {
                 
-                // 如果有地名信息，使用地名；否则让用户自己输入
-                let locationCommand: String
-                if let locationName = locationData["name"] as? String {
-                    locationCommand = "loc @\(latitude),\(longitude)[\(locationName)]"
-                    print("🎯 NodeManager: Using location with name: \(locationName)")
-                } else {
-                    locationCommand = "loc @\(latitude),\(longitude)[]"
-                    print("🎯 NodeManager: Using coordinates only, user needs to fill name")
-                }
+                // 始终只使用坐标，保持[]为空，让用户自己输入地名
+                let locationCommand = "loc @\(latitude),\(longitude)[]"
+                print("🎯 NodeManager: Using coordinates only, user needs to fill name")
                 
                 if commandText.isEmpty || commandText == initialCommand {
                     commandText = "\(node.text) \(locationCommand)"
