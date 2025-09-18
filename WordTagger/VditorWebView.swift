@@ -110,52 +110,23 @@ struct VditorWebView: NSViewRepresentable {
 
         // 文本变化：在 ready 后才下发
         if context.coordinator.isReady {
-            // 🚀 增强的内容覆盖保护机制
+            // 🚧 临时禁用内容保护机制 - 调试换行符丢失问题
             let currentContent = context.coordinator.latestMarkdown
             let newContent = markdown
             
-            // 多层保护策略：
-            // 1. 防止空内容或极短内容覆盖有实质内容的现有内容
-            let isNewContentTrivial = newContent.isEmpty || 
-                                     newContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || 
-                                     newContent == "\n" || 
-                                     newContent.count <= 2
+            print("🔍 内容更新（保护机制已禁用）：")
+            print("🔍 当前内容：'\(currentContent)'")
+            print("🔍 新内容：'\(newContent)'")
+            print("🔍 当前内容长度：\(currentContent.count)，新内容长度：\(newContent.count)")
             
-            let hasSubstantialCurrentContent = currentContent.count > 10 // 至少10个字符才算有实质内容
-            
-            if hasSubstantialCurrentContent && isNewContentTrivial {
-                print("🛡️ 第一层保护：阻止空内容覆盖实质内容")
-                print("🛡️ 当前:\(currentContent.count)字符, 新:\(newContent.count)字符")
-                print("🛡️ 新内容: '\(newContent)'")
-                return
-            }
-            
-            // 2. 防止内容大幅缩减（可能是图片插入后被意外覆盖）
-            let thresholdLength = Int(Double(currentContent.count) * 0.3)
-            if !currentContent.isEmpty && newContent.count < thresholdLength {
-                let reductionPercent = Int((1.0 - Double(newContent.count) / Double(currentContent.count)) * 100)
-                print("🛡️ 第二层保护：阻止内容大幅缩减")
-                print("🛡️ 当前:\(currentContent.count)字符, 新:\(newContent.count)字符 (缩减\(reductionPercent)%)")
-                return
-            }
-            
-            // 3. 检测图片链接丢失（特殊保护）
-            let currentImageCount = currentContent.components(separatedBy: "![").count - 1
-            let newImageCount = newContent.components(separatedBy: "![").count - 1
-            
-            if currentImageCount > newImageCount {
-                print("🛡️ 第三层保护：检测到图片链接丢失")
-                print("🛡️ 当前图片数:\(currentImageCount), 新图片数:\(newImageCount)")
-                return
-            }
-            
-            // 4. 如果内容相同，跳过更新避免不必要的重渲染
+            // 只保留最基本的相同内容检查
             if currentContent == newContent {
                 print("🔄 内容相同，跳过更新")
                 return
             }
             
-            print("✅ 内容保护检查通过，更新编辑器内容")
+            print("✅ 直接更新编辑器内容（无保护）")
+            print("🔄 内容更新详情：当前\(currentContent.count)字符 → 新\(newContent.count)字符")
             context.coordinator.setMarkdown(markdown, forceUpdate: false)
         } else {
             context.coordinator.latestMarkdown = markdown
@@ -1196,51 +1167,76 @@ struct VditorWebView: NSViewRepresentable {
                       e.preventDefault();
                       e.stopImmediatePropagation();
                       
-                      // 获取选中文字并插入到方括号内，模仿原版Vditor的光标定位
+                      // 获取选中文字并插入到方括号内，智能光标定位
                       try {
                         // 获取当前选中的文本
                         const selection = window.getSelection();
                         const selectedText = selection.toString();
+                        const hasSelectedText = selectedText && selectedText.trim().length > 0;
                         
                         if (window.vditor && window.vditor.insertValue) {
                           // 如果有选中文字，先删除选中内容
-                          if (selectedText) {
+                          if (hasSelectedText) {
                             selection.deleteFromDocument();
                           }
                           
-                          // 模仿Vditor原版实现：分步插入并定位光标
-                          // 1. 先插入左方括号和选中文字
-                          window.vditor.insertValue(`[${selectedText}]`);
-                          
-                          // 2. 延迟插入括号，并在插入时定位光标
-                          setTimeout(() => {
-                            try {
-                              // 获取当前光标位置
-                              const currentSel = window.getSelection();
-                              if (currentSel.rangeCount > 0) {
-                                const range = currentSel.getRangeAt(0);
-                                
-                                // 插入()
-                                const textNode = document.createTextNode('()');
-                                range.insertNode(textNode);
-                                
-                                // 将光标定位到)之前
-                                range.setStart(textNode, 1);
-                                range.setEnd(textNode, 1);
-                                currentSel.removeAllRanges();
-                                currentSel.addRange(range);
-                                
-                                console.log('✅ 已插入链接格式并定位光标到()内');
-                              } else {
-                                // 回退到简单方法
+                          if (hasSelectedText) {
+                            // 有选中文字：插入[selectedText]()，光标定位到()中
+                            console.log('🎯 有选中文字，光标将定位到()中');
+                            window.vditor.insertValue(`[${selectedText}]`);
+                            
+                            setTimeout(() => {
+                              try {
+                                const currentSel = window.getSelection();
+                                if (currentSel.rangeCount > 0) {
+                                  const range = currentSel.getRangeAt(0);
+                                  
+                                  // 插入()
+                                  const textNode = document.createTextNode('()');
+                                  range.insertNode(textNode);
+                                  
+                                  // 将光标定位到)之前
+                                  range.setStart(textNode, 1);
+                                  range.setEnd(textNode, 1);
+                                  currentSel.removeAllRanges();
+                                  currentSel.addRange(range);
+                                  
+                                  console.log('✅ 已插入链接格式并定位光标到()内');
+                                } else {
+                                  window.vditor.insertValue('()');
+                                  console.log('✅ 使用简单方法插入()');
+                                }
+                              } catch(positionErr) {
+                                console.error('❌ 光标定位失败，使用简单插入:', positionErr);
                                 window.vditor.insertValue('()');
-                                console.log('✅ 使用简单方法插入()');
                               }
-                            } catch(positionErr) {
-                              console.error('❌ 光标定位失败，使用简单插入:', positionErr);
-                              window.vditor.insertValue('()');
+                            }, 10);
+                          } else {
+                            // 没有选中文字：插入[]()，光标定位到[]中
+                            console.log('🎯 没有选中文字，光标将定位到[]中');
+                            
+                            // 先记录当前光标位置
+                            const currentSel = window.getSelection();
+                            if (currentSel.rangeCount > 0) {
+                              const range = currentSel.getRangeAt(0);
+                              
+                              // 创建完整的链接格式文本节点
+                              const linkText = document.createTextNode('[]()');
+                              range.insertNode(linkText);
+                              
+                              // 将光标定位到]之前（即[]中间）
+                              range.setStart(linkText, 1);
+                              range.setEnd(linkText, 1);
+                              currentSel.removeAllRanges();
+                              currentSel.addRange(range);
+                              
+                              console.log('✅ 已插入空链接格式并定位光标到[]内');
+                            } else {
+                              // 回退方法
+                              window.vditor.insertValue('[]()');
+                              console.log('✅ 使用简单方法插入[]()');
                             }
-                          }, 10); // 很短的延迟，让DOM更新
+                          }
                           
                         } else {
                           // 备用方法：使用原生插入
