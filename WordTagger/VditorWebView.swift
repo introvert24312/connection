@@ -1016,6 +1016,11 @@ struct VditorWebView: NSViewRepresentable {
               color: #E6E6E6 !important;
             }
             
+            /* base16/pop主题代码块 - 确保背景适配Tanda风格 */
+            .vditor--dark .hljs {
+              background: #303233 !important; /* 保持Tanda的代码块背景 */
+            }
+            
             /* 引用块 - 使用Tanda的样式 */
             .vditor--dark .vditor-reset blockquote {
               border-left: 4px solid #6FC1FF !important; /* Tanda的蓝色边框 */
@@ -1771,7 +1776,12 @@ struct VditorWebView: NSViewRepresentable {
               },
               preview: {
                 theme: { current: 'light' },      // 占位
-                hljs: { enable: true, style: 'github' },
+                hljs: { 
+                  enable: true, 
+                  lineNumber: false,
+                  defaultLang: "",
+                  style: 'github'  // 使用默认主题，后续通过__applyNativeTheme动态更新
+                },
                 math: { engine: 'KaTeX' },
                 mermaid: { startOnLoad:false }     // 由我们手动控制
               },
@@ -2437,9 +2447,36 @@ struct VditorWebView: NSViewRepresentable {
             window.__applyNativeTheme = function(dark){
               try {
                 const ui = dark ? 'dark' : 'classic';
-                const code = dark ? 'github-dark' : 'github';
+                const codeTheme = dark ? 'base16/monokai' : 'github';
                 const content = dark ? 'dark' : 'light';
-                if (vditor.setTheme) vditor.setTheme(ui, code, content);
+                window.__isDarkMode = dark;
+                
+                console.log('🎨 [Vditor] 应用主题:', { ui, codeTheme, content });
+                
+                // 方法1: 使用setTheme方法（如果可用）
+                if (vditor.setTheme) {
+                  console.log('🎨 [方法1] 使用vditor.setTheme');
+                  vditor.setTheme(ui, content, codeTheme);
+                }
+                
+                // 方法2: 直接更新vditor的options（更可靠）
+                if (vditor.options && vditor.options.preview && vditor.options.preview.hljs) {
+                  console.log('🎨 [方法2] 直接更新vditor.options.preview.hljs.style');
+                  vditor.options.preview.hljs.style = codeTheme;
+                  console.log('✅ hljs样式已更新为:', vditor.options.preview.hljs.style);
+                }
+                
+                // 方法3: 强制重新渲染所有内容以应用新主题
+                console.log('🎨 [方法3] 强制重新渲染内容');
+                const currentValue = vditor.getValue();
+                if (currentValue) {
+                  // 暂时清空内容，然后重新设置，强制完全重新渲染
+                  vditor.setValue('');
+                  setTimeout(() => {
+                    vditor.setValue(currentValue);
+                    console.log('✅ 内容重新渲染完成，新主题应该已生效');
+                  }, 50);
+                }
                 
                 // 🎨 确保html和body也获得暗色类名，用于背景样式
                 if (dark) {
@@ -2453,12 +2490,10 @@ struct VditorWebView: NSViewRepresentable {
                   document.documentElement.removeAttribute('data-theme');
                   document.body.removeAttribute('data-theme');
                 }
-              } catch(_) {}
+              } catch(e) {
+                console.error('❌ Theme apply error:', e);
+              }
               installMermaid(dark);
-              try {
-                const val = vditor.getValue();
-                if (val != null) vditor.setValue(val); // 触发预览（含 mermaid）重算
-              } catch(_) {}
               setTimeout(containerFix, 60);
             };
 
