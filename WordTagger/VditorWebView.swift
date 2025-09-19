@@ -1449,6 +1449,51 @@ struct VditorWebView: NSViewRepresentable {
           <div id="vditor"></div>
 
           <script>
+          // 🚨 最早期的链接拦截 - 在任何其他脚本之前执行
+          document.addEventListener('DOMContentLoaded', function() {
+            console.log('🔗 [EARLY] DOM加载完成，设置早期链接拦截');
+            
+            // 创建一个超早期的链接拦截器
+            function earlyLinkInterceptor(e) {
+              console.log('🔗 [EARLY] 早期拦截器:', e.target.tagName, 'metaKey:', e.metaKey);
+              const linkElement = e.target.closest('a');
+              if (linkElement && (e.metaKey || e.shiftKey)) {
+                console.log('🔗 [EARLY] 早期拦截成功，阻止默认行为');
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                
+                // 存储链接信息供后续处理
+                window.__pendingLinkClick = {
+                  url: linkElement.href || linkElement.getAttribute('href'),
+                  timestamp: Date.now()
+                };
+                
+                // 尝试立即发送，如果失败则等待主处理器
+                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bridge) {
+                  const url = linkElement.href || linkElement.getAttribute('href');
+                  if (url) {
+                    try {
+                      window.webkit.messageHandlers.bridge.postMessage({ 
+                        type: 'openURL',
+                        url: url
+                      });
+                      console.log('🔗 [EARLY] 早期发送成功:', url);
+                      window.__pendingLinkClick = null;
+                    } catch(err) {
+                      console.log('🔗 [EARLY] 早期发送失败，等待主处理器');
+                    }
+                  }
+                }
+                return false;
+              }
+            }
+            
+            // 在最早期绑定
+            document.addEventListener('click', earlyLinkInterceptor, true);
+            document.body.addEventListener('click', earlyLinkInterceptor, true);
+          });
+          
           (function(){
             // -------- Mermaid 主题配置（不监听系统）--------
             function currentMermaidConfig(dark){
@@ -1577,6 +1622,24 @@ struct VditorWebView: NSViewRepresentable {
                   document.body.classList.add('vditor--dark');
                   document.documentElement.setAttribute('data-theme', 'dark');
                   document.body.setAttribute('data-theme', 'dark');
+                }
+                
+                // 🔗 立即为 Vditor 内容区域绑定链接处理器
+                console.log('🔗 [INIT] Vditor初始化完成，立即绑定链接处理器');
+                const vditorContent = document.querySelector('#vditor');
+                if (vditorContent) {
+                  vditorContent.addEventListener('click', function(e) {
+                    console.log('🔗 [VDITOR] Vditor内容区域点击:', e.target.tagName, 'metaKey:', e.metaKey);
+                    const linkElement = e.target.closest('a');
+                    if (linkElement && (e.metaKey || e.shiftKey)) {
+                      console.log('🔗 [VDITOR] Vditor内部链接点击拦截');
+                      e.preventDefault();
+                      e.stopPropagation();
+                      e.stopImmediatePropagation();
+                      handleLinkClick(e);
+                      return false;
+                    }
+                  }, true);
                 }
                 
                 // 拦截特殊快捷键
@@ -2438,6 +2501,29 @@ struct VditorWebView: NSViewRepresentable {
             };
             
             // 多重事件监听策略 - 确保在各种情况下都能拦截链接点击
+            
+            // 🎯 最高优先级：在document级别拦截所有链接点击
+            document.addEventListener('click', function(e) {
+              console.log('🔗 [GLOBAL] 全局点击检测:', e.target.tagName, 'metaKey:', e.metaKey, 'target:', e.target);
+              
+              // 检查是否是链接或包含链接
+              const linkElement = e.target.closest('a') || (e.target.tagName === 'A' ? e.target : null);
+              if (linkElement) {
+                console.log('🔗 [GLOBAL] 检测到链接点击:', linkElement.href);
+                
+                // 如果有修饰键，立即阻止默认行为
+                if (e.metaKey || e.shiftKey) {
+                  console.log('🔗 [GLOBAL] 修饰键点击，强制阻止默认行为');
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.stopImmediatePropagation();
+                  
+                  // 立即处理
+                  handleLinkClick(e);
+                  return false;
+                }
+              }
+            }, true); // 使用捕获阶段，确保最早处理
             
             // 1. 在捕获阶段拦截，优先级最高
             document.addEventListener('click', function(e) {
