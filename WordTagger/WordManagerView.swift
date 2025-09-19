@@ -1,6 +1,7 @@
 import SwiftUI
 import MapKit
 import CoreLocation
+import WebKit
 
 struct NodeManagerView: View {
     @EnvironmentObject private var store: NodeStore
@@ -1079,6 +1080,34 @@ struct TagEditCommandView: View {
             return .ignored
         }
         .onKeyPress(.escape) {
+            print("🔑 WordManagerView ESC处理器被调用")
+            
+            // 🔧 修复：检查当前是否有WebView处于焦点（Vditor编辑器）
+            if let keyWindow = NSApplication.shared.keyWindow,
+               let firstResponder = keyWindow.firstResponder {
+                print("🔍 检查firstResponder: \(type(of: firstResponder))")
+                
+                // 检查是否是WebView或其子视图处于焦点
+                var currentResponder: NSResponder? = firstResponder
+                while currentResponder != nil {
+                    print("🔍 检查responder链: \(type(of: currentResponder!))")
+                    if currentResponder is WKWebView {
+                        print("✅ 发现WebView处于焦点，忽略ESC")
+                        // WebView处于焦点，不关闭窗口，让WebView处理ESC
+                        return .ignored
+                    }
+                    currentResponder = currentResponder?.nextResponder
+                }
+                
+                // 检查常规输入控件
+                if firstResponder is NSTextView || firstResponder is NSTextField {
+                    print("✅ 发现文本输入控件处于焦点，忽略ESC")
+                    return .ignored
+                }
+            }
+            
+            print("❌ 没有输入焦点，关闭窗口")
+            // 没有输入焦点，正常关闭窗口
             dismiss()
             return .handled
         }

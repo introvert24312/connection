@@ -994,11 +994,26 @@ struct VditorWebView: NSViewRepresentable {
             
             /* 代码块 - 使用Tanda的深色背景 */
             .vditor--dark .vditor-reset pre,
-            .vditor--dark .vditor-reset pre code {
+            .vditor--dark .vditor-reset pre code,
+            .vditor--dark .vditor-ir__node pre,
+            .vditor--dark .vditor-ir__node pre code,
+            .vditor--dark .vditor-sv pre,
+            .vditor--dark .vditor-sv pre code,
+            .vditor--dark .vditor-wysiwyg pre,
+            .vditor--dark .vditor-wysiwyg pre code {
               background: #303233 !important; /* Tanda的代码块背景色 */
               color: #E6E6E6 !important;
               border: 2px solid #292A2B;
               border-radius: 6px;
+            }
+            
+            /* CodeMirror代码编辑器背景 */
+            .vditor--dark .CodeMirror,
+            .vditor--dark .CodeMirror-lines,
+            .vditor--dark .CodeMirror-scroll,
+            .vditor--dark .CodeMirror-gutter {
+              background: #292A2B !important;
+              color: #E6E6E6 !important;
             }
             
             /* 引用块 - 使用Tanda的样式 */
@@ -1158,18 +1173,35 @@ struct VditorWebView: NSViewRepresentable {
               margin: 0 8px !important;
             }
             
-            /* 编辑区域样式 */
-            .vditor--dark .vditor-ir {
-              background: #292A2B !important;
+            /* 编辑区域样式 - 更全面的选择器 */
+            .vditor--dark .vditor-ir,
+            .vditor--dark .vditor-ir .vditor-reset,
+            .vditor--dark .vditor-ir .vditor-ir__node,
+            .vditor--dark .vditor-ir pre.vditor-ir__node {
+              background: #292A2B !important; /* Tanda主背景色 */
               color: #E6E6E6 !important;
             }
             
-            .vditor--dark .vditor-sv {
-              background: #292A2B !important;
+            .vditor--dark .vditor-sv,
+            .vditor--dark .vditor-sv .vditor-reset,
+            .vditor--dark .vditor-sv .CodeMirror,
+            .vditor--dark .vditor-sv .CodeMirror .CodeMirror-scroll {
+              background: #292A2B !important; /* Tanda主背景色 */
               color: #E6E6E6 !important;
             }
             
-            .vditor--dark .vditor-wysiwyg {
+            .vditor--dark .vditor-wysiwyg,
+            .vditor--dark .vditor-wysiwyg .vditor-reset {
+              background: #292A2B !important; /* Tanda主背景色 */
+              color: #E6E6E6 !important;
+            }
+            
+            /* 确保编辑器内所有可能的背景都是Tanda颜色 */
+            .vditor--dark .vditor-ir__node,
+            .vditor--dark .vditor-ir__preview,
+            .vditor--dark .vditor-sv textarea,
+            .vditor--dark .vditor-sv .CodeMirror-lines,
+            .vditor--dark .vditor-wysiwyg .vditor-wysiwyg__block {
               background: #292A2B !important;
               color: #E6E6E6 !important;
             }
@@ -2099,23 +2131,16 @@ struct VditorWebView: NSViewRepresentable {
                 updateTransform();
               });
               
-              // 点击空白区域或ESC退出
-              overlay.addEventListener('click', (e) => {
-                if (e.target === overlay) {
-                  document.body.removeChild(overlay);
-                }
-              });
-              
-              // 键盘快捷键
+              // 键盘快捷键 - 绑定在overlay上，只处理图片查看器的按键
               const handleKeyPress = (e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 switch(e.key) {
                   case 'Escape':
                     // ESC退出 - 立即关闭，无延迟
                     if (document.body.contains(overlay)) {
                       document.body.removeChild(overlay);
                     }
-                    document.removeEventListener('keydown', handleKeyPress);
                     break;
                   case '0':
                     // 数字0重置缩放
@@ -2142,7 +2167,20 @@ struct VditorWebView: NSViewRepresentable {
                     break;
                 }
               };
-              document.addEventListener('keydown', handleKeyPress);
+              
+              // 绑定键盘事件到overlay上，而不是document
+              overlay.addEventListener('keydown', handleKeyPress);
+              
+              // 点击空白区域退出
+              overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                  document.body.removeChild(overlay);
+                }
+              });
+              
+              // 确保overlay可以接收键盘事件
+              overlay.setAttribute('tabindex', '0');
+              overlay.focus();
               
               overlay.appendChild(clonedImg);
               return overlay;

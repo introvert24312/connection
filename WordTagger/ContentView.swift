@@ -1,6 +1,7 @@
 import SwiftUI
 import CoreLocation
 import MapKit
+import WebKit
 
 struct ContentView: View {
     @EnvironmentObject private var store: NodeStore
@@ -402,6 +403,8 @@ struct ContentViewKeyboardModifier: ViewModifier {
     }
     
     private func handleEscapeKey() -> KeyPress.Result {
+        print("🔑 ContentView ESC处理器被调用")
+        
         // 🔧 修复：ESC键不应该关闭侧边栏（那是Command+E的功能）
         // ESC键应该只用于：
         // 1. 关闭弹出窗口/对话框
@@ -414,12 +417,37 @@ struct ContentViewKeyboardModifier: ViewModifier {
             object: nil
         )
         
+        // 🔧 修复：检查当前是否有活跃的编辑器或输入框
+        // 如果有文本输入控件处于焦点状态，不清除selectedNode
+        if let keyWindow = NSApplication.shared.keyWindow,
+           let firstResponder = keyWindow.firstResponder {
+            print("🔍 ContentView检查firstResponder: \(type(of: firstResponder))")
+            
+            // 检查WebView焦点
+            var currentResponder: NSResponder? = firstResponder
+            while currentResponder != nil {
+                if let webView = currentResponder as? WKWebView {
+                    print("✅ ContentView发现WebView焦点，忽略ESC")
+                    return .ignored
+                }
+                currentResponder = currentResponder?.nextResponder
+            }
+            
+            // 检查常规输入控件
+            if firstResponder is NSTextView || firstResponder is NSTextField {
+                print("✅ ContentView发现文本输入焦点，忽略ESC")
+                return .ignored
+            }
+        }
+        
         // 清除当前选择的节点（如果有的话）
         if selectedNode != nil {
+            print("❌ ContentView清除selectedNode")
             selectedNode = nil
             return .handled
         }
         
+        print("🔄 ContentView忽略ESC")
         return .ignored
     }
 }
