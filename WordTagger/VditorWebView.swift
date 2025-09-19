@@ -992,19 +992,24 @@ struct VditorWebView: NSViewRepresentable {
               border-radius: 0.25rem;
             }
             
-            /* 代码块 - 使用深灰色背景 */
+            /* 代码块 - 只对pre容器设置背景 */
             .vditor--dark .vditor-reset pre,
-            .vditor--dark .vditor-reset pre code,
             .vditor--dark .vditor-ir__node pre,
-            .vditor--dark .vditor-ir__node pre code,
             .vditor--dark .vditor-sv pre,
-            .vditor--dark .vditor-sv pre code,
-            .vditor--dark .vditor-wysiwyg pre,
-            .vditor--dark .vditor-wysiwyg pre code {
-              background: #1a1a1a !important; /* 深灰色代码块背景，比纯黑色稍淡 */
+            .vditor--dark .vditor-wysiwyg pre {
+              background: #1a1a1a !important; /* 深灰色代码块背景 */
               color: #E6E6E6 !important;
               border: 2px solid #292A2B;
               border-radius: 6px;
+            }
+            
+            /* 代码文本 - 继承父容器背景，不重复设置 */
+            .vditor--dark .vditor-reset pre code,
+            .vditor--dark .vditor-ir__node pre code,
+            .vditor--dark .vditor-sv pre code,
+            .vditor--dark .vditor-wysiwyg pre code {
+              background: transparent !important; /* 透明背景，继承pre的背景 */
+              color: inherit;
             }
             
             /* CodeMirror代码编辑器背景 */
