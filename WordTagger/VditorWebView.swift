@@ -2451,31 +2451,11 @@ struct VditorWebView: NSViewRepresentable {
                 const content = dark ? 'dark' : 'light';
                 window.__isDarkMode = dark;
                 
-                console.log('🎨 [Vditor] 应用主题:', { ui, codeTheme, content });
+                console.log('🎨 应用主题:', { ui, codeTheme, content });
                 
-                // 方法1: 使用setTheme方法（如果可用）
+                // 只使用setTheme方法，不干扰内容
                 if (vditor.setTheme) {
-                  console.log('🎨 [方法1] 使用vditor.setTheme');
                   vditor.setTheme(ui, content, codeTheme);
-                }
-                
-                // 方法2: 直接更新vditor的options（更可靠）
-                if (vditor.options && vditor.options.preview && vditor.options.preview.hljs) {
-                  console.log('🎨 [方法2] 直接更新vditor.options.preview.hljs.style');
-                  vditor.options.preview.hljs.style = codeTheme;
-                  console.log('✅ hljs样式已更新为:', vditor.options.preview.hljs.style);
-                }
-                
-                // 方法3: 强制重新渲染所有内容以应用新主题
-                console.log('🎨 [方法3] 强制重新渲染内容');
-                const currentValue = vditor.getValue();
-                if (currentValue) {
-                  // 暂时清空内容，然后重新设置，强制完全重新渲染
-                  vditor.setValue('');
-                  setTimeout(() => {
-                    vditor.setValue(currentValue);
-                    console.log('✅ 内容重新渲染完成，新主题应该已生效');
-                  }, 50);
                 }
                 
                 // 🎨 确保html和body也获得暗色类名，用于背景样式
@@ -2491,9 +2471,13 @@ struct VditorWebView: NSViewRepresentable {
                   document.body.removeAttribute('data-theme');
                 }
               } catch(e) {
-                console.error('❌ Theme apply error:', e);
+                console.error('Theme apply error:', e);
               }
               installMermaid(dark);
+              try {
+                const val = vditor.getValue();
+                if (val != null) vditor.setValue(val); // 触发预览（含 mermaid）重算
+              } catch(_) {}
               setTimeout(containerFix, 60);
             };
 
