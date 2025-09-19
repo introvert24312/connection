@@ -992,14 +992,14 @@ struct VditorWebView: NSViewRepresentable {
               border-radius: 0.25rem;
             }
             
-            /* 代码块 - 只对pre容器设置背景 */
+            /* 代码块 - 透明背景，只保留边框 */
             .vditor--dark .vditor-reset pre,
             .vditor--dark .vditor-ir__node pre,
             .vditor--dark .vditor-sv pre,
             .vditor--dark .vditor-wysiwyg pre {
-              background: #1a1a1a !important; /* 深灰色代码块背景 */
+              background: transparent !important; /* 透明背景 */
               color: #E6E6E6 !important;
-              border: 2px solid #292A2B;
+              border: 2px solid #555 !important; /* 更明显的边框颜色 */
               border-radius: 6px;
             }
             
@@ -1021,9 +1021,9 @@ struct VditorWebView: NSViewRepresentable {
               color: #E6E6E6 !important;
             }
             
-            /* hljs代码高亮 - 使用深灰色背景 */
+            /* hljs代码高亮 - 透明背景 */
             .vditor--dark .hljs {
-              background: #1a1a1a !important; /* 深灰色代码块背景，比纯黑色稍淡 */
+              background: transparent !important; /* 透明背景 */
             }
             
             /* 引用块 - 使用Tanda的样式 */
