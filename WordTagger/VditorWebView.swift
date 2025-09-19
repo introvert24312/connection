@@ -1776,6 +1776,27 @@ struct VditorWebView: NSViewRepresentable {
                     return false;
                   }
                   
+                  // Command+Option+0: 切换大纲显示
+                  if (e.metaKey && e.altKey && e.key === '0') {
+                    console.log('🎯 拦截 Command+Option+0 快捷键，切换大纲显示');
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    
+                    try {
+                      // 查找大纲按钮并点击
+                      const outlineBtn = document.querySelector('[data-type="outline"]');
+                      if (outlineBtn) {
+                        console.log('🔄 点击大纲按钮');
+                        outlineBtn.click();
+                      } else {
+                        console.error('❌ 找不到大纲按钮');
+                      }
+                    } catch(err) {
+                      console.error('❌ 无法切换大纲显示:', err);
+                    }
+                    return false;
+                  }
+                  
                   // Command+/: 切换编辑模式
                   if (e.metaKey && e.key === '/') {
                     console.log('🎯 拦截 Command+/ 快捷键，准备切换编辑模式');
@@ -1808,7 +1829,7 @@ struct VditorWebView: NSViewRepresentable {
                 math: { engine: 'KaTeX' },
                 mermaid: { startOnLoad:false }     // 由我们手动控制
               },
-              toolbar: [], // 隐藏所有工具栏按钮，提供纯净的编辑体验
+              toolbar: ['outline'], // 只保留大纲按钮
               upload: { 
                 accept:'image/*',
                 async handler(files) {
