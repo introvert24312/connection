@@ -1548,9 +1548,7 @@ struct VditorWebView: NSViewRepresentable {
                 'Cmd+Shift+O': '',
                 'Cmd+Shift+L': '',
                 'Ctrl+Shift+O': '',
-                'Ctrl+Shift+L': '',
-                // 🎯 添加大纲快捷键
-                'Cmd+Alt+0': 'outline'
+                'Ctrl+Shift+L': ''
               },
               after(){
                 // 通知 Native：ready
@@ -1810,7 +1808,13 @@ struct VditorWebView: NSViewRepresentable {
                 math: { engine: 'KaTeX' },
                 mermaid: { startOnLoad:false }     // 由我们手动控制
               },
-              toolbar: ['outline'], // 只保留大纲按钮
+              toolbar: [
+                {
+                  hotkey: '⌥⌘0', // Option+Command+0
+                  name: 'outline',
+                  tip: '大纲 (⌥⌘0)'
+                }
+              ], // 只保留大纲按钮，并配置快捷键
               upload: { 
                 accept:'image/*',
                 async handler(files) {
