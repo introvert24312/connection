@@ -696,6 +696,63 @@ struct VditorWebView: NSViewRepresentable {
             NotificationCenter.default.post(name: NSNotification.Name("webViewDidLoad"), object: nil)
         }
         
+        // 🔗 拦截导航请求 - 防止链接在WebView内部打开
+        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+            
+            // 获取目标URL
+            guard let url = navigationAction.request.url else {
+                print("🔗 导航拦截: 无效的URL")
+                decisionHandler(.allow)
+                return
+            }
+            
+            let urlString = url.absoluteString
+            print("🔗 导航拦截: 检测到导航请求 - \(urlString)")
+            print("🔗 导航类型: \(navigationAction.navigationType.rawValue)")
+            print("🔗 是否为主框架: \(navigationAction.targetFrame?.isMainFrame ?? false)")
+            
+            // 检查是否为初始页面加载（允许）
+            if urlString.contains("temp.html") || urlString.contains(".temp_editor.html") {
+                print("🔗 导航拦截: 允许加载编辑器页面")
+                decisionHandler(.allow)
+                return
+            }
+            
+            // 检查是否为外部链接点击（需要拦截）
+            if navigationAction.navigationType == .linkActivated {
+                print("🔗 导航拦截: 检测到链接点击，拦截并在外部浏览器打开")
+                
+                // 阻止WebView内部导航
+                decisionHandler(.cancel)
+                
+                // 在外部浏览器打开
+                DispatchQueue.main.async {
+                    let success = NSWorkspace.shared.open(url)
+                    if success {
+                        print("✅ 已在外部浏览器打开链接: \(urlString)")
+                    } else {
+                        print("❌ 外部浏览器打开失败: \(urlString)")
+                        // 尝试Safari
+                        if let safariURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Safari") {
+                            let configuration = NSWorkspace.OpenConfiguration()
+                            NSWorkspace.shared.open([url], withApplicationAt: safariURL, configuration: configuration, completionHandler: { app, error in
+                                if let error = error {
+                                    print("🔗 Safari打开失败: \(error)")
+                                } else {
+                                    print("🔗 Safari打开成功: \(String(describing: app))")
+                                }
+                            })
+                        }
+                    }
+                }
+                return
+            }
+            
+            // 其他导航类型（如页面内跳转）允许
+            print("🔗 导航拦截: 允许其他类型的导航")
+            decisionHandler(.allow)
+        }
+        
         // 简化的JavaScript执行助手（移除了图片回调失败处理）
         private func evaluateJS(_ js: String, delayMS: Int = 0) {
             guard let webView = webView else { 
