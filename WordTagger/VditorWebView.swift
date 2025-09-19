@@ -901,8 +901,26 @@ struct VditorWebView: NSViewRepresentable {
           <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
 
           <style>
-            :root { --bg: transparent; --mmd-font: 20px; }
-            html, body { margin:0; padding:0; background: var(--bg); }
+            :root { 
+              --bg: transparent; 
+              --bg-dark: #292A2B; /* Tanda暗色背景 */
+              --mmd-font: 20px; 
+            }
+            html, body { 
+              margin:0; 
+              padding:0; 
+              background: var(--bg); 
+              transition: background-color 0.3s ease;
+            }
+            
+            /* 暗色模式下的根背景 */
+            html.vditor--dark, 
+            body.vditor--dark,
+            html[data-theme="dark"],
+            body[data-theme="dark"] { 
+              background: var(--bg-dark) !important; 
+            }
+            
             #vditor { height: 100vh; }
 
             /* --- Mermaid base scaling via container font-size --- */
@@ -916,8 +934,138 @@ struct VditorWebView: NSViewRepresentable {
               font-family: -apple-system, 'SF Pro Text', sans-serif !important;
             }
 
-            /* --- Dark content readability for Markdown preview/content --- */
-            .vditor--dark .vditor-reset { color: #c9d1d9; }
+            /* --- Tanda风格暗色主题优化 --- */
+            .vditor--dark .vditor-reset { 
+              color: #E6E6E6; /* Tanda的主文本颜色 */
+            }
+            
+            /* 标题颜色 - 模仿Tanda的彩色标题层次 */
+            .vditor--dark .vditor-reset h1 { 
+              color: #ff6b6b !important; /* 红色 - 类似Tanda的H1 */
+              font-weight: normal;
+              padding-top: 0.25em;
+              padding-bottom: 0.25em;
+            }
+            .vditor--dark .vditor-reset h2 { 
+              color: #ff69b4 !important; /* 粉色 - 类似Tanda的H2 */
+              font-weight: normal;
+              padding-top: 0.6em;
+              padding-bottom: 0.6em;
+            }
+            .vditor--dark .vditor-reset h3 { 
+              color: #ffd93d !important; /* 黄色 - 类似Tanda的H3 */
+              font-weight: normal;
+              padding-top: 0.25em;
+              padding-bottom: 0.25em;
+            }
+            .vditor--dark .vditor-reset h4 { 
+              color: #6bcf7f !important; /* 绿色 - 类似Tanda的H4 */
+              font-weight: normal;
+              padding-top: 0.25em;
+              padding-bottom: 0.25em;
+            }
+            .vditor--dark .vditor-reset h5 { 
+              color: #74c0fc !important; /* 蓝色 */
+              font-weight: normal;
+            }
+            .vditor--dark .vditor-reset h6 { 
+              color: #d0bfff !important; /* 紫色 */
+              font-weight: normal;
+            }
+            
+            /* 链接颜色 - 使用Tanda的蓝色 */
+            .vditor--dark .vditor-reset a { 
+              color: #6FC1FF !important; /* Tanda的链接颜色 */
+            }
+            .vditor--dark .vditor-reset a:hover { 
+              color: #ffffff !important; /* Tanda的悬停颜色 */
+            }
+            
+            /* 行内代码 - 使用Tanda的特殊蓝色背景 */
+            .vditor--dark .vditor-reset code {
+              background: #135779 !important; /* Tanda的行内代码背景色 */
+              color: #E6E6E6 !important;
+              padding: 0.3em;
+              padding-top: 0.15em;
+              padding-bottom: 0.15em;
+              border: 2px solid #292A2B;
+              border-radius: 0.25rem;
+            }
+            
+            /* 代码块 - 使用Tanda的深色背景 */
+            .vditor--dark .vditor-reset pre,
+            .vditor--dark .vditor-reset pre code {
+              background: #303233 !important; /* Tanda的代码块背景色 */
+              color: #E6E6E6 !important;
+              border: 2px solid #292A2B;
+              border-radius: 6px;
+            }
+            
+            /* 引用块 - 使用Tanda的样式 */
+            .vditor--dark .vditor-reset blockquote {
+              border-left: 4px solid #6FC1FF !important; /* Tanda的蓝色边框 */
+              background: #303233 !important; /* Tanda的背景色 */
+              color: #a8a8a8 !important; /* 稍微暗一点的文字 */
+              padding: 4px 15px;
+              margin: 1em 0;
+            }
+            
+            /* 表格样式 - 模仿Tanda */
+            .vditor--dark .vditor-reset table {
+              border-collapse: collapse;
+              margin: 1em 0;
+              background: #303233; /* Tanda的表格背景 */
+            }
+            .vditor--dark .vditor-reset table th {
+              background: #222324 !important; /* Tanda的表头背景 */
+              color: #E6E6E6 !important;
+              border: 2px solid #555 !important;
+              padding: 6px 13px;
+            }
+            .vditor--dark .vditor-reset table td {
+              border: 2px solid #555 !important;
+              color: #E6E6E6 !important;
+              padding: 6px 13px;
+            }
+            .vditor--dark .vditor-reset table tr:nth-child(even) {
+              background: #303233 !important;
+            }
+            .vditor--dark .vditor-reset table tr:nth-child(odd) {
+              background: #303233 !important;
+            }
+            
+            /* 水平分割线 */
+            .vditor--dark .vditor-reset hr {
+              border: 0;
+              height: 2px;
+              background: #E6E6E6;
+              margin: 2em 0;
+            }
+            
+            /* 列表样式优化 */
+            .vditor--dark .vditor-reset ul,
+            .vditor--dark .vditor-reset ol {
+              padding-left: 30px;
+              color: #E6E6E6;
+            }
+            
+            /* 强调文本 */
+            .vditor--dark .vditor-reset strong {
+              color: #ffffff !important;
+              font-weight: bold;
+            }
+            .vditor--dark .vditor-reset em {
+              color: #ffffff !important;
+              font-style: italic;
+            }
+            
+            /* 高亮文本 */
+            .vditor--dark .vditor-reset mark {
+              background: #ffd93d !important; /* 使用黄色高亮 */
+              color: #000000 !important;
+              padding: 1px 3px;
+              border-radius: 3px;
+            }
             
             /* --- 图片性能优化 --- */
             .vditor-reset img {
@@ -958,18 +1106,267 @@ struct VditorWebView: NSViewRepresentable {
               min-height: 100px;
               background: #f0f0f0 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="%23999">图片加载中...</text></svg>') center no-repeat;
             }
-            .vditor--dark .vditor-reset h1,
-            .vditor--dark .vditor-reset h2,
-            .vditor--dark .vditor-reset h3,
-            .vditor--dark .vditor-reset h4,
-            .vditor--dark .vditor-reset h5,
-            .vditor--dark .vditor-reset h6 { color: #e6edf3; }
-            .vditor--dark .vditor-reset a { color: #58a6ff; }
-            .vditor--dark .vditor-reset code,
-            .vditor--dark .vditor-reset pre {
-              background: #161b22;
-              color: #c9d1d9;
-              border-color: #30363d;
+            
+            /* 注意：以下旧的暗色样式已被上面的Tanda风格样式覆盖，这里保留作为后备 */
+            
+            /* === Vditor编辑器界面主题 - Tanda风格定制 === */
+            
+            /* 编辑器主体背景 */
+            .vditor--dark {
+              background: #292A2B !important; /* Tanda主背景色 */
+              color: #E6E6E6 !important;
+            }
+            
+            /* 编辑器内容区域 */
+            .vditor--dark .vditor-content {
+              background: #292A2B !important;
+            }
+            
+            /* 工具栏背景和样式 */
+            .vditor--dark .vditor-toolbar {
+              background: #222324 !important; /* Tanda的工具栏背景 */
+              border-bottom: 1px solid #555 !important;
+              padding: 8px 12px !important;
+            }
+            
+            /* 工具栏按钮 */
+            .vditor--dark .vditor-toolbar .vditor-tooltipped {
+              color: #E6E6E6 !important;
+              background: transparent !important;
+              border: none !important;
+              padding: 6px 8px !important;
+              border-radius: 4px !important;
+              transition: all 0.2s ease !important;
+            }
+            
+            /* 工具栏按钮悬停 */
+            .vditor--dark .vditor-toolbar .vditor-tooltipped:hover {
+              background: rgba(111, 193, 255, 0.1) !important; /* Tanda蓝色悬停 */
+              color: #6FC1FF !important;
+            }
+            
+            /* 工具栏按钮激活状态 */
+            .vditor--dark .vditor-toolbar .vditor-tooltipped.vditor-tooltipped--current {
+              background: #6FC1FF !important; /* Tanda蓝色 */
+              color: #ffffff !important;
+            }
+            
+            /* 工具栏分割线 */
+            .vditor--dark .vditor-toolbar .vditor-toolbar__divider {
+              background: #555 !important;
+              height: 20px !important;
+              margin: 0 8px !important;
+            }
+            
+            /* 编辑区域样式 */
+            .vditor--dark .vditor-ir {
+              background: #292A2B !important;
+              color: #E6E6E6 !important;
+            }
+            
+            .vditor--dark .vditor-sv {
+              background: #292A2B !important;
+              color: #E6E6E6 !important;
+            }
+            
+            .vditor--dark .vditor-wysiwyg {
+              background: #292A2B !important;
+              color: #E6E6E6 !important;
+            }
+            
+            /* 编辑器边框 */
+            .vditor--dark .vditor-content .vditor-ir,
+            .vditor--dark .vditor-content .vditor-sv,
+            .vditor--dark .vditor-content .vditor-wysiwyg {
+              border: none !important;
+              outline: none !important;
+            }
+            
+            /* 预览区域 */
+            .vditor--dark .vditor-preview {
+              background: #292A2B !important;
+              border-left: 1px solid #555 !important;
+            }
+            
+            /* 侧边栏 */
+            .vditor--dark .vditor-outline {
+              background: #222324 !important;
+              border-right: 1px solid #555 !important;
+            }
+            
+            /* 侧边栏项目 */
+            .vditor--dark .vditor-outline .vditor-outline__item {
+              color: #E6E6E6 !important;
+              padding: 4px 12px !important;
+              border-radius: 4px !important;
+              margin: 2px 8px !important;
+            }
+            
+            .vditor--dark .vditor-outline .vditor-outline__item:hover {
+              background: rgba(111, 193, 255, 0.1) !important;
+              color: #6FC1FF !important;
+            }
+            
+            .vditor--dark .vditor-outline .vditor-outline__item.vditor-outline__item--current {
+              background: #6FC1FF !important;
+              color: #ffffff !important;
+            }
+            
+            /* 滚动条样式 */
+            .vditor--dark ::-webkit-scrollbar {
+              width: 8px !important;
+              height: 8px !important;
+              background: transparent !important;
+            }
+            
+            .vditor--dark ::-webkit-scrollbar-track {
+              background: rgba(95, 97, 101, 0.3) !important;
+              border-radius: 4px !important;
+            }
+            
+            .vditor--dark ::-webkit-scrollbar-thumb {
+              background: #6FC1FF !important; /* Tanda蓝色滚动条 */
+              border-radius: 4px !important;
+            }
+            
+            .vditor--dark ::-webkit-scrollbar-thumb:hover {
+              background: #58a6ff !important;
+            }
+            
+            /* 对话框和弹出层 */
+            .vditor--dark .vditor-panel {
+              background: #222324 !important;
+              border: 1px solid #555 !important;
+              box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+              border-radius: 6px !important;
+            }
+            
+            .vditor--dark .vditor-panel .vditor-panel__content {
+              background: #222324 !important;
+              color: #E6E6E6 !important;
+            }
+            
+            /* 输入框 */
+            .vditor--dark .vditor-input {
+              background: #303233 !important; /* Tanda输入框背景 */
+              border: 1px solid #555 !important;
+              color: #E6E6E6 !important;
+              border-radius: 4px !important;
+              padding: 8px 12px !important;
+            }
+            
+            .vditor--dark .vditor-input:focus {
+              border-color: #6FC1FF !important;
+              box-shadow: 0 0 0 2px rgba(111, 193, 255, 0.2) !important;
+              outline: none !important;
+            }
+            
+            /* 按钮 */
+            .vditor--dark .vditor-button {
+              background: #303233 !important;
+              border: 1px solid #555 !important;
+              color: #E6E6E6 !important;
+              border-radius: 4px !important;
+              padding: 8px 16px !important;
+              transition: all 0.2s ease !important;
+            }
+            
+            .vditor--dark .vditor-button:hover {
+              background: rgba(111, 193, 255, 0.1) !important;
+              border-color: #6FC1FF !important;
+              color: #6FC1FF !important;
+            }
+            
+            .vditor--dark .vditor-button--primary {
+              background: #6FC1FF !important;
+              border-color: #6FC1FF !important;
+              color: #ffffff !important;
+            }
+            
+            .vditor--dark .vditor-button--primary:hover {
+              background: #58a6ff !important;
+              border-color: #58a6ff !important;
+            }
+            
+            /* 选择框和下拉菜单 */
+            .vditor--dark .vditor-select {
+              background: #303233 !important;
+              border: 1px solid #555 !important;
+              color: #E6E6E6 !important;
+              border-radius: 4px !important;
+            }
+            
+            .vditor--dark .vditor-select option {
+              background: #303233 !important;
+              color: #E6E6E6 !important;
+            }
+            
+            /* 状态栏 */
+            .vditor--dark .vditor-counter {
+              background: #222324 !important;
+              border-top: 1px solid #555 !important;
+              color: #E6E6E6 !important;
+              padding: 8px 12px !important;
+            }
+            
+            /* 工具提示 */
+            .vditor--dark .vditor-tooltip {
+              background: #161b22 !important;
+              color: #E6E6E6 !important;
+              border: 1px solid #555 !important;
+              border-radius: 4px !important;
+              box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+            }
+            
+            /* 表情选择器 */
+            .vditor--dark .vditor-emoji {
+              background: #222324 !important;
+              border: 1px solid #555 !important;
+              border-radius: 6px !important;
+            }
+            
+            .vditor--dark .vditor-emoji__panel {
+              background: #222324 !important;
+            }
+            
+            .vditor--dark .vditor-emoji__item:hover {
+              background: rgba(111, 193, 255, 0.1) !important;
+            }
+            
+            /* 代码主题选择器 */
+            .vditor--dark .vditor-code-theme {
+              background: #222324 !important;
+              border: 1px solid #555 !important;
+            }
+            
+            /* 分割器 */
+            .vditor--dark .vditor-resize {
+              background: #555 !important;
+            }
+            
+            .vditor--dark .vditor-resize:hover {
+              background: #6FC1FF !important;
+            }
+            
+            /* 特殊的输入状态样式 */
+            .vditor--dark .vditor-ir .vditor-ir__marker {
+              color: #6FC1FF !important; /* Tanda蓝色标记 */
+            }
+            
+            .vditor--dark .vditor-ir .vditor-ir__marker--heading {
+              color: #ff6b6b !important; /* 标题标记用红色 */
+            }
+            
+            .vditor--dark .vditor-ir .vditor-ir__marker--bold {
+              color: #ffffff !important; /* 粗体标记用白色 */
+            }
+            
+            .vditor--dark .vditor-ir .vditor-ir__marker--italic {
+              color: #ffd93d !important; /* 斜体标记用黄色 */
+            }
+            
+            .vditor--dark .vditor-ir .vditor-ir__marker--link {
+              color: #6FC1FF !important; /* 链接标记用蓝色 */
             }
           </style>
         </head>
@@ -1097,6 +1494,15 @@ struct VditorWebView: NSViewRepresentable {
                 // 通知 Native：ready
                 try { window.webkit?.messageHandlers?.bridge?.postMessage({ type: 'ready' }); } catch(_) {}
                 setTimeout(containerFix, 30);
+                
+                // 🎨 初始化时根据系统主题设置背景
+                const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                if (prefersDark) {
+                  document.documentElement.classList.add('vditor--dark');
+                  document.body.classList.add('vditor--dark');
+                  document.documentElement.setAttribute('data-theme', 'dark');
+                  document.body.setAttribute('data-theme', 'dark');
+                }
                 
                 // 拦截特殊快捷键
                 document.addEventListener('keydown', function(e) {
@@ -1996,6 +2402,19 @@ struct VditorWebView: NSViewRepresentable {
                 const code = dark ? 'github-dark' : 'github';
                 const content = dark ? 'dark' : 'light';
                 if (vditor.setTheme) vditor.setTheme(ui, code, content);
+                
+                // 🎨 确保html和body也获得暗色类名，用于背景样式
+                if (dark) {
+                  document.documentElement.classList.add('vditor--dark');
+                  document.body.classList.add('vditor--dark');
+                  document.documentElement.setAttribute('data-theme', 'dark');
+                  document.body.setAttribute('data-theme', 'dark');
+                } else {
+                  document.documentElement.classList.remove('vditor--dark');
+                  document.body.classList.remove('vditor--dark');
+                  document.documentElement.removeAttribute('data-theme');
+                  document.body.removeAttribute('data-theme');
+                }
               } catch(_) {}
               installMermaid(dark);
               try {
