@@ -1415,16 +1415,16 @@ struct VditorWebView: NSViewRepresentable {
               color: #6FC1FF !important; /* 链接标记用蓝色 */
             }
             
-            /* 修复代码块标记(```)在IR模式下显示为点的问题 */
+            /* 调整代码块标记(```)在IR模式下的显示效果 */
             .vditor--dark .vditor-ir .vditor-ir__marker--code,
             .vditor--dark .vditor-ir .vditor-ir__marker[data-type="code"],
             .vditor--dark .vditor-ir span[data-type="code-block-info"],
             .vditor--dark .vditor-ir span[data-type="code-block-close-marker"],
             .vditor--dark .vditor-ir span[data-type="code-block-open-marker"] {
               color: #6FC1FF !important; /* 代码块标记用蓝色 */
-              font-size: inherit !important; /* 继承正常字体大小 */
+              font-size: 0.8em !important; /* 稍小的字体，不那么突出 */
+              opacity: 0.6 !important; /* 半透明效果，优雅地淡化 */
               display: inline !important; /* 确保正常显示 */
-              opacity: 1 !important; /* 确保完全可见 */
               visibility: visible !important; /* 确保可见 */
             }
           </style>
