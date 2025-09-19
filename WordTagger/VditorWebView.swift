@@ -2291,7 +2291,7 @@ struct VditorWebView: NSViewRepresentable {
               }
             }, true);
             
-            // 增强的超链接Command+点击处理 - 多层次拦截确保成功
+            // 增强的超链接Command+点击处理 - 多层次拦截确保成功，特别优化SV模式
             function handleLinkClick(e) {
               console.log('🔗 Click detected, metaKey:', e.metaKey, 'shiftKey:', e.shiftKey, 'target:', e.target, 'tagName:', e.target.tagName);
               
@@ -2301,6 +2301,13 @@ struct VditorWebView: NSViewRepresentable {
               let target = e.target;
               let attempts = 0;
               const maxAttempts = 10;
+              
+              // 🎯 检查是否在SV预览区域 - 特殊处理
+              const isInSvPreview = target.closest('.vditor-sv .vditor-reset') || 
+                                   target.closest('.vditor-preview') ||
+                                   target.closest('[data-type="preview"]');
+              
+              console.log('🔗 是否在SV预览区域:', isInSvPreview);
               
               // 向上查找链接元素
               while (target && target.tagName !== 'A' && target.parentElement && attempts < maxAttempts) {
@@ -2323,10 +2330,13 @@ struct VditorWebView: NSViewRepresentable {
                 if (url && url.trim() !== '') {
                   console.log('🔗 修饰键+点击链接:', url, '(metaKey:', e.metaKey, ', shiftKey:', e.shiftKey, ')');
                   
-                  // 强制阻止所有默认行为和事件传播
-                  e.preventDefault();
-                  e.stopPropagation();
-                  e.stopImmediatePropagation();
+                  // 🎯 在SV预览区域或任何链接点击时，强制阻止所有默认行为
+                  if (isInSvPreview || true) {
+                    console.log('🔗 强制拦截链接点击（SV预览区域或通用处理）');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                  }
                   
                   // 清理和标准化URL
                   url = url.trim();
@@ -2424,26 +2434,55 @@ struct VditorWebView: NSViewRepresentable {
               }
             }, true);
             
-            // 7. 定时器方式的深度拦截 - 在Vditor加载完成后重新绑定事件
+            // 7. 定时器方式的深度拦截 - 在Vditor加载完成后重新绑定事件，特别关注SV预览区域
             setTimeout(() => {
               console.log('🔗 延迟绑定链接处理器...');
-              // 查找所有可能的容器并绑定事件
+              // 查找所有可能的容器并绑定事件，特别添加SV预览相关容器
               const containers = [
                 document,
                 document.body,
                 document.querySelector('.vditor'),
                 document.querySelector('.vditor-reset'),
-                document.querySelector('#vditor')
+                document.querySelector('#vditor'),
+                document.querySelector('.vditor-sv'),
+                document.querySelector('.vditor-preview'),
+                document.querySelector('.vditor-sv .vditor-reset')
               ].filter(Boolean);
               
               containers.forEach(container => {
                 console.log('🔗 在容器上绑定事件:', container);
                 container.addEventListener('click', function(e) {
                   if ((e.metaKey || e.shiftKey) && e.target.closest('a')) {
-                    console.log('🔗 [DEEP] 深度拦截器触发');
+                    console.log('🔗 [DEEP] 深度拦截器触发，容器:', container.className || container.tagName);
                     handleLinkClick(e);
                   }
                 }, true);
+              });
+              
+              // 🎯 特别针对SV预览区域添加强制拦截
+              const svPreviewObserver = new MutationObserver(() => {
+                const svPreview = document.querySelector('.vditor-sv .vditor-reset');
+                if (svPreview && !svPreview.dataset.linkHandlerBound) {
+                  console.log('🔗 [SV特殊] 为SV预览区域绑定链接处理器');
+                  svPreview.addEventListener('click', function(e) {
+                    if ((e.metaKey || e.shiftKey) && e.target.closest('a')) {
+                      console.log('🔗 [SV特殊] SV预览区域链接点击拦截');
+                      e.preventDefault();
+                      e.stopPropagation();
+                      e.stopImmediatePropagation();
+                      handleLinkClick(e);
+                    }
+                  }, true);
+                  svPreview.dataset.linkHandlerBound = 'true';
+                }
+              });
+              
+              // 开始观察DOM变化，以便在SV模式切换时重新绑定
+              svPreviewObserver.observe(document.body, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['class']
               });
             }, 1000);
             
