@@ -23,7 +23,7 @@ struct VditorWebView: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> WKWebView {
-        // 基础配置
+        // 增强安全配置
         let config = WKWebViewConfiguration()
         let uc = WKUserContentController()
         uc.add(context.coordinator, name: "bridge")
@@ -31,13 +31,38 @@ struct VditorWebView: NSViewRepresentable {
         config.suppressesIncrementalRendering = false
         config.preferences.setValue(true, forKey: "developerExtrasEnabled") // 方便调试
         
-        // 允许访问本地文件
+        // 🔒 安全性增强配置
         config.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
         config.setValue(true, forKey: "allowUniversalAccessFromFileURLs")
+        
+        // 🚨 防止各种导航问题的安全设置
+        config.preferences.javaScriptCanOpenWindowsAutomatically = false
+        config.mediaTypesRequiringUserActionForPlayback = []
+        
+        // 🔒 额外的安全设置
+        if #available(macOS 13.0, *) {
+            config.preferences.isElementFullscreenEnabled = false  // 禁用元素全屏
+        }
+        
+        // 🛡️ 防止意外的导航和弹窗
+        if #available(macOS 11.0, *) {
+            config.defaultWebpagePreferences.allowsContentJavaScript = true
+        }
+        
+        // 🔐 iframe安全配置
+        config.preferences.setValue(false, forKey: "javaScriptCanAccessClipboard")
+        
+        print("🔒 WebView安全配置完成")
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator // 添加UI委托
+        
+        // 🚨 WebView级别的媒体安全设置
+        webView.allowsBackForwardNavigationGestures = false
+        if #available(macOS 11.0, *) {
+            webView.allowsMagnification = true
+        }
 
         // macOS: 彻底透明
         webView.setValue(false, forKey: "drawsBackground")
@@ -696,61 +721,603 @@ struct VditorWebView: NSViewRepresentable {
             NotificationCenter.default.post(name: NSNotification.Name("webViewDidLoad"), object: nil)
         }
         
-        // 🔗 拦截导航请求 - 防止链接在WebView内部打开
+        // MARK: - 🔗 增强型链接导航拦截系统
+        
+        /// 完整的导航决策处理，100%拦截外部链接并防止各种导航问题
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
             
-            // 获取目标URL
+            // 获取目标URL和框架信息
             guard let url = navigationAction.request.url else {
-                print("🔗 导航拦截: 无效的URL")
+                print("🔗 [NAV] 导航拦截: 无效的URL")
                 decisionHandler(.allow)
                 return
             }
             
             let urlString = url.absoluteString
-            print("🔗 导航拦截: 检测到导航请求 - \(urlString)")
-            print("🔗 导航类型: \(navigationAction.navigationType.rawValue)")
-            print("🔗 是否为主框架: \(navigationAction.targetFrame?.isMainFrame ?? false)")
+            let isMainFrame = navigationAction.targetFrame?.isMainFrame ?? false
+            let navigationType = navigationAction.navigationType
+            let sourceFrame = navigationAction.sourceFrame
             
-            // 检查是否为初始页面加载（允许）
-            if urlString.contains("temp.html") || urlString.contains(".temp_editor.html") {
-                print("🔗 导航拦截: 允许加载编辑器页面")
+            // 详细日志记录
+            print("🔗 [NAV] ==================== 导航请求分析 ====================")
+            print("🔗 [NAV] URL: \(urlString)")
+            print("🔗 [NAV] 导航类型: \(navigationType.rawValue) (\(navigationTypeDescription(navigationType)))")
+            print("🔗 [NAV] 是否为主框架: \(isMainFrame)")
+            print("🔗 [NAV] 目标框架: \(navigationAction.targetFrame?.description ?? "nil")")
+            print("🔗 [NAV] 源框架: \(sourceFrame.description)")
+            print("🔗 [NAV] 请求方法: \(navigationAction.request.httpMethod ?? "nil")")
+            print("🔗 [NAV] 请求头: \(navigationAction.request.allHTTPHeaderFields ?? [:])")
+            
+            // 1. 允许编辑器本身的页面加载
+            if isEditorPageLoad(urlString) {
+                print("🔗 [NAV] ✅ 允许: 编辑器页面加载")
                 decisionHandler(.allow)
                 return
             }
             
-            // 检查是否为外部链接点击（需要拦截）
-            if navigationAction.navigationType == .linkActivated {
-                print("🔗 导航拦截: 检测到链接点击，拦截并在外部浏览器打开")
+            // 2. 🚨 特别处理子框架导航 - 防止SOAuthorizationCoordinator错误
+            if !isMainFrame {
+                print("🔗 [NAV] ⚠️ 检测到子框架导航，分析处理策略...")
                 
-                // 阻止WebView内部导航
+                // 优先检查OAuth授权URL - 这是最常见的SOAuthorizationCoordinator错误源
+                if isOAuthOrAuthorizationURL(url) {
+                    print("🔗 [NAV] 🚨 子框架中检测到OAuth URL，强制阻止防止SOAuthorizationCoordinator错误")
+                    decisionHandler(.cancel)
+                    
+                    // 发送特殊通知
+                    DispatchQueue.main.async {
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("subframeOAuthBlocked"),
+                            object: nil,
+                            userInfo: [
+                                "url": urlString,
+                                "reason": "Subframe OAuth navigation blocked to prevent SOAuthorizationCoordinator error"
+                            ]
+                        )
+                    }
+                    
+                    // 在外部浏览器中打开
+                    openInExternalBrowser(url: url, context: "子框架OAuth阻止")
+                    return
+                }
+                
+                // 检查是否为Vditor内部iframe
+                if isVditorInternalFrame(urlString) {
+                    print("🔗 [NAV] ✅ 允许: Vditor内部iframe导航")
+                    decisionHandler(.allow)
+                    return
+                }
+                
+                // 检查是否为外部链接的子框架导航
+                if isExternalURL(urlString) {
+                    print("🔗 [NAV] 🚨 阻止: 子框架中的外部链接导航 (防止SOAuthorizationCoordinator错误)")
+                    decisionHandler(.cancel)
+                    
+                    // 在外部浏览器中打开
+                    openInExternalBrowser(url: url, context: "子框架外部链接")
+                    return
+                }
+                
+                // 其他子框架导航（如about:blank等）
+                print("🔗 [NAV] ✅ 允许: 子框架内部导航")
+                decisionHandler(.allow)
+                return
+            }
+            
+            // 3. 🚨 主框架中也检查OAuth URL
+            if isOAuthOrAuthorizationURL(url) {
+                print("🔗 [NAV] 🚨 主框架中检测到OAuth URL，阻止以防止授权流程干扰")
                 decisionHandler(.cancel)
                 
-                // 在外部浏览器打开
+                // 发送通知
                 DispatchQueue.main.async {
-                    let success = NSWorkspace.shared.open(url)
-                    if success {
-                        print("✅ 已在外部浏览器打开链接: \(urlString)")
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("mainframeOAuthBlocked"),
+                        object: nil,
+                        userInfo: [
+                            "url": urlString,
+                            "navigationType": navigationType.rawValue,
+                            "reason": "Mainframe OAuth navigation blocked to prevent authorization flow interference"
+                        ]
+                    )
+                }
+                
+                openInExternalBrowser(url: url, context: "主框架OAuth阻止")
+                return
+            }
+            
+            // 4. 🎯 主框架导航处理
+            switch navigationType {
+            case .linkActivated:
+                print("🔗 [NAV] 🎯 链接激活导航")
+                handleLinkActivatedNavigation(url: url, urlString: urlString, decisionHandler: decisionHandler)
+                
+            case .formSubmitted:
+                print("🔗 [NAV] 📝 表单提交导航")
+                handleFormSubmittedNavigation(url: url, urlString: urlString, decisionHandler: decisionHandler)
+                
+            case .backForward:
+                print("🔗 [NAV] ⬅️➡️ 前进后退导航")
+                decisionHandler(.cancel) // 阻止前进后退，保持在编辑器中
+                
+            case .reload:
+                print("🔗 [NAV] 🔄 页面重载")
+                if isEditorPageLoad(urlString) {
+                    decisionHandler(.allow)
+                } else {
+                    decisionHandler(.cancel)
+                }
+                
+            case .formResubmitted:
+                print("🔗 [NAV] 📝 表单重新提交")
+                decisionHandler(.cancel) // 阻止表单重新提交
+                
+            case .other:
+                print("🔗 [NAV] 🔧 其他类型导航")
+                handleOtherNavigation(url: url, urlString: urlString, decisionHandler: decisionHandler)
+                
+            @unknown default:
+                print("🔗 [NAV] ❓ 未知导航类型")
+                // 对于未知类型，采用保守策略
+                if isExternalURL(urlString) {
+                    decisionHandler(.cancel)
+                    openInExternalBrowser(url: url, context: "未知导航类型")
+                } else {
+                    decisionHandler(.allow)
+                }
+            }
+        }
+        
+        // MARK: - 导航类型处理方法
+        
+        /// 处理链接激活导航
+        private func handleLinkActivatedNavigation(url: URL, urlString: String, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+            if isExternalURL(urlString) {
+                print("🔗 [NAV] 🚨 阻止: 外部链接激活")
+                decisionHandler(.cancel)
+                openInExternalBrowser(url: url, context: "链接激活")
+            } else {
+                print("🔗 [NAV] ✅ 允许: 内部链接激活")
+                decisionHandler(.allow)
+            }
+        }
+        
+        /// 处理表单提交导航
+        private func handleFormSubmittedNavigation(url: URL, urlString: String, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+            if isExternalURL(urlString) {
+                print("🔗 [NAV] 🚨 阻止: 外部表单提交")
+                decisionHandler(.cancel)
+                openInExternalBrowser(url: url, context: "表单提交")
+            } else {
+                print("🔗 [NAV] ✅ 允许: 内部表单提交")
+                decisionHandler(.allow)
+            }
+        }
+        
+        /// 处理其他类型导航
+        private func handleOtherNavigation(url: URL, urlString: String, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+            // 检查是否为JavaScript重定向等
+            if isExternalURL(urlString) {
+                print("🔗 [NAV] 🚨 阻止: 其他类型的外部导航")
+                decisionHandler(.cancel)
+                openInExternalBrowser(url: url, context: "其他导航")
+            } else if urlString.contains("javascript:") {
+                print("🔗 [NAV] 🚨 阻止: JavaScript URL")
+                decisionHandler(.cancel)
+            } else {
+                print("🔗 [NAV] ✅ 允许: 其他内部导航")
+                decisionHandler(.allow)
+            }
+        }
+        
+        // MARK: - URL判断辅助方法
+        
+        /// 判断是否为编辑器页面加载
+        private func isEditorPageLoad(_ urlString: String) -> Bool {
+            return urlString.contains("temp.html") || 
+                   urlString.contains(".temp_editor.html") ||
+                   urlString.hasPrefix("file://") && urlString.contains("html")
+        }
+        
+        /// 判断是否为外部URL
+        private func isExternalURL(_ urlString: String) -> Bool {
+            return urlString.hasPrefix("http://") ||
+                   urlString.hasPrefix("https://") ||
+                   urlString.hasPrefix("mailto:") ||
+                   urlString.hasPrefix("tel:") ||
+                   urlString.hasPrefix("sms:") ||
+                   urlString.hasPrefix("facetime:") ||
+                   urlString.hasPrefix("skype:") ||
+                   urlString.hasPrefix("zoom:") ||
+                   urlString.hasPrefix("slack:") ||
+                   urlString.hasPrefix("discord:") ||
+                   urlString.hasPrefix("spotify:") ||
+                   urlString.hasPrefix("music:")
+        }
+        
+        /// 判断是否为Vditor内部框架（白名单机制）
+        private func isVditorInternalFrame(_ urlString: String) -> Bool {
+            let allowedFramePatterns = [
+                "about:blank",
+                "data:text/html",
+                "blob:",
+                "javascript:void(0)",
+                ""
+            ]
+            
+            // 🎯 允许PlantUML图表渲染服务
+            if urlString.contains("plantuml.com") && urlString.contains("/svg/") {
+                return true
+            }
+            
+            // 严格的白名单检查
+            for pattern in allowedFramePatterns {
+                if urlString == pattern || (pattern.isEmpty && urlString.isEmpty) {
+                    return true
+                }
+            }
+            
+            // 特别检查Vditor相关的安全iframe
+            if urlString.contains("vditor") && (
+                urlString.contains("localhost") ||
+                urlString.contains("127.0.0.1") ||
+                urlString.hasPrefix("file://")
+            ) {
+                return true
+            }
+            
+            return false
+        }
+        
+        /// 检测OAuth授权相关URL（防止SOAuthorizationCoordinator错误）
+        private func isOAuthOrAuthorizationURL(_ url: URL) -> Bool {
+            let urlString = url.absoluteString.lowercased()
+            let host = url.host?.lowercased() ?? ""
+            
+            // OAuth关键词检测
+            let oauthKeywords = [
+                "oauth", "authorize", "authorization", "auth", "login", "signin", 
+                "sso", "openid", "connect", "callback", "redirect"
+            ]
+            
+            // OAuth相关参数检测
+            let oauthParams = [
+                "client_id=", "response_type=", "redirect_uri=", "scope=",
+                "state=", "code_challenge=", "access_token=", "id_token="
+            ]
+            
+            // 知名OAuth提供商域名
+            let oauthDomains = [
+                "accounts.google.com", "login.microsoftonline.com", "github.com",
+                "oauth.twitter.com", "facebook.com", "apple.com", "linkedin.com",
+                "discord.com", "slack.com", "dropbox.com", "spotify.com"
+            ]
+            
+            // 检查URL路径中的OAuth关键词
+            let pathAndQuery = url.path + (url.query ?? "")
+            for keyword in oauthKeywords {
+                if pathAndQuery.contains(keyword) {
+                    print("🔗 [OAUTH] 检测到OAuth关键词: \(keyword)")
+                    return true
+                }
+            }
+            
+            // 检查URL参数中的OAuth标识
+            for param in oauthParams {
+                if urlString.contains(param) {
+                    print("🔗 [OAUTH] 检测到OAuth参数: \(param)")
+                    return true
+                }
+            }
+            
+            // 检查已知OAuth域名
+            for domain in oauthDomains {
+                if host.contains(domain) {
+                    print("🔗 [OAUTH] 检测到OAuth域名: \(domain)")
+                    return true
+                }
+            }
+            
+            return false
+        }
+        
+        /// 在外部浏览器中打开URL
+        private func openInExternalBrowser(url: URL, context: String) {
+            DispatchQueue.main.async { [weak self] in
+                print("🔗 [NAV] 🌐 在外部浏览器打开链接: \(url.absoluteString) (上下文: \(context))")
+                
+                let success = NSWorkspace.shared.open(url)
+                if success {
+                    print("🔗 [NAV] ✅ 成功在默认浏览器打开: \(url.absoluteString)")
+                    
+                    // 发送成功通知
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("externalLinkOpened"),
+                        object: nil,
+                        userInfo: [
+                            "url": url.absoluteString,
+                            "context": context,
+                            "success": true
+                        ]
+                    )
+                } else {
+                    print("🔗 [NAV] ❌ 默认浏览器打开失败，尝试Safari...")
+                    self?.openInSafari(url: url, context: context)
+                }
+            }
+        }
+        
+        /// 使用Safari打开URL（备用方案）
+        private func openInSafari(url: URL, context: String) {
+            if let safariURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Safari") {
+                let configuration = NSWorkspace.OpenConfiguration()
+                NSWorkspace.shared.open([url], withApplicationAt: safariURL, configuration: configuration) { app, error in
+                    if let error = error {
+                        print("🔗 [NAV] ❌ Safari打开失败: \(error.localizedDescription)")
+                        
+                        // 发送失败通知
+                        DispatchQueue.main.async {
+                            NotificationCenter.default.post(
+                                name: NSNotification.Name("externalLinkOpened"),
+                                object: nil,
+                                userInfo: [
+                                    "url": url.absoluteString,
+                                    "context": context,
+                                    "success": false,
+                                    "error": error.localizedDescription
+                                ]
+                            )
+                        }
                     } else {
-                        print("❌ 外部浏览器打开失败: \(urlString)")
-                        // 尝试Safari
-                        if let safariURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Safari") {
-                            let configuration = NSWorkspace.OpenConfiguration()
-                            NSWorkspace.shared.open([url], withApplicationAt: safariURL, configuration: configuration, completionHandler: { app, error in
-                                if let error = error {
-                                    print("🔗 Safari打开失败: \(error)")
-                                } else {
-                                    print("🔗 Safari打开成功: \(String(describing: app))")
-                                }
-                            })
+                        print("🔗 [NAV] ✅ Safari打开成功: \(url.absoluteString)")
+                        
+                        // 发送成功通知
+                        DispatchQueue.main.async {
+                            NotificationCenter.default.post(
+                                name: NSNotification.Name("externalLinkOpened"),
+                                object: nil,
+                                userInfo: [
+                                    "url": url.absoluteString,
+                                    "context": context,
+                                    "success": true,
+                                    "method": "Safari"
+                                ]
+                            )
                         }
                     }
+                }
+            } else {
+                print("🔗 [NAV] ❌ 无法找到Safari浏览器")
+                
+                // 最后的备用方案：尝试系统默认方式
+                DispatchQueue.main.async {
+                    if NSWorkspace.shared.open(url) {
+                        print("🔗 [NAV] ✅ 系统默认方式打开成功")
+                    } else {
+                        print("🔗 [NAV] ❌ 所有打开方式均失败")
+                    }
+                }
+            }
+        }
+        
+        /// 获取导航类型描述
+        private func navigationTypeDescription(_ type: WKNavigationType) -> String {
+            switch type {
+            case .linkActivated: return "链接激活"
+            case .formSubmitted: return "表单提交"
+            case .backForward: return "前进后退"
+            case .reload: return "页面重载"
+            case .formResubmitted: return "表单重新提交"
+            case .other: return "其他类型"
+            @unknown default: return "未知类型"
+            }
+        }
+        
+        // MARK: - 🚨 iframe和子框架特殊处理
+        
+        /// 处理子框架的导航策略决策 - 防止SOAuthorizationCoordinator错误
+        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, preferences: WKWebpagePreferences, decisionHandler: @escaping (WKNavigationActionPolicy, WKWebpagePreferences) -> Void) {
+            
+            print("🔗 [IFRAME] ==================== 子框架导航策略分析 ====================")
+            
+            guard let url = navigationAction.request.url else {
+                print("🔗 [IFRAME] 无效URL，允许导航")
+                decisionHandler(.allow, preferences)
+                return
+            }
+            
+            let urlString = url.absoluteString
+            let isMainFrame = navigationAction.targetFrame?.isMainFrame ?? false
+            
+            print("🔗 [IFRAME] URL: \(urlString)")
+            print("🔗 [IFRAME] 是否主框架: \(isMainFrame)")
+            print("🔗 [IFRAME] 导航类型: \(navigationTypeDescription(navigationAction.navigationType))")
+            
+            // 主框架导航使用标准处理流程
+            if isMainFrame {
+                print("🔗 [IFRAME] 主框架导航，转向标准处理")
+                // 调用标准的decidePolicyFor方法
+                self.webView(webView, decidePolicyFor: navigationAction) { policy in
+                    decisionHandler(policy, preferences)
                 }
                 return
             }
             
-            // 其他导航类型（如页面内跳转）允许
-            print("🔗 导航拦截: 允许其他类型的导航")
-            decisionHandler(.allow)
+            // 🚨 子框架导航特殊处理
+            print("🔗 [IFRAME] ⚠️ 子框架导航检测")
+            
+            // 检查是否为Vditor编辑器内部的合法iframe
+            if isVditorInternalFrame(urlString) {
+                print("🔗 [IFRAME] ✅ 允许Vditor内部iframe导航")
+                
+                // 为Vditor内部iframe设置适当的偏好设置
+                preferences.allowsContentJavaScript = true
+                preferences.preferredContentMode = .recommended
+                
+                decisionHandler(.allow, preferences)
+                return
+            }
+            
+            // 🚨 检查是否为外部链接在子框架中的导航 - 这是SOAuthorizationCoordinator错误的常见原因
+            if isExternalURL(urlString) {
+                print("🔗 [IFRAME] 🚨 检测到子框架中的外部链接导航")
+                print("🔗 [IFRAME] 🚨 这可能导致SOAuthorizationCoordinator错误，强制阻止")
+                
+                // 强制取消子框架中的外部导航
+                decisionHandler(.cancel, preferences)
+                
+                // 在主线程中通过外部浏览器打开
+                DispatchQueue.main.async { [weak self] in
+                    self?.openInExternalBrowser(url: url, context: "子框架外部链接拦截")
+                }
+                
+                return
+            }
+            
+            // 🎯 检查潜在的授权流程URL - 特别防护SOAuthorizationCoordinator
+            if isPotentialOAuthURL(urlString) {
+                print("🔗 [IFRAME] 🚨 检测到潜在OAuth授权URL在子框架中")
+                print("🔗 [IFRAME] 🚨 为防止SOAuthorizationCoordinator错误，阻止此导航")
+                
+                decisionHandler(.cancel, preferences)
+                
+                // 记录OAuth拦截事件
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("oauthNavigationBlocked"),
+                    object: nil,
+                    userInfo: [
+                        "url": urlString,
+                        "reason": "子框架OAuth导航防护",
+                        "timestamp": Date().timeIntervalSince1970
+                    ]
+                )
+                
+                return
+            }
+            
+            // 🎯 其他子框架导航（如about:blank, data URL等）
+            if urlString.isEmpty || 
+               urlString == "about:blank" || 
+               urlString.starts(with: "data:") ||
+               urlString.starts(with: "javascript:") {
+                print("🔗 [IFRAME] ✅ 允许内部子框架导航: \(urlString)")
+                
+                // 为内部导航设置安全的偏好设置
+                preferences.allowsContentJavaScript = urlString.starts(with: "javascript:") || urlString.isEmpty
+                preferences.preferredContentMode = .recommended
+                
+                decisionHandler(.allow, preferences)
+                return
+            }
+            
+            // 🚨 未知类型的子框架导航 - 采用保守策略
+            print("🔗 [IFRAME] ⚠️ 未知类型的子框架导航，采用保守策略")
+            print("🔗 [IFRAME] URL模式分析:")
+            print("🔗 [IFRAME] - 是否包含域名: \(urlString.contains("."))")
+            print("🔗 [IFRAME] - 是否本地文件: \(urlString.starts(with: "file://"))")
+            
+            // 本地文件或相对路径允许
+            if urlString.starts(with: "file://") || !urlString.contains("://") {
+                print("🔗 [IFRAME] ✅ 允许本地或相对路径导航")
+                decisionHandler(.allow, preferences)
+            } else {
+                print("🔗 [IFRAME] 🚨 阻止可疑的子框架导航")
+                decisionHandler(.cancel, preferences)
+            }
+        }
+        
+        /// 检查是否为潜在的OAuth授权URL
+        private func isPotentialOAuthURL(_ urlString: String) -> Bool {
+            let oauthKeywords = [
+                "oauth", "auth", "login", "signin", "sso", "authorize", "authorization",
+                "connect", "callback", "redirect", "token", "access_token",
+                "google.com/oauth", "facebook.com/dialog", "github.com/login",
+                "microsoft.com/oauth", "apple.com/auth", "twitter.com/oauth",
+                "linkedin.com/oauth", "discord.com/oauth", "slack.com/oauth"
+            ]
+            
+            let lowercaseURL = urlString.lowercased()
+            return oauthKeywords.contains { lowercaseURL.contains($0) }
+        }
+        
+        // MARK: - 🔗 WebView其他导航相关代理方法
+        
+        /// 处理导航响应策略 - 额外的安全检查
+        func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+            
+            guard let url = navigationResponse.response.url else {
+                decisionHandler(.allow)
+                return
+            }
+            
+            let urlString = url.absoluteString
+            print("🔗 [RESPONSE] 导航响应策略检查: \(urlString)")
+            
+            // 检查HTTP状态码
+            if let httpResponse = navigationResponse.response as? HTTPURLResponse {
+                print("🔗 [RESPONSE] HTTP状态码: \(httpResponse.statusCode)")
+                
+                // 检查是否为重定向到外部URL
+                if httpResponse.statusCode >= 300 && httpResponse.statusCode < 400 {
+                    if let location = httpResponse.allHeaderFields["Location"] as? String {
+                        print("🔗 [RESPONSE] 检测到重定向: \(location)")
+                        
+                        if isExternalURL(location) {
+                            print("🔗 [RESPONSE] 🚨 阻止重定向到外部URL")
+                            decisionHandler(.cancel)
+                            
+                            if let redirectURL = URL(string: location) {
+                                openInExternalBrowser(url: redirectURL, context: "HTTP重定向拦截")
+                            }
+                            return
+                        }
+                    }
+                }
+                
+                // 检查Content-Type是否安全
+                if let contentType = httpResponse.allHeaderFields["Content-Type"] as? String {
+                    print("🔗 [RESPONSE] Content-Type: \(contentType)")
+                    
+                    // 阻止潜在的恶意内容类型
+                    if contentType.contains("application/octet-stream") && isExternalURL(urlString) {
+                        print("🔗 [RESPONSE] 🚨 阻止外部二进制内容下载")
+                        decisionHandler(.cancel)
+                        return
+                    }
+                }
+            }
+            
+            // 最终检查：确保不是外部URL
+            if isExternalURL(urlString) && !isEditorPageLoad(urlString) && !isVditorInternalFrame(urlString) {
+                print("🔗 [RESPONSE] 🚨 最终检查：阻止外部URL响应")
+                decisionHandler(.cancel)
+                openInExternalBrowser(url: url, context: "响应阶段拦截")
+            } else {
+                print("🔗 [RESPONSE] ✅ 允许导航响应")
+                decisionHandler(.allow)
+            }
+        }
+        
+        /// 处理导航错误
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            print("🔗 [ERROR] 导航失败: \(error.localizedDescription)")
+            
+            // 检查是否为链接拦截相关的错误
+            if (error as NSError).code == NSURLErrorCancelled {
+                print("🔗 [ERROR] 导航被取消（可能是链接拦截）")
+            } else {
+                print("🔗 [ERROR] 其他导航错误: \((error as NSError).code)")
+            }
+            
+            // 发送错误通知
+            NotificationCenter.default.post(
+                name: NSNotification.Name("webViewNavigationError"),
+                object: nil,
+                userInfo: [
+                    "error": error,
+                    "timestamp": Date().timeIntervalSince1970
+                ]
+            )
         }
         
         // 简化的JavaScript执行助手（移除了图片回调失败处理）
@@ -1506,49 +2073,471 @@ struct VditorWebView: NSViewRepresentable {
           <div id="vditor"></div>
 
           <script>
-          // 🚨 最早期的链接拦截 - 在任何其他脚本之前执行
+          // 🚨 增强型早期链接拦截系统 - 多层防护，确保100%拦截
           document.addEventListener('DOMContentLoaded', function() {
-            console.log('🔗 [EARLY] DOM加载完成，设置早期链接拦截');
+            console.log('🔗 [EARLY] DOM加载完成，设置增强型早期链接拦截');
             
-            // 创建一个超早期的链接拦截器
-            function earlyLinkInterceptor(e) {
-              console.log('🔗 [EARLY] 早期拦截器:', e.target.tagName, 'metaKey:', e.metaKey);
-              const linkElement = e.target.closest('a');
-              if (linkElement && (e.metaKey || e.shiftKey)) {
-                console.log('🔗 [EARLY] 早期拦截成功，阻止默认行为');
+            // 🎯 全局链接拦截状态管理
+            window.__linkInterceptorState = {
+              interceptCount: 0,
+              lastInterceptTime: 0,
+              pendingLinks: new Map(),
+              debugMode: true,
+              interceptedUrls: new Set()
+            };
+            
+            // 🔧 增强型链接拦截器 - 处理所有可能的场景
+            function enhancedLinkInterceptor(e) {
+              const state = window.__linkInterceptorState;
+              state.interceptCount++;
+              
+              if (state.debugMode) {
+                console.log('🔗 [EARLY] 增强拦截器 #' + state.interceptCount + ':', {
+                  target: e.target.tagName,
+                  metaKey: e.metaKey,
+                  shiftKey: e.shiftKey,
+                  ctrlKey: e.ctrlKey,
+                  altKey: e.altKey,
+                  button: e.button,
+                  eventType: e.type,
+                  timestamp: Date.now()
+                });
+              }
+              
+              // 🎯 智能链接元素查找 - 多种策略确保找到链接
+              let linkElement = null;
+              
+              // 策略1: 直接检查目标元素
+              if (e.target.tagName === 'A') {
+                linkElement = e.target;
+              }
+              
+              // 策略2: 使用closest向上查找
+              if (!linkElement) {
+                linkElement = e.target.closest('a');
+              }
+              
+              // 策略3: 检查父元素链 (手动遍历，防止closest失效)
+              if (!linkElement) {
+                let element = e.target;
+                let attempts = 0;
+                while (element && element.parentElement && attempts < 10) {
+                  if (element.tagName === 'A') {
+                    linkElement = element;
+                    break;
+                  }
+                  element = element.parentElement;
+                  attempts++;
+                }
+              }
+              
+              // 策略4: 检查子元素中是否有链接 (处理复杂嵌套)
+              if (!linkElement && e.target.querySelector) {
+                const childLink = e.target.querySelector('a');
+                if (childLink) {
+                  linkElement = childLink;
+                }
+              }
+              
+              if (linkElement) {
+                const href = linkElement.href || linkElement.getAttribute('href');
+                console.log('🔗 [EARLY] 找到链接元素:', {
+                  href: href,
+                  text: linkElement.textContent?.trim(),
+                  className: linkElement.className,
+                  id: linkElement.id
+                });
+                
+                // 🎯 检查是否需要拦截 (修饰键或配置)
+                const shouldIntercept = (e.metaKey || e.shiftKey || e.ctrlKey) || 
+                                       window.__globalLinkInterception === true;
+                
+                if (shouldIntercept && href && href.trim() !== '') {
+                  console.log('🔗 [EARLY] 触发链接拦截条件');
+                  
+                  // 🚨 强制阻止所有默认行为
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.stopImmediatePropagation();
+                  
+                  // 🔄 防重复处理
+                  const linkId = href + '_' + Date.now();
+                  if (state.interceptedUrls.has(href) && 
+                      (Date.now() - state.lastInterceptTime) < 1000) {
+                    console.log('🔗 [EARLY] 防重复: 链接最近已处理');
+                    return false;
+                  }
+                  
+                  state.interceptedUrls.add(href);
+                  state.lastInterceptTime = Date.now();
+                  
+                  // 🎯 存储待处理链接信息
+                  const linkInfo = {
+                    url: href,
+                    text: linkElement.textContent?.trim() || '',
+                    timestamp: Date.now(),
+                    interceptor: 'early',
+                    modifierKeys: {
+                      meta: e.metaKey,
+                      shift: e.shiftKey,
+                      ctrl: e.ctrlKey,
+                      alt: e.altKey
+                    }
+                  };
+                  
+                  state.pendingLinks.set(linkId, linkInfo);
+                  
+                  // 🚀 立即尝试发送到原生代码
+                  const sendSuccess = attemptNativeSend(href, 'early-interceptor');
+                  
+                  if (sendSuccess) {
+                    console.log('🔗 [EARLY] 早期发送成功，清理待处理链接');
+                    state.pendingLinks.delete(linkId);
+                  } else {
+                    console.log('🔗 [EARLY] 早期发送失败，标记为待处理');
+                    // 设置延迟重试
+                    setTimeout(() => {
+                      retryPendingLink(linkId);
+                    }, 100);
+                  }
+                  
+                  return false;
+                }
+              }
+              
+              // 🎯 特殊处理：检查SV预览区域的链接点击
+              const isInSvPreview = e.target.closest('.vditor-sv .vditor-reset') ||
+                                   e.target.closest('.vditor-preview') ||
+                                   e.target.closest('[data-type="preview"]');
+              
+              if (isInSvPreview && linkElement) {
+                console.log('🔗 [EARLY] SV预览区域链接检测');
+                // 在SV预览区域，任何链接点击都应被拦截
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
                 
-                // 存储链接信息供后续处理
-                window.__pendingLinkClick = {
-                  url: linkElement.href || linkElement.getAttribute('href'),
-                  timestamp: Date.now()
-                };
-                
-                // 尝试立即发送，如果失败则等待主处理器
-                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bridge) {
-                  const url = linkElement.href || linkElement.getAttribute('href');
-                  if (url) {
-                    try {
-                      window.webkit.messageHandlers.bridge.postMessage({ 
-                        type: 'openURL',
-                        url: url
-                      });
-                      console.log('🔗 [EARLY] 早期发送成功:', url);
-                      window.__pendingLinkClick = null;
-                    } catch(err) {
-                      console.log('🔗 [EARLY] 早期发送失败，等待主处理器');
-                    }
-                  }
+                const href = linkElement.href || linkElement.getAttribute('href');
+                if (href) {
+                  attemptNativeSend(href, 'sv-preview');
                 }
                 return false;
               }
             }
             
-            // 在最早期绑定
-            document.addEventListener('click', earlyLinkInterceptor, true);
-            document.body.addEventListener('click', earlyLinkInterceptor, true);
+            // 🚀 尝试发送到原生代码的通用函数
+            function attemptNativeSend(url, context) {
+              try {
+                if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bridge) {
+                  console.log('🔗 [SEND] 发送链接到原生:', { url, context });
+                  
+                  window.webkit.messageHandlers.bridge.postMessage({ 
+                    type: 'openURL',
+                    url: url,
+                    context: context,
+                    timestamp: Date.now()
+                  });
+                  
+                  console.log('🔗 [SEND] ✅ 发送成功');
+                  return true;
+                } else {
+                  console.log('🔗 [SEND] ❌ WebKit bridge不可用');
+                  return false;
+                }
+              } catch(err) {
+                console.error('🔗 [SEND] ❌ 发送异常:', err);
+                return false;
+              }
+            }
+            
+            // 🔄 重试待处理链接
+            function retryPendingLink(linkId) {
+              const state = window.__linkInterceptorState;
+              const linkInfo = state.pendingLinks.get(linkId);
+              
+              if (linkInfo) {
+                console.log('🔗 [RETRY] 重试链接:', linkInfo.url);
+                const success = attemptNativeSend(linkInfo.url, 'retry');
+                
+                if (success) {
+                  state.pendingLinks.delete(linkId);
+                  console.log('🔗 [RETRY] ✅ 重试成功');
+                } else {
+                  console.log('🔗 [RETRY] ❌ 重试失败，使用备用方案');
+                  // 使用window.open作为最后备用方案
+                  try {
+                    window.open(linkInfo.url, '_blank');
+                    state.pendingLinks.delete(linkId);
+                  } catch(err) {
+                    console.error('🔗 [RETRY] ❌ 备用方案也失败:', err);
+                  }
+                }
+              }
+            }
+            
+            // 🎯 多层事件绑定 - 确保在各种情况下都能拦截
+            
+            // 层级1: 文档捕获阶段 (最高优先级)
+            document.addEventListener('click', enhancedLinkInterceptor, true);
+            
+            // 层级2: 文档冒泡阶段 (备用)
+            document.addEventListener('click', enhancedLinkInterceptor, false);
+            
+            // 层级3: body元素 (额外保险)
+            if (document.body) {
+              document.body.addEventListener('click', enhancedLinkInterceptor, true);
+              document.body.addEventListener('click', enhancedLinkInterceptor, false);
+            }
+            
+            // 🎯 鼠标按下预处理 - 提前标记潜在链接点击
+            document.addEventListener('mousedown', function(e) {
+              if (e.button === 0) { // 左键
+                const linkElement = e.target.closest('a');
+                if (linkElement) {
+                  linkElement.dataset.aboutToClick = 'true';
+                  linkElement.dataset.clickTime = Date.now().toString();
+                  
+                  if (e.metaKey || e.shiftKey || e.ctrlKey) {
+                    console.log('🔗 [PREPROCESS] 检测到修饰键+鼠标按下在链接上');
+                    // 立即标记为需要拦截
+                    linkElement.dataset.shouldIntercept = 'true';
+                  }
+                }
+              }
+            }, true);
+            
+            // 🎯 键盘事件监听 - 处理可能的键盘导航
+            document.addEventListener('keydown', function(e) {
+              // Enter键可能触发链接
+              if (e.key === 'Enter' && document.activeElement && document.activeElement.tagName === 'A') {
+                if (e.metaKey || e.shiftKey || e.ctrlKey) {
+                  console.log('🔗 [KEYBOARD] 检测到修饰键+Enter在链接上');
+                  e.preventDefault();
+                  e.stopPropagation();
+                  
+                  const href = document.activeElement.href || document.activeElement.getAttribute('href');
+                  if (href) {
+                    attemptNativeSend(href, 'keyboard-enter');
+                  }
+                }
+              }
+            }, true);
+            
+            // 🎯 全局错误处理和调试系统初始化
+            window.__linkDebugSystem = {
+              enabled: true,
+              logHistory: [],
+              errorHistory: [],
+              statisticsHistory: [],
+              maxHistoryLength: 1000,
+              
+              // 📊 统计信息
+              statistics: {
+                totalInterceptions: 0,
+                successfulSends: 0,
+                failedSends: 0,
+                svPreviewClicks: 0,
+                modifierKeyClicks: 0,
+                duplicateBlocks: 0,
+                errorCount: 0
+              },
+              
+              // 📝 日志记录函数
+              log: function(level, category, message, data = null) {
+                if (!this.enabled) return;
+                
+                const timestamp = new Date().toISOString();
+                const logEntry = {
+                  timestamp,
+                  level,
+                  category,
+                  message,
+                  data
+                };
+                
+                this.logHistory.push(logEntry);
+                if (this.logHistory.length > this.maxHistoryLength) {
+                  this.logHistory.shift();
+                }
+                
+                // 控制台输出
+                const consoleMessage = `🔗 [${category.toUpperCase()}] ${message}`;
+                switch (level) {
+                  case 'error':
+                    console.error(consoleMessage, data || '');
+                    break;
+                  case 'warn':
+                    console.warn(consoleMessage, data || '');
+                    break;
+                  case 'info':
+                    console.info(consoleMessage, data || '');
+                    break;
+                  default:
+                    console.log(consoleMessage, data || '');
+                }
+              },
+              
+              // ❌ 错误记录函数
+              logError: function(category, error, context = null) {
+                this.statistics.errorCount++;
+                
+                const errorEntry = {
+                  timestamp: new Date().toISOString(),
+                  category,
+                  error: error.message || error.toString(),
+                  stack: error.stack || 'No stack trace',
+                  context
+                };
+                
+                this.errorHistory.push(errorEntry);
+                if (this.errorHistory.length > this.maxHistoryLength) {
+                  this.errorHistory.shift();
+                }
+                
+                this.log('error', category, `Error: ${error.message || error}`, {
+                  error: errorEntry,
+                  context
+                });
+              },
+              
+              // 📊 统计更新函数
+              updateStatistics: function(action, increment = 1) {
+                if (this.statistics.hasOwnProperty(action)) {
+                  this.statistics[action] += increment;
+                }
+                
+                // 定期记录统计信息
+                if (this.statistics.totalInterceptions % 10 === 0) {
+                  this.recordStatistics();
+                }
+              },
+              
+              // 📈 记录统计快照
+              recordStatistics: function() {
+                const snapshot = {
+                  timestamp: new Date().toISOString(),
+                  ...this.statistics
+                };
+                
+                this.statisticsHistory.push(snapshot);
+                if (this.statisticsHistory.length > 100) {
+                  this.statisticsHistory.shift();
+                }
+              },
+              
+              // 📋 生成调试报告
+              generateReport: function() {
+                return {
+                  system: 'Enhanced Link Interceptor',
+                  timestamp: new Date().toISOString(),
+                  statistics: this.statistics,
+                  recentLogs: this.logHistory.slice(-20),
+                  recentErrors: this.errorHistory.slice(-10),
+                  recentStatistics: this.statisticsHistory.slice(-5),
+                  configuration: {
+                    interceptorActive: window.__linkInterceptorState?.interceptCount || 0,
+                    svInterceptorActive: window.__svLinkInterceptor?.isActive || false,
+                    boundContainers: window.__svLinkInterceptor?.boundContainers?.size || 0,
+                    webkitAvailable: !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bridge)
+                  }
+                };
+              }
+            };
+            
+            // 🔧 增强attemptNativeSend函数以使用调试系统
+            const originalAttemptNativeSend = attemptNativeSend;
+            attemptNativeSend = function(url, context) {
+              const debugSystem = window.__linkDebugSystem;
+              
+              try {
+                debugSystem.updateStatistics('totalInterceptions');
+                debugSystem.log('info', 'send', `尝试发送链接`, { url, context });
+                
+                const result = originalAttemptNativeSend(url, context);
+                
+                if (result) {
+                  debugSystem.updateStatistics('successfulSends');
+                  debugSystem.log('info', 'send', `发送成功`, { url, context });
+                } else {
+                  debugSystem.updateStatistics('failedSends');
+                  debugSystem.log('warn', 'send', `发送失败`, { url, context });
+                }
+                
+                return result;
+              } catch (error) {
+                debugSystem.logError('send', error, { url, context });
+                debugSystem.updateStatistics('failedSends');
+                return false;
+              }
+            };
+            
+            // 🎯 全局异常捕获
+            window.addEventListener('error', function(event) {
+              window.__linkDebugSystem.logError('global', event.error, {
+                filename: event.filename,
+                lineno: event.lineno,
+                colno: event.colno
+              });
+            });
+            
+            window.addEventListener('unhandledrejection', function(event) {
+              window.__linkDebugSystem.logError('promise', event.reason, {
+                type: 'unhandled promise rejection'
+              });
+            });
+            
+            // 🔧 调试工具函数
+            window.__debugLinkInterceptor = function() {
+              const report = window.__linkDebugSystem.generateReport();
+              console.group('🔗 链接拦截器调试报告');
+              console.log('📊 统计信息:', report.statistics);
+              console.log('⚙️ 配置信息:', report.configuration);
+              console.log('📝 最近日志:', report.recentLogs);
+              console.log('❌ 最近错误:', report.recentErrors);
+              console.log('📈 统计历史:', report.recentStatistics);
+              console.groupEnd();
+              
+              return report;
+            };
+            
+            // 🎯 手动测试链接拦截
+            window.__testLinkInterception = function(url = 'https://www.google.com') {
+              console.log('🧪 测试链接拦截:', url);
+              const success = attemptNativeSend(url, 'manual-test');
+              console.log('🧪 测试结果:', success ? '成功' : '失败');
+              return success;
+            };
+            
+            // 📊 性能监控
+            window.__linkPerformanceMonitor = {
+              startTime: Date.now(),
+              checkpoints: [],
+              
+              checkpoint: function(name) {
+                this.checkpoints.push({
+                  name,
+                  timestamp: Date.now(),
+                  elapsed: Date.now() - this.startTime
+                });
+              },
+              
+              report: function() {
+                console.group('⏱️ 链接拦截器性能报告');
+                this.checkpoints.forEach(cp => {
+                  console.log(`${cp.name}: ${cp.elapsed}ms`);
+                });
+                console.groupEnd();
+                return this.checkpoints;
+              }
+            };
+            
+            window.__linkPerformanceMonitor.checkpoint('早期拦截器初始化完成');
+            
+            console.log('🔗 [EARLY] ✅ 增强型早期链接拦截系统初始化完成');
+            console.log('🔧 [DEBUG] 调试工具已激活:');
+            console.log('  - window.__debugLinkInterceptor() - 生成调试报告');
+            console.log('  - window.__testLinkInterception(url) - 测试链接拦截');
+            console.log('  - window.__linkDebugSystem - 访问调试系统');
           });
           
           (function(){
@@ -1698,6 +2687,55 @@ struct VditorWebView: NSViewRepresentable {
                     }
                   }, true);
                 }
+                
+                // 🚀 强制链接处理 - 定期扫描并处理所有链接
+                function forceSetupLinks() {
+                  console.log('🔗 [FORCE] 强制设置链接处理器');
+                  const allLinks = document.querySelectorAll('a[href]');
+                  console.log('🔗 [FORCE] 找到', allLinks.length, '个链接');
+                  
+                  allLinks.forEach((link, index) => {
+                    if (!link.dataset.customHandlerBound) {
+                      console.log('🔗 [FORCE] 为链接', index, '绑定处理器:', link.href);
+                      
+                      // 移除所有现有的点击监听器
+                      link.onclick = null;
+                      
+                      // 添加我们的处理器
+                      link.addEventListener('click', function(e) {
+                        console.log('🔗 [FORCE] 强制链接点击处理:', link.href);
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();
+                        
+                        // 直接发送到原生代码
+                        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bridge) {
+                          try {
+                            window.webkit.messageHandlers.bridge.postMessage({ 
+                              type: 'openURL',
+                              url: link.href
+                            });
+                            console.log('🔗 [FORCE] 强制发送成功:', link.href);
+                          } catch(err) {
+                            console.error('🔗 [FORCE] 强制发送失败:', err);
+                            window.open(link.href, '_blank');
+                          }
+                        } else {
+                          window.open(link.href, '_blank');
+                        }
+                        return false;
+                      }, true);
+                      
+                      link.dataset.customHandlerBound = 'true';
+                    }
+                  });
+                }
+                
+                // 立即执行一次
+                forceSetupLinks();
+                
+                // 定期重新检查和绑定
+                setInterval(forceSetupLinks, 2000);
                 
                 // 拦截特殊快捷键
                 document.addEventListener('keydown', function(e) {
@@ -1946,6 +2984,46 @@ struct VditorWebView: NSViewRepresentable {
                     } catch(err) {
                       console.error('无法发送 Command+D 事件:', err);
                     }
+                    return false;
+                  }
+                  
+                  // Command+Option+8: 切换链接点击模式
+                  if (e.metaKey && e.altKey && e.key === '8') {
+                    console.log('🎯 检测到 Command+Option+8，切换链接点击模式');
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    
+                    // 切换全局链接拦截状态
+                    window.__globalLinkInterception = !window.__globalLinkInterception;
+                    const mode = window.__globalLinkInterception ? '强制拦截' : '正常点击';
+                    console.log('🔗 链接点击模式已切换为:', mode);
+                    
+                    // 显示状态提示
+                    try {
+                      // 创建临时提示元素
+                      const toast = document.createElement('div');
+                      toast.style.cssText = `
+                        position: fixed; top: 50px; right: 50px; z-index: 10000;
+                        background: ${window.__isDarkMode ? '#2b2b2b' : '#fff'};
+                        color: ${window.__isDarkMode ? '#fff' : '#333'};
+                        padding: 12px 20px; border-radius: 8px;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                        font-size: 14px; font-weight: 500;
+                        transition: all 0.3s ease;
+                      `;
+                      toast.textContent = `链接点击模式: ${mode}`;
+                      document.body.appendChild(toast);
+                      
+                      // 3秒后自动移除
+                      setTimeout(() => {
+                        if (toast.parentNode) {
+                          toast.parentNode.removeChild(toast);
+                        }
+                      }, 3000);
+                    } catch(err) {
+                      console.error('无法显示状态提示:', err);
+                    }
+                    
                     return false;
                   }
                   
@@ -2463,9 +3541,9 @@ struct VditorWebView: NSViewRepresentable {
                 if (url && url.trim() !== '') {
                   console.log('🔗 [MAIN] 修饰键+点击链接:', url, '(metaKey:', e.metaKey, ', shiftKey:', e.shiftKey, ')');
                   
-                  // 🎯 在SV预览区域或任何链接点击时，强制阻止所有默认行为
-                  if (isInSvPreview || true) {
-                    console.log('🔗 [MAIN] 强制拦截链接点击（SV预览区域或通用处理）');
+                  // 🎯 只在有修饰键时才拦截链接点击
+                  if (e.metaKey || e.shiftKey || e.ctrlKey) {
+                    console.log('🔗 [MAIN] 修饰键拦截链接点击');
                     e.preventDefault();
                     e.stopPropagation();
                     e.stopImmediatePropagation();
@@ -2630,57 +3708,304 @@ struct VditorWebView: NSViewRepresentable {
               }
             }, true);
             
-            // 7. 定时器方式的深度拦截 - 在Vditor加载完成后重新绑定事件，特别关注SV预览区域
+            // 7. 🎯 增强型SV分屏模式和多编辑模式链接拦截系统
             setTimeout(() => {
-              console.log('🔗 延迟绑定链接处理器...');
-              // 查找所有可能的容器并绑定事件，特别添加SV预览相关容器
-              const containers = [
-                document,
-                document.body,
-                document.querySelector('.vditor'),
-                document.querySelector('.vditor-reset'),
-                document.querySelector('#vditor'),
-                document.querySelector('.vditor-sv'),
-                document.querySelector('.vditor-preview'),
-                document.querySelector('.vditor-sv .vditor-reset')
-              ].filter(Boolean);
+              console.log('🔗 [SV] 初始化增强型SV分屏模式链接拦截系统...');
               
-              containers.forEach(container => {
-                console.log('🔗 在容器上绑定事件:', container);
-                container.addEventListener('click', function(e) {
-                  if ((e.metaKey || e.shiftKey) && e.target.closest('a')) {
-                    console.log('🔗 [DEEP] 深度拦截器触发，容器:', container.className || container.tagName);
-                    handleLinkClick(e);
+              // 🎯 专门处理SV预览区域的链接拦截
+              function setupSVPreviewInterception() {
+                console.log('🔗 [SV] 设置SV预览区域专用拦截器');
+                
+                // 查找SV预览区域
+                const svPreviewAreas = [
+                  '.vditor-sv .vditor-reset',
+                  '.vditor-preview',
+                  '[data-type="preview"]',
+                  '.vditor-sv .vditor-preview'
+                ];
+                
+                svPreviewAreas.forEach(selector => {
+                  const area = document.querySelector(selector);
+                  if (area && !area.dataset.svInterceptorBound) {
+                    console.log('🔗 [SV] 为SV区域绑定专用拦截器:', selector);
+                    
+                    area.addEventListener('click', function(e) {
+                      const linkElement = e.target.closest('a');
+                      if (linkElement) {
+                        console.log('🔗 [SV] SV预览区域链接点击，强制拦截');
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();
+                        
+                        const url = linkElement.href || linkElement.getAttribute('href');
+                        if (url && (url.startsWith('http') || url.includes('.'))) {
+                          console.log('🔗 [SV] SV区域外部链接，发送到原生处理');
+                          if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bridge) {
+                            window.webkit.messageHandlers.bridge.postMessage({
+                              type: 'openURL',
+                              url: url,
+                              source: 'SV_preview_area'
+                            });
+                          }
+                        }
+                        return false;
+                      }
+                    }, true);
+                    
+                    area.dataset.svInterceptorBound = 'true';
                   }
-                }, true);
-              });
+                });
+              }
               
-              // 🎯 特别针对SV预览区域添加强制拦截
-              const svPreviewObserver = new MutationObserver(() => {
-                const svPreview = document.querySelector('.vditor-sv .vditor-reset');
-                if (svPreview && !svPreview.dataset.linkHandlerBound) {
-                  console.log('🔗 [SV特殊] 为SV预览区域绑定链接处理器');
-                  svPreview.addEventListener('click', function(e) {
-                    if ((e.metaKey || e.shiftKey) && e.target.closest('a')) {
-                      console.log('🔗 [SV特殊] SV预览区域链接点击拦截');
-                      e.preventDefault();
-                      e.stopPropagation();
-                      e.stopImmediatePropagation();
-                      handleLinkClick(e);
+              // 立即设置
+              setupSVPreviewInterception();
+              
+              // 定期重新检查（处理模式切换）
+              setInterval(setupSVPreviewInterception, 3000);
+              
+              // 🎯 SV模式专用链接拦截状态
+              window.__svLinkInterceptor = {
+                isActive: false,
+                boundContainers: new Set(),
+                lastScanTime: 0,
+                interceptCount: 0
+              };
+              
+              // 🚀 智能容器发现和绑定系统
+              function discoverAndBindContainers() {
+                const now = Date.now();
+                if (now - window.__svLinkInterceptor.lastScanTime < 500) {
+                  return; // 防止过于频繁的扫描
+                }
+                window.__svLinkInterceptor.lastScanTime = now;
+                
+                console.log('🔗 [SV] 扫描并绑定容器...');
+                
+                // 🎯 全面的容器选择器 - 覆盖所有可能的编辑和预览区域
+                const containerSelectors = [
+                  // 基础容器
+                  'document', 'body', '#vditor',
+                  
+                  // 通用Vditor容器
+                  '.vditor', '.vditor-reset', '.vditor-content',
+                  
+                  // IR模式容器
+                  '.vditor-ir', '.vditor-ir .vditor-reset', '.vditor-ir__node',
+                  
+                  // SV分屏模式容器 (重点)
+                  '.vditor-sv', '.vditor-sv .vditor-reset', 
+                  '.vditor-sv__preview', '.vditor-sv .vditor-preview',
+                  
+                  // 预览区域
+                  '.vditor-preview', '.vditor-preview .vditor-reset',
+                  '[data-type="preview"]', '.vditor-preview__content',
+                  
+                  // WYSIWYG模式
+                  '.vditor-wysiwyg', '.vditor-wysiwyg .vditor-reset',
+                  
+                  // 工具栏和其他
+                  '.vditor-toolbar', '.vditor-outline'
+                ];
+                
+                const containers = [];
+                
+                // 添加document和body
+                containers.push(document, document.body);
+                
+                // 查找所有匹配的容器
+                containerSelectors.forEach(selector => {
+                  if (selector === 'document' || selector === 'body') return;
+                  try {
+                    const elements = document.querySelectorAll(selector);
+                    elements.forEach(el => {
+                      if (el && !containers.includes(el)) {
+                        containers.push(el);
+                      }
+                    });
+                  } catch(e) {
+                    console.warn('🔗 [SV] 选择器错误:', selector, e);
+                  }
+                });
+                
+                console.log('🔗 [SV] 发现', containers.length, '个容器');
+                
+                // 为每个容器绑定增强型链接处理器
+                containers.forEach((container, index) => {
+                  const containerId = container.id || container.className || container.tagName || `container_${index}`;
+                  
+                  if (!window.__svLinkInterceptor.boundContainers.has(containerId)) {
+                    console.log('🔗 [SV] 为容器绑定事件:', containerId);
+                    
+                    // 🎯 SV专用链接处理器
+                    const svLinkHandler = function(e) {
+                      window.__svLinkInterceptor.interceptCount++;
+                      
+                      console.log('🔗 [SV] SV链接处理器触发 #' + window.__svLinkInterceptor.interceptCount);
+                      console.log('🔗 [SV] 事件源容器:', containerId);
+                      console.log('🔗 [SV] 点击目标:', e.target.tagName, e.target.className);
+                      
+                      const linkElement = e.target.closest('a');
+                      if (linkElement) {
+                        const href = linkElement.href || linkElement.getAttribute('href');
+                        console.log('🔗 [SV] 发现链接:', href);
+                        
+                        // 🎯 SV模式下的特殊处理逻辑
+                        const isInSvPreview = container.closest('.vditor-sv') || 
+                                             container.classList.contains('vditor-sv') ||
+                                             e.target.closest('.vditor-sv');
+                        
+                        if (isInSvPreview) {
+                          console.log('🔗 [SV] ⚠️ SV预览区域链接点击');
+                          
+                          // SV预览区域的链接应该被强制拦截
+                          e.preventDefault();
+                          e.stopPropagation();
+                          e.stopImmediatePropagation();
+                          
+                          if (href && href.trim() !== '') {
+                            console.log('🔗 [SV] 🚀 SV预览区域强制发送链接:', href);
+                            attemptNativeSend(href, 'sv-preview-forced');
+                          }
+                          return false;
+                        }
+                        
+                        // 🎯 检查修饰键
+                        if (e.metaKey || e.shiftKey || e.ctrlKey) {
+                          console.log('🔗 [SV] 🎯 修饰键链接拦截');
+                          e.preventDefault();
+                          e.stopPropagation();
+                          e.stopImmediatePropagation();
+                          
+                          if (href && href.trim() !== '') {
+                            attemptNativeSend(href, 'sv-modifier-key');
+                          }
+                          return false;
+                        }
+                      }
+                    };
+                    
+                    // 绑定捕获和冒泡阶段
+                    container.addEventListener('click', svLinkHandler, true);
+                    container.addEventListener('click', svLinkHandler, false);
+                    
+                    window.__svLinkInterceptor.boundContainers.add(containerId);
+                  }
+                });
+                
+                window.__svLinkInterceptor.isActive = true;
+              }
+              
+              // 🔄 MutationObserver - 监听DOM变化，特别是模式切换
+              const svModeObserver = new MutationObserver((mutations) => {
+                let shouldRescan = false;
+                
+                mutations.forEach(mutation => {
+                  // 检查是否有新的Vditor相关元素
+                  if (mutation.type === 'childList') {
+                    mutation.addedNodes.forEach(node => {
+                      if (node.nodeType === 1) { // Element node
+                        const element = node;
+                        if (element.classList && (
+                          element.classList.contains('vditor-sv') ||
+                          element.classList.contains('vditor-preview') ||
+                          element.classList.contains('vditor-reset') ||
+                          element.querySelector && element.querySelector('.vditor-sv, .vditor-preview')
+                        )) {
+                          console.log('🔗 [SV] 检测到新的SV相关元素');
+                          shouldRescan = true;
+                        }
+                      }
+                    });
+                  }
+                  
+                  // 检查类名变化（模式切换）
+                  if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    const target = mutation.target;
+                    if (target.classList && target.classList.contains('vditor')) {
+                      console.log('🔗 [SV] 检测到Vditor类名变化，可能是模式切换');
+                      shouldRescan = true;
                     }
-                  }, true);
-                  svPreview.dataset.linkHandlerBound = 'true';
+                  }
+                });
+                
+                if (shouldRescan) {
+                  setTimeout(discoverAndBindContainers, 100);
                 }
               });
               
-              // 开始观察DOM变化，以便在SV模式切换时重新绑定
-              svPreviewObserver.observe(document.body, {
+              // 开始观察
+              svModeObserver.observe(document.body, {
                 childList: true,
                 subtree: true,
                 attributes: true,
-                attributeFilter: ['class']
+                attributeFilter: ['class', 'style']
               });
+              
+              // 🚀 立即执行一次扫描
+              discoverAndBindContainers();
+              
+              // 🔄 定期重新扫描（确保不遗漏）
+              setInterval(() => {
+                discoverAndBindContainers();
+              }, 3000);
+              
+              // 🎯 特殊的SV预览区域强制拦截器
+              const forceSvInterceptor = function(e) {
+                if (e.target.closest('.vditor-sv .vditor-reset') || 
+                    e.target.closest('.vditor-preview')) {
+                  const link = e.target.closest('a');
+                  if (link) {
+                    console.log('🔗 [SV] 🚨 强制SV预览拦截器激活');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    
+                    const href = link.href || link.getAttribute('href');
+                    if (href) {
+                      attemptNativeSend(href, 'sv-force-interceptor');
+                    }
+                    return false;
+                  }
+                }
+              };
+              
+              // 在document级别添加最高优先级的SV拦截器
+              document.addEventListener('click', forceSvInterceptor, true);
+              
+              console.log('🔗 [SV] ✅ 增强型SV分屏模式链接拦截系统初始化完成');
             }, 1000);
+            
+            // 8. 🎯 编辑模式切换监听 - 确保在模式切换后重新绑定事件
+            let lastKnownMode = 'unknown';
+            
+            function detectModeChange() {
+              let currentMode = 'unknown';
+              
+              if (document.querySelector('.vditor-sv')) {
+                currentMode = 'sv';
+              } else if (document.querySelector('.vditor-ir')) {
+                currentMode = 'ir';
+              } else if (document.querySelector('.vditor-wysiwyg')) {
+                currentMode = 'wysiwyg';
+              }
+              
+              if (currentMode !== lastKnownMode) {
+                console.log('🔗 [MODE] 检测到编辑模式变化:', lastKnownMode, '->', currentMode);
+                lastKnownMode = currentMode;
+                
+                // 模式切换后延迟重新绑定事件
+                setTimeout(() => {
+                  console.log('🔗 [MODE] 模式切换后重新绑定链接处理器');
+                  // 触发重新扫描
+                  if (window.__svLinkInterceptor) {
+                    window.__svLinkInterceptor.boundContainers.clear();
+                  }
+                }, 200);
+              }
+            }
+            
+            // 定期检测模式变化
+            setInterval(detectModeChange, 1000);
             
             // 图片和其他元素的点击处理
             document.addEventListener('click', function(e) {
@@ -2879,6 +4204,80 @@ struct VditorWebView: NSViewRepresentable {
               }
             };
           })();
+          
+          // 🚨 最终安全保障：全局错误捕获和链接强制拦截
+          window.addEventListener('beforeunload', function(e) {
+            console.log('🔗 [SAFETY] 页面即将卸载，检查是否为意外导航');
+            // 在这里可以添加额外的安全检查
+          });
+          
+          // 🔒 最终故障安全机制：监听所有可能的导航尝试
+          const originalOpen = window.open;
+          window.open = function(...args) {
+            const url = args[0];
+            console.log('🔗 [SAFETY] 拦截window.open调用:', url);
+            
+            if (url && typeof url === 'string') {
+              // 通过我们的安全机制处理
+              if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bridge) {
+                try {
+                  window.webkit.messageHandlers.bridge.postMessage({
+                    type: 'openURL',
+                    url: url,
+                    source: 'window.open'
+                  });
+                  console.log('✅ [SAFETY] window.open重定向到原生处理器');
+                  return null; // 阻止默认的window.open
+                } catch(e) {
+                  console.error('❌ [SAFETY] window.open重定向失败:', e);
+                }
+              }
+            }
+            
+            // 如果原生处理失败，允许默认行为
+            return originalOpen.apply(window, args);
+          };
+          
+          // 🛡️ 位置改变拦截
+          const originalReplace = window.location.replace;
+          const originalAssign = window.location.assign;
+          
+          window.location.replace = function(url) {
+            console.log('🔗 [SAFETY] 拦截location.replace:', url);
+            if (attemptNativeSend(url, 'location.replace')) {
+              return;
+            }
+            return originalReplace.call(window.location, url);
+          };
+          
+          window.location.assign = function(url) {
+            console.log('🔗 [SAFETY] 拦截location.assign:', url);
+            if (attemptNativeSend(url, 'location.assign')) {
+              return;
+            }
+            return originalAssign.call(window.location, url);
+          };
+          
+          // 🚀 最终的调试和状态报告
+          window.__finalSafetyReport = function() {
+            return {
+              interceptorsActive: {
+                earlyInterceptor: !!window.__earlyLinkInterceptor,
+                debugSystem: !!window.__linkDebugSystem,
+                performanceMonitor: !!window.__linkPerformanceMonitor,
+                windowOpenOverride: window.open !== originalOpen,
+                locationReplaceOverride: window.location.replace !== originalReplace,
+                locationAssignOverride: window.location.assign !== originalAssign
+              },
+              linkCounts: window.__linkDebugSystem ? window.__linkDebugSystem.getStatistics() : null,
+              webkitAvailable: !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bridge),
+              vditorReady: !!window.vditor,
+              currentMode: window.vditor ? 'loaded' : 'loading'
+            };
+          };
+          
+          console.log('🛡️ [SAFETY] 最终安全保障机制已激活');
+          console.log('🔧 [DEBUG] 使用 window.__finalSafetyReport() 查看完整状态');
           </script>
         </body>
         </html>

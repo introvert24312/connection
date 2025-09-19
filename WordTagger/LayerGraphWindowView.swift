@@ -77,7 +77,7 @@ struct LayerGraphWindowView: View {
                 forName: NSWindow.didBecomeKeyNotification,
                 object: nil,
                 queue: .main
-            ) { [windowId] notification in
+            ) { notification in
                 guard let window = notification.object as? NSWindow else { return }
                 let newWindowTitle = window.title
                 

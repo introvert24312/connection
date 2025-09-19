@@ -426,7 +426,7 @@ struct ContentViewKeyboardModifier: ViewModifier {
             // 检查WebView焦点
             var currentResponder: NSResponder? = firstResponder
             while currentResponder != nil {
-                if let webView = currentResponder as? WKWebView {
+                if currentResponder is WKWebView {
                     print("✅ ContentView发现WebView焦点，忽略ESC")
                     return .ignored
                 }
