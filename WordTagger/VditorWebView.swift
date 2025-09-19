@@ -992,24 +992,26 @@ struct VditorWebView: NSViewRepresentable {
               border-radius: 0.25rem;
             }
             
-            /* 代码块 - 透明背景，只保留边框 */
+            /* 代码块 - 淡色背景加边框，与主背景略有区分 */
             .vditor--dark .vditor-reset pre,
             .vditor--dark .vditor-ir__node pre,
             .vditor--dark .vditor-sv pre,
             .vditor--dark .vditor-wysiwyg pre {
-              background: transparent !important; /* 透明背景 */
+              background: rgba(255, 255, 255, 0.03) !important; /* 非常淡的白色背景，与主背景形成细微差别 */
               color: #E6E6E6 !important;
-              border: 2px solid #555 !important; /* 更明显的边框颜色 */
+              border: 2px solid #555 !important; /* 边框 */
               border-radius: 6px;
             }
             
-            /* 代码文本 - 继承父容器背景，不重复设置 */
+            /* 代码文本 - 继承父容器背景和边框 */
             .vditor--dark .vditor-reset pre code,
             .vditor--dark .vditor-ir__node pre code,
             .vditor--dark .vditor-sv pre code,
             .vditor--dark .vditor-wysiwyg pre code {
-              background: transparent !important; /* 透明背景，继承pre的背景 */
+              background: inherit !important; /* 继承父容器的淡色背景 */
               color: inherit;
+              border: 2px solid #555 !important; /* 边框 */
+              border-radius: 6px;
             }
             
             /* CodeMirror代码编辑器背景 */
@@ -1021,9 +1023,11 @@ struct VditorWebView: NSViewRepresentable {
               color: #E6E6E6 !important;
             }
             
-            /* hljs代码高亮 - 透明背景 */
+            /* hljs代码高亮 - 淡色背景加边框 */
             .vditor--dark .hljs {
-              background: transparent !important; /* 透明背景 */
+              background: rgba(255, 255, 255, 0.03) !important; /* 与pre容器相同的淡色背景 */
+              border: 2px solid #555 !important; /* 边框 */
+              border-radius: 6px;
             }
             
             /* 引用块 - 使用Tanda的样式 */
