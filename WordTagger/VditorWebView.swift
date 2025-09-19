@@ -939,38 +939,52 @@ struct VditorWebView: NSViewRepresentable {
               color: #E6E6E6; /* Tanda的主文本颜色 */
             }
             
-            /* 标题颜色 - 模仿Tanda的彩色标题层次 */
+            /* 标题样式 - GitHub风格，统一颜色不同大小 */
             .vditor--dark .vditor-reset h1 { 
-              color: #ff6b6b !important; /* 红色 - 类似Tanda的H1 */
-              font-weight: normal;
-              padding-top: 0.25em;
-              padding-bottom: 0.25em;
+              color: #f0f6fc !important; /* 统一的亮白色 */
+              font-weight: 600;
+              font-size: 2em;
+              margin-top: 24px;
+              margin-bottom: 16px;
+              padding-bottom: 0.3em;
+              border-bottom: 1px solid #30363d;
             }
             .vditor--dark .vditor-reset h2 { 
-              color: #ff69b4 !important; /* 粉色 - 类似Tanda的H2 */
-              font-weight: normal;
-              padding-top: 0.6em;
-              padding-bottom: 0.6em;
+              color: #f0f6fc !important;
+              font-weight: 600;
+              font-size: 1.5em;
+              margin-top: 24px;
+              margin-bottom: 16px;
+              padding-bottom: 0.3em;
+              border-bottom: 1px solid #30363d;
             }
             .vditor--dark .vditor-reset h3 { 
-              color: #ffd93d !important; /* 黄色 - 类似Tanda的H3 */
-              font-weight: normal;
-              padding-top: 0.25em;
-              padding-bottom: 0.25em;
+              color: #f0f6fc !important;
+              font-weight: 600;
+              font-size: 1.25em;
+              margin-top: 24px;
+              margin-bottom: 16px;
             }
             .vditor--dark .vditor-reset h4 { 
-              color: #6bcf7f !important; /* 绿色 - 类似Tanda的H4 */
-              font-weight: normal;
-              padding-top: 0.25em;
-              padding-bottom: 0.25em;
+              color: #f0f6fc !important;
+              font-weight: 600;
+              font-size: 1em;
+              margin-top: 24px;
+              margin-bottom: 16px;
             }
             .vditor--dark .vditor-reset h5 { 
-              color: #74c0fc !important; /* 蓝色 */
-              font-weight: normal;
+              color: #f0f6fc !important;
+              font-weight: 600;
+              font-size: 0.875em;
+              margin-top: 24px;
+              margin-bottom: 16px;
             }
             .vditor--dark .vditor-reset h6 { 
-              color: #d0bfff !important; /* 紫色 */
-              font-weight: normal;
+              color: #8b949e !important; /* 稍微暗一点，表示最低层级 */
+              font-weight: 600;
+              font-size: 0.85em;
+              margin-top: 24px;
+              margin-bottom: 16px;
             }
             
             /* 链接颜色 - 使用Tanda的蓝色 */
