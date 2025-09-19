@@ -1414,19 +1414,6 @@ struct VditorWebView: NSViewRepresentable {
             .vditor--dark .vditor-ir .vditor-ir__marker--link {
               color: #6FC1FF !important; /* 链接标记用蓝色 */
             }
-            
-            /* 调整代码块标记(```)在IR模式下的显示效果 */
-            .vditor--dark .vditor-ir .vditor-ir__marker--code,
-            .vditor--dark .vditor-ir .vditor-ir__marker[data-type="code"],
-            .vditor--dark .vditor-ir span[data-type="code-block-info"],
-            .vditor--dark .vditor-ir span[data-type="code-block-close-marker"],
-            .vditor--dark .vditor-ir span[data-type="code-block-open-marker"] {
-              color: #6FC1FF !important; /* 代码块标记用蓝色 */
-              font-size: 0.8em !important; /* 稍小的字体，不那么突出 */
-              opacity: 0.6 !important; /* 半透明效果，优雅地淡化 */
-              display: inline !important; /* 确保正常显示 */
-              visibility: visible !important; /* 确保可见 */
-            }
           </style>
         </head>
         <body>
