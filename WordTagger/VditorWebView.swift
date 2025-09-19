@@ -1548,7 +1548,9 @@ struct VditorWebView: NSViewRepresentable {
                 'Cmd+Shift+O': '',
                 'Cmd+Shift+L': '',
                 'Ctrl+Shift+O': '',
-                'Ctrl+Shift+L': ''
+                'Ctrl+Shift+L': '',
+                // 🎯 添加大纲快捷键
+                'Cmd+Alt+0': 'outline'
               },
               after(){
                 // 通知 Native：ready
@@ -1772,27 +1774,6 @@ struct VditorWebView: NSViewRepresentable {
                       });
                     } catch(err) {
                       console.error('无法发送 Command+D 事件:', err);
-                    }
-                    return false;
-                  }
-                  
-                  // Command+Option+0: 切换大纲显示
-                  if (e.metaKey && e.altKey && e.key === '0') {
-                    console.log('🎯 拦截 Command+Option+0 快捷键，切换大纲显示');
-                    e.preventDefault();
-                    e.stopImmediatePropagation();
-                    
-                    try {
-                      // 查找大纲按钮并点击
-                      const outlineBtn = document.querySelector('[data-type="outline"]');
-                      if (outlineBtn) {
-                        console.log('🔄 点击大纲按钮');
-                        outlineBtn.click();
-                      } else {
-                        console.error('❌ 找不到大纲按钮');
-                      }
-                    } catch(err) {
-                      console.error('❌ 无法切换大纲显示:', err);
                     }
                     return false;
                   }
