@@ -1808,7 +1808,7 @@ struct VditorWebView: NSViewRepresentable {
                 math: { engine: 'KaTeX' },
                 mermaid: { startOnLoad:false }     // 由我们手动控制
               },
-              toolbar: ['emoji','headings','bold','italic','strike','link','|','list','ordered-list','check','outdent','indent','|','quote','line','code','inline-code','insert-before','insert-after','|','upload','table','|','undo','redo','|','fullscreen','edit-mode','both','preview','outline','code-theme' ],
+              toolbar: [], // 隐藏所有工具栏按钮，提供纯净的编辑体验
               upload: { 
                 accept:'image/*',
                 async handler(files) {
