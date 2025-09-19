@@ -2453,9 +2453,27 @@ struct VditorWebView: NSViewRepresentable {
                 
                 console.log('🎨 应用主题:', { ui, codeTheme, content });
                 
-                // 只使用setTheme方法，不干扰内容
+                // 正确的主题设置方法
                 if (vditor.setTheme) {
-                  vditor.setTheme(ui, content, codeTheme);
+                  console.log('🎨 设置编辑器UI主题:', ui);
+                  vditor.setTheme(ui);
+                }
+                
+                if (vditor.setContentTheme) {
+                  console.log('🎨 设置内容主题:', content);
+                  vditor.setContentTheme(content);
+                }
+                
+                if (vditor.setCodeTheme) {
+                  console.log('🎨 设置代码高亮主题:', codeTheme);
+                  vditor.setCodeTheme(codeTheme);
+                } else {
+                  console.warn('⚠️ setCodeTheme方法不可用，尝试备选方案');
+                  // 备选方案：直接更新options
+                  if (vditor.options && vditor.options.preview && vditor.options.preview.hljs) {
+                    vditor.options.preview.hljs.style = codeTheme;
+                    console.log('✅ 通过options更新hljs样式:', codeTheme);
+                  }
                 }
                 
                 // 🎨 确保html和body也获得暗色类名，用于背景样式
