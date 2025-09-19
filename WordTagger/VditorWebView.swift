@@ -2293,10 +2293,17 @@ struct VditorWebView: NSViewRepresentable {
             
             // 增强的超链接Command+点击处理 - 多层次拦截确保成功，特别优化SV模式
             function handleLinkClick(e) {
-              console.log('🔗 Click detected, metaKey:', e.metaKey, 'shiftKey:', e.shiftKey, 'target:', e.target, 'tagName:', e.target.tagName);
+              console.log('🔗 [MAIN] handleLinkClick被调用');
+              console.log('🔗 [MAIN] Click detected, metaKey:', e.metaKey, 'shiftKey:', e.shiftKey, 'target:', e.target, 'tagName:', e.target.tagName);
+              console.log('🔗 [MAIN] 事件类型:', e.type, '时间戳:', e.timeStamp);
               
               // 支持Shift+点击或Command+点击
-              if (!e.metaKey && !e.shiftKey) return;
+              if (!e.metaKey && !e.shiftKey) {
+                console.log('🔗 [MAIN] 没有修饰键，退出处理');
+                return;
+              }
+              
+              console.log('🔗 [MAIN] 检测到修饰键，继续处理...');
               
               let target = e.target;
               let attempts = 0;
@@ -2324,15 +2331,21 @@ struct VditorWebView: NSViewRepresentable {
               
               if (target && target.tagName === 'A') {
                 let url = target.href || target.getAttribute('href');
-                console.log('🔗 Found link element:', target);
-                console.log('🔗 Link href:', url);
+                console.log('🔗 [MAIN] Found link element:', target);
+                console.log('🔗 [MAIN] Link href:', url);
+                console.log('🔗 [MAIN] Link attributes:', {
+                  href: target.getAttribute('href'),
+                  target: target.getAttribute('target'),
+                  className: target.className,
+                  textContent: target.textContent
+                });
                 
                 if (url && url.trim() !== '') {
-                  console.log('🔗 修饰键+点击链接:', url, '(metaKey:', e.metaKey, ', shiftKey:', e.shiftKey, ')');
+                  console.log('🔗 [MAIN] 修饰键+点击链接:', url, '(metaKey:', e.metaKey, ', shiftKey:', e.shiftKey, ')');
                   
                   // 🎯 在SV预览区域或任何链接点击时，强制阻止所有默认行为
                   if (isInSvPreview || true) {
-                    console.log('🔗 强制拦截链接点击（SV预览区域或通用处理）');
+                    console.log('🔗 [MAIN] 强制拦截链接点击（SV预览区域或通用处理）');
                     e.preventDefault();
                     e.stopPropagation();
                     e.stopImmediatePropagation();
@@ -2356,28 +2369,44 @@ struct VditorWebView: NSViewRepresentable {
                   // 异步发送消息，确保事件处理完成
                   setTimeout(() => {
                     try {
-                      console.log('🔗 准备发送消息到原生代码...', { type: 'openURL', url: url });
+                      console.log('🔗 [MAIN] 准备发送消息到原生代码...', { type: 'openURL', url: url });
+                      console.log('🔗 [MAIN] WebKit检查:', {
+                        webkit: !!window.webkit,
+                        messageHandlers: !!(window.webkit && window.webkit.messageHandlers),
+                        bridge: !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bridge)
+                      });
+                      
                       if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bridge) {
-                        console.log('🔗 WebKit消息处理器可用，发送消息...');
-                        window.webkit.messageHandlers.bridge.postMessage({ 
+                        console.log('🔗 [MAIN] WebKit消息处理器可用，发送消息...');
+                        
+                        const messageData = { 
                           type: 'openURL',
                           url: url
-                        });
-                        console.log('✅ 已发送openURL消息到原生代码');
+                        };
+                        console.log('🔗 [MAIN] 发送的消息数据:', messageData);
+                        
+                        window.webkit.messageHandlers.bridge.postMessage(messageData);
+                        console.log('✅ [MAIN] 已发送openURL消息到原生代码');
+                        
+                        // 添加一个确认标记
+                        document.body.dataset.lastLinkSent = url;
+                        document.body.dataset.lastLinkTime = Date.now();
+                        
                       } else {
-                        console.error('❌ WebKit消息处理器不可用');
-                        console.log('🔗 尝试备选方案：window.open');
+                        console.error('❌ [MAIN] WebKit消息处理器不可用');
+                        console.log('🔗 [MAIN] 尝试备选方案：window.open');
                         window.open(url, '_blank');
-                        console.log('✅ 使用window.open打开链接');
+                        console.log('✅ [MAIN] 使用window.open打开链接');
                       }
                     } catch(err) {
-                      console.error('❌ 发送openURL消息失败:', err);
+                      console.error('❌ [MAIN] 发送openURL消息失败:', err);
+                      console.error('❌ [MAIN] 错误详情:', err.message, err.stack);
                       try {
-                        console.log('🔗 备选方案：window.open');
+                        console.log('🔗 [MAIN] 备选方案：window.open');
                         window.open(url, '_blank');
-                        console.log('✅ 备选方案：使用window.open打开链接');
+                        console.log('✅ [MAIN] 备选方案：使用window.open打开链接');
                       } catch(backupErr) {
-                        console.error('❌ 备选方案也失败:', backupErr);
+                        console.error('❌ [MAIN] 备选方案也失败:', backupErr);
                       }
                     }
                   }, 0);
@@ -2391,10 +2420,30 @@ struct VditorWebView: NSViewRepresentable {
               }
             }
             
+            // 调试函数：检查当前编辑模式和环境
+            window.__debugLinkClick = function() {
+              console.log('🔗 [DEBUG] 链接点击调试信息:');
+              console.log('  - 当前编辑模式:', currentEditMode);
+              console.log('  - Vditor容器:', document.querySelector('#vditor'));
+              console.log('  - IR区域:', document.querySelector('.vditor-ir'));
+              console.log('  - SV区域:', document.querySelector('.vditor-sv'));
+              console.log('  - 预览区域:', document.querySelector('.vditor-preview'));
+              console.log('  - SV预览重置区域:', document.querySelector('.vditor-sv .vditor-reset'));
+              console.log('  - 所有链接:', document.querySelectorAll('a'));
+              console.log('  - WebKit可用性:', {
+                webkit: !!window.webkit,
+                messageHandlers: !!(window.webkit && window.webkit.messageHandlers),
+                bridge: !!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.bridge)
+              });
+            };
+            
             // 多重事件监听策略 - 确保在各种情况下都能拦截链接点击
             
             // 1. 在捕获阶段拦截，优先级最高
-            document.addEventListener('click', handleLinkClick, true);
+            document.addEventListener('click', function(e) {
+              console.log('🔗 [CAPTURE] 捕获阶段链接检测:', e.target.tagName, 'metaKey:', e.metaKey);
+              handleLinkClick(e);
+            }, true);
             
             // 2. 在冒泡阶段再次拦截，以防捕获阶段被阻止
             document.addEventListener('click', handleLinkClick, false);
@@ -2425,11 +2474,15 @@ struct VditorWebView: NSViewRepresentable {
               if (e.target.closest('a')) {
                 const link = e.target.closest('a');
                 console.log('🔗 [DEBUG] 这是链接点击！href:', link.href);
+                console.log('🔗 [DEBUG] defaultPrevented:', e.defaultPrevented);
+                console.log('🔗 [DEBUG] 事件阶段:', e.eventPhase, '(1=捕获,2=目标,3=冒泡)');
                 
                 // 如果有修饰键但没有被处理，强制处理
                 if ((e.metaKey || e.shiftKey) && !e.defaultPrevented) {
                   console.log('🔗 [BACKUP] 备用处理器激活');
                   handleLinkClick(e);
+                } else if (e.metaKey || e.shiftKey) {
+                  console.log('🔗 [DEBUG] 有修饰键但事件已被阻止，defaultPrevented:', e.defaultPrevented);
                 }
               }
             }, true);
