@@ -1752,6 +1752,86 @@ struct VditorWebView: NSViewRepresentable {
               background: #2b2b2b;
             }
             
+            /* 🎯 PlantUML图表居中显示 - 适用于所有编辑模式和PlantUML格式 */
+            .vditor-wysiwyg img[src*="plantuml.com"],
+            .vditor-ir img[src*="plantuml.com"],
+            .vditor-sv img[src*="plantuml.com"],
+            .vditor-reset img[src*="plantuml.com"],
+            .vditor-preview img[src*="plantuml.com"],
+            /* 本地PlantUML服务器 */
+            .vditor-wysiwyg img[src*="plantuml"],
+            .vditor-ir img[src*="plantuml"],
+            .vditor-sv img[src*="plantuml"],
+            .vditor-reset img[src*="plantuml"],
+            .vditor-preview img[src*="plantuml"],
+            /* PlantUML文件扩展名 */
+            .vditor-wysiwyg img[src$=".puml"],
+            .vditor-ir img[src$=".puml"],
+            .vditor-sv img[src$=".puml"],
+            .vditor-reset img[src$=".puml"],
+            .vditor-preview img[src$=".puml"],
+            .vditor-wysiwyg img[src$=".plantuml"],
+            .vditor-ir img[src$=".plantuml"],
+            .vditor-sv img[src$=".plantuml"],
+            .vditor-reset img[src$=".plantuml"],
+            .vditor-preview img[src$=".plantuml"] {
+              display: block !important;
+              margin: 16px auto !important;
+              max-width: 100% !important;
+              height: auto !important;
+              text-align: center !important;
+            }
+            
+            /* PlantUML图表在深色模式下的优化 */
+            .vditor--dark .vditor-wysiwyg img[src*="plantuml.com"],
+            .vditor--dark .vditor-ir img[src*="plantuml.com"],
+            .vditor--dark .vditor-sv img[src*="plantuml.com"],
+            .vditor--dark .vditor-reset img[src*="plantuml.com"],
+            .vditor--dark .vditor-preview img[src*="plantuml.com"],
+            .vditor--dark .vditor-wysiwyg img[src*="plantuml"],
+            .vditor--dark .vditor-ir img[src*="plantuml"],
+            .vditor--dark .vditor-sv img[src*="plantuml"],
+            .vditor--dark .vditor-reset img[src*="plantuml"],
+            .vditor--dark .vditor-preview img[src*="plantuml"],
+            .vditor--dark .vditor-wysiwyg img[src$=".puml"],
+            .vditor--dark .vditor-ir img[src$=".puml"],
+            .vditor--dark .vditor-sv img[src$=".puml"],
+            .vditor--dark .vditor-reset img[src$=".puml"],
+            .vditor--dark .vditor-preview img[src$=".puml"],
+            .vditor--dark .vditor-wysiwyg img[src$=".plantuml"],
+            .vditor--dark .vditor-ir img[src$=".plantuml"],
+            .vditor--dark .vditor-sv img[src$=".plantuml"],
+            .vditor--dark .vditor-reset img[src$=".plantuml"],
+            .vditor--dark .vditor-preview img[src$=".plantuml"] {
+              display: block !important;
+              margin: 16px auto !important;
+              max-width: 100% !important;
+              height: auto !important;
+              border-radius: 8px !important;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+              text-align: center !important;
+            }
+            
+            /* 🎯 通用图表居中样式 - 确保所有图表都居中显示 */
+            .vditor-wysiwyg p img,
+            .vditor-ir p img,
+            .vditor-sv p img,
+            .vditor-reset p img,
+            .vditor-preview p img {
+              display: block !important;
+              margin-left: auto !important;
+              margin-right: auto !important;
+            }
+            
+            /* 确保包含PlantUML图表的段落也居中 */
+            .vditor-wysiwyg p:has(img[src*="plantuml"]),
+            .vditor-ir p:has(img[src*="plantuml"]),
+            .vditor-sv p:has(img[src*="plantuml"]),
+            .vditor-reset p:has(img[src*="plantuml"]),
+            .vditor-preview p:has(img[src*="plantuml"]) {
+              text-align: center !important;
+            }
+            
             /* 本地图片路径处理 - 只处理节点文件夹中的图片 */
             .vditor-reset img[src$=".jpg"],
             .vditor-reset img[src$=".jpeg"],
@@ -1772,6 +1852,93 @@ struct VditorWebView: NSViewRepresentable {
               min-width: 100px;
               min-height: 100px;
               background: #f0f0f0 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="%23999">图片加载中...</text></svg>') center no-repeat;
+            }
+            
+            /* === PlantUML图表居中显示 - 全面覆盖所有模式 === */
+            
+            /* PlantUML外部服务图片 - plantuml.com */
+            .vditor-wysiwyg img[src*="plantuml.com"],
+            .vditor-ir img[src*="plantuml.com"],
+            .vditor-sv img[src*="plantuml.com"],
+            .vditor-reset img[src*="plantuml.com"],
+            .vditor-preview img[src*="plantuml.com"] {
+              display: block !important;
+              margin: 16px auto !important;
+              max-width: 100% !important;
+              height: auto !important;
+              text-align: center !important;
+            }
+            
+            /* PlantUML本地服务器图片 */
+            .vditor-wysiwyg img[src*="/plantuml/"],
+            .vditor-ir img[src*="/plantuml/"],
+            .vditor-sv img[src*="/plantuml/"],
+            .vditor-reset img[src*="/plantuml/"],
+            .vditor-preview img[src*="/plantuml/"] {
+              display: block !important;
+              margin: 16px auto !important;
+              max-width: 100% !important;
+              height: auto !important;
+              text-align: center !important;
+            }
+            
+            /* PlantUML文件格式图片 */
+            .vditor-wysiwyg img[src$=".puml"],
+            .vditor-ir img[src$=".puml"],
+            .vditor-sv img[src$=".puml"],
+            .vditor-reset img[src$=".puml"],
+            .vditor-preview img[src$=".puml"],
+            .vditor-wysiwyg img[src$=".plantuml"],
+            .vditor-ir img[src$=".plantuml"],
+            .vditor-sv img[src$=".plantuml"],
+            .vditor-reset img[src$=".plantuml"],
+            .vditor-preview img[src$=".plantuml"] {
+              display: block !important;
+              margin: 16px auto !important;
+              max-width: 100% !important;
+              height: auto !important;
+              text-align: center !important;
+            }
+            
+            /* PlantUML代码块渲染的图片（通过class识别） */
+            .vditor-wysiwyg .language-plantuml img,
+            .vditor-ir .language-plantuml img,
+            .vditor-sv .language-plantuml img,
+            .vditor-reset .language-plantuml img,
+            .vditor-preview .language-plantuml img {
+              display: block !important;
+              margin: 16px auto !important;
+              max-width: 100% !important;
+              height: auto !important;
+              text-align: center !important;
+            }
+            
+            /* 通用图表居中 - 确保所有图表都居中显示 */
+            .vditor-reset p:has(img[src*="plantuml"]),
+            .vditor-reset div:has(img[src*="plantuml"]) {
+              text-align: center !important;
+              display: block !important;
+              margin: 16px auto !important;
+            }
+            
+            /* 暗色模式下的PlantUML图片优化 */
+            .vditor--dark .vditor-reset img[src*="plantuml"],
+            .vditor--dark .vditor-reset img[src*="/plantuml/"],
+            .vditor--dark .vditor-reset img[src$=".puml"],
+            .vditor--dark .vditor-reset img[src$=".plantuml"] {
+              border-radius: 8px !important;
+              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+              background: rgba(255, 255, 255, 0.05) !important;
+              padding: 8px !important;
+            }
+            
+            /* 确保图片容器也居中 */
+            .vditor-reset .language-plantuml,
+            .vditor-reset .plantuml-container,
+            .vditor-reset [data-type="plantuml"] {
+              text-align: center !important;
+              display: block !important;
+              margin: 16px auto !important;
             }
             
             /* 注意：以下旧的暗色样式已被上面的Tanda风格样式覆盖，这里保留作为后备 */

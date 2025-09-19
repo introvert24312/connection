@@ -127,17 +127,17 @@ struct DetailPanel: View {
                 }
             }
         }
-        .onKeyPress(.init("o"), phases: .down) { keyPress in
+        .onKeyPress(.init("l"), phases: .down) { keyPress in
             if keyPress.modifiers == .command {
-                print("🎯 DetailPanel: Command+O 检测到，切换到详情标签")
+                print("🎯 DetailPanel: Command+L 检测到，切换到详情标签")
                 handleSwitchToDetail()
                 return .handled
             }
             return .ignored
         }
-        .onKeyPress(.init("l"), phases: .down) { keyPress in
+        .onKeyPress(.init("o"), phases: .down) { keyPress in
             if keyPress.modifiers == .command {
-                print("🎯 DetailPanel: Command+L 检测到，切换到图谱标签")
+                print("🎯 DetailPanel: Command+O 检测到，切换到图谱标签")
                 handleSwitchToGraph()
                 return .handled
             }

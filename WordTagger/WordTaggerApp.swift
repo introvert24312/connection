@@ -6148,7 +6148,7 @@ struct GlobalCommands: Commands {
             Button("详情面板：详情") {
                 switchToDetailTab?()
             }
-            .keyboardShortcut("o", modifiers: [.command])
+            .keyboardShortcut("l", modifiers: [.command])
             .disabled(switchToDetailTab == nil)
             
             Button("详情面板：图谱") {
@@ -6160,7 +6160,7 @@ struct GlobalCommands: Commands {
             Button("切换到图谱视图") {
                 switchToGraphTab?()
             }
-            .keyboardShortcut("l", modifiers: [.command])
+            .keyboardShortcut("o", modifiers: [.command])
             .disabled(switchToGraphTab == nil)
             
             Divider()

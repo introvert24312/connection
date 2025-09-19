@@ -208,6 +208,15 @@
     height: 100% !important;
 }
 
+/* 🎯 PlantUML图表居中显示 */
+.vditor-wysiwyg img[src*="plantuml.com"],
+.vditor-ir img[src*="plantuml.com"],
+.vditor-sv img[src*="plantuml.com"] {
+    display: block !important;
+    margin: 16px auto !important;
+    max-width: 100% !important;
+}
+
 /* 确保所有图表类型的文字垂直居中 */
 .mermaid .flowchartTitleText,
 .mermaid .nodeLabel,
