@@ -1566,6 +1566,44 @@ struct VditorWebView: NSViewRepresentable {
                 
                 // 拦截特殊快捷键
                 document.addEventListener('keydown', function(e) {
+                  // 调试所有按键组合
+                  if (e.metaKey || e.ctrlKey || e.altKey) {
+                    console.log('🎹 按键调试:', {
+                      key: e.key,
+                      metaKey: e.metaKey,
+                      altKey: e.altKey,
+                      ctrlKey: e.ctrlKey,
+                      shiftKey: e.shiftKey,
+                      code: e.code
+                    });
+                    
+                    // 特别检查Option+Command+0
+                    if (e.metaKey && e.altKey && e.key === '0') {
+                      console.log('🎯 检测到 Option+Command+0 按键组合！');
+                      e.preventDefault();
+                      e.stopPropagation();
+                      
+                      // 手动触发大纲切换
+                      try {
+                        const outlineBtn = document.querySelector('[data-type="outline"]');
+                        if (outlineBtn) {
+                          console.log('✅ 找到大纲按钮，模拟点击');
+                          outlineBtn.click();
+                        } else {
+                          console.error('❌ 未找到大纲按钮');
+                          // 尝试其他选择器
+                          const altBtn = document.querySelector('.vditor-toolbar .vditor-tooltipped[data-type="outline"]');
+                          if (altBtn) {
+                            console.log('✅ 找到备选大纲按钮');
+                            altBtn.click();
+                          }
+                        }
+                      } catch(err) {
+                        console.error('❌ 触发大纲失败:', err);
+                      }
+                      return false;
+                    }
+                  }
                   // Command+E: 转发给原生 App
                   if (e.metaKey && (e.key === 'e' || e.key === 'E')) {
                     console.log('拦截 Command+E 快捷键，转发给 App 处理');
@@ -1812,7 +1850,12 @@ struct VditorWebView: NSViewRepresentable {
                 {
                   hotkey: '⌥⌘0', // Option+Command+0
                   name: 'outline',
-                  tip: '大纲 (⌥⌘0)'
+                  tip: '大纲 (⌥⌘0)',
+                  click() {
+                    console.log('🎯 大纲按钮被点击 - 通过快捷键或鼠标');
+                    // 让Vditor处理默认的outline行为
+                    return true;
+                  }
                 }
               ], // 只保留大纲按钮，并配置快捷键
               upload: { 
