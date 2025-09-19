@@ -1577,9 +1577,9 @@ struct VditorWebView: NSViewRepresentable {
                       code: e.code
                     });
                     
-                    // 特别检查Option+Command+0
-                    if (e.metaKey && e.altKey && e.key === '0') {
-                      console.log('🎯 检测到 Option+Command+0 按键组合！');
+                    // 特别检查Command+;
+                    if (e.metaKey && e.key === ';') {
+                      console.log('🎯 检测到 Command+; 按键组合！');
                       e.preventDefault();
                       e.stopPropagation();
                       
@@ -1848,16 +1848,15 @@ struct VditorWebView: NSViewRepresentable {
               },
               toolbar: [
                 {
-                  hotkey: '⌥⌘0', // Option+Command+0
                   name: 'outline',
-                  tip: '大纲 (⌥⌘0)',
+                  tip: '大纲 (⌘;)',
                   click() {
                     console.log('🎯 大纲按钮被点击 - 通过快捷键或鼠标');
                     // 让Vditor处理默认的outline行为
                     return true;
                   }
                 }
-              ], // 只保留大纲按钮，并配置快捷键
+              ], // 只保留大纲按钮，使用Command+;快捷键
               upload: { 
                 accept:'image/*',
                 async handler(files) {
