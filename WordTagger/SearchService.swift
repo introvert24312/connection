@@ -9,9 +9,67 @@ public final class SearchService: ObservableObject {
     private let searchThreshold: Double = 0.3
     private let maxResults: Int = 100
     
+    // MARK: - Search Debouncing
+    private var searchDebouncer: Timer?
+    private let debounceDelay: TimeInterval = 0.3
+    
+    // MARK: - Search Result Caching
+    private var searchCache: [String: CachedSearchResult] = [:]
+    private let cacheExpirationTime: TimeInterval = 300 // 5分钟
+    private let maxCacheSize: Int = 50 // 最多缓存50个查询结果
+    
     public static let shared = SearchService()
     
-    private init() {}
+    private init() {
+        // 定期清理过期缓存
+        Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
+            self.cleanExpiredCache()
+        }
+    }
+    
+    // MARK: - Public Search Interface
+    
+    /// 带防抖的搜索入口 - 推荐使用此方法
+    public func debouncedSearch(_ query: String, in nodes: [Node], filter: SearchFilter = SearchFilter()) async -> [SearchResult] {
+        return await withCheckedContinuation { continuation in
+            // 取消之前的防抖计时器
+            searchDebouncer?.invalidate()
+            
+            // 如果查询为空，立即返回空结果
+            guard !query.isEmpty else {
+                continuation.resume(returning: [])
+                return
+            }
+            
+            // 设置新的防抖计时器
+            searchDebouncer = Timer.scheduledTimer(withTimeInterval: debounceDelay, repeats: false) { _ in
+                Task {
+                    let results = await self.searchWithCache(query, in: nodes, filter: filter)
+                    continuation.resume(returning: results)
+                }
+            }
+        }
+    }
+    
+    /// 带缓存的搜索方法
+    private func searchWithCache(_ query: String, in nodes: [Node], filter: SearchFilter = SearchFilter()) async -> [SearchResult] {
+        let cacheKey = generateCacheKey(query: query, filter: filter, nodeCount: nodes.count)
+        
+        // 检查缓存
+        if let cachedResult = searchCache[cacheKey],
+           !cachedResult.isExpired {
+            print("🔍 SearchService: 使用缓存结果 - '\(query)' (\(cachedResult.results.count) 结果)")
+            return cachedResult.results
+        }
+        
+        // 执行搜索
+        let results = await search(query, in: nodes, filter: filter)
+        
+        // 缓存结果
+        cacheSearchResult(key: cacheKey, results: results)
+        
+        return results
+    }
     
     // MARK: - Core Search Methods
     
@@ -240,8 +298,84 @@ public final class SearchService: ObservableObject {
             lastSearchTime: lastSearchTime,
             isSearching: isSearching,
             searchThreshold: searchThreshold,
-            maxResults: maxResults
+            maxResults: maxResults,
+            cacheHitRate: calculateCacheHitRate(),
+            cacheSize: searchCache.count
         )
+    }
+    
+    // MARK: - Cache Management
+    
+    private func generateCacheKey(query: String, filter: SearchFilter, nodeCount: Int) -> String {
+        let filterHash = "\(filter.tagType?.rawValue ?? "nil")_\(filter.hasLocation?.description ?? "nil")"
+        return "\(query.lowercased())_\(filterHash)_\(nodeCount)"
+    }
+    
+    private func cacheSearchResult(key: String, results: [SearchResult]) {
+        // 如果缓存已满，移除最旧的条目
+        if searchCache.count >= maxCacheSize {
+            removeOldestCacheEntry()
+        }
+        
+        searchCache[key] = CachedSearchResult(
+            results: results,
+            timestamp: Date(),
+            expirationTime: cacheExpirationTime
+        )
+        
+        print("🔍 SearchService: 缓存搜索结果 - '\(key)' (\(results.count) 结果)")
+    }
+    
+    private func cleanExpiredCache() {
+        let now = Date()
+        let expiredKeys = searchCache.compactMap { key, cachedResult in
+            cachedResult.timestamp.addingTimeInterval(cacheExpirationTime) < now ? key : nil
+        }
+        
+        for key in expiredKeys {
+            searchCache.removeValue(forKey: key)
+        }
+        
+        if !expiredKeys.isEmpty {
+            print("🧹 SearchService: 清理过期缓存条目 \(expiredKeys.count) 个")
+        }
+    }
+    
+    private func removeOldestCacheEntry() {
+        guard let oldestKey = searchCache.min(by: { $0.value.timestamp < $1.value.timestamp })?.key else {
+            return
+        }
+        searchCache.removeValue(forKey: oldestKey)
+        print("🗑️ SearchService: 移除最旧缓存条目")
+    }
+    
+    private func calculateCacheHitRate() -> Double {
+        // 这里可以添加缓存命中统计，暂时返回0
+        return 0.0
+    }
+    
+    /// 清空搜索缓存
+    public func clearSearchCache() {
+        searchCache.removeAll()
+        print("🧹 SearchService: 清空所有搜索缓存")
+    }
+    
+    /// 取消当前的防抖计时器
+    public func cancelDebounce() {
+        searchDebouncer?.invalidate()
+        searchDebouncer = nil
+    }
+}
+
+// MARK: - Cache Data Structure
+
+private struct CachedSearchResult {
+    let results: [SearchResult]
+    let timestamp: Date
+    let expirationTime: TimeInterval
+    
+    var isExpired: Bool {
+        return Date().timeIntervalSince(timestamp) > expirationTime
     }
 }
 
@@ -252,9 +386,15 @@ public struct SearchMetrics {
     public let isSearching: Bool
     public let searchThreshold: Double
     public let maxResults: Int
+    public let cacheHitRate: Double
+    public let cacheSize: Int
     
     public var lastSearchTimeFormatted: String {
         return String(format: "%.2f ms", lastSearchTime * 1000)
+    }
+    
+    public var cacheHitRateFormatted: String {
+        return String(format: "%.1f%%", cacheHitRate * 100)
     }
 }
 
