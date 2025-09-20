@@ -361,7 +361,12 @@ struct VditorWebView: NSViewRepresentable {
         private func applyTheme(force: Bool) {
             let isDark = (NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua)
             lastDarkValue = isDark
-            evaluateJS("window.__applyNativeTheme(\(isDark ? "true" : "false"));", delayMS: 0) // 立即执行，无延迟
+            print("🎨 [Swift] applyTheme 被调用: isDark=\(isDark), force=\(force)")
+            
+            let jsCode = "window.__applyNativeTheme(\(isDark ? "true" : "false"));"
+            print("🎨 [Swift] 准备执行JavaScript: \(jsCode)")
+            
+            evaluateJS(jsCode, delayMS: 0) // 立即执行，无延迟
         }
         
         // 原生图片保存功能 - 优先保存到节点文件夹
@@ -1333,15 +1338,25 @@ struct VditorWebView: NSViewRepresentable {
                     return 
                 }
                 
-                print("🔄 执行JavaScript: \(js.prefix(100))...")
+                print("🔄 [Swift] 开始执行JavaScript: \(js.prefix(100))...")
                 webView.evaluateJavaScript(js) { result, error in
                     if let error = error {
-                        print("❌ JavaScript执行失败: \(error.localizedDescription)")
-                        print("   JS代码: \(js)")
+                        print("❌ [Swift] JavaScript执行失败: \(error.localizedDescription)")
+                        print("   代码: \(js)")
+                        print("   错误详情: \(error)")
                     } else {
-                        print("✅ JavaScript执行成功")
+                        print("✅ [Swift] JavaScript执行成功")
                         if let result = result {
                             print("   返回值: \(result)")
+                        }
+                        
+                        // 如果是主题切换相关的JavaScript，添加额外验证
+                        if js.contains("__applyNativeTheme") {
+                            print("🎨 [Swift] 主题切换JavaScript已执行，验证页面状态...")
+                            // 验证主题是否真的被应用
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                webView.evaluateJavaScript("console.log('🔍 主题应用后验证:', { isDarkMode: window.__isDarkMode, echarts: !!window.echarts });") { _, _ in }
+                            }
                         }
                     }
                 }
@@ -2905,7 +2920,25 @@ struct VditorWebView: NSViewRepresentable {
                     finalTheme = undefined;
                   }
 
-                  return originalInit.call(this, dom, finalTheme, opts);
+                  const instance = originalInit.call(this, dom, finalTheme, opts);
+                  
+                  // 🔧 关键修复：包装setOption方法来保存原始配置
+                  const originalSetOption = instance.setOption;
+                  instance.setOption = function(option, notMerge, lazyUpdate) {
+                    // 在首次setOption时保存纯净的原始配置
+                    if (!dom.__wordTaggerRawOption) {
+                      try {
+                        dom.__wordTaggerRawOption = JSON.stringify(option);
+                        console.log('✅ 保存纯净的原始ECharts配置');
+                      } catch (err) {
+                        console.warn('⚠️ 无法序列化ECharts配置:', err);
+                        dom.__wordTaggerRawOption = option;
+                      }
+                    }
+                    return originalSetOption.call(this, option, notMerge, lazyUpdate);
+                  };
+                  
+                  return instance;
                 };
 
                 window.__echartsThemeGuard = true;
@@ -2931,51 +2964,144 @@ struct VditorWebView: NSViewRepresentable {
             }
 
             function refreshEchartsTheme(dark) {
-              if (!window.echarts || typeof window.echarts.getInstanceByDom !== 'function') {
-                return;
-              }
+              console.log('🎨 refreshEchartsTheme 被调用:', { dark, time: new Date().toISOString() });
+              console.log('🔍 当前页面状态检查:');
+              console.log('  - window.echarts 可用:', !!window.echarts);
+              console.log('  - getInstanceByDom 方法:', typeof window.echarts?.getInstanceByDom);
+              console.log('  - document.readyState:', document.readyState);
+              
+              // 🔧 关键修复：延迟执行并重试机制
+              const attemptRefresh = (retryCount = 0) => {
+                console.log(`🔄 第 ${retryCount + 1} 次尝试 ECharts 主题切换...`);
+                
+                if (!window.echarts || typeof window.echarts.getInstanceByDom !== 'function') {
+                  if (retryCount < 5) {
+                    console.log(`⏳ ECharts 尚未可用，${100 * (retryCount + 1)}ms 后重试 (${retryCount + 1}/5)`);
+                    setTimeout(() => attemptRefresh(retryCount + 1), 100 * (retryCount + 1));
+                    return;
+                  } else {
+                    console.warn('❌ ECharts 在多次重试后仍不可用，放弃主题切换');
+                    return;
+                  }
+                }
 
-              const themeName = dark ? 'dark' : undefined;
-              const nodes = document.querySelectorAll('[_echarts_instance_]');
-
-              if (!nodes.length) {
-                return;
-              }
-
+                console.log('✅ ECharts 可用，开始查找实例节点...');
+                const themeName = dark ? 'dark' : undefined;
+                
+                // 🔧 增强节点搜索：多种选择器策略
+                let nodes = document.querySelectorAll('[_echarts_instance_]');
+                console.log('🔍 使用 [_echarts_instance_] 找到节点数量:', nodes.length);
+                
+                // 🎯 关键修复：查找 ZRender canvas 的父容器（ECharts实例绑定位置）
+                if (nodes.length === 0) {
+                  const canvases = document.querySelectorAll('canvas[data-zr-dom-id]');
+                  console.log('🔍 找到 ZRender canvas 数量:', canvases.length);
+                  
+                  const containerNodes = [];
+                  canvases.forEach(canvas => {
+                    // ECharts实例通常绑定在canvas的父容器上
+                    let container = canvas.parentElement;
+                    while (container) {
+                      try {
+                        if (window.echarts.getInstanceByDom(container)) {
+                          containerNodes.push(container);
+                          console.log('🎯 找到ECharts容器:', container.tagName, container.className);
+                          break;
+                        }
+                      } catch (e) {
+                        // 继续查找父级
+                      }
+                      container = container.parentElement;
+                    }
+                  });
+                  
+                  nodes = containerNodes;
+                  console.log('🔍 备用：通过 ZRender canvas 父容器找到节点数量:', nodes.length);
+                }
+                
+                // 再次备用：查找可能的图表容器
+                if (nodes.length === 0) {
+                  const potentialNodes = document.querySelectorAll('div[style*="width"], div[style*="height"]');
+                  const echartsNodes = [];
+                  potentialNodes.forEach(node => {
+                    if (window.echarts.getInstanceByDom(node)) {
+                      echartsNodes.push(node);
+                    }
+                  });
+                  nodes = echartsNodes;
+                  console.log('🔍 深度搜索：通过 getInstanceByDom 找到节点数量:', nodes.length);
+                }
+                
+                if (nodes.length === 0) {
+                  console.log('🔍 没有找到任何ECharts实例，退出');
+                  return;
+                }
+                
+                console.log('🎨 开始执行主题切换，目标主题:', themeName);
+                // 执行实际的主题切换逻辑
+                performThemeSwitch(nodes, themeName);
+              };
+              
+              // 立即尝试，如果失败则使用重试机制
+              attemptRefresh();
+            }
+            
+            function performThemeSwitch(nodes, themeName) {
+              console.log('🎨 开始执行主题切换，目标主题:', themeName);
+              
               nodes.forEach((el) => {
                 try {
                   const chart = window.echarts.getInstanceByDom(el);
                   if (!chart) {
+                    console.log('🔍 跳过：找不到ECharts实例');
                     return;
                   }
 
+                  console.log('🔍 处理ECharts图表，主题:', themeName);
+                  
                   const stored = el.__wordTaggerRawOption;
                   const storedString = typeof stored === 'string' ? stored : null;
                   let option = null;
 
+                  console.log('🔍 缓存状态:', { hasStored: !!stored, isString: !!storedString });
+
                   if (storedString) {
                     try {
                       option = JSON.parse(storedString);
+                      console.log('✅ 成功解析字符串配置');
                     } catch (parseErr) {
                       console.warn('⚠️ 解析缓存的 ECharts 配置失败:', parseErr);
                     }
                   } else if (stored) {
                     option = stored;
+                    console.log('✅ 使用对象配置');
                   }
 
-                  if (!option && chart.getOption) {
-                    option = chart.getOption();
+                  // 🔧 修复：如果没有原始配置，尝试获取当前配置但添加警告
+                  if (!option) {
+                    console.warn('⚠️ 没有原始配置可用，尝试使用当前配置 (可能包含主题污染)');
+                    if (chart.getOption) {
+                      option = chart.getOption();
+                      console.log('⚠️ 使用chart.getOption()作为备选方案');
+                    } else {
+                      console.warn('❌ 完全无法获取配置，跳过此图表');
+                      return;
+                    }
                   }
+                  
+                  console.log('🔄 开始重建图表...');
                   chart.dispose();
 
                   const instance = window.echarts.init(el, themeName);
                   if (option) {
                     instance.setOption(option, true);
-                    if (storedString) {
-                      el.__wordTaggerRawOption = storedString;
-                    } else if (!stored) {
+                    console.log('✅ 图表重建完成');
+                    
+                    // 确保保存配置
+                    if (!el.__wordTaggerRawOption) {
                       try {
                         el.__wordTaggerRawOption = JSON.stringify(option);
+                        console.log('💾 首次保存原始配置');
                       } catch (stringifyErr) {
                         console.warn('⚠️ 序列化 ECharts 配置失败:', stringifyErr);
                         el.__wordTaggerRawOption = option;
@@ -4494,7 +4620,17 @@ struct VditorWebView: NSViewRepresentable {
                 const content = dark ? 'dark' : 'light';
                 window.__isDarkMode = dark;
                 
-                console.log('🎨 应用主题:', { ui, codeTheme, content });
+                console.log('🎨 __applyNativeTheme 开始执行:', { dark, ui, codeTheme, content });
+                
+                // 🔧 优先处理ECharts主题，在Vditor主题设置之前
+                console.log('🎨 优先调用ECharts主题切换');
+                try {
+                  ensureEchartsThemeSupport();
+                  refreshEchartsTheme(dark);
+                  console.log('✅ ECharts主题切换完成');
+                } catch (echartsErr) {
+                  console.error('❌ ECharts主题切换失败:', echartsErr);
+                }
                 
                 // 正确的主题设置方法
                 if (vditor.setTheme) {
@@ -4556,14 +4692,57 @@ struct VditorWebView: NSViewRepresentable {
               } catch(e) {
                 console.error('Theme apply error:', e);
               }
-              ensureEchartsThemeSupport();
-              refreshEchartsTheme(dark);
+              
               installMermaid(dark);
               try {
                 const val = vditor.getValue();
                 if (val != null) vditor.setValue(val); // 触发预览（含 mermaid）重算
               } catch(_) {}
               setTimeout(containerFix, 60);
+            };
+            
+            // 🔧 ECharts 调试函数
+            window.__debugEchartsTheme = function() {
+              console.log('🔧 [DEBUG] ECharts 调试信息:');
+              console.log('  - window.echarts 可用:', !!window.echarts);
+              console.log('  - getInstanceByDom 方法:', typeof window.echarts?.getInstanceByDom);
+              
+              // 查找所有可能的ECharts相关元素
+              const standardNodes = document.querySelectorAll('[_echarts_instance_]');
+              const canvases = document.querySelectorAll('canvas[data-zr-dom-id]');
+              const potentialDivs = document.querySelectorAll('div[style*="width"], div[style*="height"]');
+              
+              console.log('  - 标准节点 [_echarts_instance_]:', standardNodes.length);
+              console.log('  - ZRender canvas:', canvases.length);
+              console.log('  - 可能的容器 div:', potentialDivs.length);
+              
+              // 检查每个 canvas 的父容器
+              canvases.forEach((canvas, index) => {
+                console.log(`  - Canvas ${index}:`, canvas);
+                let container = canvas.parentElement;
+                let level = 0;
+                while (container && level < 5) {
+                  try {
+                    const instance = window.echarts.getInstanceByDom(container);
+                    if (instance) {
+                      console.log(`    📍 找到ECharts实例在父级 ${level}:`, container.tagName, container.className);
+                      break;
+                    }
+                  } catch (e) {
+                    // 继续查找
+                  }
+                  container = container.parentElement;
+                  level++;
+                }
+              });
+              
+              // 手动触发主题切换测试
+              console.log('🧪 手动测试主题切换...');
+              try {
+                refreshEchartsTheme(true); // 测试切换到暗色主题
+              } catch (e) {
+                console.error('🧪 测试失败:', e);
+              }
             };
 
             // 设置/强制设置 Markdown
@@ -4572,6 +4751,27 @@ struct VditorWebView: NSViewRepresentable {
                 const cur = vditor.getValue();
                 if (force || cur !== text) vditor.setValue(text);
               }catch(_){}
+            };
+            
+            // 🔧 调试函数：手动触发ECharts主题切换
+            window.__debugEchartsTheme = function(dark = null) {
+              if (dark === null) {
+                dark = !!window.__isDarkMode;
+              }
+              console.log('🔧 [DEBUG] 手动触发ECharts主题切换:', { dark });
+              console.log('🔧 [DEBUG] 当前环境状态:');
+              console.log('  - window.echarts:', !!window.echarts);
+              console.log('  - refreshEchartsTheme 函数:', typeof refreshEchartsTheme);
+              console.log('  - 页面中的 canvas 元素:', document.querySelectorAll('canvas').length);
+              console.log('  - 具有 _echarts_instance_ 属性的元素:', document.querySelectorAll('[_echarts_instance_]').length);
+              console.log('  - 具有 data-zr-dom-id 的 canvas:', document.querySelectorAll('canvas[data-zr-dom-id]').length);
+              
+              try {
+                refreshEchartsTheme(dark);
+                console.log('✅ [DEBUG] refreshEchartsTheme 调用完成');
+              } catch (err) {
+                console.error('❌ [DEBUG] refreshEchartsTheme 调用失败:', err);
+              }
             };
 
             // 切换编辑模式（IR <-> SV 分屏预览）
