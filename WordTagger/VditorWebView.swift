@@ -2884,6 +2884,110 @@ struct VditorWebView: NSViewRepresentable {
               });
             }
 
+            function ensureEchartsThemeSupport() {
+              if (window.__echartsThemeGuard) {
+                return;
+              }
+
+              const wrapInit = () => {
+                if (!window.echarts || typeof window.echarts.init !== 'function') {
+                  return false;
+                }
+
+                const originalInit = window.echarts.init;
+                window.echarts.init = function(dom, theme, opts) {
+                  const isDark = !!window.__isDarkMode;
+                  let finalTheme = theme;
+
+                  if (isDark) {
+                    finalTheme = 'dark';
+                  } else if (finalTheme === 'dark' || finalTheme === 'wordtagger-dark' || finalTheme === undefined || finalTheme === null) {
+                    finalTheme = undefined;
+                  }
+
+                  return originalInit.call(this, dom, finalTheme, opts);
+                };
+
+                window.__echartsThemeGuard = true;
+                return true;
+              };
+
+              if (wrapInit()) {
+                if (window.__echartsThemeWaiter) {
+                  clearInterval(window.__echartsThemeWaiter);
+                  window.__echartsThemeWaiter = null;
+                }
+                return;
+              }
+
+              if (!window.__echartsThemeWaiter) {
+                window.__echartsThemeWaiter = setInterval(() => {
+                  if (wrapInit()) {
+                    clearInterval(window.__echartsThemeWaiter);
+                    window.__echartsThemeWaiter = null;
+                  }
+                }, 250);
+              }
+            }
+
+            function refreshEchartsTheme(dark) {
+              if (!window.echarts || typeof window.echarts.getInstanceByDom !== 'function') {
+                return;
+              }
+
+              const themeName = dark ? 'dark' : undefined;
+              const nodes = document.querySelectorAll('[_echarts_instance_]');
+
+              if (!nodes.length) {
+                return;
+              }
+
+              nodes.forEach((el) => {
+                try {
+                  const chart = window.echarts.getInstanceByDom(el);
+                  if (!chart) {
+                    return;
+                  }
+
+                  const stored = el.__wordTaggerRawOption;
+                  const storedString = typeof stored === 'string' ? stored : null;
+                  let option = null;
+
+                  if (storedString) {
+                    try {
+                      option = JSON.parse(storedString);
+                    } catch (parseErr) {
+                      console.warn('⚠️ 解析缓存的 ECharts 配置失败:', parseErr);
+                    }
+                  } else if (stored) {
+                    option = stored;
+                  }
+
+                  if (!option && chart.getOption) {
+                    option = chart.getOption();
+                  }
+                  chart.dispose();
+
+                  const instance = window.echarts.init(el, themeName);
+                  if (option) {
+                    instance.setOption(option, true);
+                    if (storedString) {
+                      el.__wordTaggerRawOption = storedString;
+                    } else if (!stored) {
+                      try {
+                        el.__wordTaggerRawOption = JSON.stringify(option);
+                      } catch (stringifyErr) {
+                        console.warn('⚠️ 序列化 ECharts 配置失败:', stringifyErr);
+                        el.__wordTaggerRawOption = option;
+                      }
+                    }
+                  }
+                } catch (err) {
+                  console.warn('⚠️ 切换主题时刷新 ECharts 失败:', err);
+                }
+              });
+            }
+
             // 🚀 精简的回调函数 - 仅用于调试和兼容性
             window.__onImageSaved = (name, path, id) => {
               console.log(`🖼️ [传统模式] __onImageSaved 被调用: name=${name}, path=${path}, id=${id}`);
@@ -2951,6 +3055,8 @@ struct VditorWebView: NSViewRepresentable {
                 // 通知 Native：ready
                 try { window.webkit?.messageHandlers?.bridge?.postMessage({ type: 'ready' }); } catch(_) {}
                 setTimeout(containerFix, 30);
+                ensureEchartsThemeSupport();
+                setTimeout(() => refreshEchartsTheme(!!window.__isDarkMode), 120);
                 
                 // 🎨 初始化时根据系统主题设置背景
                 const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -4450,6 +4556,8 @@ struct VditorWebView: NSViewRepresentable {
               } catch(e) {
                 console.error('Theme apply error:', e);
               }
+              ensureEchartsThemeSupport();
+              refreshEchartsTheme(dark);
               installMermaid(dark);
               try {
                 const val = vditor.getValue();
