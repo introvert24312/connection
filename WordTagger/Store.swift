@@ -83,7 +83,9 @@ public final class NodeStore: ObservableObject {
                         // 检测并修复损坏的节点数据
                         let corruptionFixedCount = self.detectAndFixCorruptedNodes()
                         if corruptionFixedCount > 0 {
-                            Logger.success("数据加载时自动修复了 \(corruptionFixedCount) 个损坏的节点")
+                            #if DEBUG
+                        print("🔧 数据加载时自动修复了 \(corruptionFixedCount) 个损坏的节点")
+                        #endif
                         }
                         
                         // 设置活跃层
@@ -93,22 +95,30 @@ public final class NodeStore: ObservableObject {
                             self.currentLayer = firstLayer
                         }
                         
-                        Logger.success("从外部存储加载了 \(loadedNodes.count) 个节点，分布在 \(loadedLayers.count) 个层中")
+                        #if DEBUG
+                        print("📚 从外部存储加载了 \(loadedNodes.count) 个节点，分布在 \(loadedLayers.count) 个层中")
+                        #endif
                     } else {
                         // 只有在没有外部数据时才加载示例数据
                         self.loadSampleData()
-                        Logger.success("Created sample data with \(self.nodes.count) nodes across \(self.layers.count) layers")
+                        #if DEBUG
+                        print("📚 Created sample data with \(self.nodes.count) nodes across \(self.layers.count) layers")
+                        #endif
                     }
                     self.isLoadingFromExternal = false
                 }
             } catch {
-                Logger.error("加载外部数据失败: \(error)")
+                #if DEBUG
+                print("⚠️ 加载外部数据失败: \(error)")
+                #endif
                 await MainActor.run {
                     self.isLoadingFromExternal = false
                     // 只有在没有外部数据时才加载示例数据
                     if self.nodes.isEmpty {
                         self.loadSampleData()
-                        Logger.success("Created sample data with \(self.nodes.count) nodes across \(self.layers.count) layers")
+                        #if DEBUG
+                        print("📚 Created sample data with \(self.nodes.count) nodes across \(self.layers.count) layers")
+                        #endif
                     }
                 }
             }
@@ -128,12 +138,16 @@ public final class NodeStore: ObservableObject {
     }
     
     private func setupSearchBinding() {
-        Logger.debug("Store: Setting up search binding")
+        #if DEBUG
+        print("🔧 Store: Setting up search binding")
+        #endif
         $searchQuery
             .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
             .removeDuplicates()
             .sink { [weak self] query in
-                Logger.search("searchQuery changed to '\(query)' (after debounce)")
+                #if DEBUG
+                print("🔍 Store: searchQuery changed to '\(query)' (after debounce)")
+                #endif
                 self?.performSearch(query: query)
             }
             .store(in: &cancellables)
@@ -152,8 +166,12 @@ public final class NodeStore: ObservableObject {
                     return
                 }
                 
-                Logger.debug("数据变化触发自动同步: Nodes: \(nodes.count) 个, Layers: \(layers.count) 个")
-                Logger.debug("外部数据路径已选择: \(self.externalDataManager.isDataPathSelected)")
+                #if DEBUG
+                print("🔄 数据变化触发自动同步:")
+                print("   - Nodes: \(nodes.count) 个")
+                print("   - Layers: \(layers.count) 个")
+                print("   - 外部数据路径已选择: \(self.externalDataManager.isDataPathSelected)")
+                #endif
                 
                 if self.externalDataManager.isDataPathSelected {
                     Task { @MainActor in
