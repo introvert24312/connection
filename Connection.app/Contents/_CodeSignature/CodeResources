@@ -12,6 +12,10 @@
 		<data>
 		VKCkXK7UHVYM9uuYxAdgRB8gkho=
 		</data>
+		<key>Resources/Resources/echarts/echarts.min.js</key>
+		<data>
+		lotNjFU+AjpQY953uhsjjKoAq5E=
+		</data>
 		<key>Resources/Resources/mermaid/mermaid.min.js</key>
 		<data>
 		4GTscDa5yVSqD6h2VrsaZsHYHWg=
@@ -22,7 +26,7 @@
 		</data>
 		<key>Resources/Resources/vditor/index.min.js</key>
 		<data>
-		yL2/p0BGF7h+lzu4L3vncM6dq7Q=
+		TzbjaZ2PGTBo05Ht9jf163Nq9zY=
 		</data>
 	</dict>
 	<key>files2</key>
@@ -39,6 +43,13 @@
 			<key>hash2</key>
 			<data>
 			YTzut353F4Wwf8VR9XCe/hn4sh6bbIQlA82gKjq3sCg=
+			</data>
+		</dict>
+		<key>Resources/Resources/echarts/echarts.min.js</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			EVZCmhajjLhgTcxlGMGUBtQiYULZCPjt0uNTFEPFTRk=
 			</data>
 		</dict>
 		<key>Resources/Resources/mermaid/mermaid.min.js</key>
@@ -59,7 +70,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			CfTbhrRsePGEQD5Rk2vvDdJZLP2C0nvah1HT/CKee7M=
+			9r0Tt1AOSNskvUCisYYjrkuH9SA5i/vlqm6zugLmp10=
 			</data>
 		</dict>
 	</dict>
