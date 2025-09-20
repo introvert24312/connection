@@ -302,7 +302,7 @@ public final class NodeStore: ObservableObject {
         searchTask = Task.detached(priority: .userInitiated) { [trimmedQuery] in
             // 先按层过滤，缩小搜索集合
             let nodesInLayer = snapshotNodes.filter { $0.layerId == layerId }
-            let results = await SearchService.shared.debouncedSearch(trimmedQuery, in: nodesInLayer)
+            let results = await SearchService.shared.search(trimmedQuery, in: nodesInLayer)
             if Task.isCancelled { return }
             let matchedNodes = results.map { $0.node }
             

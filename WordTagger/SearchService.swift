@@ -9,10 +9,6 @@ public final class SearchService: ObservableObject {
     private let searchThreshold: Double = 0.3
     private let maxResults: Int = 100
     
-    // MARK: - Search Debouncing
-    private var searchDebouncer: Timer?
-    private let debounceDelay: TimeInterval = 0.2
-    
     // MARK: - Search Result Caching
     private var searchCache: [String: CachedSearchResult] = [:]
     private let cacheExpirationTime: TimeInterval = 300 // 5分钟
@@ -27,54 +23,19 @@ public final class SearchService: ObservableObject {
         }
     }
     
-    // MARK: - Public Search Interface
-    
-    /// 带防抖的搜索入口 - 推荐使用此方法
-    public func debouncedSearch(_ query: String, in nodes: [Node], filter: SearchFilter = SearchFilter()) async -> [SearchResult] {
-        return await withCheckedContinuation { continuation in
-            // 取消之前的防抖计时器
-            searchDebouncer?.invalidate()
-            
-            // 如果查询为空，立即返回空结果
-            guard !query.isEmpty else {
-                continuation.resume(returning: [])
-                return
-            }
-            
-            // 设置新的防抖计时器
-            searchDebouncer = Timer.scheduledTimer(withTimeInterval: debounceDelay, repeats: false) { _ in
-                Task {
-                    let results = await self.searchWithCache(query, in: nodes, filter: filter)
-                    continuation.resume(returning: results)
-                }
-            }
-        }
-    }
-    
-    /// 带缓存的搜索方法
-    private func searchWithCache(_ query: String, in nodes: [Node], filter: SearchFilter = SearchFilter()) async -> [SearchResult] {
-        let cacheKey = generateCacheKey(query: query, filter: filter, nodeCount: nodes.count)
-        
-        // 检查缓存
-        if let cachedResult = searchCache[cacheKey],
-           !cachedResult.isExpired {
-            print("🔍 SearchService: 使用缓存结果 - '\(query)' (\(cachedResult.results.count) 结果)")
-            return cachedResult.results
-        }
-        
-        // 执行搜索
-        let results = await search(query, in: nodes, filter: filter)
-        
-        // 缓存结果
-        cacheSearchResult(key: cacheKey, results: results)
-        
-        return results
-    }
     
     // MARK: - Core Search Methods
     
     public func search(_ query: String, in nodes: [Node], filter: SearchFilter = SearchFilter()) async -> [SearchResult] {
         guard !query.isEmpty else { return [] }
+        
+        // 检查缓存
+        let cacheKey = generateCacheKey(query: query, filter: filter, nodeCount: nodes.count)
+        if let cachedResult = searchCache[cacheKey],
+           !cachedResult.isExpired {
+            print("🔍 SearchService: 使用缓存结果 - '\(query)' (\(cachedResult.results.count) 结果)")
+            return cachedResult.results
+        }
         
         let startTime = CFAbsoluteTimeGetCurrent()
         await MainActor.run {
@@ -105,7 +66,12 @@ public final class SearchService: ObservableObject {
         }
         
         // Perform search
-        return await performAdvancedSearch(query, in: filteredNodes)
+        let results = await performAdvancedSearch(query, in: filteredNodes)
+        
+        // 缓存结果
+        cacheSearchResult(key: cacheKey, results: results)
+        
+        return results
     }
     
     // MARK: - Advanced Search Implementation
@@ -360,11 +326,6 @@ public final class SearchService: ObservableObject {
         print("🧹 SearchService: 清空所有搜索缓存")
     }
     
-    /// 取消当前的防抖计时器
-    public func cancelDebounce() {
-        searchDebouncer?.invalidate()
-        searchDebouncer = nil
-    }
 }
 
 // MARK: - Cache Data Structure

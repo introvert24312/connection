@@ -2,12 +2,7 @@
 
 ## 已实现的优化
 
-### 1. 搜索防抖 (Search Debouncing)
-- **防抖延迟**: 200ms
-- **功能**: 用户停止输入200ms后才执行搜索
-- **效果**: 减少不必要的搜索请求，提升性能
-
-### 2. 搜索结果缓存 (Search Result Caching)
+### 1. 搜索结果缓存 (Search Result Caching)
 - **缓存大小**: 最多50个查询结果
 - **过期时间**: 5分钟
 - **自动清理**: 每60秒清理一次过期缓存
@@ -15,12 +10,9 @@
 
 ## 使用方法
 
-### 新的API调用
+### 搜索API调用
 ```swift
-// 推荐使用的防抖搜索API
-let results = await SearchService.shared.debouncedSearch(query, in: nodes)
-
-// 原有的直接搜索API仍然可用
+// 即时搜索API（已集成缓存功能）
 let results = await SearchService.shared.search(query, in: nodes)
 ```
 
@@ -28,9 +20,6 @@ let results = await SearchService.shared.search(query, in: nodes)
 ```swift
 // 清空缓存
 SearchService.shared.clearSearchCache()
-
-// 取消防抖计时器
-SearchService.shared.cancelDebounce()
 
 // 查看性能指标
 let metrics = SearchService.shared.searchMetrics
@@ -40,9 +29,10 @@ print("搜索时间: \(metrics.lastSearchTimeFormatted)")
 
 ## 性能优化效果
 
-### 防抖效果
-- ✅ 用户输入"hello"时，只在最后一个字符输入200ms后执行一次搜索
-- ✅ 避免了输入每个字符都触发搜索的性能浪费
+### 即时搜索效果
+- ✅ 每个字符输入都立即执行搜索，提供实时反馈
+- ✅ 本地数据库响应迅速，无需防抖延迟
+- ✅ 用户体验更直观，搜索结果随输入实时变化
 
 ### 缓存效果
 - ✅ 相同查询立即返回结果，无需重新计算
@@ -51,13 +41,13 @@ print("搜索时间: \(metrics.lastSearchTimeFormatted)")
 
 ## 测试场景
 
-1. **快速输入测试**: 快速输入搜索词，验证防抖效果
+1. **实时搜索测试**: 输入搜索词时观察实时反馈效果
 2. **重复搜索测试**: 搜索相同内容，验证缓存命中
 3. **缓存过期测试**: 等待5分钟后重新搜索，验证缓存更新
 4. **内存管理测试**: 进行大量不同搜索，验证缓存自动清理
 
 ## 预期性能提升
 
-- **响应速度**: 减少60-80%的无效搜索请求
+- **响应速度**: 即时搜索反馈，无延迟体验
 - **重复查询**: 缓存命中时接近0ms响应时间
-- **用户体验**: 更流畅的搜索交互体验
+- **用户体验**: 更直观的实时搜索体验
