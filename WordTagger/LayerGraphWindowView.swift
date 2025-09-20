@@ -1063,6 +1063,9 @@ struct LayerSelectionBoardView: View {
     @State private var editingLayer: Layer?
     @State private var editLayerDisplayName = ""
     
+    // 🔧 添加独立的层选择状态，用于看板内的操作
+    @State private var boardSelectedLayerIds: Set<UUID> = []
+    
     private var filteredLayers: [Layer] {
         let filtered = store.layers.filter { layer in
             let matchesSearch = searchText.isEmpty || 
@@ -1112,39 +1115,53 @@ struct LayerSelectionBoardView: View {
                 // 操作按钮行
                 HStack {
                     Button("全选") {
-                        selectedLayerIds = Set(filteredLayers.map { $0.id })
+                        boardSelectedLayerIds = Set(filteredLayers.map { $0.id })
+                        selectedLayerIds = boardSelectedLayerIds
                     }
                     .buttonStyle(.bordered)
                     
                     Button("清空") {
-                        selectedLayerIds.removeAll()
+                        boardSelectedLayerIds.removeAll()
+                        selectedLayerIds = boardSelectedLayerIds
                     }
                     .buttonStyle(.bordered)
                     
                     Button("反选") {
                         let allIds = Set(filteredLayers.map { $0.id })
-                        selectedLayerIds = allIds.subtracting(selectedLayerIds)
+                        boardSelectedLayerIds = allIds.subtracting(boardSelectedLayerIds)
+                        selectedLayerIds = boardSelectedLayerIds
                     }
                     .buttonStyle(.bordered)
                     
                     Button("新建层") {
                         showingNewLayerDialog = true
-                        newLayerName = ""
                         newLayerDisplayName = ""
-                        newLayerColor = "blue"
                     }
                     .buttonStyle(.borderedProminent)
+                    
+                    Button("重命名层") {
+                        if boardSelectedLayerIds.count == 1 {
+                            let selectedId = boardSelectedLayerIds.first!
+                            if let layerToEdit = store.layers.first(where: { $0.id == selectedId }) {
+                                editingLayer = layerToEdit
+                                editLayerDisplayName = layerToEdit.displayName
+                                showingEditLayerDialog = true
+                            }
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(boardSelectedLayerIds.count != 1)
                     
                     Button("删除选中") {
                         showingDeleteSelectedAlert = true
                     }
                     .buttonStyle(.bordered)
                     .foregroundColor(.red)
-                    .disabled(selectedLayerIds.isEmpty)
+                    .disabled(boardSelectedLayerIds.isEmpty)
                     
                     Spacer()
                     
-                    Text("\(selectedLayerIds.count)/\(store.layers.count) 已选择")
+                    Text("\(boardSelectedLayerIds.count)/\(store.layers.count) 已选择")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -1164,13 +1181,15 @@ struct LayerSelectionBoardView: View {
                     ForEach(filteredLayers) { layer in
                         LayerSelectionCard(
                             layer: layer,
-                            isSelected: selectedLayerIds.contains(layer.id),
+                            isSelected: boardSelectedLayerIds.contains(layer.id),
                             onToggle: {
-                                if selectedLayerIds.contains(layer.id) {
-                                    selectedLayerIds.remove(layer.id)
+                                if boardSelectedLayerIds.contains(layer.id) {
+                                    boardSelectedLayerIds.remove(layer.id)
                                 } else {
-                                    selectedLayerIds.insert(layer.id)
+                                    boardSelectedLayerIds.insert(layer.id)
                                 }
+                                // 同步更新筛选状态
+                                selectedLayerIds = boardSelectedLayerIds
                             },
                             onEdit: { layerToEdit in
                                 showingEditLayerDialog = true
@@ -1185,6 +1204,11 @@ struct LayerSelectionBoardView: View {
             .background(Color(NSColor.controlBackgroundColor))
         }
         .frame(minWidth: 500, minHeight: 600)
+        .onAppear {
+            // 初始化时同步选择状态
+            boardSelectedLayerIds = selectedLayerIds
+            print("🔄 层看板初始化，同步选择状态: \(boardSelectedLayerIds.count) 个层")
+        }
         .sheet(isPresented: $showingNewLayerDialog) {
             NewLayerDialogView(
                 newLayerName: $newLayerName,
@@ -1201,12 +1225,12 @@ struct LayerSelectionBoardView: View {
                 deleteSelectedLayers()
             }
         } message: {
-            let selectedLayers = store.layers.filter { selectedLayerIds.contains($0.id) }
+            let selectedLayers = store.layers.filter { boardSelectedLayerIds.contains($0.id) }
             let totalNodes = selectedLayers.flatMap { layer in
                 store.nodes.filter { $0.layerId == layer.id }
             }.count
             
-            Text("确定要删除选中的 \(selectedLayerIds.count) 个层吗？\n\n这将删除 \(totalNodes) 个节点及其所有数据。此操作无法撤销。")
+            Text("确定要删除选中的 \(boardSelectedLayerIds.count) 个层吗？\n\n这将删除 \(totalNodes) 个节点及其所有数据。此操作无法撤销。")
         }
         .sheet(isPresented: $showingEditLayerDialog) {
             EditLayerDialogView(
@@ -1217,21 +1241,24 @@ struct LayerSelectionBoardView: View {
             )
             .environmentObject(store)
         }
+        .onAppear {
+            // 初始化时清空看板选择状态，让用户重新选择
+            boardSelectedLayerIds.removeAll()
+        }
     }
     
     private func createNewLayer() {
-        let actualName = newLayerName.isEmpty ? 
-            newLayerDisplayName.lowercased().replacingOccurrences(of: " ", with: "_") : 
-            newLayerName
-        let actualDisplayName = newLayerDisplayName.isEmpty ? newLayerName : newLayerDisplayName
+        let actualDisplayName = newLayerDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let actualName = actualDisplayName.lowercased().replacingOccurrences(of: " ", with: "_")
         
         let newLayer = store.createLayer(
             name: actualName,
             displayName: actualDisplayName,
-            color: newLayerColor
+            color: "blue"  // 使用默认蓝色
         )
         
         // 自动选中新创建的层
+        boardSelectedLayerIds.insert(newLayer.id)
         selectedLayerIds.insert(newLayer.id)
         
         // 关闭对话框
@@ -1241,12 +1268,19 @@ struct LayerSelectionBoardView: View {
     }
     
     private func deleteSelectedLayers() {
-        let selectedLayers = store.layers.filter { selectedLayerIds.contains($0.id) }
+        let selectedLayers = store.layers.filter { boardSelectedLayerIds.contains($0.id) }
         for layer in selectedLayers {
             store.deleteLayer(layer)
         }
-        selectedLayerIds.removeAll()
+        boardSelectedLayerIds.removeAll()
+        selectedLayerIds = boardSelectedLayerIds
         print("🗑️ 删除了 \(selectedLayers.count) 个层")
+    }
+    
+    private func getSelectedLayerForRename() -> Layer? {
+        guard boardSelectedLayerIds.count == 1 else { return nil }
+        let selectedId = boardSelectedLayerIds.first!
+        return store.layers.first { $0.id == selectedId }
     }
     
     private func updateLayerName() {
@@ -1311,19 +1345,7 @@ struct NewLayerDialogView: View {
     let onCancel: () -> Void
     let onConfirm: () -> Void
     
-    let availableColors = [
-        ("blue", Color.blue),
-        ("green", Color.green),
-        ("orange", Color.orange),
-        ("red", Color.red),
-        ("purple", Color.purple),
-        ("pink", Color.pink),
-        ("yellow", Color.yellow),
-        ("teal", Color.teal)
-    ]
-    
     var isFormValid: Bool {
-        !newLayerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || 
         !newLayerDisplayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
     
@@ -1343,39 +1365,11 @@ struct NewLayerDialogView: View {
                         .fontWeight(.medium)
                     TextField("输入层的显示名称", text: $newLayerDisplayName)
                         .textFieldStyle(.roundedBorder)
-                }
-                
-                // 内部名称
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("内部名称（可选）")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                    TextField("留空则自动生成", text: $newLayerName)
-                        .textFieldStyle(.roundedBorder)
-                }
-                
-                // 颜色选择
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("层颜色")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                    
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 8) {
-                        ForEach(availableColors, id: \.0) { colorName, color in
-                            Button {
-                                newLayerColor = colorName
-                            } label: {
-                                Circle()
-                                    .fill(color)
-                                    .frame(width: 30, height: 30)
-                                    .overlay(
-                                        Circle()
-                                            .stroke(newLayerColor == colorName ? Color.primary : Color.clear, lineWidth: 2)
-                                    )
+                        .onSubmit {
+                            if isFormValid {
+                                onConfirm()
                             }
-                            .buttonStyle(PlainButtonStyle())
                         }
-                    }
                 }
             }
             

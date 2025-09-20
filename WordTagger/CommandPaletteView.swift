@@ -30,6 +30,18 @@ struct CommandPaletteView: View {
     // 过滤器Sheet状态
     @State private var showFilterSheet: Bool = false
     
+    // 新建层Sheet状态
+    @State private var showNewLayerSheet: Bool = false
+    
+    // 删除确认对话框状态
+    @State private var showDeleteConfirmation: Bool = false
+
+    // 重命名层Sheet状态
+    @State private var showRenameSheet: Bool = false
+
+    // 当前图谱中选中的层
+    @State private var selectedLayerId: UUID? = nil
+    
     // NSEvent监听器引用
     @State private var keyEventMonitor: Any?
     
@@ -186,6 +198,97 @@ struct CommandPaletteView: View {
         }
     }
     
+    private var canRenameSelectedLayer: Bool {
+        if selectedLayerId != nil {
+            return true
+        }
+        return filteredLayerIds.count == 1
+    }
+
+    // 层管理按钮组
+    private var layerManagementButtons: some View {
+        HStack(spacing: 6) {
+            // 全选按钮
+            Button("全选") {
+                filteredLayerIds = Set(store.layers.map { $0.id })
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.mini)
+            .help("选择所有层")
+            
+            // 清空按钮
+            Button("清空") {
+                filteredLayerIds.removeAll()
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.mini)
+            .help("清空层选择")
+            
+            // 反选按钮
+            Button("反选") {
+                let allLayerIds = Set(store.layers.map { $0.id })
+                filteredLayerIds = allLayerIds.subtracting(filteredLayerIds)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.mini)
+            .help("反选当前层选择")
+            
+            // 新建层按钮
+            Button {
+                showNewLayerSheet = true
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "plus.circle")
+                        .font(.system(size: 10))
+                    Text("新建层")
+                        .font(.system(size: 10))
+                }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.mini)
+            .help("创建新层")
+            
+            // 重命名层按钮
+            Button {
+                if canRenameSelectedLayer {
+                    if selectedLayerId == nil, filteredLayerIds.count == 1 {
+                        selectedLayerId = filteredLayerIds.first
+                    }
+                    showRenameSheet = true
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 10))
+                    Text("重命名层")
+                        .font(.system(size: 10))
+                }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.mini)
+            .disabled(!canRenameSelectedLayer)
+            .help("重命名当前显示的单个层")
+
+            // 删除选中层按钮
+            if !filteredLayerIds.isEmpty {
+                Button {
+                    showDeleteConfirmation = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 10))
+                        Text("删除选中")
+                            .font(.system(size: 10))
+                    }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.mini)
+                .help("删除选中的层")
+                .foregroundColor(.red)
+            }
+        }
+    }
+    
     private var filterButton: some View {
         Button(action: {
             showFilterSheet = true
@@ -236,6 +339,9 @@ struct CommandPaletteView: View {
             
             Spacer()
             
+            // 层管理按钮组
+            layerManagementButtons
+            
             filterStatusView
             filterButton
             currentLayerDisplay
@@ -254,7 +360,8 @@ struct CommandPaletteView: View {
             LayerStructureGraphViewSimple(
                 filteredLayerIds: $filteredLayerIds,
                 isPresented: $isPresented,
-                showFilterSheet: $showFilterSheet
+                showFilterSheet: $showFilterSheet,
+                selectedLayerId: $selectedLayerId
             )
             .environmentObject(store)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -473,6 +580,25 @@ struct CommandPaletteView: View {
                 filteredLayerIds: $filteredLayerIds,
                 store: store
             )
+        }
+        .sheet(isPresented: $showNewLayerSheet) {
+            NewLayerSheet(
+                filteredLayerIds: $filteredLayerIds,
+                store: store
+            )
+        }
+        .sheet(isPresented: $showRenameSheet) {
+            if let selectedLayer = getSelectedLayerForRename() {
+                RenameLayerSheet(layer: selectedLayer, store: store)
+            }
+        }
+        .alert("删除层", isPresented: $showDeleteConfirmation) {
+            Button("取消", role: .cancel) { }
+            Button("删除", role: .destructive) {
+                deleteSelectedLayers()
+            }
+        } message: {
+            Text("确定要删除选中的 \(filteredLayerIds.count) 个层吗？这将删除层中的所有节点。")
         }
         .onChange(of: shouldDismiss) { _, newValue in
             if newValue {
@@ -928,6 +1054,37 @@ struct CommandPaletteView: View {
         // Close the command palette
         shouldDismiss = true
     }
+    
+    // 删除选中的层
+    private func deleteSelectedLayers() {
+        let layersToDelete = store.layers.filter { filteredLayerIds.contains($0.id) }
+        
+        for layer in layersToDelete {
+            store.deleteLayer(layer)
+        }
+        
+        // 清空选择
+        filteredLayerIds.removeAll()
+        
+        print("✅ 已删除 \(layersToDelete.count) 个层")
+    }
+    
+    // 获取选中的单个层（用于重命名）
+    private func getSelectedLayerForRename() -> Layer? {
+        if let selectedId = selectedLayerId,
+           let layer = store.layers.first(where: { $0.id == selectedId }) {
+            return layer
+        }
+
+        if filteredLayerIds.count == 1,
+           let singleId = filteredLayerIds.first,
+           let layer = store.layers.first(where: { $0.id == singleId }) {
+            selectedLayerId = singleId
+            return layer
+        }
+
+        return nil
+    }
 }
 
 // MARK: - Simplified Layer Structure Graph View
@@ -937,10 +1094,10 @@ struct LayerStructureGraphViewSimple: View {
     @Binding var filteredLayerIds: Set<UUID>
     @Binding var isPresented: Bool
     @Binding var showFilterSheet: Bool
+    @Binding var selectedLayerId: UUID?
     @State private var cachedNodes: [LayerGraphNode] = []
     @State private var cachedEdges: [LayerGraphEdge] = []
-    @State private var selectedLayerId: UUID?
-    
+
     // 使用设置中的层结构图谱缩放级别
     @AppStorage("layerStructureGraphInitialScale") private var layerGraphInitialScale: Double = 0.9
     
@@ -1119,6 +1276,9 @@ struct LayerStructureGraphViewSimple: View {
     }
     
     private func updateLayerGraphData() {
+        if let currentSelection = selectedLayerId, !filteredLayerIds.contains(currentSelection) {
+            selectedLayerId = nil
+        }
         let data = calculateLayerGraphData()
         cachedNodes = data.nodes
         cachedEdges = data.edges
@@ -1643,6 +1803,270 @@ struct LayerFilterRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - 重命名层Sheet
+struct RenameLayerSheet: View {
+    let layer: Layer
+    let store: NodeStore
+    @State private var newDisplayName: String = ""
+    @State private var newColor: String = ""
+    @Environment(\.dismiss) private var dismiss
+    
+    private let availableColors = ["blue", "green", "red", "purple", "orange", "yellow", "pink", "gray"]
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // 标题栏
+            HStack {
+                Text("重命名层")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+                
+                Button("取消") {
+                    dismiss()
+                }
+                .buttonStyle(.bordered)
+                
+                Button("保存") {
+                    saveChanges()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(newDisplayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            .padding()
+            
+            Divider()
+            
+            // 表单内容
+            Form {
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("当前名称: \(layer.displayName)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        TextField("新显示名称", text: $newDisplayName)
+                            .textFieldStyle(.roundedBorder)
+                    }
+                } header: {
+                    Text("层名称")
+                }
+                
+                Section {
+                    Picker("颜色", selection: $newColor) {
+                        ForEach(availableColors, id: \.self) { color in
+                            HStack {
+                                Circle()
+                                    .fill(Color(color))
+                                    .frame(width: 16, height: 16)
+                                Text(color.capitalized)
+                            }
+                            .tag(color)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                } header: {
+                    Text("外观")
+                }
+                
+                Section {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("层标识符: \(layer.name)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Text("层类型: \(layer.isCompound ? "复合层" : "普通层")")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        if layer.isCompound {
+                            let childLayers = store.getChildLayers(of: layer)
+                            Text("包含子层: \(childLayers.map { $0.displayName }.joined(separator: ", "))")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("层信息")
+                }
+            }
+            .formStyle(.grouped)
+        }
+        .frame(minWidth: 400, minHeight: 300)
+        .onAppear {
+            newDisplayName = layer.displayName
+            newColor = layer.color
+        }
+    }
+    
+    private func saveChanges() {
+        let trimmedName = newDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return }
+        
+        // 检查名称是否真的有变化
+        let hasChanges = trimmedName != layer.displayName || newColor != layer.color
+        guard hasChanges else {
+            dismiss()
+            return
+        }
+        
+        // 更新层名称和颜色
+        store.updateLayerDisplayName(layer: layer, newDisplayName: trimmedName, newColor: newColor)
+        
+        print("✅ 已更新层: \(layer.displayName) -> \(trimmedName)")
+        dismiss()
+    }
+}
+
+// MARK: - 新建层Sheet
+struct NewLayerSheet: View {
+    @Binding var filteredLayerIds: Set<UUID>
+    let store: NodeStore
+    @State private var layerName: String = ""
+    @State private var layerDisplayName: String = ""
+    @State private var layerColor: String = "blue"
+    @State private var isCompound: Bool = false
+    @State private var selectedChildLayers: Set<UUID> = []
+    @Environment(\.dismiss) private var dismiss
+    
+    private let availableColors = ["blue", "green", "red", "purple", "orange", "yellow", "pink", "gray"]
+    
+    var availableChildLayers: [Layer] {
+        // 只显示普通层作为可选的子层
+        return store.layers.filter { !$0.isCompound }
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // 标题栏
+            HStack {
+                Text("新建层")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+                
+                Button("取消") {
+                    dismiss()
+                }
+                .buttonStyle(.bordered)
+                
+                Button("创建") {
+                    createLayer()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(layerDisplayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            .padding()
+            
+            Divider()
+            
+            // 表单内容
+            Form {
+                Section {
+                    TextField("显示名称", text: $layerDisplayName)
+                        .textFieldStyle(.roundedBorder)
+                    
+                    TextField("层标识符（可选）", text: $layerName)
+                        .textFieldStyle(.roundedBorder)
+                        .help("如果为空，将根据显示名称自动生成")
+                } header: {
+                    Text("基本信息")
+                }
+                
+                Section {
+                    Picker("颜色", selection: $layerColor) {
+                        ForEach(availableColors, id: \.self) { color in
+                            HStack {
+                                Circle()
+                                    .fill(Color(color))
+                                    .frame(width: 16, height: 16)
+                                Text(color.capitalized)
+                            }
+                            .tag(color)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                } header: {
+                    Text("外观")
+                }
+                
+                Section {
+                    Toggle("创建为复合层", isOn: $isCompound)
+                        .help("复合层可以包含其他普通层")
+                    
+                    if isCompound && !availableChildLayers.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("选择子层:")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            
+                            ForEach(availableChildLayers, id: \.id) { layer in
+                                Toggle(layer.displayName, isOn: Binding(
+                                    get: { selectedChildLayers.contains(layer.id) },
+                                    set: { isSelected in
+                                        if isSelected {
+                                            selectedChildLayers.insert(layer.id)
+                                        } else {
+                                            selectedChildLayers.remove(layer.id)
+                                        }
+                                    }
+                                ))
+                                .toggleStyle(.checkbox)
+                            }
+                        }
+                    }
+                } header: {
+                    Text("层类型")
+                }
+            }
+            .formStyle(.grouped)
+        }
+        .frame(minWidth: 400, minHeight: 500)
+        .onAppear {
+            // 自动聚焦到显示名称字段
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                // Focus will be handled by the system
+            }
+        }
+    }
+    
+    private func createLayer() {
+        let trimmedDisplayName = layerDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedDisplayName.isEmpty else { return }
+        
+        let finalLayerName = layerName.isEmpty ? 
+            trimmedDisplayName.lowercased().replacingOccurrences(of: " ", with: "_") : 
+            layerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        let newLayer: Layer
+        
+        if isCompound && !selectedChildLayers.isEmpty {
+            // 创建复合层
+            newLayer = store.createCompoundLayer(
+                name: finalLayerName,
+                displayName: trimmedDisplayName,
+                childLayerIds: Array(selectedChildLayers),
+                color: layerColor
+            )
+        } else {
+            // 创建普通层
+            newLayer = store.createLayer(
+                name: finalLayerName,
+                displayName: trimmedDisplayName,
+                color: layerColor
+            )
+        }
+        
+        // 自动将新创建的层添加到过滤器中
+        filteredLayerIds.insert(newLayer.id)
+        
+        print("✅ 创建了新层: \(newLayer.displayName)")
+        dismiss()
     }
 }
 
