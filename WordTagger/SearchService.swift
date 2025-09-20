@@ -33,7 +33,7 @@ public final class SearchService: ObservableObject {
         let cacheKey = generateCacheKey(query: query, filter: filter, nodeCount: nodes.count)
         if let cachedResult = searchCache[cacheKey],
            !cachedResult.isExpired {
-            print("🔍 SearchService: 使用缓存结果 - '\(query)' (\(cachedResult.results.count) 结果)")
+            Logger.search("使用缓存结果 - '\(query)' (\(cachedResult.results.count) 结果)")
             return cachedResult.results
         }
         
@@ -289,7 +289,7 @@ public final class SearchService: ObservableObject {
             expirationTime: cacheExpirationTime
         )
         
-        print("🔍 SearchService: 缓存搜索结果 - '\(key)' (\(results.count) 结果)")
+        Logger.search("缓存搜索结果 - '\(key)' (\(results.count) 结果)")
     }
     
     private func cleanExpiredCache() {
@@ -303,7 +303,7 @@ public final class SearchService: ObservableObject {
         }
         
         if !expiredKeys.isEmpty {
-            print("🧹 SearchService: 清理过期缓存条目 \(expiredKeys.count) 个")
+            Logger.search("清理过期缓存条目 \(expiredKeys.count) 个")
         }
     }
     
@@ -312,7 +312,7 @@ public final class SearchService: ObservableObject {
             return
         }
         searchCache.removeValue(forKey: oldestKey)
-        print("🗑️ SearchService: 移除最旧缓存条目")
+        Logger.search("移除最旧缓存条目")
     }
     
     private func calculateCacheHitRate() -> Double {
@@ -323,7 +323,7 @@ public final class SearchService: ObservableObject {
     /// 清空搜索缓存
     public func clearSearchCache() {
         searchCache.removeAll()
-        print("🧹 SearchService: 清空所有搜索缓存")
+        Logger.search("清空所有搜索缓存")
     }
     
 }
