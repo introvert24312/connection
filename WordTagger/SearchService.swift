@@ -11,7 +11,7 @@ public final class SearchService: ObservableObject {
     
     // MARK: - Search Debouncing
     private var searchDebouncer: Timer?
-    private let debounceDelay: TimeInterval = 0.3
+    private let debounceDelay: TimeInterval = 0.2
     
     // MARK: - Search Result Caching
     private var searchCache: [String: CachedSearchResult] = [:]
