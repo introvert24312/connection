@@ -1507,8 +1507,121 @@ struct VditorWebView: NSViewRepresentable {
     }
     
     // MARK: - HTML / JS （单一入口：__applyNativeTheme）
+    /// 从 App Bundle 中读取纯文本资源（UTF-8）。
+    /// 会尝试多种命名组合以及 "Resources/" 前缀，适配 Xcode Folder Reference 的目录结构。
+    private static func loadBundledText(name: String, ext: String, subdirectory: String? = nil) -> String? {
+        let bundle = Bundle.main
+
+        var resourceCandidates: [(base: String, ext: String?)] = []
+        let normalizedExt = ext
+        resourceCandidates.append((name, normalizedExt.isEmpty ? nil : normalizedExt))
+        if !normalizedExt.isEmpty {
+            resourceCandidates.append(("\(name).\(normalizedExt)", nil))
+        }
+        if name.contains(".") && !normalizedExt.isEmpty {
+            let parts = name.split(separator: ".")
+            if let first = parts.first {
+                let head = String(first)
+                let tail = parts.dropFirst().joined(separator: ".")
+                let mergedExt = tail.isEmpty ? normalizedExt : "\(tail).\(normalizedExt)"
+                resourceCandidates.append((head, mergedExt))
+            }
+        }
+
+        var subdirectories: [String] = []
+        if let subdir = subdirectory {
+            subdirectories.append(subdir)
+            subdirectories.append("Resources/\(subdir)")
+        }
+
+        func tryLoad(from url: URL?) -> String? {
+            guard let url = url else { return nil }
+            return try? String(contentsOf: url, encoding: .utf8)
+        }
+
+        for candidate in resourceCandidates {
+            for subdir in subdirectories {
+                if let content = tryLoad(from: bundle.url(forResource: candidate.base, withExtension: candidate.ext, subdirectory: subdir)) {
+                    return content
+                }
+            }
+            if let content = tryLoad(from: bundle.url(forResource: candidate.base, withExtension: candidate.ext)) {
+                return content
+            }
+        }
+
+        if let baseURL = bundle.resourceURL {
+            var basePaths: [URL] = [baseURL, baseURL.appendingPathComponent("Resources")]
+            if let subdir = subdirectory {
+                basePaths.append(baseURL.appendingPathComponent(subdir))
+                basePaths.append(baseURL.appendingPathComponent("Resources").appendingPathComponent(subdir))
+            }
+
+            for base in basePaths {
+                for candidate in resourceCandidates {
+                    let filename: String
+                    if let ext = candidate.ext, !ext.isEmpty {
+                        filename = "\(candidate.base).\(ext)"
+                    } else {
+                        filename = candidate.base
+                    }
+                    let url = base.appendingPathComponent(filename)
+                    if let content = tryLoad(from: url) {
+                        return content
+                    }
+                }
+            }
+        }
+        return nil
+    }
+
     private static func generateHTML() -> String {
-        // 你可以把 CDN 换成本地资源；这里只用 CDN 以便快速验证
+        let vditorCSS = loadBundledText(name: "index", ext: "css", subdirectory: "vditor")
+        let vditorJS = loadBundledText(name: "index.min", ext: "js", subdirectory: "vditor")
+        let mermaidJS = loadBundledText(name: "mermaid.min", ext: "js", subdirectory: "mermaid")
+
+        let cssTag: String
+        if let css = vditorCSS {
+            cssTag = """
+<style>
+\(css)
+</style>
+"""
+        } else {
+            print("⚠️ [VditorWebView] 本地 Vditor CSS 未打包，改用 CDN 版本")
+            cssTag = """
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vditor/dist/index.css">
+"""
+        }
+
+        let vditorTag: String
+        if let js = vditorJS {
+            vditorTag = """
+<script>
+\(js)
+</script>
+"""
+        } else {
+            print("⚠️ [VditorWebView] 本地 Vditor JS 未打包，改用 CDN 版本")
+            vditorTag = """
+<script src="https://cdn.jsdelivr.net/npm/vditor/dist/index.min.js"></script>
+"""
+        }
+
+        let mermaidTag: String
+        if let js = mermaidJS {
+            mermaidTag = """
+<script>
+\(js)
+</script>
+"""
+        } else {
+            print("⚠️ [VditorWebView] 本地 Mermaid JS 未打包，改用 CDN 版本")
+            mermaidTag = """
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+"""
+        }
+
         return #"""
         <!DOCTYPE html>
         <html>
@@ -1517,23 +1630,21 @@ struct VditorWebView: NSViewRepresentable {
           <meta name="viewport" content="width=device-width, initial-scale=1" />
           <title>Vditor IR</title>
 
-          <!-- Vditor -->
-          <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vditor/dist/index.css">
-          <script src="https://cdn.jsdelivr.net/npm/vditor/dist/index.min.js"></script>
-
-          <!-- Mermaid -->
-          <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+          \#(cssTag)
+          \#(vditorTag)
+          \#(mermaidTag)
 
           <style>
             :root { 
-              --bg: transparent; 
-              --bg-dark: #292A2B; /* Tanda暗色背景 */
+              --bg: #ffffff !important; 
+              --bg-dark: #292A2B !important; /* Tanda暗色背景 */
               --mmd-font: 20px; 
             }
             html, body { 
               margin:0; 
               padding:0; 
-              background: var(--bg); 
+              background: var(--bg) !important; 
+              background-color: var(--bg) !important; 
               transition: background-color 0.3s ease;
             }
             
@@ -1546,6 +1657,19 @@ struct VditorWebView: NSViewRepresentable {
             }
             
             #vditor { height: 100vh; }
+
+            /* 暗色模式下强制 ECharts 透明背景（浅色保持默认） */
+            .vditor--dark .vditor-reset pre > code.language-echarts,
+            .vditor--dark .vditor-reset pre > code.language-echarts *,
+            .vditor--dark .vditor-reset .language-echarts,
+            .vditor--dark .vditor-reset .language-echarts *,
+            .vditor--dark .vditor-preview pre > code.language-echarts,
+            .vditor--dark .vditor-preview pre > code.language-echarts *,
+            .vditor--dark .vditor-preview .language-echarts,
+            .vditor--dark .vditor-preview .language-echarts * {
+              background: transparent !important;
+              background-image: none !important;
+            }
 
             /* --- Mermaid base scaling via container font-size --- */
             .mermaid { 
@@ -4300,6 +4424,28 @@ struct VditorWebView: NSViewRepresentable {
                   document.body.classList.remove('vditor--dark');
                   document.documentElement.removeAttribute('data-theme');
                   document.body.removeAttribute('data-theme');
+                }
+
+                const root = document.documentElement;
+                const body = document.body;
+                const targetBg = dark ? '#292A2B' : '#ffffff';
+                root.style.setProperty('--bg', targetBg, 'important');
+                root.style.setProperty('--bg-dark', '#292A2B', 'important');
+                root.style.setProperty('background', targetBg, 'important');
+                root.style.setProperty('background-color', targetBg, 'important');
+                if (body) {
+                  body.style.setProperty('--bg', targetBg, 'important');
+                  body.style.setProperty('background', targetBg, 'important');
+                  body.style.setProperty('background-color', targetBg, 'important');
+                  try {
+                    const computedRootBg = getComputedStyle(root).getPropertyValue('--bg');
+                    const computedBodyBg = getComputedStyle(body).backgroundColor;
+                    console.log('🎨 同步根背景变量:', { targetBg, computedRootBg, computedBodyBg });
+                  } catch (bgErr) {
+                    console.warn('⚠️ 获取背景计算值失败:', bgErr);
+                  }
+                } else {
+                  console.warn('⚠️ document.body 不存在，无法同步背景变量');
                 }
               } catch(e) {
                 console.error('Theme apply error:', e);

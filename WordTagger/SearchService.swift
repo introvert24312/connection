@@ -134,8 +134,7 @@ public final class SearchService: ObservableObject {
         // Calculate final weighted score
         let finalScore = calculateFinalScore(fieldMatches)
         
-        // Convert Node to Node for compatibility with new SearchResult structure
-        let node = Node(text: node.text, phonetic: node.phonetic, meaning: node.meaning, layerId: UUID(), tags: node.tags)
+        // Return the original node to preserve identity and references
         return SearchResult(node: node, score: finalScore, matchedFields: matchedFields)
     }
     

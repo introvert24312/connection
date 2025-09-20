@@ -523,7 +523,7 @@ struct NodeDetailView: View {
         // 设置内容到UI
         let finalContent = loadedContent ?? currentNode.markdown
         markdownText = finalContent
-        
+
         // 确保编辑器也更新内容
         // 延迟到下一个运行循环，避免在视图更新期间修改状态
         DispatchQueue.main.async {
@@ -2211,4 +2211,3 @@ class NodeImageManager: ObservableObject {
     DetailPanel(node: sampleNode)
         .environmentObject(NodeStore.shared)
 }
-

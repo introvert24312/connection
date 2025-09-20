@@ -35,6 +35,7 @@ public final class NodeStore: ObservableObject {
     private var savedTagFilterState: SavedTagFilterState?
     
     private var cancellables = Set<AnyCancellable>()
+    private var searchTask: Task<Void, Never>? = nil
     private let externalDataService = ExternalDataService.shared
     private let externalDataManager = ExternalDataManager.shared
     private var isLoadingFromExternal = false
@@ -272,37 +273,46 @@ public final class NodeStore: ObservableObject {
     public func performSearch(query: String) {
         print("🔍 Store: performSearch called with query '\(query)'")
         
-        if query.isEmpty {
-            print("🧹 Store: Query is empty, clearing results")
-            searchResults = []
-            return
-        }
+        // 取消上一轮搜索任务
+        searchTask?.cancel()
         
+        // 空查询：清空结果并结束
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedQuery.isEmpty else {
+            print("🧹 Store: Query is empty, clearing results")
             searchResults = []
+            isLoading = false
             return
         }
         
-        // 搜索当前层的节点
+        // 必须有当前层
         guard let currentLayer = currentLayer else {
             print("⚠️ Store: 没有当前层，搜索结果为空")
             searchResults = []
+            isLoading = false
             return
         }
         
-        let nodeResults = nodes.filter { node in
-            // 只搜索当前层的节点
-            node.layerId == currentLayer.id && (
-                node.text.localizedCaseInsensitiveContains(trimmedQuery) ||
-                (node.meaning?.localizedCaseInsensitiveContains(trimmedQuery) ?? false) ||
-                (node.phonetic?.localizedCaseInsensitiveContains(trimmedQuery) ?? false) ||
-                node.tags.contains { $0.value.localizedCaseInsensitiveContains(trimmedQuery) }
-            )
-        }
+        // 拍快照，避免在后台访问主线程状态
+        let snapshotNodes = nodes
+        let layerId = currentLayer.id
+        isLoading = true
         
-        searchResults = Array(nodeResults.prefix(50)) // 限制结果数量
-        print("🔍 Store: Search completed in layer '\(currentLayer.displayName)', found \(searchResults.count) results")
+        // 后台执行搜索，完成后回主线程更新
+        searchTask = Task.detached(priority: .userInitiated) { [trimmedQuery] in
+            // 先按层过滤，缩小搜索集合
+            let nodesInLayer = snapshotNodes.filter { $0.layerId == layerId }
+            let results = await SearchService.shared.search(trimmedQuery, in: nodesInLayer)
+            if Task.isCancelled { return }
+            let matchedNodes = results.map { $0.node }
+            
+            await MainActor.run {
+                if Task.isCancelled { return }
+                self.searchResults = matchedNodes // 不再强制50条上限，完整返回
+                self.isLoading = false
+                print("🔍 Store: Async search done in layer, results=\(matchedNodes.count)")
+            }
+        }
     }
     
     // MARK: - 节点管理
