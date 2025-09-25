@@ -30,22 +30,48 @@ struct DetailPanel: View {
         VStack(spacing: 0) {
             // 标签栏
             HStack {
-                Picker("视图", selection: $tab) {
-                    ForEach(Tab.allCases, id: \.self) { tab in
-                        Text(tab.rawValue).tag(tab)
+                // 🏷️ 独立的标题标签 - 与按钮同样大小
+                Text("视图")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(Color(NSColor.labelColor)) // 🔧 使用系统默认标签颜色
+                    .padding(.trailing, 8)
+
+                // 🎯 自定义的大按钮标签栏 - 完全占用可用空间
+                HStack(spacing: 0) {
+                    ForEach(Tab.allCases, id: \.self) { currentTab in
+                        Button(action: { tab = currentTab }) {
+                            Text(currentTab.rawValue)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(Color(NSColor.labelColor)) // 🔧 使用系统默认标签颜色
+                                .padding(.vertical, 3) // 🔧 更紧凑的高度
+                                .padding(.horizontal, 12)
+                                .frame(maxWidth: .infinity) // 🔧 每个按钮占用相等空间
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(tab == currentTab ? Color(NSColor.quaternaryLabelColor) : Color.clear) // 🎨 浅色模式下更浅的灰色背景
+                                )
+                                .contentShape(Rectangle()) // 🔧 确保整个区域都可点击
+                        }
+                        .buttonStyle(.plain) // 移除默认按钮样式
                     }
                 }
-                .pickerStyle(.segmented)
-                
-                Spacer()
-                
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(NSColor.controlBackgroundColor))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color(NSColor.separatorColor), lineWidth: 0.5)
+                        )
+                )
+                .frame(maxWidth: .infinity) // 整体占用所有可用空间
+
                 Button(action: { showingEditSheet = true }) {
                     Image(systemName: "pencil")
                         .foregroundColor(.blue)
                 }
                 .buttonStyle(.borderless)
                 .help("编辑节点")
-                
+
             }
             .padding()
             .background(Color(NSColor.controlBackgroundColor))
