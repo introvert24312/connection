@@ -4053,7 +4053,7 @@ struct TagManagerView: View {
                             Text(module.rawValue)
                                 .font(.system(size: 15, weight: .medium))
                                 .foregroundColor(Color(NSColor.labelColor)) // 🔧 使用系统默认标签颜色
-                                .padding(.vertical, 8)
+                                .padding(.vertical, 3) // 🔧 更紧凑的高度，与DetailPanel一致
                                 .padding(.horizontal, 20)
                                 .frame(maxWidth: .infinity) // 让每个按钮占用相等的空间
                                 .background(
