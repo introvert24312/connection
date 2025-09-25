@@ -4973,18 +4973,13 @@ struct IndependentWindowWrapper: View {
 
 // MARK: - IndependentWindowModifier
 
-struct IndependentWindowModifier: ViewModifier {
-    @Binding var showPalette: Bool
+struct SheetsModifier: ViewModifier {
     @Binding var showQuickAdd: Bool
-    @Binding var showQuickSearch: Bool
     @Binding var showCompoundNodeAdd: Bool
     @Binding var showCommandPalette: Bool
-    @Binding var nodeToEditInManager: Node?
-    @Binding var isOpeningMapWindow: Bool
     let windowId: UUID
     let store: NodeStore
-    let openWindow: OpenWindowAction
-    
+
     func body(content: Content) -> some View {
         content
             .sheet(isPresented: $showQuickAdd) {
@@ -4999,10 +4994,19 @@ struct IndependentWindowModifier: ViewModifier {
                 CommandPaletteSheetView(isPresented: $showCommandPalette)
                     .environmentObject(store)
             }
-            // 禁用Sheet显示TagManager，改用overlay方式  
-            // .sheet(isPresented: $showTagManager) {
-            //     TagManagerSheetView(isPresented: $showTagManager)
-            // }
+    }
+}
+
+struct FocusedValuesModifier: ViewModifier {
+    @Binding var showCommandPalette: Bool
+    @Binding var showQuickAdd: Bool
+    @Binding var showQuickSearch: Bool
+    @Binding var isOpeningMapWindow: Bool
+    let windowId: UUID
+    let openWindow: OpenWindowAction
+
+    func body(content: Content) -> some View {
+        content
             .focusedSceneValue(\.showCommandPalette, ShowCardAction {
                 showCommandPalette = true
             })
@@ -5019,22 +5023,17 @@ struct IndependentWindowModifier: ViewModifier {
                 openWindow(id: "nodeManager")
             })
             .focusedSceneValue(\.openMapWindow, ShowCardAction {
-                // 🔧 检查是否应该处理这个命令
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
                     return
                 }
-                
-                // 🔧 添加防重复机制
+
                 guard !isOpeningMapWindow else {
                     return
                 }
-                
+
                 isOpeningMapWindow = true
-                
-                // 直接打开地图窗口
                 openWindow(id: "map")
-                
-                // 发送窗口映射信息，确保地图知道来源窗口
+
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     let mappingInfo = ["sourceWindowId": windowId.uuidString]
                     NotificationCenter.default.post(
@@ -5042,8 +5041,7 @@ struct IndependentWindowModifier: ViewModifier {
                         object: mappingInfo
                     )
                 }
-                
-                // 1秒后重置防重复标志
+
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                     isOpeningMapWindow = false
                 }
@@ -5052,9 +5050,8 @@ struct IndependentWindowModifier: ViewModifier {
                 NodeGraphWindowManager.shared.showNodeGraphWindow()
             })
             .focusedSceneValue(\.toggleSidebar, ShowCardAction {
-                // 独立窗口发送窗口特定的toggleSidebar通知
                 NotificationCenter.default.post(
-                    name: NSNotification.Name("executeToggleSidebar"), 
+                    name: NSNotification.Name("executeToggleSidebar"),
                     object: nil,
                     userInfo: ["windowId": windowId.uuidString]
                 )
@@ -5075,17 +5072,48 @@ struct IndependentWindowModifier: ViewModifier {
                 NotificationCenter.default.post(name: NSNotification.Name("restorePreviousTagFilterState"), object: nil)
             })
             .focusedSceneValue(\.openTagSearch, ShowCardAction {
-                // Command+F - 在独立窗口中打开标签搜索，发送窗口特定通知
                 NotificationCenter.default.post(
-                    name: NSNotification.Name("tagSidebarOpenTagSearch"), 
+                    name: NSNotification.Name("tagSidebarOpenTagSearch"),
                     object: nil,
                     userInfo: ["windowId": windowId.uuidString]
                 )
             })
+    }
+}
+
+struct IndependentWindowModifier: ViewModifier {
+    @Binding var showPalette: Bool
+    @Binding var showQuickAdd: Bool
+    @Binding var showQuickSearch: Bool
+    @Binding var showCompoundNodeAdd: Bool
+    @Binding var showCommandPalette: Bool
+    @Binding var nodeToEditInManager: Node?
+    @Binding var isOpeningMapWindow: Bool
+    let windowId: UUID
+    let store: NodeStore
+    let openWindow: OpenWindowAction
+    
+    func body(content: Content) -> some View {
+        content
+            .modifier(SheetsModifier(
+                showQuickAdd: $showQuickAdd,
+                showCompoundNodeAdd: $showCompoundNodeAdd,
+                showCommandPalette: $showCommandPalette,
+                windowId: windowId,
+                store: store
+            ))
+            .modifier(FocusedValuesModifier(
+                showCommandPalette: $showCommandPalette,
+                showQuickAdd: $showQuickAdd,
+                showQuickSearch: $showQuickSearch,
+                isOpeningMapWindow: $isOpeningMapWindow,
+                windowId: windowId,
+                openWindow: openWindow
+            ))
             .overlay {
                 if showQuickSearch {
                     QuickSearchView(
-                        onDismiss: { 
+                        onDismiss: {
                             showQuickSearch = false
                         },
                         onNodeSelected: { node in
