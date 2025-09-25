@@ -2131,19 +2131,19 @@ struct VditorWebView: NSViewRepresentable {
               margin: 0 8px !important;
             }
             
-            /* 临时显示工具栏 - 用于调试按钮 */
+            /* 完全隐藏工具栏 - 保留DOM结构让Vditor正常工作 */
             .vditor-toolbar {
-              /* height: 0 !important;          高度为0 */
-              /* width: 0 !important;           宽度为0 */
-              /* opacity: 0 !important;         完全透明 */
-              /* overflow: hidden !important;   隐藏溢出内容 */
-              /* margin: 0 !important;          移除外边距 */
-              /* padding: 0 !important;         移除内边距 */
-              /* border: none !important;       移除边框 */
-              /* pointer-events: none !important; 禁用鼠标交互 */
-              /* position: absolute !important; 绝对定位移出视野 */
-              /* left: -9999px !important;      移到屏幕外 */
-              /* visibility: hidden !important; 隐藏但保持DOM结构 */
+              height: 0 !important;          /* 高度为0 */
+              width: 0 !important;           /* 宽度为0 */
+              opacity: 0 !important;         /* 完全透明 */
+              overflow: hidden !important;   /* 隐藏溢出内容 */
+              margin: 0 !important;          /* 移除外边距 */
+              padding: 0 !important;         /* 移除内边距 */
+              border: none !important;       /* 移除边框 */
+              pointer-events: none !important; /* 禁用鼠标交互 */
+              position: absolute !important; /* 绝对定位移出视野 */
+              left: -9999px !important;      /* 移到屏幕外 */
+              visibility: hidden !important; /* 隐藏但保持DOM结构 */
             }
             
             /* 编辑区域样式 - 更全面的选择器 */
