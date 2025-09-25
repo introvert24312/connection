@@ -136,7 +136,8 @@ struct MapContainer: View {
         ZStack {
             MapReader { proxy in
                 GeometryReader { geometry in
-                    Map(position: $cameraPosition, selection: $mapSelection) {
+                    ZStack {
+                        Map(position: $cameraPosition, selection: $mapSelection) {
                         ForEach(locationAnnotations, id: \.id) { annotation in
                             Annotation(
                                 "", // Remove title to avoid duplicate labels
@@ -165,39 +166,42 @@ struct MapContainer: View {
                                 }
                             }
                         }
-                    }
-                    .mapStyle(.standard)
-                    .onMapCameraChange { context in
-                        // 同步region和cameraPosition
-                        region = context.region
-                        
-                        // Track rotation/heading for coordinate conversion
-                        let camera = context.camera
-                        currentHeading = camera.heading
-                        currentPitch = camera.pitch
-                        
-                        print("🗺️ Map updated - Region: \(context.region.center), Heading: \(currentHeading)°, Pitch: \(currentPitch)°")
-                    }
-                    .onTapGesture(coordinateSpace: .local) { location in
+                        }
+                        .mapStyle(.standard)
+                        .onMapCameraChange { context in
+                            // 同步region和cameraPosition
+                            region = context.region
+
+                            // Track rotation/heading for coordinate conversion
+                            let camera = context.camera
+                            currentHeading = camera.heading
+                            currentPitch = camera.pitch
+
+                            print("🗺️ Map updated - Region: \(context.region.center), Heading: \(currentHeading)°, Pitch: \(currentPitch)°")
+                        }
+
+                        // 🔧 macOS 15修复：透明覆盖层捕获点击事件
                         if isLocationSelectionMode {
-                            // Use MapProxy for accurate coordinate conversion (handles rotation automatically)
-                            if let tappedCoordinate = proxy.convert(location, from: .local) {
-                                selectedLocation = tappedCoordinate
-                                isPreviewingLocation = true
-                                reverseGeocodeLocation(coordinate: tappedCoordinate)
-                                print("🎯 Tapped coordinate (MapProxy): \(tappedCoordinate)")
-                            } else {
-                                // Fallback to manual conversion with rotation handling
-                                let tappedCoordinate = convertScreenToMapCoordinate(screenPoint: location, mapSize: geometry.size)
-                                selectedLocation = tappedCoordinate
-                                isPreviewingLocation = true
-                                reverseGeocodeLocation(coordinate: tappedCoordinate)
-                                print("🎯 Tapped coordinate (Manual): \(tappedCoordinate)")
-                            }
-                        } else {
-                            // 在非位置选择模式下，普通地图点击不做任何操作
-                            print("🗺️ Map tapped in normal browsing mode - no action taken")
-                            // 只在明确的位置选择上下文中才允许选择位置（例如Command+P模式）
+                            Color.clear
+                                .contentShape(Rectangle())
+                                .onTapGesture(coordinateSpace: .local) { location in
+                                    print("🗺️ Transparent overlay tapped! Processing location selection...")
+                                    // Use MapProxy for accurate coordinate conversion
+                                    if let tappedCoordinate = proxy.convert(location, from: .local) {
+                                        selectedLocation = tappedCoordinate
+                                        isPreviewingLocation = true
+                                        reverseGeocodeLocation(coordinate: tappedCoordinate)
+                                        print("🎯 Tapped coordinate (MapProxy): \(tappedCoordinate)")
+                                    } else {
+                                        print("⚠️ MapProxy.convert failed, trying manual conversion")
+                                        // Fallback to manual conversion
+                                        let tappedCoordinate = convertScreenToMapCoordinate(screenPoint: location, mapSize: geometry.size)
+                                        selectedLocation = tappedCoordinate
+                                        isPreviewingLocation = true
+                                        reverseGeocodeLocation(coordinate: tappedCoordinate)
+                                        print("🎯 Tapped coordinate (Manual): \(tappedCoordinate)")
+                                    }
+                                }
                         }
                     }
                     .onAppear {
