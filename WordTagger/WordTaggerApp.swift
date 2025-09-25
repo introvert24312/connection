@@ -4046,35 +4046,15 @@ struct TagManagerView: View {
         VStack(spacing: 0) {
             // 优化的标签栏布局
             HStack(spacing: 16) {
-                // 左侧：标题和统计信息
-                HStack(spacing: 12) {
-                    Text("标签管理")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(Color(NSColor.labelColor))
-
-                    // 标签统计信息
-                    Text("共 \(filteredMappings.count) 个标签")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(Color(NSColor.controlBackgroundColor))
-                        )
-                }
-
-                Spacer()
-
-                // 中间：模块切换按钮组
+                // 左对齐的模块切换按钮组
                 HStack(spacing: 0) {
                     ForEach(TagManagerModule.allCases, id: \.self) { module in
                         Button(action: { selectedModule = module }) {
                             Text(module.rawValue)
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.system(size: 15, weight: .medium))
                                 .foregroundColor(selectedModule == module ? .white : Color(NSColor.labelColor))
-                                .padding(.vertical, 6)
-                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 20)
                                 .background(
                                     RoundedRectangle(cornerRadius: 6)
                                         .fill(selectedModule == module ? Color.accentColor : Color.clear)
