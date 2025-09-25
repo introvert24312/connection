@@ -147,8 +147,8 @@ struct EnhancedTagUsageView: View {
             // 工具栏
             toolbarView
                 .padding(.horizontal, 16)
-                .padding(.top, 6)  // 减少顶部内边距以与TagManagerView对齐
-                .padding(.bottom, 12)
+                .padding(.top, 0)  // 完全移除顶部内边距以与TagManagerView对齐
+                .padding(.bottom, 8)
             
             Divider()
             
@@ -358,7 +358,7 @@ struct EnhancedTagUsageView: View {
     // MARK: - Toolbar
     
     private var toolbarView: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 4) {
             // 第一行：层级选择和模式切换
             HStack {
                 // 层级选择器
