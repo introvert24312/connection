@@ -948,11 +948,26 @@ public struct BatchDeleteResult {
     public let affectedNodeCount: Int
     public let deletedTagCount: Int
     public let affectedNodes: [Node]
-    
+
     public init(affectedNodeCount: Int, deletedTagCount: Int, affectedNodes: [Node]) {
         self.affectedNodeCount = affectedNodeCount
         self.deletedTagCount = deletedTagCount
         self.affectedNodes = affectedNodes
+    }
+}
+
+/// 批量删除预览信息
+public struct BatchDeletePreview {
+    public let mode: TagBatchMode
+    public let affectedTagCount: Int
+    public let affectedNodeCount: Int
+    public let selectedItems: [TagSelectionItem]
+
+    public init(mode: TagBatchMode, affectedTagCount: Int, affectedNodeCount: Int, selectedItems: [TagSelectionItem]) {
+        self.mode = mode
+        self.affectedTagCount = affectedTagCount
+        self.affectedNodeCount = affectedNodeCount
+        self.selectedItems = selectedItems
     }
 }
 
@@ -981,6 +996,17 @@ public enum TagBatchMode {
     case deleteByType           // 按标签类型删除
     case deleteSpecificTags     // 删除具体标签
     case deleteUnusedMappings   // 删除未使用的标签映射
+
+    var displayName: String {
+        switch self {
+        case .deleteUnusedMappings:
+            return "清理未使用"
+        case .deleteSpecificTags:
+            return "删除具体标签"
+        case .deleteByType:
+            return "删除标签类型"
+        }
+    }
 }
 
 /// 标签选择项（用于批量操作界面）

@@ -538,14 +538,7 @@ struct RadioButton: View {
     }
 }
 
-// MARK: - Preview Models
-
-struct BatchDeletePreview {
-    let mode: TagBatchMode
-    let affectedTagCount: Int
-    let affectedNodeCount: Int
-    let selectedItems: [TagSelectionItem]
-}
+// MARK: - Preview Views
 
 struct DeletePreviewView: View {
     let preview: BatchDeletePreview

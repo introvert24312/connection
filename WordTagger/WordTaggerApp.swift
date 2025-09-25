@@ -4016,7 +4016,7 @@ struct TagManagerView: View {
     // 定义两个模块
     enum TagManagerModule: String, CaseIterable {
         case tagManagement = "标签管理"
-        case usageAnalysis = "使用分析"  
+        case usageAnalysis = "使用分析"
     }
     
     let onDismiss: () -> Void
@@ -4043,67 +4043,77 @@ struct TagManagerView: View {
     }
     
     var body: some View {
-        ZStack {
-            // 透明背景（保留点击关闭功能）
-            Color.clear
-                .ignoresSafeArea()
-                .onTapGesture {
-                    onDismiss()
-                }
-            
-            // 隐藏的聚焦元素，用于接收键盘事件
-            Rectangle()
-                .fill(Color.clear)
-                .frame(width: 0, height: 0)
-                .focusable()
-                .focused($isViewFocused)
-            
-            VStack(spacing: 0) {
-                // 仿DetailPanel的标签栏风格
-                HStack {
-                    // 标题标签
+        VStack(spacing: 0) {
+            // 优化的标签栏布局
+            HStack(spacing: 16) {
+                // 左侧：标题和统计信息
+                HStack(spacing: 12) {
                     Text("标签管理")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(Color(NSColor.labelColor))
-                        .padding(.trailing, 8)
 
-                    // 模块切换按钮组
-                    HStack(spacing: 0) {
-                        ForEach(TagManagerModule.allCases, id: \.self) { module in
-                            Button(action: { selectedModule = module }) {
-                                Text(module.rawValue)
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(Color(NSColor.labelColor))
-                                    .padding(.vertical, 3)
-                                    .padding(.horizontal, 12)
-                                    .frame(maxWidth: .infinity)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .fill(selectedModule == module ? Color(NSColor.quaternaryLabelColor) : Color.clear)
-                                    )
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
+                    // 标签统计信息
+                    Text("共 \(filteredMappings.count) 个标签")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color(NSColor.controlBackgroundColor))
+                        )
+                }
+
+                Spacer()
+
+                // 中间：模块切换按钮组
+                HStack(spacing: 0) {
+                    ForEach(TagManagerModule.allCases, id: \.self) { module in
+                        Button(action: { selectedModule = module }) {
+                            Text(module.rawValue)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(selectedModule == module ? .white : Color(NSColor.labelColor))
+                                .padding(.vertical, 6)
+                                .padding(.horizontal, 16)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(selectedModule == module ? Color.accentColor : Color.clear)
+                                )
+                                .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
                     }
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color(NSColor.controlBackgroundColor))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color(NSColor.separatorColor), lineWidth: 0.5)
-                            )
-                    )
-                    .frame(maxWidth: .infinity)
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(NSColor.controlBackgroundColor))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color(NSColor.separatorColor), lineWidth: 0.5)
+                        )
+                )
 
-                    // 关闭按钮
-                    Button(action: onDismiss) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.secondary)
+                Spacer()
+
+                // 右侧：操作按钮
+                HStack(spacing: 8) {
+                    // 添加标签按钮
+                    Button(action: {
+                        showingTagEditSheet = true
+                    }) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.accentColor)
+                            .frame(width: 24, height: 24)
+                            .background(
+                                Circle()
+                                    .fill(Color.accentColor.opacity(0.1))
+                            )
                     }
                     .buttonStyle(.plain)
+                    .help("添加新标签")
                 }
+            }
                 .padding()
                 .background(Color(NSColor.controlBackgroundColor))
                 
@@ -4117,36 +4127,12 @@ struct TagManagerView: View {
                     case .usageAnalysis:
                         EnhancedTagUsageView()
                             .environmentObject(store)
+                            .padding(.top, -12) // 抵消内部工具栏的上边距
                     }
                 }
             }
-            .background(.regularMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .shadow(color: Color.black.opacity(0.2), radius: 30, x: 0, y: 10)
-            .frame(maxWidth: 750, maxHeight: 500)
-            .padding(20)
         }
-        .sheet(isPresented: $showingTagEditSheet) {
-            TagEditFormView(
-                newKey: $newKey,
-                newTypeName: $newTypeName,
-                editingMapping: $editingMapping,
-                onSave: { saveMapping() },
-                onCancel: { resetForm() }
-            )
-        }
-        .onAppear {
-            isViewFocused = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                isSearchFieldFocused = true
-            }
-        }
-        .onKeyPress(.escape) {
-            onDismiss()
-            return .handled
-        }
-    }
-    
+
     // 标签管理内容 - 简化版
     private var tagManagementContent: some View {
         VStack(spacing: 0) {
@@ -4182,7 +4168,7 @@ struct TagManagerView: View {
             Divider()
                 .padding(.top, 12)
 
-            // 标签列表
+            // 标签列表 - 移除高度限制，充分利用空间
             ScrollView {
                 LazyVStack(spacing: 0) {
                     ForEach(filteredMappings, id: \.id) { mapping in
@@ -4197,30 +4183,9 @@ struct TagManagerView: View {
                         )
                     }
                 }
+                .padding(.bottom, 8) // 底部添加一点空隙
             }
-            .frame(maxHeight: 300)
 
-            Divider()
-
-            // 添加按钮 - 简化样式
-            Button {
-                showingTagEditSheet = true
-            } label: {
-                HStack {
-                    Image(systemName: "plus")
-                        .font(.system(size: 14, weight: .medium))
-                    Text("添加新标签")
-                        .font(.system(size: 14, weight: .medium))
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .background(Color.accentColor.opacity(0.1))
-                .foregroundColor(.accentColor)
-                .cornerRadius(6)
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
         }
     }
 }
