@@ -4127,11 +4127,20 @@ struct TagManagerView: View {
                     case .usageAnalysis:
                         EnhancedTagUsageView()
                             .environmentObject(store)
-                            .padding(.top, -12) // 抵消内部工具栏的上边距
                     }
                 }
             }
+            .sheet(isPresented: $showingTagEditSheet) {
+                TagEditFormView(
+                    newKey: $newKey,
+                    newTypeName: $newTypeName,
+                    editingMapping: $editingMapping,
+                    onSave: saveMapping,
+                    onCancel: cancelEditing
+                )
+            }
         }
+    }
 
     // 标签管理内容 - 简化版
     private var tagManagementContent: some View {
@@ -4188,7 +4197,6 @@ struct TagManagerView: View {
 
         }
     }
-}
 
 // MARK: - Tag Edit Form View
 
@@ -4319,6 +4327,10 @@ extension TagManagerView {
         newKey = ""
         newTypeName = ""
         editingMapping = nil
+    }
+
+    private func cancelEditing() {
+        resetForm()
     }
     
     // 判断是否应该隐藏系统标签

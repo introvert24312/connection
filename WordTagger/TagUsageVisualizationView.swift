@@ -147,7 +147,8 @@ struct EnhancedTagUsageView: View {
             // 工具栏
             toolbarView
                 .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.top, 6)  // 减少顶部内边距以与TagManagerView对齐
+                .padding(.bottom, 12)
             
             Divider()
             
