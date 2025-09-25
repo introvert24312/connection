@@ -4052,17 +4052,17 @@ struct TagManagerView: View {
                         Button(action: { selectedModule = module }) {
                             Text(module.rawValue)
                                 .font(.system(size: 15, weight: .medium))
-                                .foregroundColor(selectedModule == module ? .white : Color(NSColor.labelColor))
+                                .foregroundColor(Color(NSColor.labelColor)) // 🔧 使用系统默认标签颜色
                                 .padding(.vertical, 8)
                                 .padding(.horizontal, 20)
                                 .frame(maxWidth: .infinity) // 让每个按钮占用相等的空间
                                 .background(
                                     RoundedRectangle(cornerRadius: 6)
-                                        .fill(selectedModule == module ? Color.accentColor : Color.clear)
+                                        .fill(selectedModule == module ? Color(NSColor.quaternaryLabelColor) : Color.clear) // 🎨 浅色模式下更浅的灰色背景
                                 )
-                                .contentShape(Rectangle())
+                                .contentShape(Rectangle()) // 🔧 确保整个区域都可点击
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.plain) // 移除默认按钮样式
                     }
                 }
                 .background(
