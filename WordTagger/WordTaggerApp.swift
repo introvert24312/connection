@@ -11,7 +11,6 @@ private let WINDOW_TITLE: String = {
     let happy = "︶"           // U+FE36 向上的弧形（笑脸）哈哈哈哈哈哈哈哈哈
     
     let result = "(* \(macron) \(happy) \(macron) *)ノ ❤ ヽ( ^ ^ )"
-    print("🎯 Window title will be: '\(result)'")
     
     return result
 }()
@@ -48,15 +47,10 @@ class TagMappingManager: ObservableObject {
     
     // 添加或更新标签映射
     func saveMapping(_ mapping: TagMapping) {
-        print("🔄 TagMappingManager.saveMapping() 开始")
-        print("   - 输入映射: id=\(mapping.id), key=\(mapping.key), typeName=\(mapping.typeName)")
-        print("   - 当前映射数量: \(tagMappings.count)")
         
         var oldTypeName: String?
         
         if let index = tagMappings.firstIndex(where: { $0.id == mapping.id }) {
-            print("   - 找到现有映射在索引 \(index), 更新中...")
-            print("   - 旧值: key=\(tagMappings[index].key), typeName=\(tagMappings[index].typeName)")
             
             oldTypeName = tagMappings[index].typeName
             
@@ -65,18 +59,10 @@ class TagMappingManager: ObservableObject {
             newMappings[index] = mapping
             tagMappings = newMappings
             
-            print("   - 新值: key=\(tagMappings[index].key), typeName=\(tagMappings[index].typeName)")
-            print("   - 数组已重新创建以触发UI更新")
         } else {
-            print("   - 未找到现有映射，添加新映射...")
             tagMappings.append(mapping)
         }
         
-        print("   - 更新后映射数量: \(tagMappings.count)")
-        print("   - 所有映射:")
-        for (i, m) in tagMappings.enumerated() {
-            print("     [\(i)] id=\(m.id), key=\(m.key), typeName=\(m.typeName)")
-        }
         
         saveToUserDefaults()
         
@@ -84,19 +70,15 @@ class TagMappingManager: ObservableObject {
         Task {
             do {
                 try await ExternalDataService.shared.saveTagMappingsOnly()
-                print("✅ TagMappings已同步到外部存储")
             } catch {
-                print("⚠️ TagMappings同步到外部存储失败: \(error)")
             }
         }
         
         // 如果是更新操作且typeName发生了变化，通知Store更新相关Tag
         if let oldName = oldTypeName, oldName != mapping.typeName {
-            print("🔄 标签类型名称发生变化: \(oldName) -> \(mapping.typeName)")
             notifyTagTypeNameChanged(from: oldName, to: mapping.typeName, key: mapping.key)
         }
         
-        print("✅ TagMappingManager.saveMapping() 完成")
     }
     
     // 通知标签类型名称变化
@@ -123,10 +105,8 @@ class TagMappingManager: ObservableObject {
             // 只有当key完全相同时才考虑更新typeName
             // 这里我们不更新，因为可能破坏现有的映射关系
             if existingMapping.typeName != typeName {
-                print("⚠️ 映射冲突：key '\(normalizedKey)' 已存在，typeName '\(existingMapping.typeName)' != '\(typeName)'，保持现有映射")
                 return false // 返回false表示冲突
             } else {
-                print("✅ 映射已存在且相同: \(normalizedKey) -> \(typeName)")
                 return true // 返回true表示成功（已存在相同映射）
             }
         } else {
@@ -134,7 +114,6 @@ class TagMappingManager: ObservableObject {
             let newMapping = TagMapping(key: normalizedKey, typeName: typeName)
             tagMappings.append(newMapping)
             saveToUserDefaults()
-            print("🔄 自动添加标签映射: \(key) -> \(typeName)")
             return true // 返回true表示添加成功
         }
     }
@@ -162,10 +141,8 @@ class TagMappingManager: ObservableObject {
         // 检查是否已存在，如果存在则更新
         if let index = tagMappings.firstIndex(where: { $0.key == normalizedKey }) {
             tagMappings[index] = newMapping
-            print("🔄 更新现有标签映射: \(normalizedKey) -> \(mapping.typeName)")
         } else {
             tagMappings.append(newMapping)
-            print("➕ 添加新标签映射: \(normalizedKey) -> \(mapping.typeName)")
         }
         
         saveToUserDefaults()
@@ -179,7 +156,6 @@ class TagMappingManager: ObservableObject {
         if let index = tagMappings.firstIndex(where: { $0.id == mapping.id || $0.key == normalizedKey }) {
             tagMappings[index] = updatedMapping
             saveToUserDefaults()
-            print("🔄 更新标签映射: \(normalizedKey) -> \(mapping.typeName)")
         } else {
             // 如果找不到现有映射，则添加新的
             addMapping(updatedMapping)
@@ -188,12 +164,9 @@ class TagMappingManager: ObservableObject {
     
     /// 删除标签映射
     func removeMapping(_ mapping: TagMapping) {
-        print("🗑️ TagMappingManager.removeMapping() 开始")
-        print("   - 要删除的映射: id=\(mapping.id), key=\(mapping.key), typeName=\(mapping.typeName)")
         
         if let index = tagMappings.firstIndex(where: { $0.id == mapping.id }) {
             let removedMapping = tagMappings.remove(at: index)
-            print("   - 已删除映射: \(removedMapping.key) -> \(removedMapping.typeName)")
             
             saveToUserDefaults()
             
@@ -201,21 +174,16 @@ class TagMappingManager: ObservableObject {
             Task {
                 do {
                     try await ExternalDataService.shared.saveTagMappingsOnly()
-                    print("✅ 删除后TagMappings已同步到外部存储")
                 } catch {
-                    print("⚠️ 删除后TagMappings同步到外部存储失败: \(error)")
                 }
             }
             
-            print("✅ TagMappingManager.removeMapping() 完成")
         } else {
-            print("⚠️ 未找到要删除的映射: \(mapping.key)")
         }
     }
     
     /// 批量删除标签映射
     func removeMappings(_ mappings: [TagMapping]) {
-        print("🗑️ TagMappingManager.removeMappings() 开始批量删除 \(mappings.count) 个映射")
         
         let idsToRemove = Set(mappings.map { $0.id })
         let removedCount = tagMappings.count
@@ -225,7 +193,6 @@ class TagMappingManager: ObservableObject {
         }
         
         let actualRemovedCount = removedCount - tagMappings.count
-        print("   - 实际删除了 \(actualRemovedCount) 个映射")
         
         if actualRemovedCount > 0 {
             saveToUserDefaults()
@@ -234,14 +201,11 @@ class TagMappingManager: ObservableObject {
             Task {
                 do {
                     try await ExternalDataService.shared.saveTagMappingsOnly()
-                    print("✅ 批量删除后TagMappings已同步到外部存储")
                 } catch {
-                    print("⚠️ 批量删除后TagMappings同步到外部存储失败: \(error)")
                 }
             }
         }
         
-        print("✅ TagMappingManager.removeMappings() 完成")
     }
     
     // 智能解析token为TagType，支持动态创建
@@ -250,7 +214,6 @@ class TagMappingManager: ObservableObject {
         
         // 1. 首先检查TagMappingManager中的映射
         if let (typeName, tagType) = mappingDictionary[lowerToken] {
-            print("✅ 找到标签映射: \(lowerToken) -> \(typeName) (\(tagType))")
             return tagType
         }
         
@@ -262,7 +225,6 @@ class TagMappingManager: ObservableObject {
         // 这里先跳过，直接创建新的自定义标签类型
         
         // 5. 创建新的自定义标签类型并自动添加到映射管理器
-        print("🆕 创建新的自定义标签类型: \(token)")
         let customTagType = Tag.TagType.custom(token)
         
         // 自动添加到标签映射管理器
@@ -283,7 +245,6 @@ class TagMappingManager: ObservableObject {
         
         // 1. 首先检查TagMappingManager中的映射
         if let (typeName, tagType) = mappingDictionary[lowerToken] {
-            print("✅ 找到标签映射: \(lowerToken) -> \(typeName) (\(tagType))")
             return tagType
         }
         
@@ -297,14 +258,12 @@ class TagMappingManager: ObservableObject {
                 // 检查是否匹配自定义标签的名称或token
                 if customName.lowercased() == lowerToken || 
                    existingTag.type.displayName.lowercased() == lowerToken {
-                    print("✅ 找到已有自定义标签类型: \(lowerToken) -> \(customName)")
                     return existingTag.type
                 }
             }
         }
         
         // 5. 创建新的自定义标签类型并自动添加到映射管理器
-        print("🆕 创建新的自定义标签类型: \(token)")
         let customTagType = Tag.TagType.custom(token)
         
         // 自动添加到标签映射管理器
@@ -321,20 +280,15 @@ class TagMappingManager: ObservableObject {
     
     // 删除标签映射
     func deleteMapping(withId id: UUID) {
-        print("🗑️ TagMappingManager.deleteMapping() 开始")
-        print("   - 删除映射ID: \(id)")
-        print("   - 删除前映射数量: \(tagMappings.count)")
         
         // 检查是否是内置核心标签，如果是则拒绝删除
         if let mappingToDelete = tagMappings.first(where: { $0.id == id }),
            isBuiltInCoreTag(mappingToDelete.key) {
-            print("❌ 拒绝删除内置核心标签: \(mappingToDelete.key)")
             return
         }
         
         tagMappings.removeAll { $0.id == id }
         
-        print("   - 删除后映射数量: \(tagMappings.count)")
         
         saveToUserDefaults()
         
@@ -342,13 +296,10 @@ class TagMappingManager: ObservableObject {
         Task {
             do {
                 try await ExternalDataService.shared.saveTagMappingsOnly()
-                print("✅ 标签删除已同步到外部存储")
             } catch {
-                print("⚠️ 标签删除同步到外部存储失败: \(error)")
             }
         }
         
-        print("✅ TagMappingManager.deleteMapping() 完成")
     }
     
     // 系统内置核心标签 - 永远不能被删除
@@ -370,17 +321,14 @@ class TagMappingManager: ObservableObject {
     
     // 确保内置核心标签存在
     func ensureBuiltInCoreTags() {
-        print("🔧 确保内置核心标签存在...")
         
         for coreTag in Self.builtInCoreTags {
             if !tagMappings.contains(where: { $0.key == coreTag.key }) {
-                print("   + 添加内置核心标签: \(coreTag.key) -> \(coreTag.typeName)")
                 tagMappings.append(coreTag)
             }
         }
         
         // 🔧 移除自动beef映射恢复逻辑，允许用户永久删除beef映射
-        print("🔧 内置核心标签确保完成，不再自动恢复已删除的beef映射")
     }
     
     // 🔧 已移除自动beef映射恢复功能，允许用户永久删除beef映射
@@ -389,7 +337,6 @@ class TagMappingManager: ObservableObject {
     // 修复节点中错误的标签类型
     @MainActor
     func fixNodeTagTypes(store: NodeStore) {
-        print("🔧 开始修复节点中的错误标签类型...")
         
         var fixedCount = 0
         var nodesToUpdate: [(Node, [Tag])] = []
@@ -412,7 +359,6 @@ class TagMappingManager: ObservableObject {
                         )
                         newTags.append(correctedTag)
                         needsUpdate = true
-                        print("🔧 修复标签类型: .custom(\"\(customName)\") -> .custom(\"\(correctMapping.key)\")")
                         fixedCount += 1
                     } else {
                         newTags.append(tag)
@@ -430,13 +376,10 @@ class TagMappingManager: ObservableObject {
         // 批量更新节点
         for (node, newTags) in nodesToUpdate {
             store.updateNodeTags(node.id, tags: newTags)
-            print("🔧 更新节点 '\(node.text)' 的标签")
         }
         
         if fixedCount > 0 {
-            print("✅ 修复了 \(fixedCount) 个错误的标签类型")
         } else {
-            print("✅ 没有发现需要修复的标签类型")
         }
     }
     
@@ -445,12 +388,10 @@ class TagMappingManager: ObservableObject {
     
     // 重置为默认映射
     func resetToDefaults() {
-        print("🔄 TagMappingManager.resetToDefaults() 开始")
         
         // 只包含内置核心标签，不再自动添加其他预设标签
         tagMappings = Self.builtInCoreTags
         
-        print("   - 重置后映射数量: \(tagMappings.count)")
         
         saveToUserDefaults()
         
@@ -458,23 +399,17 @@ class TagMappingManager: ObservableObject {
         Task {
             do {
                 try await ExternalDataService.shared.saveTagMappingsOnly()
-                print("✅ 标签重置已同步到外部存储")
             } catch {
-                print("⚠️ 标签重置同步到外部存储失败: \(error)")
             }
         }
         
-        print("✅ TagMappingManager.resetToDefaults() 完成")
     }
     
     // 完全清空所有标签映射（用于彻底清除数据）
     func clearAll() {
-        print("🗑️ TagMappingManager.clearAll() 开始")
-        print("   - 清空前映射数量: \(tagMappings.count)")
         
         tagMappings.removeAll()
         
-        print("   - 清空后映射数量: \(tagMappings.count)")
         
         saveToUserDefaults()
         
@@ -482,26 +417,21 @@ class TagMappingManager: ObservableObject {
         Task {
             do {
                 try await ExternalDataService.shared.saveTagMappingsOnly()
-                print("✅ 标签映射清空已同步到外部存储")
             } catch {
-                print("⚠️ 标签映射清空同步到外部存储失败: \(error)")
             }
         }
         
-        print("✅ TagMappingManager.clearAll() 完成")
     }
     
     // 公共方法：重新从外部存储加载标签映射（用于切换位置时）
     @MainActor
     public func reloadFromExternalStorage() async {
-        print("🔄 TagMappingManager: 重新从外部存储加载标签映射...")
         await loadFromExternalStorageOrFallback()
     }
     
     // 重新扫描现有标签并更新映射
     @MainActor
     func rescanAndUpdateMappings() {
-        print("🔄 TagMappingManager: 重新扫描现有标签...")
         
         // 保留现有的映射，只添加缺失的自动扫描映射
         let currentMappings = tagMappings
@@ -513,7 +443,6 @@ class TagMappingManager: ObservableObject {
         for scannedMapping in scannedMappings {
             if !finalMappings.contains(where: { $0.key == scannedMapping.key }) {
                 finalMappings.append(scannedMapping)
-                print("   + 添加新扫描映射: \(scannedMapping.key) -> \(scannedMapping.typeName)")
             }
         }
         
@@ -521,8 +450,6 @@ class TagMappingManager: ObservableObject {
         fixIncorrectMappings(&finalMappings)
         
         tagMappings = finalMappings
-        print("🔄 重新扫描完成，保留现有映射并添加新发现的映射")
-        print("🔄 最终映射: \(tagMappings.map { "\($0.key)->\($0.typeName)" })")
         
         // 保存到外部存储
         Task {
@@ -533,7 +460,6 @@ class TagMappingManager: ObservableObject {
     // 公开方法：立即修复标签映射
     public func fixTagMappings() async {
         await MainActor.run {
-            print("🔧 手动触发标签映射修复...")
             var currentMappings = tagMappings
             fixIncorrectMappings(&currentMappings)
             tagMappings = currentMappings
@@ -545,14 +471,12 @@ class TagMappingManager: ObservableObject {
     
     // 修复错误的标签映射
     private func fixIncorrectMappings(_ mappings: inout [TagMapping]) {
-        print("🔧 检查并修复错误的标签映射...")
         
         // 检查每个映射是否正确
         for (index, mapping) in mappings.enumerated() {
             // 特别检查 "oo" 映射的情况
             if mapping.key == "oo" && mapping.typeName == "oo" {
                 let correctTypeName = "好看" // 基于用户反馈的正确映射
-                print("🔧 修复 oo 映射: \(mapping.key) -> \(mapping.typeName) 应该是 -> \(correctTypeName)")
                 
                 let correctedMapping = TagMapping(
                     id: mapping.id,
@@ -560,18 +484,15 @@ class TagMappingManager: ObservableObject {
                     typeName: correctTypeName
                 )
                 mappings[index] = correctedMapping
-                print("✅ 已修复 oo 映射")
             }
             
             // 通用修复逻辑：如果key和typeName相同，但实际使用中应该有更好的显示名称
             if mapping.key == mapping.typeName {
                 // 这里可以添加更多的修复逻辑
                 // 对于现在的问题，主要是修复 "oo" 的情况
-                print("⚠️ 发现可能需要修复的映射: \(mapping.key) -> \(mapping.typeName)")
             }
         }
         
-        print("🔧 映射修复检查完成")
     }
     
     // 获取默认映射
@@ -584,33 +505,26 @@ class TagMappingManager: ObservableObject {
         let store = NodeStore.shared
         let allTags = store.allTags
         
-        print("🔍 扫描现有标签创建映射: 发现 \(allTags.count) 个标签")
         
         // 详细调试输出
         for tag in allTags {
-            print("   检查标签: value='\(tag.value)', type=\(tag.type), displayName='\(tag.type.displayName)'")
             if case .custom(let key) = tag.type {
                 // 检查是否已有映射
                 if !mappings.contains(where: { $0.key == key.lowercased() }) {
                     let newMapping = TagMapping(key: key.lowercased(), typeName: key)
                     mappings.append(newMapping)
-                    print("   + 自动创建标签映射: \(key)")
                 } else {
-                    print("   = 已存在标签映射: \(key)")
                 }
             } else {
-                print("   - 非自定义标签，跳过: \(tag.type)")
             }
         }
         
-        print("🔍 最终映射数量: \(mappings.count)")
         return mappings
     }
     
     // 优先从外部存储加载，失败时从UserDefaults加载
     @MainActor
     private func loadFromExternalStorageOrFallback() async {
-        print("🏷️ TagMappingManager: 尝试从外部存储加载标签映射...")
         
         do {
             // 尝试从外部存储加载
@@ -623,7 +537,6 @@ class TagMappingManager: ObservableObject {
                 
                 await MainActor.run {
                     tagMappings = loadedMappings
-                    print("✅ 从外部存储成功加载 \(loadedMappings.count) 个标签映射")
                     
                     // 确保包含内置核心标签
                     ensureBuiltInCoreTags()
@@ -634,11 +547,9 @@ class TagMappingManager: ObservableObject {
                 return
             }
         } catch {
-            print("⚠️ 从外部存储加载标签映射失败: \(error)")
         }
         
         // 外部存储失败，尝试从UserDefaults加载
-        print("🏷️ TagMappingManager: 从UserDefaults加载标签映射...")
         loadTagMappingsFromUserDefaults()
     }
     
@@ -649,7 +560,6 @@ class TagMappingManager: ObservableObject {
         if let data = UserDefaults.standard.data(forKey: userDefaultsKey),
            let savedMappings = try? decoder.decode([TagMapping].self, from: data) {
             tagMappings = savedMappings
-            print("✅ 从UserDefaults成功加载 \(savedMappings.count) 个标签映射")
             
             // 确保包含内置核心标签
             ensureBuiltInCoreTags()
@@ -661,13 +571,10 @@ class TagMappingManager: ObservableObject {
             Task {
                 do {
                     try await ExternalDataService.shared.saveTagMappingsOnly()
-                    print("✅ 已将UserDefaults中的标签映射同步到外部存储")
                 } catch {
-                    print("⚠️ 同步标签映射到外部存储失败: \(error)")
                 }
             }
         } else {
-            print("⚠️ UserDefaults中也没有标签映射，使用默认值")
             tagMappings = getDefaultMappings()
         }
     }
@@ -684,7 +591,6 @@ class TagMappingManager: ObservableObject {
     // 迁移到最新的映射（不再自动添加预定义映射）
     private func migrateToLatestMappings() {
         // 不再自动添加预定义映射，让用户完全控制标签系统
-        print("🔄 迁移检查完成，不再自动添加预定义标签映射")
     }
 }
 
@@ -751,7 +657,6 @@ struct QuickAddSheetView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(prefilledNode != nil ? "保存" : "添加") {
-                        print("🔧 DEBUG: 添加按钮被点击")
                         processInput()
                     }
                     .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -778,7 +683,6 @@ struct QuickAddSheetView: View {
                         Button("查看详情") {
                             // 显示详细的冲突信息
                             if let details = alert.conflictDetails {
-                                print("🔍 冲突详情: \(details)")
                             }
                             store.duplicateNodeAlert = nil
                         }
@@ -860,11 +764,9 @@ struct QuickAddSheetView: View {
                 setupView()
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("emergencyWindowCleanup"))) { _ in
-                print("🚨 QuickAddSheetView: 收到紧急窗口清理通知，立即关闭")
                 cleanupAndDismiss()
             }
             .onKeyPress(.escape) {
-                print("🚪 QuickAddSheetView: Escape键被按下，强制关闭对话框")
                 cleanupAndDismiss()
                 return .handled
             }
@@ -872,7 +774,6 @@ struct QuickAddSheetView: View {
                 if keyPress.modifiers.contains(.command) && isInputFocused {
                     // 🔧 修复：只在当前窗口有焦点时响应Command+P
                     guard let windowId = windowId, WindowFocusManager.shared.isActiveWindow(windowId) else {
-                        print("🚫 忽略Command+P - 当前窗口不是活动窗口")
                         return .ignored
                     }
                     
@@ -993,7 +894,6 @@ struct QuickAddSheetView: View {
     }
     
     private func cleanupAndDismiss() {
-        print("🚪 QuickAddSheetView: cleanupAndDismiss called")
         
         // 立即清理状态
         isInputFocused = false
@@ -1013,11 +913,9 @@ struct QuickAddSheetView: View {
         // 立即调用dismiss，不使用延迟
         dismiss()
         
-        print("✅ QuickAddSheetView: 清理和关闭完成")
     }
     
     private func processCompoundNodeInput() {
-        print("🔄 开始处理复合节点输入: \(inputText)")
         
         let components = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
             .split(separator: " ", omittingEmptySubsequences: true)
@@ -1036,8 +934,6 @@ struct QuickAddSheetView: View {
         let compoundNodeName = components[0]
         let childNodeNames = Array(components[1...])
         
-        print("🔧 复合节点名: \(compoundNodeName)")
-        print("🔧 子节点列表: \(childNodeNames)")
         
         guard let currentLayer = store.currentLayer else {
             store.duplicateNodeAlert = NodeStore.DuplicateNodeAlert(
@@ -1058,11 +954,9 @@ struct QuickAddSheetView: View {
         }) {
             // 修改已存在的复合节点
             if !childNamesToRemove.isEmpty {
-                print("🗑️ 从复合节点删除子节点: \(compoundNodeName)")
                 removeChildrenFromCompoundNode(existingCompoundNode, childNames: childNamesToRemove)
             }
             if !childNamesToAdd.isEmpty {
-                print("➕ 向复合节点添加子节点: \(compoundNodeName)")
                 addChildrenToExistingCompoundNode(existingCompoundNode, childNames: childNamesToAdd)
             }
         } else if !childNamesToRemove.isEmpty {
@@ -1076,7 +970,6 @@ struct QuickAddSheetView: View {
             return
         } else {
             // 创建新的复合节点
-            print("🏗️ 创建新复合节点: \(compoundNodeName)")
             createNewCompoundNode(name: compoundNodeName, childNames: childNamesToAdd, layerId: currentLayer.id)
         }
         
@@ -1084,12 +977,10 @@ struct QuickAddSheetView: View {
         inputText = ""
         dismiss()
         
-        print("✅ 复合节点命令处理完成")
     }
     
     // 🆕 处理混合语法：复合节点引用 + 普通标签
     private func processMixedCompoundNodeInput(_ components: [String]) throws {
-        print("🔄 开始处理混合复合节点语法: \(components)")
         
         guard !components.isEmpty else { return }
         
@@ -1103,7 +994,6 @@ struct QuickAddSheetView: View {
             if components[i].hasPrefix("@") {
                 let childName = String(components[i].dropFirst()) // 去掉@前缀
                 childNodeNames.append(childName)
-                print("🔗 发现子节点引用: @\(childName)")
                 i += 1
             } else {
                 break // 遇到非@开头的，停止提取子节点
@@ -1119,7 +1009,6 @@ struct QuickAddSheetView: View {
                 let nextComponent = components[i + 1]
                 // 检查是否是坐标格式：@纬度,经度[名称] 或类似格式
                 if nextComponent.hasPrefix("@") && (nextComponent.contains(",") || nextComponent.contains("[")) {
-                    print("🗺️ 检测到loc坐标语法: \(tagKey) \(nextComponent)")
                     
                     // 解析坐标
                     var locationName: String = ""
@@ -1157,13 +1046,11 @@ struct QuickAddSheetView: View {
                         let locationType = Tag.TagType.custom("loc")
                         let tag = store.createTag(type: locationType, value: locationName, latitude: lat, longitude: lng)
                         normalTags.append(tag)
-                        print("🗺️ 创建坐标标签成功: \(locationName) (\(lat), \(lng))")
                     } else {
                         // 解析失败，作为普通标签处理
                         let locationType = Tag.TagType.custom("loc")
                         let tag = Tag(type: locationType, value: nextComponent)
                         normalTags.append(tag)
-                        print("⚠️ 坐标解析失败，创建普通loc标签: \(nextComponent)")
                     }
                     
                     i += 2 // 跳过 loc 和坐标部分
@@ -1202,7 +1089,6 @@ struct QuickAddSheetView: View {
                             let content = components[i + 1]
                             let tag = Tag(type: tagType, value: content, isShortcutType: true)
                             normalTags.append(tag)
-                            print("🏷️ 创建重命名标签: \(actualTagKey)[\(newTypeName)] = \(content)")
                             i += 2
                         } else {
                             i += 1
@@ -1255,7 +1141,6 @@ struct QuickAddSheetView: View {
                         // 普通标签
                         let tag = Tag(type: tagType, value: content, isShortcutType: true)
                         normalTags.append(tag)
-                        print("🏷️ 创建普通标签: \(tagKey) = \(content)")
                     }
                     i += 2
                 } else {
@@ -1279,23 +1164,19 @@ struct QuickAddSheetView: View {
         
         // 如果有子节点引用，创建/更新复合节点
         if !childNodeNames.isEmpty {
-            print("🏗️ 创建/更新复合节点: \(nodeText)，子节点数: \(childNodeNames.count)，普通标签数: \(normalTags.count)")
             
             // 检查复合节点是否已存在
             if let existingCompoundNode = store.nodes.first(where: { 
                 $0.text.lowercased() == nodeText.lowercased() && $0.isCompound 
             }) {
                 // 更新已存在的复合节点
-                print("🔄 更新已存在的复合节点")
                 updateExistingCompoundNode(existingCompoundNode, childNames: childNodeNames, additionalTags: normalTags)
             } else {
                 // 创建新的复合节点
-                print("🆕 创建新复合节点")
                 createNewMixedCompoundNode(name: nodeText, childNames: childNodeNames, additionalTags: normalTags, layerId: layerId)
             }
         } else {
             // 没有子节点引用，按普通节点处理
-            print("📝 没有子节点引用，按普通节点处理")
             let newNode = Node(text: nodeText, layerId: layerId, tags: normalTags)
             let success = store.addNode(newNode)
             if success {
@@ -1351,7 +1232,6 @@ struct QuickAddSheetView: View {
         inputText = ""
         dismiss()
         
-        print("✅ 复合节点更新完成: \(compoundNode.text)")
     }
     
     // 🆕 创建新的混合复合节点（包含子节点引用和普通标签）
@@ -1376,13 +1256,11 @@ struct QuickAddSheetView: View {
                 value: childName
             )
             compoundTags.append(childReferenceTag)
-            print("🔗 为复合节点添加子节点引用: \(childName)")
         }
         
         // 添加普通标签
         compoundTags.append(contentsOf: additionalTags)
         
-        print("🏗️ 创建混合复合节点: \(name), 子节点: \(childNames.count), 普通标签: \(additionalTags.count)")
         
         // 创建复合节点（简化的meaning显示）
         let compoundNode = Node(
@@ -1403,14 +1281,12 @@ struct QuickAddSheetView: View {
             dismiss()
         }
         
-        print("✅ 混合复合节点创建完成: \(name)")
     }
     
     // 🆕 确保子节点存在的辅助函数
     private func ensureChildNodesExist(childNames: [String], layerId: UUID) {
         for childName in childNames {
             if let existingNode = store.nodes.first(where: { $0.text.lowercased() == childName.lowercased() }) {
-                print("🔍 子节点已存在: \(existingNode.text)")
             } else {
                 let childNode = Node(
                     text: childName,
@@ -1420,7 +1296,6 @@ struct QuickAddSheetView: View {
                     tags: []
                 )
                 _ = store.addNode(childNode)
-                print("🆕 创建新子节点: \(childName)")
             }
         }
     }
@@ -1442,15 +1317,11 @@ struct QuickAddSheetView: View {
     
     private func setupPrefilledNode() {
         if let node = prefilledNode {
-            print("🔄 [QuickAdd] 编辑模式开始预填充节点: '\(node.text)'")
-            print("🔄 [QuickAdd] 节点标签数量: \(node.tags.count)")
             for (index, tag) in node.tags.enumerated() {
-                print("🔄 [QuickAdd] 标签[\(index)]: type=\(tag.type), rawValue='\(tag.type.rawValue)', displayName='\(tag.type.displayName)', value='\(tag.value)'")
             }
             
             // 使用动态版本，传入所有节点以获得实时的子节点信息
             inputText = node.dynamicCommandRepresentationWithDisplayNames(allNodes: store.nodes)
-            print("🔄 [QuickAdd] 编辑模式：预填充命令完成 - '\(inputText)'")
         }
     }
     
@@ -1473,7 +1344,6 @@ struct QuickAddSheetView: View {
                 // 始终只使用坐标，保持[]为空，让用户自己输入地名
                 let locationCommand = "@\(latitude),\(longitude)[]"
                 insertLocationIntoInput(locationCommand)
-                print("🎯 QuickAdd: Using coordinates only, user needs to fill name")
             } else if let locationName = notification.object as? String {
                 insertLocationIntoInput("location \(locationName)")
             }
@@ -1489,7 +1359,6 @@ struct QuickAddSheetView: View {
             if let node = prefilledNode,
                let compoundNodeId = notification.userInfo?["compoundNodeId"] as? UUID,
                compoundNodeId == node.id {
-                print("🔄 [QuickAdd] 收到复合节点刷新通知，正在更新编辑内容...")
                 
                 // 使用MainActor.run确保线程安全
                 Task { @MainActor in
@@ -1497,7 +1366,6 @@ struct QuickAddSheetView: View {
                     let updatedNode = store.nodes.first { $0.id == node.id } ?? node
                     inputText = updatedNode.dynamicCommandRepresentationWithDisplayNames(allNodes: store.nodes)
                     
-                    print("✅ [QuickAdd] 复合节点编辑内容已刷新: '\(inputText)'")
                 }
             }
         }
@@ -1516,7 +1384,6 @@ struct QuickAddSheetView: View {
         // 检查是否是节点引用格式（@节点名）
         if query.hasPrefix("@") {
             let nodeQuery = String(query.dropFirst()) // 去掉@前缀
-            print("🔗 检测到节点引用查询: '\(nodeQuery)'")
             
             // 只从节点名搜索
             let nodeResults = fuzzySearchNodes(query: nodeQuery, limit: 10)
@@ -1526,7 +1393,6 @@ struct QuickAddSheetView: View {
             
             let sortedSuggestions = nodesSuggestions.sorted { $0.1 > $1.1 }.map { $0.0 }
             suggestions = Array(sortedSuggestions.prefix(10))
-            print("🔗 节点引用建议: \(suggestions)")
         } else {
             // 普通查询：混合搜索标签类型和节点名
             
@@ -1564,16 +1430,11 @@ struct QuickAddSheetView: View {
     }
     
     private func processInput() {
-        print("🔧 DEBUG: processInput() called with inputText: '\(inputText)'")
-        print("🔧 DEBUG: inputText is empty: \(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)")
-        print("🔧 DEBUG: prefilledNode: \(prefilledNode?.text ?? "nil")")
-        print("🔧 DEBUG: current layer: \(store.currentLayer?.displayName ?? "nil")")
         
         // 🔧 添加异常保护，避免命令解析时崩溃
         do {
             try processInputSafely()
         } catch {
-            print("❌ 命令处理异常: \(error)")
             // 显示友好的错误信息
             store.duplicateNodeAlert = NodeStore.DuplicateNodeAlert(
                 message: "命令处理失败: \(error.localizedDescription)",
@@ -1632,7 +1493,6 @@ struct QuickAddSheetView: View {
         // 🔧 检测是否包含节点引用（@节点名），如果有则进行混合处理
         let hasNodeReferences = components.contains { $0.hasPrefix("@") }
         if hasNodeReferences {
-            print("🔄 检测到包含节点引用的混合语法，进行复合节点+普通标签处理")
             try processMixedCompoundNodeInput(components)
             return
         }
@@ -1651,7 +1511,6 @@ struct QuickAddSheetView: View {
                 let nextComponent = components[i + 1]
                 // 检查是否是坐标格式：@纬度,经度[名称] 或类似格式
                 if nextComponent.hasPrefix("@") && (nextComponent.contains(",") || nextComponent.contains("[")) {
-                    print("🗺️ 检测到loc坐标语法: \(tagKey) \(nextComponent)")
                     
                     // 解析坐标
                     var locationName: String = ""
@@ -1689,13 +1548,11 @@ struct QuickAddSheetView: View {
                         let locationType = Tag.TagType.custom("loc")
                         let tag = store.createTag(type: locationType, value: locationName, latitude: lat, longitude: lng)
                         tags.append(tag)
-                        print("🗺️ 创建坐标标签成功: \(locationName) (\(lat), \(lng))")
                     } else {
                         // 解析失败，作为普通标签处理
                         let locationType = Tag.TagType.custom("loc")
                         let tag = Tag(type: locationType, value: nextComponent)
                         tags.append(tag)
-                        print("⚠️ 坐标解析失败，创建普通loc标签: \(nextComponent)")
                     }
                     
                     i += 2 // 跳过 loc 和坐标部分
@@ -1729,7 +1586,6 @@ struct QuickAddSheetView: View {
                                 }
                             }
                             
-                            print("🔔 检测到标签类型名称修改: '\(oldTypeName)' -> '\(newTypeName)', 影响 \(affectedNodes.count) 个节点")
                             
                             // 暂停处理，显示确认对话框
                             store.tagTypeModificationAlert = NodeStore.TagTypeModificationAlert(
@@ -1741,7 +1597,6 @@ struct QuickAddSheetView: View {
                                 pendingCommand: inputText,
                                 onConfirm: {
                                     // 用户确认修改，执行标签重命名
-                                    print("✅ 用户确认标签类型修改")
                                     let updatedMapping = TagMapping(
                                         id: existingMapping.id,
                                         key: actualTagKey,
@@ -1760,7 +1615,6 @@ struct QuickAddSheetView: View {
                                 },
                                 onCancel: {
                                     // 用户取消修改，清空输入
-                                    print("❌ 用户取消标签类型修改")
                                     inputText = ""
                                     store.tagTypeModificationAlert = nil
                                 }
@@ -1769,24 +1623,19 @@ struct QuickAddSheetView: View {
                             return // 暂停处理，等待用户确认
                         } else {
                             // 名称相同，正常处理
-                            print("✅ 标签类型名称未变化，继续处理")
                         }
                     } else {
                         // 新标签映射，正常处理
-                        print("🆕 创建新的标签映射: \(actualTagKey) -> \(newTypeName)")
                         let newMapping = TagMapping(key: actualTagKey, typeName: newTypeName)
                         tagManager.addMapping(newMapping)
                     }
                     
                     // 重命名完成后，继续处理标签创建
                     // 使用实际的tagKey来创建标签类型和标签
-                    print("🏷️ QuickAdd: 重命名完成，开始创建标签")
-                    print("🏷️ QuickAdd: actualTagKey=\(actualTagKey), i=\(i), components.count=\(components.count)")
                     
                     if let tagType = tagManager.parseTokenToTagTypeWithStore(actualTagKey, store: store) {
                         if i + 1 < components.count { 
                             let content = components[i + 1]
-                            print("🏷️ QuickAdd: 创建标签 - tagType=\(tagType), content=\(content)")
                             
                             // 检查是否是地图标签（通过key识别）
                             if tagManager.isLocationTagKey(actualTagKey) {
@@ -1849,30 +1698,24 @@ struct QuickAddSheetView: View {
                                 if parsed && !locationName.isEmpty {
                                     let tag = store.createTag(type: tagType, value: locationName, latitude: lat, longitude: lng)
                                     tags.append(tag)
-                                    print("🏷️ QuickAdd: 创建地图标签成功 - \(locationName)")
                                 } else if !content.contains("@") {
                                     let tag = Tag(type: tagType, value: content)
                                     tags.append(tag)
-                                    print("🏷️ QuickAdd: 创建普通地点标签 - \(content)")
                                 } else {
                                     let tag = Tag(type: tagType, value: content)
                                     tags.append(tag)
-                                    print("🏷️ QuickAdd: 地图解析失败，创建普通标签 - \(content)")
                                 }
                             } else {
                                 // 普通标签
                                 let tag = Tag(type: tagType, value: content, isShortcutType: true)
                                 tags.append(tag)
-                                print("🏷️ QuickAdd: 创建快捷键标签成功 - type=\(tagType), value=\(content), isShortcutType=true")
                             }
                             
                             i += 2 // 跳过tagType和value
                         } else {
-                            print("🏷️ QuickAdd: 没有找到标签内容，跳过")
                             i += 1
                         }
                     } else {
-                        print("🏷️ QuickAdd: 无法解析标签类型，跳过")
                         i += 1
                     }
                     continue
@@ -2026,7 +1869,6 @@ struct QuickAddSheetView: View {
                 self.inputText = ""
                 self.dismiss()
             } catch {
-                print("❌ 继续处理命令时出错: \(error)")
             }
         }
     }
@@ -2055,7 +1897,6 @@ struct QuickAddSheetView: View {
     
     // 从复合节点删除子节点
     private func removeChildrenFromCompoundNode(_ compoundNode: Node, childNames: [String]) {
-        print("🗑️ 从复合节点 '\(compoundNode.text)' 删除 \(childNames.count) 个子节点")
         
         // 获取现有的子节点引用
         let existingChildReferences = compoundNode.tags.compactMap { tag in
@@ -2064,7 +1905,6 @@ struct QuickAddSheetView: View {
             }
             return nil
         }
-        print("🔍 现有子节点: [\(existingChildReferences.joined(separator: ", "))]")
         
         // 找到要删除的子节点
         let childNamesToRemove = childNames.filter { childName in
@@ -2083,7 +1923,6 @@ struct QuickAddSheetView: View {
             return
         }
         
-        print("🗑️ 需要删除的子节点: [\(childNamesToRemove.joined(separator: ", "))]")
         
         // 过滤掉要删除的子节点标签
         let updatedTags = compoundNode.tags.filter { tag in
@@ -2104,12 +1943,10 @@ struct QuickAddSheetView: View {
         store.updateNodeTags(compoundNode.id, tags: updatedTags)
         store.updateNode(compoundNode.id, text: nil, phonetic: nil, meaning: updatedMeaning)
         
-        print("✅ 复合节点删除操作完成，剩余子节点数: \(remainingChildCount)")
     }
     
     // 向已存在的复合节点添加子节点
     private func addChildrenToExistingCompoundNode(_ compoundNode: Node, childNames: [String]) {
-        print("🔗 向复合节点 '\(compoundNode.text)' 添加 \(childNames.count) 个子节点")
         
         // 获取现有的子节点引用
         let existingChildReferences = compoundNode.tags.compactMap { tag in
@@ -2118,7 +1955,6 @@ struct QuickAddSheetView: View {
             }
             return nil
         }
-        print("🔍 现有子节点: [\(existingChildReferences.joined(separator: ", "))]")
         
         // 过滤掉已经存在的子节点
         let newChildNames = childNames.filter { childName in
@@ -2137,7 +1973,6 @@ struct QuickAddSheetView: View {
             return
         }
         
-        print("🆕 需要添加的新子节点: [\(newChildNames.joined(separator: ", "))]")
         
         // 为新子节点创建标签
         var newChildTags: [Tag] = []
@@ -2161,7 +1996,6 @@ struct QuickAddSheetView: View {
         // 创建或确保新子节点存在
         for childName in newChildNames {
             if let existingNode = store.nodes.first(where: { $0.text.lowercased() == childName.lowercased() }) {
-                print("🔍 找到已存在的子节点: \(existingNode.text)")
             } else {
                 let childNode = Node(
                     text: childName,
@@ -2171,11 +2005,9 @@ struct QuickAddSheetView: View {
                     tags: []
                 )
                 let success = store.addNode(childNode)
-                print("🆕 创建新子节点: \(childName) - \(success ? "成功" : "失败")")
             }
         }
         
-        print("✅ 复合节点更新完成，总子节点数: \(existingChildReferences.count + newChildNames.count)")
     }
     
     // 计算子节点中的最大复合节点深度
@@ -2197,7 +2029,6 @@ struct QuickAddSheetView: View {
     
     // 创建新的复合节点
     private func createNewCompoundNode(name: String, childNames: [String], layerId: UUID) {
-        print("🏗️ 创建新复合节点: \(name)")
         
         // 为复合节点创建特殊标签，包含所有子节点名称作为标签值
         var compoundTags: [Tag] = []
@@ -2223,10 +2054,8 @@ struct QuickAddSheetView: View {
                 value: actualChildName
             )
             compoundTags.append(childReferenceTag)
-            print("🔗 为复合节点添加子节点引用标签: \(actualChildName)")
         }
         
-        print("🏗️ 创建复合节点: \(name), 标签数: \(compoundTags.count)")
         
         // 创建复合节点
         let compoundNode = Node(
@@ -2244,7 +2073,6 @@ struct QuickAddSheetView: View {
             
             // 检查是否已存在
             if let existingNode = store.nodes.first(where: { $0.text.lowercased() == actualChildName.lowercased() }) {
-                print("🔍 找到已存在的子节点: \(existingNode.text)")
             } else {
                 // 创建新的子节点
                 let childNode = Node(
@@ -2255,24 +2083,18 @@ struct QuickAddSheetView: View {
                     tags: []
                 )
                 _ = store.addNode(childNode)
-                print("🆕 创建新子节点: \(actualChildName)")
             }
         }
         
         // 添加复合节点到store
         _ = store.addNode(compoundNode)
         
-        print("✅ 复合节点结构创建完成: \(name) (包含 \(childNames.count) 个子节点)")
     }
     
     private func openMapForLocationSelection() {
-        print("📍 QuickAddSheetView: Opening map for location selection...")
-        print("📍 QuickAddSheetView: Current store type: \(type(of: store)) - isSharedInstance: \(store.isSharedInstance)")
-        print("📍 QuickAddSheetView: Window ID: \(windowId?.uuidString.prefix(8) ?? "nil")")
         isWaitingForLocationSelection = true
         
         // 🔧 修复：使用具体的窗口ID而不是通用标识符
-        print("📍 QuickAddSheetView: 发送请求让特定窗口打开地图")
         
         // 生成唯一的地图窗口ID
         let mapWindowId = UUID()
@@ -2291,7 +2113,6 @@ struct QuickAddSheetView: View {
         
         // 🔧 延迟发送位置选择模式通知，确保地图窗口已经打开
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            print("📍 QuickAddSheetView: 发送位置选择模式通知（带时间戳和目标窗口ID）")
             NotificationCenter.default.post(
                 name: NSNotification.Name("openMapForLocationSelection"), 
                 object: ["requestTime": Date(), "targetWindowId": mapWindowId.uuidString]
@@ -2300,14 +2121,12 @@ struct QuickAddSheetView: View {
     }
     
     private func insertLocationIntoInput(_ locationCommand: String) {
-        print("Inserting location into input: \(locationCommand)")
         
         // 在当前光标位置插入 "loc 坐标格式 "，用户需要在[]中填入地名
         let locationText = "loc \(locationCommand) "
         inputText += locationText
         isWaitingForLocationSelection = false
         
-        print("Input text updated to: \(inputText)")
         
         // 重新聚焦到输入框
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -2611,7 +2430,6 @@ struct QuickAddView: View {
     }
     
     private func openMapForLocationSelection() {
-        print("📍 QuickAddView: Opening map for location selection...")
         
         // 生成唯一的地图窗口ID
         let mapWindowId = UUID()
@@ -2645,7 +2463,6 @@ struct QuickAddView: View {
         // 检查是否是节点引用格式（@节点名）
         if query.hasPrefix("@") {
             let nodeQuery = String(query.dropFirst()) // 去掉@前缀
-            print("🔗 检测到节点引用查询: '\(nodeQuery)'")
             
             // 只从节点名搜索
             let nodeResults = fuzzySearchNodes(query: nodeQuery, limit: 10)
@@ -2655,7 +2472,6 @@ struct QuickAddView: View {
             
             let sortedSuggestions = nodesSuggestions.sorted { $0.1 > $1.1 }.map { $0.0 }
             suggestions = Array(sortedSuggestions.prefix(10))
-            print("🔗 节点引用建议: \(suggestions)")
         } else {
             // 普通查询：混合搜索标签类型和节点名
             
@@ -2779,7 +2595,6 @@ struct QuickAddView: View {
         
         // 检查层级可用性，不再使用UUID()作为fallback
         guard let layerId = store.currentLayer?.id ?? store.layers.first?.id else {
-            print("❌ QuickAddView: 无可用层，无法创建节点")
             // 触发警告
             store.duplicateNodeAlert = NodeStore.DuplicateNodeAlert(
                 message: "无法添加节点：请先创建至少一个层",
@@ -2955,19 +2770,12 @@ struct QuickSearchView: View {
                 .font(.system(size: 16, weight: .medium))
                 .focused($isSearchFieldFocused)
                 .onSubmit {
-                    // 🔧 修复回车逻辑：只有在非输入法状态且搜索框有焦点时才选择第一个结果
                     if !isInIMEComposition() && selectedIndex == -1 && !filteredNodes.isEmpty {
                         selectedIndex = 0
                         selectCurrentNode()
-                        print("🔍 TextField回车: 选择第一个搜索结果")
                     }
                 }
-                .onChange(of: isSearchFieldFocused) { _, newValue in
-                    print("🔍 TextField焦点状态变化: \(newValue)")
-                }
-                .onAppear {
-                    print("🔍 TextField出现")
-                }
+                .onChange(of: isSearchFieldFocused) { _, _ in }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -2996,12 +2804,8 @@ struct QuickSearchView: View {
                     .padding(.horizontal, 4)
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        print("🖱️ 点击了节点: \(word.text)")
                         onNodeSelected(word)
                         onDismiss()
-                    }
-                    .onAppear {
-                        print("🖱️ NodeSearchResultRow 出现: \(word.text)")
                     }
                 }
             }
@@ -3072,28 +2876,14 @@ struct QuickSearchView: View {
             // 搜索界面居中显示
         }
         .task {
-            print("🔍 QuickSearchView task: 异步任务开始，初始selectedIndex: \(selectedIndex)")
-            // 立即尝试聚焦
             await MainActor.run {
                 isSearchFieldFocused = true
-                print("🔍 QuickSearchView task: 立即设置焦点")
             }
-            
-            // 等待并重试
-            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1秒
+
+            try? await Task.sleep(nanoseconds: 100_000_000)
             await MainActor.run {
                 isSearchFieldFocused = true
-                print("🔍 QuickSearchView task: 0.1秒后设置焦点")
             }
-            
-            try? await Task.sleep(nanoseconds: 200_000_000) // 再等0.2秒(总共0.3秒)
-            await MainActor.run {
-                isSearchFieldFocused = true
-                print("🔍 QuickSearchView task: 0.3秒后设置焦点")
-            }
-        }
-        .onAppear {
-            print("🔍 QuickSearchView.onAppear: 视图出现")
         }
         .onKeyPress(.escape) {
             onDismiss()
@@ -3103,13 +2893,9 @@ struct QuickSearchView: View {
             if filteredNodes.isEmpty { return .ignored }
             
             if selectedIndex == -1 {
-                // Tab从搜索框进入第一个结果
                 selectedIndex = 0
-                print("🔍 Tab键: 进入第一个结果 (index: \(selectedIndex))")
             } else if selectedIndex < filteredNodes.count - 1 {
-                // Tab到下一个结果
                 selectedIndex += 1
-                print("🔍 Tab键: 移动到下一个结果 (index: \(selectedIndex))")
             }
             return .handled
         }
@@ -3119,52 +2905,37 @@ struct QuickSearchView: View {
             if filteredNodes.isEmpty { return .ignored }
             
             if selectedIndex <= 0 {
-                // 从第一个结果或搜索框回到搜索框
                 selectedIndex = -1
-                print("🔍 Shift+Tab键: 回到搜索框")
             } else {
-                // Shift+Tab到上一个结果
                 selectedIndex -= 1
-                print("🔍 Shift+Tab键: 移动到上一个结果 (index: \(selectedIndex))")
             }
             return .handled
         }
         .onKeyPress(.upArrow) {
             if selectedIndex > 0 {
                 selectedIndex -= 1
-                print("🔍 上箭头: 移动到结果 (index: \(selectedIndex))")
             } else if selectedIndex == 0 {
-                // 从第一个结果回到搜索框
                 selectedIndex = -1
-                print("🔍 上箭头: 回到搜索框")
             }
             return .handled
         }
         .onKeyPress(.downArrow) {
             if selectedIndex == -1 && !filteredNodes.isEmpty {
-                // 从搜索框进入第一个结果
                 selectedIndex = 0
-                print("🔍 下箭头: 进入第一个结果 (index: \(selectedIndex))")
             } else if selectedIndex < filteredNodes.count - 1 {
                 selectedIndex += 1
-                print("🔍 下箭头: 移动到下一个结果 (index: \(selectedIndex))")
             }
             return .handled
         }
         .onKeyPress(.return) {
-            // 🔧 修复输入法问题：只有在非输入法状态且有选中结果时才处理回车
             if !isInIMEComposition() && selectedIndex >= 0 {
-                // 选择当前高亮的结果
                 selectCurrentNode()
-                print("🔍 回车键: 选择结果 (index: \(selectedIndex))")
                 return .handled
             }
-            // 让TextField的onSubmit处理其他情况
             return .ignored
         }
-        .onChange(of: filteredNodes) { _, newNodes in
-            selectedIndex = -1  // 当搜索结果改变时，重新回到搜索框焦点
-            print("🔍 搜索结果更新，重置选择到搜索框 (index: -1)")
+        .onChange(of: filteredNodes) { _, _ in
+            selectedIndex = -1
         }
     }
     
@@ -3175,15 +2946,11 @@ struct QuickSearchView: View {
         onDismiss()
     }
     
-    // 🔧 检查是否处于中文输入法编辑状态
     private func isInIMEComposition() -> Bool {
-        // 检查当前事件是否来自输入法
         if let currentEvent = NSApp.currentEvent {
-            // 只对键盘事件检查 charactersIgnoringModifiers
             guard currentEvent.type == .keyDown || currentEvent.type == .keyUp else {
                 return false
             }
-            
             let hasMarkedText = !(currentEvent.charactersIgnoringModifiers?.isEmpty ?? true)
             return hasMarkedText
         }
@@ -3610,7 +3377,6 @@ struct WordTaggerApp: App {
     
     /// 紧急清理所有打开的对话框和sheet
     private func performEmergencySheetCleanup() {
-        print("🚨 WordTaggerApp: 执行紧急sheet清理...")
         
         // 强制关闭所有sheet
         showPalette = false
@@ -3630,7 +3396,6 @@ struct WordTaggerApp: App {
             object: nil
         )
         
-        print("✅ WordTaggerApp: 紧急sheet清理完成")
     }
     
     
@@ -3646,35 +3411,24 @@ struct WordTaggerApp: App {
         // 减少macOS系统服务的数据库查询
         UserDefaults.standard.set(false, forKey: "NSApplicationCrashOnExceptions")
         
-        print("🚀 WordTagger 启动，已优化SQLite设置")
         
         // 验证资源文件是否正确加载
         let verification = ResourceManager.verifyAllResourcesExist()
         if verification.success {
-            print("✅ 所有静态资源文件已正确加载")
-            print("   - vditor CSS: \(ResourceManager.getVditorCSSPath() ?? "未找到")")
-            print("   - vditor JS: \(ResourceManager.getVditorJSPath() ?? "未找到")")
-            print("   - mermaid JS: \(ResourceManager.getMermaidJSPath() ?? "未找到")")
         } else {
-            print("❌资源文件加载失败:")
             for missingFile in verification.missingFiles {
-                print("   - \(missingFile)")
             }
         }
         
         // 延迟初始化Git自动同步，确保设置已加载
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            print("🔧 WordTaggerApp: 延迟启动Git自动同步监听")
             GitAutoSyncManager.shared.debugStatus()
             GitAutoSyncManager.shared.startMonitoring()
             
             // 确保监听启动后再执行启动时的自动提交
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                print("🚀🚀🚀 WordTaggerApp: 准备启动Git启动时自动提交推送 - \(Date())")
                 Task { @MainActor in
-                    print("🚀🚀🚀 WordTaggerApp: 开始执行GitStartupAutoCommitManager.performStartupCommitAndPush()")
                     await GitStartupAutoCommitManager.shared.performStartupCommitAndPush()
-                    print("🚀🚀🚀 WordTaggerApp: GitStartupAutoCommitManager.performStartupCommitAndPush() 执行完成")
                 }
             }
         }
@@ -3701,7 +3455,6 @@ struct WordTaggerApp: App {
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 // 点击背景时不做任何事，防止误关闭
-                                print("🛡️ 背景遮罩被点击，不关闭命令面板")
                             }
                         
                         CommandPaletteView(isPresented: $showPalette)
@@ -3713,15 +3466,12 @@ struct WordTaggerApp: App {
                 if showQuickSearch {
                     QuickSearchView(
                         onDismiss: { 
-                            print("🔍 WordTaggerApp: QuickSearchView onDismiss 被调用")
                             showQuickSearch = false 
                         },
                         onNodeSelected: { node in
-                            print("🔍 WordTaggerApp: QuickSearchView 选择了节点: \(node.text)")
                             
                             // 首先切换到节点所在的层
                             if let nodeLayer = store.layers.first(where: { $0.id == node.layerId }) {
-                                print("🔄 切换到节点所在层: \(nodeLayer.displayName)")
                                 store.setCurrentLayer(nodeLayer)
                             }
                             
@@ -3731,7 +3481,6 @@ struct WordTaggerApp: App {
                     )
                     .environmentObject(store)
                     .onAppear {
-                        print("🔍 WordTaggerApp: QuickSearchView 在 WordTaggerApp 中出现")
                     }
                     // 移除动画效果，直接显示
                 }
@@ -3740,7 +3489,6 @@ struct WordTaggerApp: App {
             .animation(.easeInOut(duration: 0.2), value: showPalette)
             // QuickSearch 不使用动画，直接显示
             .onChange(of: showQuickSearch) { _, newValue in
-                print("🔍 WordTaggerApp: showQuickSearch 状态变化: \(newValue)")
             }
             .onKeyPress(.escape) {
                 if showPalette {
@@ -3753,7 +3501,6 @@ struct WordTaggerApp: App {
                 }
                 // 检查是否有其他sheet需要紧急关闭
                 if showQuickAdd || showCompoundNodeAdd {
-                    print("🚨 WordTaggerApp: Escape键检测到未关闭的sheet，执行紧急清理")
                     performEmergencySheetCleanup()
                     return .handled
                 }
@@ -3762,7 +3509,6 @@ struct WordTaggerApp: App {
             .onKeyPress(.init("c"), phases: .down) { keyPress in
                 // Command+Option+C = 紧急清理所有sheet
                 if keyPress.modifiers.contains([.command, .option]) {
-                    print("🚨 WordTaggerApp: 检测到紧急清理快捷键：Command+Option+C")
                     performEmergencySheetCleanup()
                     return .handled
                 }
@@ -3777,16 +3523,13 @@ struct WordTaggerApp: App {
                     .environmentObject(store)
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("forceCloseAllSheets"))) { _ in
-                print("🚨 WordTaggerApp: 收到强制关闭所有sheet的通知")
                 performEmergencySheetCleanup()
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("showCommandPalette"))) { _ in
                 // showCommandPalette 现在重定向到层结构图谱（兼容旧代码）
                 guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true, commandName: "showCommandPalette") else {
-                    print("🚫 主窗口: 忽略showCommandPalette通知 - 应用无活跃窗口或冷却期")
                     return
                 }
-                print("✅ 主窗口: 处理showCommandPalette通知 - 打开层结构图谱窗口")
                 // 🔧 传递源窗口ID以防止重复处理
                 NotificationCenter.default.post(
                     name: NSNotification.Name("executeOpenWindow"), 
@@ -3797,15 +3540,12 @@ struct WordTaggerApp: App {
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openNewWindow"))) { notification in
                 // openNewWindow 是全局命令，应该在任何活跃窗口中可用
                 guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true, commandName: "openNewWindow") else {
-                    print("🚫 主窗口: 忽略openNewWindow通知")
                     return
                 }
                 
-                print("✅ 主窗口: 处理openNewWindow通知 - 打开独立窗口")
                 
                 // 防止重复打开：检查当前是否已有独立窗口
                 guard !isOpeningWindow else {
-                    print("🔔 [DEBUG] 窗口正在打开中，忽略重复请求")
                     return
                 }
                 
@@ -3823,33 +3563,27 @@ struct WordTaggerApp: App {
                 // 500ms后重置标志
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     isOpeningWindow = false
-                    print("🔔 [DEBUG] 重置isOpeningWindow标志")
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("addNewNode"))) { _ in
                 // addNewNode 是全局命令，应该在任何活跃窗口中可用
                 guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true) else {
-                    print("🚫 主窗口: 忽略addNewNode通知 - 应用无活跃窗口")
                     return
                 }
-                print("✅ 主窗口: 处理addNewNode通知 - 打开快速添加")
                 showQuickAdd = true
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openNodeManagerForEdit"))) { notification in
                 // openNodeManagerForEdit 现在是全局命令，可以从任何窗口触发
                 guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true, commandName: "openNodeManagerForEdit") else {
-                    print("🚫 主窗口: 忽略openNodeManagerForEdit通知 - 窗口非活跃状态")
                     return
                 }
                 
                 if let node = notification.object as? Node {
-                    print("📝 WordTaggerApp: 收到节点编辑请求，节点: \(node.text)")
                     nodeToEditInManager = node
                     // 先打开节点管理窗口
                     NotificationCenter.default.post(name: Notification.Name("openNodeManager"), object: nil)
                     // 延迟发送编辑节点通知，确保窗口已打开
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                        print("📝 WordTaggerApp: 延迟发送编辑节点通知: \(node.text)")
                         NotificationCenter.default.post(name: Notification.Name("nodeManagerEditNode"), object: node)
                     }
                 }
@@ -3858,19 +3592,15 @@ struct WordTaggerApp: App {
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openQuickSearch"))) { _ in
                 // openQuickSearch 是全局命令，应该在任何活跃窗口中可用
                 guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true) else {
-                    print("🚫 主窗口: 忽略openQuickSearch通知 - 应用无活跃窗口")
                     return
                 }
-                print("✅ 主窗口: 处理openQuickSearch通知 - 打开快速搜索")
                 showQuickSearch = true
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openGraphWindow"))) { _ in
                 // openGraphWindow 是全局命令，应该在任何活跃窗口中可用
                 guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true) else {
-                    print("🚫 主窗口: 忽略openGraphWindow通知 - 应用无活跃窗口")
                     return
                 }
-                print("✅ 主窗口: 处理openGraphWindow通知 - 打开图谱窗口")
                 NotificationCenter.default.post(name: NSNotification.Name("executeOpenGraphWindow"), object: nil)
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("requestMapForLocationSelection"))) { notification in
@@ -3882,16 +3612,12 @@ struct WordTaggerApp: App {
                     // 支持mainWindowId或ContentView使用的固定UUID
                     let contentViewMainId = "00000000-0000-0000-0000-000000000001"
                     if requestSource == "MAIN_WINDOW" && (windowId == mainWindowId.uuidString || windowId == contentViewMainId) {
-                        print("📍 主窗口: 处理位置选择请求，打开地图 (窗口ID匹配)")
                         NotificationCenter.default.post(name: NSNotification.Name("executeOpenMapWindow"), object: ["sourceWindowId": mainWindowId.uuidString])
                     } else {
-                        print("📍 主窗口: 忽略位置选择请求 - 窗口ID不匹配或非主窗口请求")
-                        print("   - 请求源: \(requestSource), 目标窗口: \(windowId.prefix(8))")
                     }
                 } else if let requestSource = notification.object as? String {
                     // 向后兼容旧格式
                     if requestSource == "MAIN_WINDOW" {
-                        print("📍 主窗口: 处理位置选择请求（旧格式）")
                         NotificationCenter.default.post(name: NSNotification.Name("executeOpenMapWindow"), object: ["sourceWindowId": mainWindowId.uuidString])
                     }
                 }
@@ -3900,53 +3626,42 @@ struct WordTaggerApp: App {
                 // 🔧 修复：检查通知是否包含源窗口信息，如果包含则只有匹配的窗口才处理
                 if let sourceInfo = notification.object as? [String: String],
                    let targetSourceWindowId = sourceInfo["sourceWindowId"] {
-                    print("🎯 主窗口: 收到带源窗口ID的openMapWindow通知 - \(targetSourceWindowId.prefix(8))")
                     
                     // 检查是否是发给主窗口的
                     if targetSourceWindowId == mainWindowId.uuidString || targetSourceWindowId == "MAIN_WINDOW" {
-                        print("✅ 主窗口: 处理指定给主窗口的openMapWindow通知")
                         NotificationCenter.default.post(name: NSNotification.Name("executeOpenMapWindow"), object: ["sourceWindowId": mainWindowId.uuidString])
                     } else {
-                        print("🚫 主窗口: 忽略发给其他窗口的openMapWindow通知 - 目标: \(targetSourceWindowId.prefix(8))")
                     }
                     return
                 }
                 
                 // 如果没有源窗口信息，使用原有的全局命令逻辑（向后兼容）
                 guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true) else {
-                    print("🚫 主窗口: 忽略openMapWindow通知 - 应用无活跃窗口")
                     return
                 }
-                print("✅ 主窗口: 处理全局openMapWindow通知 - 打开地图窗口")
                 NotificationCenter.default.post(name: NSNotification.Name("executeOpenMapWindow"), object: ["sourceWindowId": mainWindowId.uuidString])
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagManager"))) { _ in
                 // openTagManager 是全局命令，只在当前key窗口处理
                 guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true, commandName: "openTagManager") else {
-                    print("🚫 主窗口: 忽略openTagManager通知 - 非key窗口或冷却期")
                     return
                 }
                 
-                print("✅ 主窗口: 处理openTagManager通知 - 打开标签管理窗口")
                 // 改为打开独立窗口
                 openWindow(id: "tagManager")
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openNodeManager"))) { _ in
                 // openNodeManager 是全局命令，只在当前key窗口处理
                 guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true, commandName: "openNodeManager") else {
-                    print("🚫 主窗口: 忽略openNodeManager通知 - 非key窗口或冷却期")
                     return
                 }
                 
-                print("✅ 主窗口: 处理openNodeManager通知 - 打开节点管理")
                 NotificationCenter.default.post(name: NSNotification.Name("executeOpenNodeManager"), object: nil)
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagTypeGraph"))) { notification in
                 // openTagTypeGraph 应该总是由主窗口处理，因为只有主窗口有WindowGroup定义
-                print("🎯 主窗口: 接收到openTagTypeGraph通知")
                 
                 if let tagType = notification.object as? Tag.TagType {
-                    print("✅ 主窗口: 处理openTagTypeGraph通知 - 打开标签图谱: \(tagType.displayName)")
                     
                     // 更新共享的TagGraphWindowManager状态
                     TagGraphWindowManager.shared.updateTagType(tagType)
@@ -3956,31 +3671,25 @@ struct WordTaggerApp: App {
                     
                     NotificationCenter.default.post(name: NSNotification.Name("executeOpenWindow"), object: "tagTypeGraph")
                 } else {
-                    print("❌ 主窗口: openTagTypeGraph通知缺少标签类型信息")
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("executeOpenNodeManager"))) { notification in
                 // 检查当前窗口是否应该响应此通知
                 guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true, commandName: "executeOpenNodeManager") else {
-                    print("🚫 主窗口: 忽略executeOpenNodeManager通知 - 非key窗口或冷却期")
                     return
                 }
                 
-                print("✅ 主窗口: 处理executeOpenNodeManager通知 - 通过ContentView打开节点管理")
                 // 通过ContentView的openWindow执行
                 NotificationCenter.default.post(name: NSNotification.Name("executeOpenWindow"), object: "nodeManager")
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("executeOpenMapWindow"))) { notification in
                 // 🔧 关键修复：实际打开通用地图窗口并设置窗口映射
-                print("🗺️ 主窗口: 收到executeOpenMapWindow通知，打开通用地图窗口")
-                print("🗺️ 主窗口: notification.object = \(notification.object ?? "nil")")
                 
                 // 🔧 打开通用地图窗口
                 NotificationCenter.default.post(name: NSNotification.Name("executeOpenWindow"), object: "map")
                 
                 // 设置窗口映射信息
                 if let sourceInfo = notification.object as? [String: String] {
-                    print("🗺️ 主窗口: 转发窗口映射信息给通用地图窗口，sourceInfo: \(sourceInfo)")
                     // 延迟一点发送映射信息，确保地图窗口已经打开
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         NotificationCenter.default.post(
@@ -3989,7 +3698,6 @@ struct WordTaggerApp: App {
                         )
                     }
                 } else {
-                    print("⚠️ 主窗口: executeOpenMapWindow通知缺少sourceInfo，使用主窗口默认值")
                     // 使用主窗口的ID
                     let defaultSourceInfo = ["sourceWindowId": mainWindowId.uuidString]
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -4005,16 +3713,13 @@ struct WordTaggerApp: App {
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("requestWindowMapping"))) { notification in
                 // 处理窗口映射请求 - 解决时序问题
-                print("🔧 主窗口: 收到窗口映射请求")
                 
                 if let requestInfo = notification.object as? [String: String],
                    let childWindowId = requestInfo["childWindowId"],
                    let windowType = requestInfo["windowType"] {
-                    print("🔧 主窗口: 处理窗口映射请求 - 窗口类型: \(windowType), 子窗口ID: \(childWindowId.prefix(8))")
                     
                     // 🔧 重要修复：使用智能源窗口检测
                     let sourceWindowId = WindowFocusManager.shared.getSourceWindowId()
-                    print("🔧 主窗口: 智能确定源窗口ID: \(sourceWindowId.prefix(8))")
                     
                     // 发送映射信息
                     let mappingInfo = ["sourceWindowId": sourceWindowId]
@@ -4022,21 +3727,17 @@ struct WordTaggerApp: App {
                         name: NSNotification.Name("mapWindowSetupMapping"),
                         object: mappingInfo
                     )
-                    print("🔧 主窗口: 已发送窗口映射信息到 \(windowType) 窗口")
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("requestWindowMappingForMap"))) { notification in
                 // 🔧 处理地图窗口的主动映射请求
-                print("🔧 主窗口: 收到地图窗口映射请求")
                 
                 if let requestInfo = notification.object as? [String: String],
                    let mapWindowId = requestInfo["mapWindowId"] {
-                    print("🔧 主窗口: 处理地图窗口映射请求 - 地图窗口ID: \(mapWindowId.prefix(8))")
                     
                     // 检查主窗口是否应该响应（即主窗口是否是活跃窗口或最近活跃的非地图窗口）
                     if WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: false) {
                         let sourceWindowId = mainWindowId.uuidString
-                        print("🔧 主窗口: 确定为源窗口，发送映射信息 - 源窗口ID: \(sourceWindowId.prefix(8))")
                         
                         // 🎯 发送带目标地图窗口ID的映射信息
                         let mappingInfo = [
@@ -4047,64 +3748,51 @@ struct WordTaggerApp: App {
                             name: NSNotification.Name("mapWindowSetupMapping"),
                             object: mappingInfo
                         )
-                        print("🔧 主窗口: 已发送目标映射信息到地图窗口 \(mapWindowId.prefix(8))")
                     } else {
-                        print("🚫 主窗口: 不是活跃窗口，忽略地图窗口映射请求")
                     }
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("toggleSidebar"))) { _ in
                 // toggleSidebar 是全局命令，只在当前key窗口处理
                 guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true) else {
-                    print("🚫 主窗口: 忽略toggleSidebar通知 - 非key窗口")
                     return
                 }
                 
-                print("✅ 主窗口: 处理toggleSidebar通知")
                 NotificationCenter.default.post(name: NSNotification.Name("executeToggleSidebar"), object: nil)
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("switchToDetailTab"))) { _ in
                 // 检查当前窗口是否应该响应此通知
                 guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId) else {
-                    print("🚫 主窗口: 忽略switchToDetailTab通知 - 窗口非活跃状态")
                     return
                 }
-                print("✅ 主窗口: 处理switchToDetailTab通知 - 发送执行命令")
                 // 发送执行命令，避免循环
                 NotificationCenter.default.post(name: NSNotification.Name("executeDetailTabSwitch"), object: nil)
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("switchToGraphTab"))) { _ in
                 // 检查当前窗口是否应该响应此通知
                 guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId) else {
-                    print("🚫 主窗口: 忽略switchToGraphTab通知 - 窗口非活跃状态")
                     return
                 }
-                print("✅ 主窗口: 处理switchToGraphTab通知 - 发送执行命令")
                 // 发送执行命令，避免循环
                 NotificationCenter.default.post(name: NSNotification.Name("executeGraphTabSwitch"), object: nil)
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("clearTagFilter"))) { _ in
                 // clearTagFilter是全局命令，应该在任何活跃窗口中可用
                 guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true, commandName: "clearTagFilter") else {
-                    print("🚫 主窗口: 忽略clearTagFilter通知 - 应用无活跃窗口")
                     return
                 }
-                print("✅ 主窗口: 处理clearTagFilter通知，清除标签筛选")
                 store.clearTagFilter()
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("restorePreviousTagFilterState"))) { _ in
                 // restorePreviousTagFilterState是全局命令，应该在任何活跃窗口中可用
                 guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: true, commandName: "restorePreviousTagFilterState") else {
-                    print("🚫 主窗口: 忽略restorePreviousTagFilterState通知 - 应用无活跃窗口")
                     return
                 }
-                print("✅ 主窗口: 处理restorePreviousTagFilterState通知，恢复标签筛选")
                 store.restorePreviousTagFilterState()
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("switchToLayer"))) { notification in
                 // 🔧 处理来自层图谱窗口的层切换请求
                 guard let layer = notification.object as? Layer else {
-                    print("⚠️ 主窗口: switchToLayer通知格式错误 - 缺少层对象")
                     return
                 }
                 
@@ -4113,57 +3801,41 @@ struct WordTaggerApp: App {
                    !sourceWindowId.isEmpty {
                     
                     // 🔧 调试：打印窗口ID信息
-                    print("🔍 主窗口: switchToLayer通知窗口ID检查")
-                    print("   - 通知中的sourceWindowId: \(sourceWindowId.prefix(8))")
-                    print("   - 主窗口的mainWindowId: \(mainWindowId.uuidString.prefix(8))")
-                    print("   - WindowFocusManager中主窗口ID: \(WindowFocusManager.shared.getActiveWindowId()?.uuidString.prefix(8) ?? "nil")")
                     
                     // 🔧 精确检查是否是发给这个特定主窗口的（支持多主窗口环境）
                     let isTargetingThisMainWindow = sourceWindowId == mainWindowId.uuidString
                     
                     if isTargetingThisMainWindow {
-                        print("🔄 主窗口: 处理来自层图谱的层切换请求 - 切换到层: \(layer.displayName)")
                         Task {
                             await store.switchToLayer(layer)
                         }
                     } else {
-                        print("🚫 主窗口: 忽略发给其他窗口的switchToLayer通知 - 目标: \(sourceWindowId.prefix(8))")
                     }
                 } else {
                     // 如果没有指定源窗口，使用WindowFocusManager检查
                     guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: false, commandName: "switchToLayer") else {
-                        print("🚫 主窗口: 忽略switchToLayer通知 - 窗口非活跃状态")
                         return
                     }
-                    print("✅ 主窗口: 作为活跃窗口处理层切换请求 - 切换到层: \(layer.displayName)")
                     Task {
                         await store.switchToLayer(layer)
                     }
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("handleMapPinTap"))) { notification in
-                print("🔔 主窗口: 收到handleMapPinTap通知")
-                print("🔔 主窗口ID = \(mainWindowId.uuidString)")
                 guard let userInfo = notification.userInfo,
                       let targetNodeId = userInfo["targetNodeId"] as? String,
                       let targetLayerId = userInfo["targetLayerId"] as? String else {
-                    print("⚠️ 主窗口: handleMapPinTap通知格式错误 - 缺少节点ID或层ID")
                     return
                 }
-                print("🔔 主窗口: 通知包含 targetWindowId: \(userInfo["targetWindowId"] ?? "nil")")
-                print("🔔 主窗口: routingMethod = \(userInfo["routingMethod"] ?? "nil")")
-                print("🔔 主窗口: fromMapContainer = \(userInfo["fromMapContainer"] ?? "nil")")
                 
                 // 🔧 从当前store实例中查找对应的节点和层
                 guard let targetNodeUUID = UUID(uuidString: targetNodeId),
                       let targetNode = store.nodes.first(where: { $0.id == targetNodeUUID }) else {
-                    print("⚠️ 主窗口: 未在当前store中找到目标节点 - ID: \(targetNodeId.prefix(8))")
                     return
                 }
                 
                 guard let targetLayerUUID = UUID(uuidString: targetLayerId),
                       let targetLayer = store.layers.first(where: { $0.id == targetLayerUUID }) else {
-                    print("⚠️ 主窗口: 未在当前store中找到目标层 - ID: \(targetLayerId.prefix(8))")
                     return
                 }
                 
@@ -4175,28 +3847,16 @@ struct WordTaggerApp: App {
                     let isMatchingMainWindow = (targetWindowId == mainWindowId.uuidString) || 
                                              (targetWindowId == mainWindowShortId) ||
                                              (targetWindowId == "MAIN_WINDOW")
-                    print("🎯 检查窗口ID匹配:")
-                    print("   - targetWindowId = \(targetWindowId)")
-                    print("   - mainWindowId = \(mainWindowId.uuidString)")
-                    print("   - mainWindowShortId = \(mainWindowShortId)")
-                    print("   - isMatchingMainWindow = \(isMatchingMainWindow)")
                     if !isMatchingMainWindow {
-                        print("🚫 主窗口: 忽略handleMapPinTap通知 - 目标窗口不匹配")
                         return
                     }
-                    print("🎯 主窗口: 处理指定目标的地图节点点击")
-                    print("   - 目标ID: \(targetWindowId.prefix(8))")
-                    print("   - 路由方式: \(userInfo["routingMethod"] as? String ?? "unknown")")
                 } else {
                     // 如果没有指定目标窗口ID，则使用WindowFocusManager进行活跃窗口检查
                     guard WindowFocusManager.shared.shouldHandleNotification(for: mainWindowId, isGlobalCommand: false, commandName: "handleMapPinTap") else {
-                        print("🚫 主窗口: 忽略handleMapPinTap通知 - 窗口非活跃状态且无目标窗口ID")
                         return
                     }
-                    print("✅ 主窗口: 作为活跃窗口处理地图节点点击")
                 }
                 
-                print("🗺️ 主窗口: 处理地图标注点击 - 节点: \(targetNode.text), 层: \(targetLayer.displayName)")
                 
                 // 执行层切换和标签展开操作
                 Task {
@@ -4204,7 +3864,6 @@ struct WordTaggerApp: App {
                     
                     await MainActor.run {
                         store.expandLocationTagAndSelect(targetNode)
-                        print("✅ 主窗口: 已切换到层 '\(targetLayer.displayName)' 并展开地点标签")
                         
                         // 发送通知切换到地图标签
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
@@ -4271,14 +3930,12 @@ struct WordTaggerApp: App {
                 FullscreenTagTypeGraphView(tagType: tagType)
                     .environmentObject(store)
                     .onAppear {
-                        print("🖼️ 标签图谱窗口: 窗口已显示，标签类型: \(tagType.displayName)")
                         // 确保WindowManager状态与实际显示的标签类型同步
                         if TagGraphWindowManager.shared.currentTagType != tagType {
                             TagGraphWindowManager.shared.updateTagType(tagType)
                         }
                     }
                     .onDisappear {
-                        print("🖼️ 标签图谱窗口: 窗口已隐藏")
                         TagGraphWindowManager.shared.markWindowHidden()
                     }
             } else {
@@ -4298,7 +3955,6 @@ struct WordTaggerApp: App {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .onAppear {
-                    print("❌ 标签图谱窗口: 无有效标签类型")
                 }
             }
         }
@@ -4403,81 +4059,37 @@ struct TagManagerView: View {
                 .focused($isViewFocused)
             
             VStack(spacing: 0) {
-                // 标题栏 + 模块切换（合并到一行）
-                HStack {
-                    // 左侧：醒目的模块切换按钮组
-                    HStack(spacing: 4) {
-                        ForEach(TagManagerModule.allCases, id: \.self) { module in
-                            Button {
-                                selectedModule = module
-                            } label: {
+                // 简洁的Tab风格模块切换
+                HStack(spacing: 0) {
+                    // Tab切换区
+                    ForEach(TagManagerModule.allCases, id: \.self) { module in
+                        Button {
+                            selectedModule = module
+                        } label: {
+                            VStack(spacing: 8) {
                                 Text(module.rawValue)
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(selectedModule == module ? .white : .primary)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 10)
-                                    .background(selectedModule == module ? Color.accentColor : Color(NSColor.controlBackgroundColor))
-                                    .cornerRadius(8)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .stroke(selectedModule == module ? Color.clear : Color(NSColor.separatorColor), lineWidth: 1)
-                                    )
+                                    .font(.system(size: 15, weight: .medium))
+                                    .foregroundColor(selectedModule == module ? .primary : .secondary)
+
+                                // 下划线指示器
+                                Rectangle()
+                                    .fill(selectedModule == module ? Color.accentColor : Color.clear)
+                                    .frame(height: 2)
                             }
-                            .buttonStyle(.plain)
-                            .help("切换到\(module.rawValue)模块")
                         }
+                        .buttonStyle(.plain)
+                        .frame(maxWidth: .infinity)
                     }
-                    
+
                     Spacer()
-                    
-                    // 右侧：功能按钮和关闭按钮
-                    HStack(spacing: 12) {
-                        // 显示系统标签开关
-                        Button(action: { showSystemTags.toggle() }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: showSystemTags ? "eye" : "eye.slash")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.secondary)
-                                Text("系统标签")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color(NSColor.controlBackgroundColor))
-                            .cornerRadius(6)
-                        }
-                        .buttonStyle(.plain)
-                        .help(showSystemTags ? "隐藏系统标签" : "显示系统标签")
-                        
-                        // 重新扫描按钮
-                        Button(action: {
-                            tagManager.rescanAndUpdateMappings()
-                        }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "arrow.clockwise")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.secondary)
-                                Text("重新扫描")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color(NSColor.controlBackgroundColor))
-                            .cornerRadius(6)
-                        }
-                        .buttonStyle(.plain)
-                        .help("重新扫描现有标签并创建缺失的映射")
-                        
-                        // 关闭按钮
-                        Button(action: onDismiss) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.secondary)
-                                .font(.title2)
-                        }
-                        .buttonStyle(.plain)
+
+                    // 简洁的关闭按钮
+                    Button(action: onDismiss) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.secondary)
                     }
+                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
@@ -4512,47 +4124,31 @@ struct TagManagerView: View {
             )
         }
         .onAppear {
-            // 视图出现时自动聚焦，确保可以接收键盘事件
             isViewFocused = true
-            
-            // 延迟设置搜索框焦点，确保视图已完全加载
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 isSearchFieldFocused = true
-                print("🔍 TagManagerView: 设置搜索框焦点")
-            }
-            
-            // 额外的延迟重新设置焦点，防止被其他组件抢夺
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                if !isSearchFieldFocused {
-                    isSearchFieldFocused = true
-                    print("🔍 TagManagerView: 重新设置搜索框焦点")
-                }
             }
         }
         .onKeyPress(.escape) {
-            print("⌨️ TagManagerView: ESC键按下，准备关闭")
             onDismiss()
             return .handled
         }
     }
     
-    // 标签管理内容
+    // 标签管理内容 - 简化版
     private var tagManagementContent: some View {
         VStack(spacing: 0) {
-            // 搜索框
+            // 搜索框 - 简化样式
             HStack {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(.secondary)
                     .font(.system(size: 14))
-                
-                TextField("搜索标签映射（快捷键或类型名称）...", text: $searchText)
+
+                TextField("搜索标签...", text: $searchText)
                     .textFieldStyle(.plain)
                     .font(.system(size: 14))
                     .focused($isSearchFieldFocused)
-                    .onChange(of: isSearchFieldFocused) { _, newValue in
-                        print("🎯 TagManagerView: 搜索框焦点状态变更 = \(newValue)")
-                    }
-                
+
                 if !searchText.isEmpty {
                     Button {
                         searchText = ""
@@ -4569,60 +4165,50 @@ struct TagManagerView: View {
             .background(Color(NSColor.textBackgroundColor))
             .cornerRadius(8)
             .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .background(.ultraThinMaterial)
-            
+            .padding(.top, 12)
+
             Divider()
-            
-            // 现有标签列表
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(filteredMappings, id: \.id) { mapping in
-                            TagMappingRow(
-                                mapping: mapping,
-                                onEdit: {
-                                    print("🎯 TagManagerView: 开始编辑映射")
-                                    print("   - 选中映射: id=\(mapping.id), key=\(mapping.key), typeName=\(mapping.typeName)")
-                                    editingMapping = mapping
-                                    newKey = mapping.key
-                                    newTypeName = mapping.typeName
-                                    showingTagEditSheet = true
-                                    print("   - 表单已填充: newKey=\(newKey), newTypeName=\(newTypeName)")
-                                }
-                            )
-                            .id("\(mapping.id)-\(mapping.typeName)")
-                        }
+                .padding(.top, 12)
+
+            // 标签列表
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(filteredMappings, id: \.id) { mapping in
+                        TagMappingRow(
+                            mapping: mapping,
+                            onEdit: {
+                                editingMapping = mapping
+                                newKey = mapping.key
+                                newTypeName = mapping.typeName
+                                showingTagEditSheet = true
+                            }
+                        )
                     }
                 }
-                .frame(maxHeight: 300)
-                
-                Divider()
-                
-                // 功能按钮区域
-                VStack(spacing: 12) {
-                    // 添加新标签按钮（居中显示）
-                    Button {
-                        showingTagEditSheet = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.title3)
-                            Text("添加新标签")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color.accentColor.opacity(0.1))
-                        .foregroundColor(.accentColor)
-                        .cornerRadius(8)
-                    }
-                    .buttonStyle(.plain)
+            }
+            .frame(maxHeight: 300)
+
+            Divider()
+
+            // 添加按钮 - 简化样式
+            Button {
+                showingTagEditSheet = true
+            } label: {
+                HStack {
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .medium))
+                    Text("添加新标签")
+                        .font(.system(size: 14, weight: .medium))
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-                .background(.ultraThinMaterial)
-                
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(Color.accentColor.opacity(0.1))
+                .foregroundColor(.accentColor)
+                .cornerRadius(6)
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
         }
     }
 }
@@ -4738,10 +4324,6 @@ struct TagEditFormView: View {
 extension TagManagerView {
     
     private func saveMapping() {
-        print("💾 TagManagerView: saveMapping() 开始")
-        print("   - editingMapping存在: \(editingMapping != nil)")
-        print("   - newKey: '\(newKey)'")
-        print("   - newTypeName: '\(newTypeName)'")
         
         let mapping = TagMapping(
             id: editingMapping?.id ?? UUID(),
@@ -4749,23 +4331,17 @@ extension TagManagerView {
             typeName: newTypeName
         )
         
-        print("   - 创建的映射: id=\(mapping.id), key=\(mapping.key), typeName=\(mapping.typeName)")
-        print("   - 是否编辑模式: \(editingMapping != nil)")
         if let editing = editingMapping {
-            print("   - 编辑中的原始映射: id=\(editing.id), key=\(editing.key), typeName=\(editing.typeName)")
         }
         
         tagManager.saveMapping(mapping)
         resetForm()
-        print("✅ TagManagerView: saveMapping() 完成")
     }
     
     private func resetForm() {
-        print("🔄 TagManagerView: resetForm() 重置表单")
         newKey = ""
         newTypeName = ""
         editingMapping = nil
-        print("   - 表单已重置")
     }
     
     // 判断是否应该隐藏系统标签
@@ -4791,7 +4367,6 @@ struct TagMappingRow: View {
     }
     
     var body: some View {
-        let _ = print("🎨 TagMappingRow: 渲染 id=\(mapping.id), key=\(mapping.key), typeName=\(mapping.typeName)")
         return Button(action: isBuiltInCore ? {} : onEdit) {
             HStack {
                 // 标签颜色指示器
@@ -5008,11 +4583,9 @@ struct CompoundNodeAddSheetView: View {
         }) {
             // 模式2/3: 修改已存在的复合节点
             if !childNamesToRemove.isEmpty {
-                print("🗑️ 从复合节点删除子节点: \(compoundNodeName)")
                 removeChildrenFromCompoundNode(existingCompoundNode, childNames: childNamesToRemove)
             }
             if !childNamesToAdd.isEmpty {
-                print("🔄 向已存在的复合节点添加子节点: \(compoundNodeName)")
                 addChildrenToExistingCompoundNode(existingCompoundNode, childNames: childNamesToAdd)
             }
         } else {
@@ -5022,7 +4595,6 @@ struct CompoundNodeAddSheetView: View {
                 showingErrorAlert = true
                 return
             }
-            print("🏗️ 创建新复合节点: \(compoundNodeName)")
             createNewCompoundNode(name: compoundNodeName, childNames: childNamesToAdd, layerId: currentLayer.id)
         }
         
@@ -5052,7 +4624,6 @@ struct CompoundNodeAddSheetView: View {
     }
     
     private func removeChildrenFromCompoundNode(_ compoundNode: Node, childNames: [String]) {
-        print("🗑️ 从复合节点 '\(compoundNode.text)' 删除 \(childNames.count) 个子节点")
         
         // 获取现有的子节点引用
         let existingChildReferences = compoundNode.tags.compactMap { tag in
@@ -5061,7 +4632,6 @@ struct CompoundNodeAddSheetView: View {
             }
             return nil
         }
-        print("🔍 现有子节点: [\(existingChildReferences.joined(separator: ", "))]")
         
         // 找到要删除的子节点
         let childNamesToRemove = childNames.filter { childName in
@@ -5076,7 +4646,6 @@ struct CompoundNodeAddSheetView: View {
             return
         }
         
-        print("🗑️ 需要删除的子节点: [\(childNamesToRemove.joined(separator: ", "))]")
         
         // 过滤掉要删除的子节点标签
         let updatedTags = compoundNode.tags.filter { tag in
@@ -5102,7 +4671,6 @@ struct CompoundNodeAddSheetView: View {
         
         // 强制触发UI更新 - 确保WordListView刷新
         DispatchQueue.main.async {
-            print("🔄 强制触发UI更新（删除操作）")
             store.objectWillChange.send()
             
             NotificationCenter.default.post(
@@ -5112,14 +4680,9 @@ struct CompoundNodeAddSheetView: View {
             )
         }
         
-        print("✅ 复合节点删除操作完成:")
-        print("  复合节点: \(compoundNode.text)")
-        print("  删除的子节点: [\(childNamesToRemove.joined(separator: ", "))]")
-        print("  剩余子节点数: \(remainingChildCount)")
     }
     
     private func addChildrenToExistingCompoundNode(_ compoundNode: Node, childNames: [String]) {
-        print("🔗 向复合节点 '\(compoundNode.text)' 添加 \(childNames.count) 个子节点")
         
         // 获取现有的子节点引用
         let existingChildReferences = compoundNode.tags.compactMap { tag in
@@ -5128,7 +4691,6 @@ struct CompoundNodeAddSheetView: View {
             }
             return nil
         }
-        print("🔍 现有子节点: [\(existingChildReferences.joined(separator: ", "))]")
         
         // 过滤掉已经存在的子节点
         let newChildNames = childNames.filter { childName in
@@ -5143,7 +4705,6 @@ struct CompoundNodeAddSheetView: View {
             return
         }
         
-        print("🆕 需要添加的新子节点: [\(newChildNames.joined(separator: ", "))]")
         
         // 为新子节点创建标签
         var newChildTags: [Tag] = []
@@ -5168,7 +4729,6 @@ struct CompoundNodeAddSheetView: View {
         var childNodesToCreate: [Node] = []
         for childName in newChildNames {
             if let existingNode = store.nodes.first(where: { $0.text.lowercased() == childName.lowercased() }) {
-                print("🔍 找到已存在的子节点: \(existingNode.text), 保持其标签不变")
             } else {
                 let childNode = Node(
                     text: childName,
@@ -5178,14 +4738,12 @@ struct CompoundNodeAddSheetView: View {
                     tags: []
                 )
                 childNodesToCreate.append(childNode)
-                print("🆕 创建新子节点: \(childName)")
             }
         }
         
         // 添加新创建的子节点到store
         for childNode in childNodesToCreate {
             let success = store.addNode(childNode)
-            print("📝 子节点添加结果: \(childNode.text) - \(success ? "成功" : "失败")")
         }
         
         // 清除图谱缓存以刷新显示
@@ -5193,7 +4751,6 @@ struct CompoundNodeAddSheetView: View {
         
         // 强制触发UI更新 - 确保WordListView刷新
         DispatchQueue.main.async {
-            print("🔄 强制触发UI更新")
             // 触发@Published属性更新
             store.objectWillChange.send()
             
@@ -5204,13 +4761,8 @@ struct CompoundNodeAddSheetView: View {
                 userInfo: ["newNodeCount": store.nodes.count]
             )
             
-            print("📢 发送节点更新通知，当前节点总数: \(store.nodes.count)")
         }
         
-        print("✅ 复合节点更新完成:")
-        print("  复合节点: \(compoundNode.text)")
-        print("  原有子节点: [\(existingChildReferences.joined(separator: ", "))]")
-        print("  新增子节点: [\(newChildNames.joined(separator: ", "))]")
     }
     
     // 计算子节点中的最大复合节点深度
@@ -5255,13 +4807,9 @@ struct CompoundNodeAddSheetView: View {
                 value: actualChildName
             )
             compoundTags.append(childReferenceTag)
-            print("🔗 为复合节点添加子节点引用标签: \(actualChildName)")
         }
         
-        print("🏗️ 创建复合节点: \(name), 标签数: \(compoundTags.count)")
-        print("  - 复合标签: \(compoundTag.value)")
         for tag in compoundTags.dropFirst() {
-            print("  - 子节点引用: \(tag.value)")
         }
         
         // 创建复合节点，只包含复合标签和子节点引用标签
@@ -5278,7 +4826,6 @@ struct CompoundNodeAddSheetView: View {
         for childName in childNames {
             // 检查是否已存在
             if let existingNode = store.nodes.first(where: { $0.text.lowercased() == childName.lowercased() }) {
-                print("🔍 找到已存在的子节点: \(existingNode.text), 保持其标签不变")
                 // 子节点已存在，保持其原有标签
             } else {
                 // 创建新的子节点
@@ -5290,7 +4837,6 @@ struct CompoundNodeAddSheetView: View {
                     tags: []
                 )
                 childNodes.append(childNode)
-                print("🆕 创建新子节点: \(childName)")
             }
         }
         
@@ -5300,9 +4846,6 @@ struct CompoundNodeAddSheetView: View {
             _ = store.addNode(childNode)
         }
         
-        print("✅ 复合节点结构创建完成:")
-        print("  复合节点: \(name) (包含 \(compoundTags.count) 个标签)")
-        print("  子节点: \(childNames.joined(separator: ", "))")
     }
 }
 
@@ -5360,27 +4903,21 @@ struct IndependentWindowWrapper: View {
                 }
                 .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("nodeUpdated"))) { notification in
                     // 🔧 处理节点更新通知，确保独立窗口UI能实时刷新
-                    print("📡 独立窗口: 收到nodeUpdated通知")
                     
                     if let updatedNode = notification.object as? Node {
-                        print("📡 独立窗口: 节点更新 - '\(updatedNode.text)'")
                         
                         // 查找并更新store中的对应节点
                         if store.nodes.contains(where: { $0.id == updatedNode.id }) {
                             // 使用NodeStore的updateNode方法来正确更新节点
                             store.updateNode(updatedNode)
-                            print("✅ 独立窗口: 已同步更新节点 - '\(updatedNode.text)'")
                             
                             // 如果当前选中的节点是更新的节点，也要更新选中节点引用
                             if store.selectedNode?.id == updatedNode.id {
                                 store.setSelectedNode(updatedNode)
-                                print("🔄 独立窗口: 已更新选中节点引用")
                             }
                         } else {
-                            print("⚠️ 独立窗口: 未找到要更新的节点 - '\(updatedNode.text)' (ID: \(updatedNode.id.uuidString.prefix(8)))")
                         }
                     } else {
-                        print("⚠️ 独立窗口: nodeUpdated通知格式错误 - 缺少节点对象")
                     }
                 }
             
@@ -5390,7 +4927,6 @@ struct IndependentWindowWrapper: View {
                         .ignoresSafeArea()
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            print("🛡️ 独立窗口背景遮罩被点击，不关闭命令面板")
                         }
                     
                     CommandPaletteView(isPresented: $showPalette)
@@ -5402,14 +4938,11 @@ struct IndependentWindowWrapper: View {
             if showQuickSearch {
                 QuickSearchView(
                     onDismiss: { 
-                        print("🔍 IndependentWindow: QuickSearchView onDismiss 被调用")
                         showQuickSearch = false 
                     },
                     onNodeSelected: { node in
-                        print("🔍 IndependentWindow: QuickSearchView 选择了节点: \(node.text)")
                         
                         if let nodeLayer = store.layers.first(where: { $0.id == node.layerId }) {
-                            print("🔄 切换到节点所在层: \(nodeLayer.displayName)")
                             store.setCurrentLayer(nodeLayer)
                         }
                         
@@ -5418,13 +4951,11 @@ struct IndependentWindowWrapper: View {
                 )
                 .environmentObject(store)
                 .onAppear {
-                    print("🔍 IndependentWindow: QuickSearchView 出现")
                 }
             }
         }
         .animation(.easeInOut(duration: 0.2), value: showPalette)
         .onChange(of: showQuickSearch) { _, newValue in
-            print("🔍 IndependentWindow: showQuickSearch 状态变化: \(newValue)")
         }
         .onKeyPress(.escape) {
             if showPalette {
@@ -5490,18 +5021,15 @@ struct IndependentWindowModifier: ViewModifier {
             .focusedSceneValue(\.openMapWindow, ShowCardAction {
                 // 🔧 检查是否应该处理这个命令
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
-                    print("🗺️ 独立窗口: 忽略地图窗口打开请求 - 窗口非活跃状态")
                     return
                 }
                 
                 // 🔧 添加防重复机制
                 guard !isOpeningMapWindow else {
-                    print("🚫 独立窗口: 地图窗口正在打开中，忽略focusedSceneValue重复请求")
                     return
                 }
                 
                 isOpeningMapWindow = true
-                print("🗺️ 独立窗口 (focusedSceneValue): 打开通用地图窗口")
                 
                 // 直接打开地图窗口
                 openWindow(id: "map")
@@ -5513,7 +5041,6 @@ struct IndependentWindowModifier: ViewModifier {
                         name: NSNotification.Name("mapWindowSetupMapping"),
                         object: mappingInfo
                     )
-                    print("🔗 独立窗口: 已发送窗口映射信息 (focusedSceneValue)")
                 }
                 
                 // 1秒后重置防重复标志
@@ -5575,7 +5102,6 @@ struct IndependentWindowModifier: ViewModifier {
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("clearTagFilterFromKeyboard"))) { _ in
-                print("🔑 独立窗口: 收到键盘清除标签筛选通知")
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.001) {
                     store.clearTagFilter()
                 }
@@ -5585,27 +5111,22 @@ struct IndependentWindowModifier: ViewModifier {
                 if let sourceWindowId = notification.userInfo?["sourceWindowId"] as? String {
                     // 如果指定了源窗口ID，只有匹配的窗口处理
                     guard sourceWindowId == windowId.uuidString else {
-                        print("🚫 独立窗口: 忽略executeOpenWindow通知 - 源窗口ID不匹配")
                         return
                     }
                 } else {
                     // 如果没有源窗口ID，使用原有的活跃窗口检查
                     guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: false, commandName: "executeOpenWindow") else {
-                        print("🚫 独立窗口: 忽略executeOpenWindow通知 - 窗口非活跃状态")
                         return
                     }
                 }
                 
                 if let windowType = notification.object as? String {
-                    print("✅ 独立窗口: 收到executeOpenWindow通知 - windowType: \(windowType)")
                     
                     // 🔧 对于层图谱窗口，使用全局唯一检查
                     if windowType == "layerGraph" {
                         if !WindowFocusManager.shared.reserveGlobalLayerGraphWindow() {
-                            print("⚠️ 独立窗口: 全局层图谱窗口已存在，尝试激活")
                             // 获取已存在的层图谱窗口ID
                             if let existingLayerGraphId = WindowFocusManager.shared.getGlobalLayerGraphWindowId() {
-                                print("🔄 独立窗口: 找到全局层图谱窗口ID: \(existingLayerGraphId.prefix(8))")
                                 // 发送通知激活层图谱窗口
                                 NotificationCenter.default.post(
                                     name: NSNotification.Name("focusLayerGraphWindow"),
@@ -5622,10 +5143,8 @@ struct IndependentWindowModifier: ViewModifier {
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("showCommandPalette"))) { _ in
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "showCommandPalette") else {
-                    print("🚫 独立窗口: 忽略showCommandPalette通知 - 应用无活跃窗口或冷却期")
                     return
                 }
-                print("✅ 独立窗口: 处理showCommandPalette通知 - 发送executeOpenWindow通知")
                 // 🔧 改为发送executeOpenWindow通知，统一窗口打开逻辑
                 // 🔧 传递源窗口ID以防止重复处理
                 NotificationCenter.default.post(
@@ -5636,25 +5155,20 @@ struct IndependentWindowModifier: ViewModifier {
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("addNewNode"))) { _ in
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
-                    print("🚫 独立窗口: 忽略addNewNode通知 - 应用无活跃窗口")
                     return
                 }
-                print("✅ 独立窗口: 处理addNewNode通知 - 打开快速添加")
                 showQuickAdd = true
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openNodeManagerForEdit"))) { notification in
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "openNodeManagerForEdit") else {
-                    print("🚫 独立窗口: 忽略openNodeManagerForEdit通知 - 窗口非活跃状态")
                     return
                 }
                 if let node = notification.object as? Node {
-                    print("📝 IndependentWindow: 收到节点编辑请求，节点: \(node.text)")
                     nodeToEditInManager = node
                     // 先打开节点管理窗口
                     NotificationCenter.default.post(name: Notification.Name("openNodeManager"), object: nil)
                     // 延迟发送编辑节点通知，确保窗口已打开
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                        print("📝 IndependentWindow: 延迟发送编辑节点通知: \(node.text)")
                         NotificationCenter.default.post(name: Notification.Name("nodeManagerEditNode"), object: node)
                     }
                 }
@@ -5662,18 +5176,14 @@ struct IndependentWindowModifier: ViewModifier {
             // openTagSearch通知已经由TagSidebarView直接处理，不需要在这里转发
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openQuickSearch"))) { _ in
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
-                    print("🚫 独立窗口: 忽略openQuickSearch通知 - 应用无活跃窗口")
                     return
                 }
-                print("✅ 独立窗口: 处理openQuickSearch通知 - 打开快速搜索")
                 showQuickSearch = true
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openGraphWindow"))) { _ in
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
-                    print("🚫 独立窗口: 忽略openGraphWindow通知 - 应用无活跃窗口")
                     return
                 }
-                print("✅ 独立窗口: 处理openGraphWindow通知 - 打开图谱窗口")
                 NotificationCenter.default.post(name: NSNotification.Name("executeOpenGraphWindow"), object: "independent")
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("requestMapForLocationSelection"))) { notification in
@@ -5683,16 +5193,13 @@ struct IndependentWindowModifier: ViewModifier {
                    let requestWindowId = notificationData["windowId"] {
                     // 只处理发给这个特定独立窗口的请求
                     if requestSource == "INDEPENDENT_WINDOW" && requestWindowId == windowId.uuidString {
-                        print("📍 独立窗口: 处理位置选择请求 (窗口ID匹配: \(windowId.uuidString.prefix(8)))")
                         
                         // 🔧 防重复机制：检查是否正在打开地图窗口
                         guard !isOpeningMapWindow else {
-                            print("🚫 独立窗口: 地图窗口正在打开中，忽略重复请求")
                             return
                         }
                         
                         isOpeningMapWindow = true
-                        print("🗺️ 独立窗口: 打开地图窗口")
                         openWindow(id: "map")
                         
                         // 设置窗口映射信息和位置选择模式
@@ -5702,12 +5209,10 @@ struct IndependentWindowModifier: ViewModifier {
                                 name: NSNotification.Name("mapWindowSetupMapping"),
                                 object: mappingInfo
                             )
-                            print("🗺️ 独立窗口: 已发送窗口映射信息")
                         }
                         
                         // 🔧 发送位置选择模式通知
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                            print("📍 独立窗口: 发送位置选择模式通知（带时间戳）")
                             NotificationCenter.default.post(
                                 name: NSNotification.Name("openMapForLocationSelection"), 
                                 object: ["requestTime": Date()]
@@ -5717,16 +5222,12 @@ struct IndependentWindowModifier: ViewModifier {
                         // 1秒后重置防重复标志
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                             isOpeningMapWindow = false
-                            print("🔄 独立窗口: 重置地图窗口打开标志")
                         }
                     } else {
-                        print("📍 独立窗口: 忽略位置选择请求 - 窗口ID不匹配")
-                        print("   - 请求源: \(requestSource), 目标窗口: \(requestWindowId.prefix(8)), 当前窗口: \(windowId.uuidString.prefix(8))")
                     }
                 } else if let requestSource = notification.object as? String {
                     // 向后兼容旧格式
                     if requestSource == "INDEPENDENT_WINDOW" {
-                        print("⚠️ 独立窗口: 收到旧格式通知，无法确定目标窗口")
                     }
                 }
             }
@@ -5734,17 +5235,14 @@ struct IndependentWindowModifier: ViewModifier {
                 // 🔧 修复：检查通知是否包含源窗口信息，如果包含则只有匹配的窗口才处理
                 if let sourceInfo = notification.object as? [String: String],
                    let targetSourceWindowId = sourceInfo["sourceWindowId"] {
-                    print("🎯 独立窗口: 收到带源窗口ID的openMapWindow通知 - \(targetSourceWindowId.prefix(8))")
                     
                     // 检查是否是发给这个独立窗口的
                     if targetSourceWindowId == windowId.uuidString {
                         // 🔧 添加防重复机制
                         guard !isOpeningMapWindow else {
-                            print("🚫 独立窗口: 地图窗口正在打开中，忽略openMapWindow重复请求")
                             return
                         }
                         
-                        print("✅ 独立窗口: 处理指定给当前独立窗口的openMapWindow通知")
                         isOpeningMapWindow = true
                         openWindow(id: "map")
                         
@@ -5755,7 +5253,6 @@ struct IndependentWindowModifier: ViewModifier {
                                 name: NSNotification.Name("mapWindowSetupMapping"),
                                 object: mappingInfo
                             )
-                            print("🔗 独立窗口: 已发送窗口映射信息 (指定openMapWindow)")
                         }
                         
                         // 1秒后重置防重复标志
@@ -5763,24 +5260,20 @@ struct IndependentWindowModifier: ViewModifier {
                             isOpeningMapWindow = false
                         }
                     } else {
-                        print("🚫 独立窗口: 忽略发给其他窗口的openMapWindow通知 - 目标: \(targetSourceWindowId.prefix(8)), 当前: \(windowId.uuidString.prefix(8))")
                     }
                     return
                 }
                 
                 // 如果没有源窗口信息，使用原有的全局命令逻辑（向后兼容）
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
-                    print("🚫 独立窗口: 忽略openMapWindow通知 - 应用无活跃窗口")
                     return
                 }
                 
                 // 🔧 添加防重复机制
                 guard !isOpeningMapWindow else {
-                    print("🚫 独立窗口: 地图窗口正在打开中，忽略全局openMapWindow重复请求")
                     return
                 }
                 
-                print("✅ 独立窗口: 处理全局openMapWindow通知 - 打开地图窗口")
                 isOpeningMapWindow = true
                 openWindow(id: "map")
                 
@@ -5791,7 +5284,6 @@ struct IndependentWindowModifier: ViewModifier {
                         name: NSNotification.Name("mapWindowSetupMapping"),
                         object: mappingInfo
                     )
-                    print("🔗 独立窗口: 已发送窗口映射信息 (全局openMapWindow)")
                 }
                 
                 // 1秒后重置防重复标志
@@ -5801,68 +5293,53 @@ struct IndependentWindowModifier: ViewModifier {
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openTagManager"))) { _ in
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "openTagManager") else {
-                    print("🚫 独立窗口: 忽略openTagManager通知 - 非key窗口或冷却期")
                     return
                 }
-                print("✅ 独立窗口: 处理openTagManager通知 - 打开标签管理窗口")
                 openWindow(id: "tagManager")
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("openNodeManager"))) { _ in
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "openNodeManager") else {
-                    print("🚫 独立窗口: 忽略openNodeManager通知 - 非key窗口或冷却期")
                     return
                 }
-                print("✅ 独立窗口: 处理openNodeManager通知 - 打开节点管理")
                 NotificationCenter.default.post(name: NSNotification.Name("executeOpenNodeManager"), object: "independent")
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("toggleSidebar"))) { _ in
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true) else {
-                    print("🚫 独立窗口: 忽略toggleSidebar通知 - 非key窗口")
                     return
                 }
-                print("✅ 独立窗口: 处理toggleSidebar通知")
                 NotificationCenter.default.post(name: NSNotification.Name("executeToggleSidebar"), object: "independent")
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("switchToDetailTab"))) { _ in
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId) else {
-                    print("🚫 独立窗口: 忽略switchToDetailTab通知 - 窗口非活跃状态")
                     return
                 }
-                print("✅ 独立窗口: 处理switchToDetailTab通知 - 发送执行命令")
                 // 发送执行命令，避免循环
                 NotificationCenter.default.post(name: NSNotification.Name("executeDetailTabSwitch"), object: nil)
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("switchToGraphTab"))) { _ in
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId) else {
-                    print("🚫 独立窗口: 忽略switchToGraphTab通知 - 窗口非活跃状态")
                     return
                 }
-                print("✅ 独立窗口: 处理switchToGraphTab通知 - 发送执行命令")
                 // 发送执行命令，避免循环
                 NotificationCenter.default.post(name: NSNotification.Name("executeGraphTabSwitch"), object: nil)
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("clearTagFilter"))) { _ in
                 // clearTagFilter是全局命令，应该在任何活跃窗口中可用
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "clearTagFilter") else {
-                    print("🚫 独立窗口: 忽略clearTagFilter通知 - 应用无活跃窗口")
                     return
                 }
-                print("✅ 独立窗口: 处理clearTagFilter通知，清除标签筛选")
                 store.clearTagFilter()
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("restorePreviousTagFilterState"))) { _ in
                 // restorePreviousTagFilterState是全局命令，应该在任何活跃窗口中可用
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "restorePreviousTagFilterState") else {
-                    print("🚫 独立窗口: 忽略restorePreviousTagFilterState通知 - 应用无活跃窗口")
                     return
                 }
-                print("✅ 独立窗口: 处理restorePreviousTagFilterState通知，恢复标签筛选")
                 store.restorePreviousTagFilterState()
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("switchToLayer"))) { notification in
                 // 🔧 处理来自层图谱窗口的层切换请求
                 guard let layer = notification.object as? Layer else {
-                    print("⚠️ 独立窗口: switchToLayer通知格式错误 - 缺少层对象")
                     return
                 }
                 
@@ -5871,52 +5348,39 @@ struct IndependentWindowModifier: ViewModifier {
                    !sourceWindowId.isEmpty {
                     
                     // 🔧 调试：打印窗口ID信息
-                    print("🔍 独立窗口: switchToLayer通知窗口ID检查")
-                    print("   - 通知中的sourceWindowId: \(sourceWindowId.prefix(8))")
-                    print("   - 独立窗口的windowId: \(windowId.uuidString.prefix(8))")
-                    print("   - WindowFocusManager中活跃窗口ID: \(WindowFocusManager.shared.getActiveWindowId()?.uuidString.prefix(8) ?? "nil")")
                     
                     // 检查是否是发给这个独立窗口的
                     if sourceWindowId == windowId.uuidString {
-                        print("🔄 独立窗口: 处理来自层图谱的层切换请求 - 切换到层: \(layer.displayName)")
                         Task {
                             await store.switchToLayer(layer)
                         }
                     } else {
-                        print("🚫 独立窗口: 忽略发给其他窗口的switchToLayer通知 - 目标: \(sourceWindowId.prefix(8))")
                     }
                 } else {
                     // 如果没有指定源窗口，使用WindowFocusManager检查
                     guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: false, commandName: "switchToLayer") else {
-                        print("🚫 独立窗口: 忽略switchToLayer通知 - 窗口非活跃状态")
                         return
                     }
-                    print("✅ 独立窗口: 作为活跃窗口处理层切换请求 - 切换到层: \(layer.displayName)")
                     Task {
                         await store.switchToLayer(layer)
                     }
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("handleMapPinTap"))) { notification in
-                print("🔔 独立窗口: 收到handleMapPinTap通知")
                 guard let userInfo = notification.userInfo,
                       let targetNodeId = userInfo["targetNodeId"] as? String,
                       let targetLayerId = userInfo["targetLayerId"] as? String else {
-                    print("⚠️ 独立窗口: handleMapPinTap通知格式错误 - 缺少节点ID或层ID")
                     return
                 }
-                print("🔔 独立窗口: 通知包含 targetWindowId: \(userInfo["targetWindowId"] ?? "nil")")
                 
                 // 🔧 从当前store实例中查找对应的节点和层
                 guard let targetNodeUUID = UUID(uuidString: targetNodeId),
                       let targetNode = store.nodes.first(where: { $0.id == targetNodeUUID }) else {
-                    print("⚠️ 独立窗口: 未在当前store中找到目标节点 - ID: \(targetNodeId.prefix(8))")
                     return
                 }
                 
                 guard let targetLayerUUID = UUID(uuidString: targetLayerId),
                       let targetLayer = store.layers.first(where: { $0.id == targetLayerUUID }) else {
-                    print("⚠️ 独立窗口: 未在当前store中找到目标层 - ID: \(targetLayerId.prefix(8))")
                     return
                 }
                 
@@ -5924,20 +5388,15 @@ struct IndependentWindowModifier: ViewModifier {
                 // 如果指定了目标窗口ID，必须完全匹配才处理
                 if let targetWindowId = userInfo["targetWindowId"] as? String {
                     if targetWindowId != windowId.uuidString {
-                        print("🚫 独立窗口: 忽略handleMapPinTap通知 - 目标窗口不匹配 (\(targetWindowId.prefix(8)))")
                         return
                     }
-                    print("🎯 独立窗口: 处理指定目标的地图节点点击")
                 } else {
                     // 如果没有指定目标窗口ID，则使用WindowFocusManager进行活跃窗口检查
                     guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: false, commandName: "handleMapPinTap") else {
-                        print("🚫 独立窗口: 忽略handleMapPinTap通知 - 窗口非活跃状态且无目标窗口ID")
                         return
                     }
-                    print("✅ 独立窗口: 作为活跃窗口处理地图节点点击")
                 }
                 
-                print("🗺️ 独立窗口: 处理地图标注点击 - 节点: \(targetNode.text), 层: \(targetLayer.displayName)")
                 
                 // 执行层切换和标签展开操作
                 Task {
@@ -5945,7 +5404,6 @@ struct IndependentWindowModifier: ViewModifier {
                     
                     await MainActor.run {
                         store.expandLocationTagAndSelect(targetNode)
-                        print("✅ 独立窗口: 已切换到层 '\(targetLayer.displayName)' 并展开地点标签")
                         
                         // 发送通知切换到地图标签
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
@@ -5960,32 +5418,25 @@ struct IndependentWindowModifier: ViewModifier {
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("executeOpenNodeManager"))) { notification in
                 // 只处理来自独立窗口的请求
                 guard WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: true, commandName: "executeOpenNodeManager") else {
-                    print("🚫 独立窗口: 忽略executeOpenNodeManager通知 - 非key窗口或冷却期")
                     return
                 }
                 
-                print("🔔 独立窗口: 收到executeOpenNodeManager通知，打开节点管理窗口")
                 if let source = notification.object as? String, source == "independent" {
-                    print("🎯 独立窗口: 处理来自独立窗口的节点管理请求")
                     openWindow(id: "nodeManager")
                 } else {
-                    print("🚫 独立窗口: 忽略来自主窗口的节点管理请求")
                 }
             }
             // 🚫 移除executeOpenMapWindow处理器，避免重复打开地图窗口
             // 现在直接在requestMapForLocationSelection处理器中打开地图窗口
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("requestWindowMapping"))) { notification in
                 // 独立窗口处理窗口映射请求 - 这是关键修复！
-                print("🔧 独立窗口: 收到窗口映射请求")
                 
                 if let requestInfo = notification.object as? [String: String],
                    let childWindowId = requestInfo["childWindowId"],
                    let windowType = requestInfo["windowType"] {
-                    print("🔧 独立窗口: 处理窗口映射请求 - 窗口类型: \(windowType), 子窗口ID: \(childWindowId.prefix(8))")
                     
                     // 独立窗口的ID作为源窗口
                     let sourceWindowId = windowId.uuidString
-                    print("🔧 独立窗口: 使用独立窗口作为源窗口ID: \(sourceWindowId.prefix(8))")
                     
                     // 发送映射信息
                     let mappingInfo = ["sourceWindowId": sourceWindowId]
@@ -5993,21 +5444,17 @@ struct IndependentWindowModifier: ViewModifier {
                         name: NSNotification.Name("mapWindowSetupMapping"),
                         object: mappingInfo
                     )
-                    print("🔧 独立窗口: 已发送窗口映射信息到 \(windowType) 窗口")
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("requestWindowMappingForMap"))) { notification in
                 // 🔧 处理地图窗口的主动映射请求
-                print("🔧 独立窗口: 收到地图窗口映射请求")
                 
                 if let requestInfo = notification.object as? [String: String],
                    let mapWindowId = requestInfo["mapWindowId"] {
-                    print("🔧 独立窗口: 处理地图窗口映射请求 - 地图窗口ID: \(mapWindowId.prefix(8))")
                     
                     // 检查这个独立窗口是否应该响应（即它是否是活跃窗口或最近活跃的非地图窗口）
                     if WindowFocusManager.shared.shouldHandleNotification(for: windowId, isGlobalCommand: false) {
                         let sourceWindowId = windowId.uuidString
-                        print("🔧 独立窗口: 确定为源窗口，发送映射信息 - 源窗口ID: \(sourceWindowId.prefix(8))")
                         
                         // 🎯 发送带目标地图窗口ID的映射信息
                         let mappingInfo = [
@@ -6018,9 +5465,7 @@ struct IndependentWindowModifier: ViewModifier {
                             name: NSNotification.Name("mapWindowSetupMapping"),
                             object: mappingInfo
                         )
-                        print("🔧 独立窗口: 已发送目标映射信息到地图窗口 \(mapWindowId.prefix(8))")
                     } else {
-                        print("🚫 独立窗口: 不是活跃窗口，忽略地图窗口映射请求")
                     }
                 }
             }
@@ -6096,7 +5541,6 @@ struct GlobalCommands: Commands {
             
             
             Button("清除标签筛选") {
-                print("🔑 GlobalCommands: Command+T - 清除标签筛选（全局菜单触发）")
                 // 直接发送通知，让独立窗口处理
                 NotificationCenter.default.post(name: NSNotification.Name("clearTagFilterFromKeyboard"), object: nil)
             }
@@ -6256,7 +5700,6 @@ struct WindowClickTracker: NSViewRepresentable {
                                 "isRealClick": true
                             ]
                         )
-                        print("🖱️ 检测到真实用户点击窗口 - \(self.windowId.uuidString.prefix(8))")
                     }
                 }
             }
