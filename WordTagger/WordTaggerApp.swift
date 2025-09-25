@@ -166,7 +166,7 @@ class TagMappingManager: ObservableObject {
     func removeMapping(_ mapping: TagMapping) {
         
         if let index = tagMappings.firstIndex(where: { $0.id == mapping.id }) {
-            let removedMapping = tagMappings.remove(at: index)
+            _ = tagMappings.remove(at: index)
             
             saveToUserDefaults()
             
@@ -213,7 +213,7 @@ class TagMappingManager: ObservableObject {
         let lowerToken = token.lowercased()
         
         // 1. 首先检查TagMappingManager中的映射
-        if let (typeName, tagType) = mappingDictionary[lowerToken] {
+        if let (_, tagType) = mappingDictionary[lowerToken] {
             return tagType
         }
         
@@ -244,7 +244,7 @@ class TagMappingManager: ObservableObject {
         }
         
         // 1. 首先检查TagMappingManager中的映射
-        if let (typeName, tagType) = mappingDictionary[lowerToken] {
+        if let (_, tagType) = mappingDictionary[lowerToken] {
             return tagType
         }
         
@@ -682,7 +682,7 @@ struct QuickAddSheetView: View {
                         }
                         Button("查看详情") {
                             // 显示详细的冲突信息
-                            if let details = alert.conflictDetails {
+                            if alert.conflictDetails != nil {
                             }
                             store.duplicateNodeAlert = nil
                         }
@@ -1286,7 +1286,7 @@ struct QuickAddSheetView: View {
     // 🆕 确保子节点存在的辅助函数
     private func ensureChildNodesExist(childNames: [String], layerId: UUID) {
         for childName in childNames {
-            if let existingNode = store.nodes.first(where: { $0.text.lowercased() == childName.lowercased() }) {
+            if store.nodes.first(where: { $0.text.lowercased() == childName.lowercased() }) != nil {
             } else {
                 let childNode = Node(
                     text: childName,
@@ -1317,7 +1317,7 @@ struct QuickAddSheetView: View {
     
     private func setupPrefilledNode() {
         if let node = prefilledNode {
-            for (index, tag) in node.tags.enumerated() {
+            for (_, _) in node.tags.enumerated() {
             }
             
             // 使用动态版本，传入所有节点以获得实时的子节点信息
@@ -1934,7 +1934,7 @@ struct QuickAddSheetView: View {
             return true // 保留非子节点引用标签
         }
         
-        let remainingChildCount = existingChildReferences.count - childNamesToRemove.count
+        _ = existingChildReferences.count - childNamesToRemove.count
         // 计算更新后的层级深度
         let updatedDepth = compoundNode.getCompoundDepth(allNodes: store.nodes)
         let updatedMeaning = "\(updatedDepth)级复合节点"
@@ -1995,7 +1995,7 @@ struct QuickAddSheetView: View {
         
         // 创建或确保新子节点存在
         for childName in newChildNames {
-            if let existingNode = store.nodes.first(where: { $0.text.lowercased() == childName.lowercased() }) {
+            if store.nodes.first(where: { $0.text.lowercased() == childName.lowercased() }) != nil {
             } else {
                 let childNode = Node(
                     text: childName,
@@ -2004,7 +2004,7 @@ struct QuickAddSheetView: View {
                     layerId: compoundNode.layerId,
                     tags: []
                 )
-                let success = store.addNode(childNode)
+                _ = store.addNode(childNode)
             }
         }
         
@@ -2072,7 +2072,7 @@ struct QuickAddSheetView: View {
             let actualChildName = childName.hasPrefix("@") ? String(childName.dropFirst()) : childName
             
             // 检查是否已存在
-            if let existingNode = store.nodes.first(where: { $0.text.lowercased() == actualChildName.lowercased() }) {
+            if store.nodes.first(where: { $0.text.lowercased() == actualChildName.lowercased() }) != nil {
             } else {
                 // 创建新的子节点
                 let childNode = Node(
@@ -3416,7 +3416,7 @@ struct WordTaggerApp: App {
         let verification = ResourceManager.verifyAllResourcesExist()
         if verification.success {
         } else {
-            for missingFile in verification.missingFiles {
+            for _ in verification.missingFiles {
             }
         }
         
@@ -3715,8 +3715,8 @@ struct WordTaggerApp: App {
                 // 处理窗口映射请求 - 解决时序问题
                 
                 if let requestInfo = notification.object as? [String: String],
-                   let childWindowId = requestInfo["childWindowId"],
-                   let windowType = requestInfo["windowType"] {
+                   let _ = requestInfo["childWindowId"],
+                   let _ = requestInfo["windowType"] {
                     
                     // 🔧 重要修复：使用智能源窗口检测
                     let sourceWindowId = WindowFocusManager.shared.getSourceWindowId()
@@ -4140,7 +4140,6 @@ struct TagManagerView: View {
                 )
             }
         }
-    }
 
     // 标签管理内容 - 简化版
     private var tagManagementContent: some View {
@@ -4197,6 +4196,7 @@ struct TagManagerView: View {
 
         }
     }
+}
 
 // MARK: - Tag Edit Form View
 
@@ -4316,7 +4316,7 @@ extension TagManagerView {
             typeName: newTypeName
         )
         
-        if let editing = editingMapping {
+        if editingMapping != nil {
         }
         
         tagManager.saveMapping(mapping)
@@ -4646,7 +4646,7 @@ struct CompoundNodeAddSheetView: View {
             return true // 保留非子节点引用标签
         }
         
-        let remainingChildCount = existingChildReferences.count - childNamesToRemove.count
+        _ = existingChildReferences.count - childNamesToRemove.count
         // 计算更新后的层级深度
         let updatedDepth = compoundNode.getCompoundDepth(allNodes: store.nodes)
         let updatedMeaning = "\(updatedDepth)级复合节点"
@@ -4717,7 +4717,7 @@ struct CompoundNodeAddSheetView: View {
         // 创建或确保新子节点存在
         var childNodesToCreate: [Node] = []
         for childName in newChildNames {
-            if let existingNode = store.nodes.first(where: { $0.text.lowercased() == childName.lowercased() }) {
+            if store.nodes.first(where: { $0.text.lowercased() == childName.lowercased() }) != nil {
             } else {
                 let childNode = Node(
                     text: childName,
@@ -4732,7 +4732,7 @@ struct CompoundNodeAddSheetView: View {
         
         // 添加新创建的子节点到store
         for childNode in childNodesToCreate {
-            let success = store.addNode(childNode)
+            _ = store.addNode(childNode)
         }
         
         // 清除图谱缓存以刷新显示
@@ -4798,7 +4798,7 @@ struct CompoundNodeAddSheetView: View {
             compoundTags.append(childReferenceTag)
         }
         
-        for tag in compoundTags.dropFirst() {
+        for _ in compoundTags.dropFirst() {
         }
         
         // 创建复合节点，只包含复合标签和子节点引用标签
@@ -4814,7 +4814,7 @@ struct CompoundNodeAddSheetView: View {
         var childNodes: [Node] = []
         for childName in childNames {
             // 检查是否已存在
-            if let existingNode = store.nodes.first(where: { $0.text.lowercased() == childName.lowercased() }) {
+            if store.nodes.first(where: { $0.text.lowercased() == childName.lowercased() }) != nil {
                 // 子节点已存在，保持其原有标签
             } else {
                 // 创建新的子节点
@@ -5449,8 +5449,8 @@ struct IndependentWindowModifier: ViewModifier {
                 // 独立窗口处理窗口映射请求 - 这是关键修复！
                 
                 if let requestInfo = notification.object as? [String: String],
-                   let childWindowId = requestInfo["childWindowId"],
-                   let windowType = requestInfo["windowType"] {
+                   let _ = requestInfo["childWindowId"],
+                   let _ = requestInfo["windowType"] {
                     
                     // 独立窗口的ID作为源窗口
                     let sourceWindowId = windowId.uuidString

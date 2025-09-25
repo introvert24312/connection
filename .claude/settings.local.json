@@ -89,7 +89,8 @@
       "Bash(ssh-keygen:*)",
       "Bash(cat:*)",
       "Bash(ssh-add:*)",
-      "Bash(ssh:*)"
+      "Bash(ssh:*)",
+      "Bash(swiftc:*)"
     ],
     "deny": []
   }
