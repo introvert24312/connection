@@ -4259,13 +4259,9 @@ struct TagEditFormView: View {
             return .handled
         }
         .onAppear {
-            // 自动聚焦第一个字段
+            // 始终聚焦到快捷键字段，让用户可以优先编辑快捷键
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                if newKey.isEmpty {
-                    isKeyFieldFocused = true
-                } else {
-                    isTypeNameFieldFocused = true
-                }
+                isKeyFieldFocused = true
             }
         }
     }
