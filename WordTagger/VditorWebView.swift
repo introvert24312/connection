@@ -2131,19 +2131,19 @@ struct VditorWebView: NSViewRepresentable {
               margin: 0 8px !important;
             }
             
-            /* 完全隐藏工具栏 - 保留DOM结构让Vditor正常工作 */
+            /* 临时显示工具栏 - 用于调试按钮 */
             .vditor-toolbar {
-              height: 0 !important;          /* 高度为0 */
-              width: 0 !important;           /* 宽度为0 */
-              opacity: 0 !important;         /* 完全透明 */
-              overflow: hidden !important;   /* 隐藏溢出内容 */
-              margin: 0 !important;          /* 移除外边距 */
-              padding: 0 !important;         /* 移除内边距 */
-              border: none !important;       /* 移除边框 */
-              pointer-events: none !important; /* 禁用鼠标交互 */
-              position: absolute !important; /* 绝对定位移出视野 */
-              left: -9999px !important;      /* 移到屏幕外 */
-              visibility: hidden !important; /* 隐藏但保持DOM结构 */
+              /* height: 0 !important;          高度为0 */
+              /* width: 0 !important;           宽度为0 */
+              /* opacity: 0 !important;         完全透明 */
+              /* overflow: hidden !important;   隐藏溢出内容 */
+              /* margin: 0 !important;          移除外边距 */
+              /* padding: 0 !important;         移除内边距 */
+              /* border: none !important;       移除边框 */
+              /* pointer-events: none !important; 禁用鼠标交互 */
+              /* position: absolute !important; 绝对定位移出视野 */
+              /* left: -9999px !important;      移到屏幕外 */
+              /* visibility: hidden !important; 隐藏但保持DOM结构 */
             }
             
             /* 编辑区域样式 - 更全面的选择器 */
@@ -3175,7 +3175,10 @@ struct VditorWebView: NSViewRepresentable {
                 'Cmd+Shift+O': '',
                 'Cmd+Shift+L': '',
                 'Ctrl+Shift+O': '',
-                'Ctrl+Shift+L': ''
+                'Ctrl+Shift+L': '',
+                // 🔧 明确配置 macOS 撤销和重做快捷键
+                'Cmd+Z': 'undo',
+                'Cmd+Shift+Z': 'redo'
               },
               after(){
                 // 通知 Native：ready
@@ -3262,6 +3265,39 @@ struct VditorWebView: NSViewRepresentable {
                 
                 // 拦截特殊快捷键
                 document.addEventListener('keydown', function(e) {
+                  // 🔧 特别处理Command+Shift+Z重做快捷键 - 模仿大纲快捷键逻辑
+                  if (e.metaKey && e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+                    console.log('🎯 检测到 Command+Shift+Z 重做快捷键！');
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    // 手动触发重做按钮点击
+                    try {
+                      const redoBtn = document.querySelector('[data-type="redo"]');
+                      if (redoBtn) {
+                        console.log('✅ 找到重做按钮，模拟点击');
+                        redoBtn.click();
+                      } else {
+                        console.error('❌ 未找到重做按钮');
+                        // 尝试其他选择器
+                        const altBtn = document.querySelector('.vditor-toolbar .vditor-tooltipped[data-type="redo"]');
+                        if (altBtn) {
+                          console.log('✅ 找到备选重做按钮');
+                          altBtn.click();
+                        }
+                      }
+                    } catch(err) {
+                      console.error('❌ 触发重做失败:', err);
+                    }
+                    return false;
+                  }
+
+                  // 🔧 允许单独的Command+Z撤销继续工作
+                  if (e.metaKey && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+                    console.log('🔧 允许Command+Z撤销，让Vditor处理');
+                    return; // 让Vditor处理撤销
+                  }
+
                   // 调试所有按键组合
                   if (e.metaKey || e.ctrlKey || e.altKey) {
                     console.log('🎹 按键调试:', {
@@ -3584,6 +3620,15 @@ struct VditorWebView: NSViewRepresentable {
               },
               toolbar: [
                 {
+                  name: 'undo',
+                  tip: '撤销 (⌘Z)'
+                },
+                {
+                  name: 'redo',
+                  tip: '重做 (⌘⇧Z)'
+                },
+                '|',
+                {
                   name: 'outline',
                   tip: '大纲 (⌘;)',
                   click() {
@@ -3592,7 +3637,7 @@ struct VditorWebView: NSViewRepresentable {
                     return true;
                   }
                 }
-              ], // 只保留大纲按钮，使用Command+;快捷键
+              ], // 添加撤销重做按钮和大纲按钮
               upload: { 
                 accept:'image/*',
                 async handler(files) {
