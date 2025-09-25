@@ -4059,31 +4059,44 @@ struct TagManagerView: View {
                 .focused($isViewFocused)
             
             VStack(spacing: 0) {
-                // 简洁的Tab风格模块切换
-                HStack(spacing: 0) {
-                    // Tab切换区
-                    ForEach(TagManagerModule.allCases, id: \.self) { module in
-                        Button {
-                            selectedModule = module
-                        } label: {
-                            VStack(spacing: 8) {
+                // 仿DetailPanel的标签栏风格
+                HStack {
+                    // 标题标签
+                    Text("标签管理")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(Color(NSColor.labelColor))
+                        .padding(.trailing, 8)
+
+                    // 模块切换按钮组
+                    HStack(spacing: 0) {
+                        ForEach(TagManagerModule.allCases, id: \.self) { module in
+                            Button(action: { selectedModule = module }) {
                                 Text(module.rawValue)
-                                    .font(.system(size: 15, weight: .medium))
-                                    .foregroundColor(selectedModule == module ? .primary : .secondary)
-
-                                // 下划线指示器
-                                Rectangle()
-                                    .fill(selectedModule == module ? Color.accentColor : Color.clear)
-                                    .frame(height: 2)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(Color(NSColor.labelColor))
+                                    .padding(.vertical, 3)
+                                    .padding(.horizontal, 12)
+                                    .frame(maxWidth: .infinity)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(selectedModule == module ? Color(NSColor.quaternaryLabelColor) : Color.clear)
+                                    )
+                                    .contentShape(Rectangle())
                             }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
-                        .frame(maxWidth: .infinity)
                     }
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color(NSColor.controlBackgroundColor))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color(NSColor.separatorColor), lineWidth: 0.5)
+                            )
+                    )
+                    .frame(maxWidth: .infinity)
 
-                    Spacer()
-
-                    // 简洁的关闭按钮
+                    // 关闭按钮
                     Button(action: onDismiss) {
                         Image(systemName: "xmark")
                             .font(.system(size: 14, weight: .medium))
@@ -4091,9 +4104,8 @@ struct TagManagerView: View {
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-                .background(.ultraThinMaterial)
+                .padding()
+                .background(Color(NSColor.controlBackgroundColor))
                 
                 Divider()
                 
