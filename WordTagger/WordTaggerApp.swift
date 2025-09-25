@@ -4046,7 +4046,7 @@ struct TagManagerView: View {
         VStack(spacing: 0) {
             // 优化的标签栏布局
             HStack(spacing: 16) {
-                // 左对齐的模块切换按钮组
+                // 填满空间的模块切换按钮组
                 HStack(spacing: 0) {
                     ForEach(TagManagerModule.allCases, id: \.self) { module in
                         Button(action: { selectedModule = module }) {
@@ -4055,6 +4055,7 @@ struct TagManagerView: View {
                                 .foregroundColor(selectedModule == module ? .white : Color(NSColor.labelColor))
                                 .padding(.vertical, 8)
                                 .padding(.horizontal, 20)
+                                .frame(maxWidth: .infinity) // 让每个按钮占用相等的空间
                                 .background(
                                     RoundedRectangle(cornerRadius: 6)
                                         .fill(selectedModule == module ? Color.accentColor : Color.clear)
@@ -4072,8 +4073,7 @@ struct TagManagerView: View {
                                 .stroke(Color(NSColor.separatorColor), lineWidth: 0.5)
                         )
                 )
-
-                Spacer()
+                .frame(maxWidth: .infinity) // 让按钮组占用所有可用空间
 
                 // 右侧：操作按钮
                 HStack(spacing: 8) {
