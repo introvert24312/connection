@@ -144,13 +144,13 @@ struct EnhancedTagUsageView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // 工具栏
-            toolbarView
-                .padding(.horizontal, 16)
-                .padding(.top, 0)  // 完全移除顶部内边距以与TagManagerView对齐
-                .padding(.bottom, 8)
-            
+            // 简化的搜索和筛选栏，与标签管理风格一致
+            searchAndFilterView
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+
             Divider()
+                .padding(.top, 12)
             
             // 主内容
             if analysisMode == .usedTags {
@@ -159,7 +159,7 @@ struct EnhancedTagUsageView: View {
                     emptyStateView
                 } else {
                     ScrollView {
-                        LazyVStack(spacing: 12) {
+                        LazyVStack(spacing: 8) {
                             ForEach(sortedTagTypes, id: \.self) { tagType in
                                 TagTypeGroupView(
                                     tagType: tagType,
@@ -192,8 +192,9 @@ struct EnhancedTagUsageView: View {
                                 )
                             }
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 0)
+                        .padding(.bottom, 8)
                     }
                 }
             } else {
@@ -202,7 +203,7 @@ struct EnhancedTagUsageView: View {
                     emptyUnusedStateView
                 } else {
                     ScrollView {
-                        LazyVStack(spacing: 8) {
+                        LazyVStack(spacing: 0) {
                             ForEach(unusedMappings, id: \.id) { mapping in
                                 UnusedMappingRow(
                                     mapping: mapping,
@@ -218,14 +219,13 @@ struct EnhancedTagUsageView: View {
                                 )
                             }
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 0)
+                        .padding(.bottom, 8)
                     }
                 }
             }
         }
-        .frame(width: 700, height: 450)
-        .background(.regularMaterial)
         .sheet(isPresented: $showingNodeList) {
             if let usage = selectedUsageInfo {
                 TagNodeListView(usage: usage)
@@ -355,9 +355,98 @@ struct EnhancedTagUsageView: View {
     }
     
     
-    // MARK: - Toolbar
-    
-    private var toolbarView: some View {
+    // MARK: - 简化的搜索和筛选栏
+
+    private var searchAndFilterView: some View {
+        HStack {
+            // 搜索框 - 与标签管理风格一致
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.secondary)
+                    .font(.system(size: 14))
+
+                TextField(analysisMode == .usedTags ? "搜索标签类型或值..." : "搜索映射关键词...", text: $searchText)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 14))
+
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                            .font(.system(size: 12))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color(NSColor.textBackgroundColor))
+            .cornerRadius(8)
+
+            Spacer()
+
+            // 层级选择 - 简化版
+            Menu {
+                Button("所有层") {
+                    selectedLayerId = nil
+                    selectedForDeletion.removeAll()
+                    selectedTagTypesForDeletion.removeAll()
+                    selectedTagValuesForDeletion.removeAll()
+                }
+
+                Divider()
+
+                ForEach(store.layers, id: \.id) { layer in
+                    Button(layer.displayName) {
+                        selectedLayerId = layer.id
+                        selectedForDeletion.removeAll()
+                        selectedTagTypesForDeletion.removeAll()
+                        selectedTagValuesForDeletion.removeAll()
+                    }
+                }
+            } label: {
+                HStack {
+                    Text(selectedLayerName)
+                        .font(.system(size: 11, weight: .medium))
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 10))
+                }
+                .foregroundColor(.primary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(6)
+            }
+            .buttonStyle(.plain)
+
+            // 模式切换 - 紧凑版
+            HStack(spacing: 4) {
+                ForEach(AnalysisMode.allCases, id: \.self) { mode in
+                    Button {
+                        analysisMode = mode
+                        selectedForDeletion.removeAll()
+                        selectedTagTypesForDeletion.removeAll()
+                        selectedTagValuesForDeletion.removeAll()
+                    } label: {
+                        Text(mode.rawValue)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(analysisMode == mode ? .white : .primary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(analysisMode == mode ? Color.accentColor : Color(NSColor.controlBackgroundColor))
+                            .cornerRadius(6)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    // MARK: - 原工具栏（保留以防需要）
+
+    private var toolbarView_backup: some View {
         VStack(spacing: 4) {
             // 第一行：层级选择和模式切换
             HStack {
